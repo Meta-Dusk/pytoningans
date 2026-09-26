@@ -80,10 +80,8 @@ class ModEditorWindow(QWidget):
         self._build_header()
         
         self.sheet_info_label = QLabel("Sheet: -- x -- px | Base Tile: -- x -- px")
-        self.sheet_info_label.setStyleSheet(
-            "font-weight: bold; color: #444; background: #eee; padding: 5px;"
-        )
         self.sheet_info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.sheet_info_label.setObjectName("BannerText")
         self.main_layout.addWidget(self.sheet_info_label)
 
         self._build_mod_selection()
@@ -101,7 +99,7 @@ class ModEditorWindow(QWidget):
             "Ensure every state is mapped to a valid row.",
             alignment=Qt.AlignmentFlag.AlignCenter
         )
-        info_label.setStyleSheet("color: gray; font-style: italic;")
+        info_label.setObjectName("HelperText")
         self.main_layout.addWidget(info_label)
 
     def _build_mod_selection(self) -> None:
@@ -171,8 +169,8 @@ class ModEditorWindow(QWidget):
     def _build_preview_area(self) -> None:
         layout = QVBoxLayout()
         title = QLabel("Live Animation Preview")
-        title.setStyleSheet("font-weight: bold; color: #666;")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setObjectName("PreviewTitle")
         
         self.preview_label = QLabel()
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)

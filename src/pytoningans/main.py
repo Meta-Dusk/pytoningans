@@ -7,6 +7,7 @@ from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.pet_manager import PetManager
 from pytoningans.ui.main_menu import MainMenu
 from pytoningans.ui.tray_menu import AppTray
+from pytoningans.ui.theme import DARK_THEME
 from pytoningans.utils.paths import get_mods_directory, setup_default_mod
 
 def main() -> None:
@@ -15,6 +16,7 @@ def main() -> None:
     app: QApplication = QApplication(sys.argv)
     app.setApplicationName(APP_CFG.app_name)
     app.setQuitOnLastWindowClosed(False)
+    app.setStyleSheet(DARK_THEME)
     
     # Setup external directory and ensure the default mod exists
     mods_dir: str = get_mods_directory()

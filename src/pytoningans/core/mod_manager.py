@@ -86,13 +86,18 @@ class ModManager:
         if not self._global_sheet:
             return None
             
-        cache_key: str = f"{state.value}_{frame_index}"
-        if cache_key in self._frame_cache:
-            return self._frame_cache[cache_key]
-
         anim_meta = self.animations.get(state)
         if not anim_meta:
             return None
+
+        # Calculate the looped safe index FIRST
+        safe_index: int = frame_index % anim_meta.frames
+        
+        # Use the safe index to build the cache key
+        cache_key: str = f"{state.value}_{safe_index}"
+        
+        if cache_key in self._frame_cache:
+            return self._frame_cache[cache_key]
 
         # CALCULATE DYNAMIC GRID
         base_w: int = self._global_sheet.width() // max(1, self.global_columns)
@@ -102,10 +107,7 @@ class ModManager:
         final_w: int = anim_meta.override_width if anim_meta.override_width > 0 else base_w
         final_h: int = anim_meta.override_height if anim_meta.override_height > 0 else base_h
 
-        safe_index: int = frame_index % anim_meta.frames
-        
         x_pos: int = (safe_index * final_w) + anim_meta.offset_x
-        # We always step down rows based on the base grid height, even if overriding frame height
         y_pos: int = (anim_meta.row * base_h) + anim_meta.offset_y 
         
         crop_rect: QRect = QRect(x_pos, y_pos, final_w, final_h)

@@ -20,7 +20,7 @@ def setup_default_mod(external_mods_dir: str) -> None:
 
     # Default behavior (Works for Source Code AND pyside6-deploy / Nuitka)
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    bundled_assets = os.path.abspath(os.path.join(current_dir, "..", "..", "assets"))
+    bundled_assets = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "assets"))
 
     # PyInstaller Fallback
     is_frozen: bool = getattr(sys, 'frozen', False)
