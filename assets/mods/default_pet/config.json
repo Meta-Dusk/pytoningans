@@ -1,0 +1,52 @@
+{
+    "name": "defaul_pet",
+    "columns": 24,
+    "rows": 7,
+    "animations": {
+        "drag": {
+            "row": 0,
+            "frames": 4,
+            "override_width": 53,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 3
+        },
+        "idle": {
+            "row": 1,
+            "frames": 24,
+            "override_width": 0,
+            "override_height": 76,
+            "offset_x": 0,
+            "offset_y": -5,
+            "fps": 10
+        },
+        "clicked": {
+            "row": 2,
+            "frames": 8,
+            "override_width": 73,
+            "override_height": 71,
+            "offset_x": 0,
+            "offset_y": -2,
+            "fps": 10
+        },
+        "interact": {
+            "row": 3,
+            "frames": 9,
+            "override_width": 73,
+            "override_height": 75,
+            "offset_x": 0,
+            "offset_y": -3,
+            "fps": 10
+        },
+        "moving": {
+            "row": 4,
+            "frames": 18,
+            "override_width": 82,
+            "override_height": 80,
+            "offset_x": 0,
+            "offset_y": -1,
+            "fps": 10
+        }
+    }
+}
