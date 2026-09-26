@@ -7,6 +7,8 @@ from typing import Tuple, Callable, Optional
 
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.constants import PetState, AnimationMeta
+from pytoningans.ui.title_bar import CustomTitleBar
+from pytoningans.ui.tool_tip import CustomToolTip
 
 class ModEditorController:
     """Handles data bridging between the UI and the ModManager."""
@@ -73,9 +75,15 @@ class ModEditorWindow(QWidget):
     # --- UI Construction Helpers ---
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle("Mod Editor")
+        # Strip the OS window frame
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.resize(450, 650)
         self.main_layout: QVBoxLayout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
+        
+        self.title_bar: CustomTitleBar = CustomTitleBar(self, "Mod Editor")
+        self.main_layout.addWidget(self.title_bar)
 
         self._build_header()
         
@@ -200,11 +208,10 @@ class ModEditorWindow(QWidget):
         
         lbl = QLabel(text)
         
+        # TODO: Update icon_lbl to use the custom QLabel class
         icon_lbl = QLabel("[?]")
         icon_lbl.setToolTip(tooltip_text)
-        icon_lbl.setToolTipDuration
-        icon_lbl.setStyleSheet("color: #0078D7; font-size: 11px;") 
-        
+        icon_lbl.setObjectName("InfoLabel")
         icon_lbl.setCursor(Qt.CursorShape.WhatsThisCursor)
         
         layout.addWidget(lbl)

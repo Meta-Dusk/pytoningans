@@ -18,13 +18,6 @@ class WindowConfig:
     placeholder_style: str = "font-size: 50px; color: black;"
 
 @dataclass(frozen=True)
-class MenuConfig:
-    title: str = "Control Panel"
-    width: int = 300
-    height: int = 150
-    spawn_btn_text: str = "Spawn Pet"
-
-@dataclass(frozen=True)
 class AnimationMeta:
     row: int
     frames: int
@@ -49,6 +42,5 @@ class AppConfig:
     app_name: str = "PyToNingans"
 
 WINDOW_CFG = WindowConfig()
-MENU_CFG = MenuConfig()
 MOD_CFG = ModConfig()
 APP_CFG = AppConfig()

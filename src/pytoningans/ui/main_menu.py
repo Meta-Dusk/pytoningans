@@ -1,12 +1,13 @@
 import random
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QApplication
+from PySide6.QtCore import Qt
 from typing import Optional
 
-from pytoningans.core.constants import MENU_CFG
 from pytoningans.core.pet_manager import PetManager
 from pytoningans.ui.mod_editor import ModEditorWindow
 from pytoningans.ui.theme import LIGHT_THEME, DARK_THEME
+from pytoningans.ui.title_bar import CustomTitleBar
 
 class MainMenu(QWidget):
     def __init__(self, manager: PetManager) -> None:
@@ -17,12 +18,23 @@ class MainMenu(QWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle(MENU_CFG.title)
-        self.resize(MENU_CFG.width, MENU_CFG.height)
+        # Strip the OS window frame
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.resize(300, 150)
         
-        layout: QVBoxLayout = QVBoxLayout(self)
+        # The main layout gets 0 margins so the title bar touches the edges
+        main_layout: QVBoxLayout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
         
-        self.spawn_btn: QPushButton = QPushButton(MENU_CFG.spawn_btn_text, self)
+        self.title_bar: CustomTitleBar = CustomTitleBar(self, "Control Panel")
+        main_layout.addWidget(self.title_bar)
+        
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(10, 10, 10, 10)
+        
+        self.spawn_btn: QPushButton = QPushButton("Spawn Pet", self)
         self.spawn_btn.clicked.connect(self._on_spawn_clicked)
         
         self.edit_btn: QPushButton = QPushButton("Open Mod Editor", self)
@@ -31,9 +43,12 @@ class MainMenu(QWidget):
         self.theme_btn: QPushButton = QPushButton("Switch to Light Mode", self)
         self.theme_btn.clicked.connect(self._toggle_theme)
         
-        layout.addWidget(self.spawn_btn)
-        layout.addWidget(self.edit_btn)
-        layout.addWidget(self.theme_btn)
+        content_layout.addWidget(self.spawn_btn)
+        content_layout.addWidget(self.edit_btn)
+        content_layout.addWidget(self.theme_btn)
+        content_layout.addStretch()
+        
+        main_layout.addWidget(content_widget)
 
     def _toggle_theme(self) -> None:
         self._is_dark_mode = not self._is_dark_mode

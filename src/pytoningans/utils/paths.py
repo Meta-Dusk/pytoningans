@@ -11,6 +11,23 @@ def get_mods_directory() -> str:
     os.makedirs(mods_dir, exist_ok=True)
     return mods_dir
 
+def get_asset_path(relative_path: str) -> str:
+    """
+    Helper to safely resolve asset paths whether running from source or compiled.
+    
+    **Examples of** `relative_path`:
+    - (if file is in `assets/`) "assets/image.png"
+    - (if file is in a subdirectory) "assets/images/image.png"
+    """
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    base_path = os.path.abspath(os.path.join(current_dir, "..", "..", ".."))
+    
+    is_frozen: bool = getattr(sys, 'frozen', False)
+    if is_frozen and hasattr(sys, '_MEIPASS'):
+        base_path = getattr(sys, '_MEIPASS')
+        
+    return os.path.join(base_path, relative_path)
+
 def setup_default_mod(external_mods_dir: str) -> None:
     """Copies the bundled default mod to the Documents folder on first launch."""
     target_mod_path = os.path.join(external_mods_dir, "default_pet")
