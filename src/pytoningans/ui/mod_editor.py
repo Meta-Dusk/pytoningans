@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLabel, QSpinBox,
-    QPushButton, QFormLayout, QMessageBox, QFrame
+    QPushButton, QFormLayout, QMessageBox, QFrame, QCheckBox
 )
 from PySide6.QtCore import QTimer, Qt
 from typing import Tuple, Callable, Optional
@@ -54,6 +54,12 @@ class ModEditorController:
         cols = max(1, self.manager.global_columns)
         rows = max(1, self.manager.global_rows)
         return sw, sh, sw // cols, sh // rows
+    
+    def get_behavior(self) -> bool:
+        return self.manager.can_fly
+
+    def update_behavior(self, can_fly: bool) -> None:
+        self.manager.can_fly = can_fly
 
 
 class ModEditorWindow(QWidget):
@@ -132,6 +138,9 @@ class ModEditorWindow(QWidget):
         self.global_cols_spin = self._create_spinbox(1, 100, self._on_global_edited)
         self.global_rows_spin = self._create_spinbox(1, 100, self._on_global_edited)
         
+        self.can_fly_check = QCheckBox("Enable Flight (Ignores Gravity)")
+        self.can_fly_check.stateChanged.connect(self._on_behavior_edited)
+        
         lbl_cols = self._create_info_label(
             "Total Sheet Columns:", "How many columns the entire sprite sheet is divided into evenly."
         )
@@ -141,6 +150,7 @@ class ModEditorWindow(QWidget):
         
         layout.addRow(lbl_cols, self.global_cols_spin)
         layout.addRow(lbl_rows, self.global_rows_spin)
+        layout.addRow("", self.can_fly_check)
         self.content_layout.addLayout(layout)
 
     def _build_state_overrides(self) -> None:
@@ -226,6 +236,10 @@ class ModEditorWindow(QWidget):
         return widget
 
     # --- Signal Handlers & Logic Delegation ---
+    
+    def _on_behavior_edited(self, *_) -> None:
+        if self._is_updating_ui: return
+        self.controller.update_behavior(self.can_fly_check.isChecked())
 
     def _refresh_state_dropdown(self) -> None:
         self.state_combo.blockSignals(True)
@@ -272,6 +286,7 @@ class ModEditorWindow(QWidget):
             cols, rows = self.controller.get_global_grid()
             self.global_cols_spin.setValue(cols)
             self.global_rows_spin.setValue(rows)
+            self.can_fly_check.setChecked(self.controller.get_behavior())
             self._is_updating_ui = False
             
             self._refresh_dynamic_info()

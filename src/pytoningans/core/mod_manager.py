@@ -38,6 +38,7 @@ class ModManager:
             self.current_mod_name = mod_folder_name
             self.global_columns = 4
             self.global_rows = len(PetState)
+            self.can_fly = False
             self.animations = {
                 state: AnimationMeta(row=i, frames=4)
                 for i, state in enumerate(PetState)
@@ -50,6 +51,9 @@ class ModManager:
             self.current_mod_name = data.get("name", mod_folder_name)
             self.global_columns = data.get("columns", 1)
             self.global_rows = data.get("rows", 1)
+            
+            behavior_data = data.get("behavior", {})
+            self.can_fly = behavior_data.get("can_fly", False)
             
             self.animations = {}
             for state_str, meta_dict in data.get("animations", {}).items():
@@ -74,6 +78,9 @@ class ModManager:
             "name": name,
             "columns": self.global_columns,
             "rows": self.global_rows,
+            "behavior": {
+                "can_fly": self.can_fly
+            },
             "animations": {
                 state.value: asdict(meta) for state, meta in self.animations.items()
             }

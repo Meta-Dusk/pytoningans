@@ -1,7 +1,7 @@
 from __future__ import annotations
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMenu
 from PySide6.QtCore import Qt, QPoint, QTimer
-from PySide6.QtGui import QMouseEvent, QPixmap, QContextMenuEvent, QAction
+from PySide6.QtGui import QMouseEvent, QPixmap, QContextMenuEvent, QAction, QGuiApplication
 from typing import Optional, TYPE_CHECKING
 
 from pytoningans.core.constants import WINDOW_CFG, PetState
@@ -20,14 +20,18 @@ class PetWindow(QWidget):
         self.pet_manager = pet_manager
         self._drag_offset: Optional[QPoint] = None
         
-        # Animation State Tracking
         self._current_state: PetState = PetState.IDLE
         self._current_frame: int = 0
+        
+        self.velocity_y: float = 0.0
+        self.gravity: float = 0.8
         
         self._setup_window(start_x, start_y)
         self._setup_ui()
         self._setup_animation()
-
+        self._setup_physics()
+    
+    # --- Animations and UI ---
     def _setup_window(self, x: int, y: int) -> None:
         flags = (
             Qt.WindowType.FramelessWindowHint |
@@ -120,3 +124,42 @@ class PetWindow(QWidget):
         self._anim_timer.stop()
         self.pet_manager.remove_pet(self)
         self.close()
+    
+    # --- Physics ---
+    def _setup_physics(self) -> None:
+        """Initializes a 60 FPS physics loop for movement and gravity."""
+        self._physics_timer: QTimer = QTimer(self)
+        self._physics_timer.timeout.connect(self._physics_tick)
+        self._physics_timer.start(16)
+
+    def _physics_tick(self) -> None:
+        """Handles gravity and boundary collisions."""
+        if self._current_state == PetState.DRAG:
+            # Disable physics while the user is actively holding the pet
+            self.velocity_y = 0
+            return
+
+        screen = QGuiApplication.screenAt(self.geometry().center())
+        if not screen:
+            screen = QGuiApplication.primaryScreen()
+            
+        # The 'availableGeometry' excludes the Windows taskbar
+        ground_y = screen.availableGeometry().bottom()
+        
+        # If flight is disabled, apply gravity
+        if not self.mod_manager.can_fly:
+            pet_bottom = self.geometry().bottom()
+            
+            if pet_bottom < ground_y:
+                # Falling
+                self.velocity_y += self.gravity
+                new_y = int(self.y() + self.velocity_y)
+                
+                # Prevent clipping through the floor on high velocity frames
+                if new_y + self.height() > ground_y:
+                    new_y = ground_y - self.height() + 1
+                    
+                self.move(self.x(), new_y)
+            else:
+                # Landed
+                self.velocity_y = 0
