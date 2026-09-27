@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, cast
 
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMenu
 from PySide6.QtCore import Qt, QPoint
@@ -10,10 +10,12 @@ from pytoningans.core.constants import WINDOW_CFG, PetState
 from pytoningans.core.pet.animation import AnimationSystem
 from pytoningans.core.pet.physics import PhysicsSystem
 from pytoningans.core.pet.ai_brain import AISystem
+from pytoningans.core.api import IPet
 
 if TYPE_CHECKING:
     from pytoningans.core.mod_manager import ModManager
     from pytoningans.core.pet_manager import PetManager
+    from pytoningans.core.api import Pos2D
 
 class PetWindow(QWidget):
     """The core Entity holding shared state and routing OS events."""
@@ -33,8 +35,7 @@ class PetWindow(QWidget):
         
         self.velocity_y: float = 0.0
         self.enable_gravity: bool = True
-        self.target_pos: Optional[QPoint] = None
-        
+        self._target_pos: Optional[QPoint] = None
         self._drag_offset: Optional[QPoint] = None
 
         # --- Initialization ---
@@ -47,6 +48,19 @@ class PetWindow(QWidget):
     @property
     def is_interactable(self) -> bool:
         return self.state not in (PetState.DRAG, PetState.INTERACT) or not self.is_dead
+    
+    @property
+    def target_pos(self) -> Optional[QPoint]:
+        """The engine reads this as a standard QPoint."""
+        return self._target_pos
+
+    @target_pos.setter
+    def target_pos(self, pos: Optional[Pos2D]) -> None:
+        """Intercepts the modder's Pos2D and converts it to a QPoint."""
+        if pos is None:
+            self._target_pos = None
+        else:
+            self._target_pos = QPoint(pos.x, pos.y)
 
     def _setup_ui(self, x: int, y: int) -> None:
         flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool
@@ -77,7 +91,12 @@ class PetWindow(QWidget):
         self.anim_sys.set_state(PetState.DYING)
         
         self.ai_sys.timer.stop()
-        self.target_pos = None
+        self._target_pos = None
+        
+        # --- MODDERS API HOOK ---
+        if self.mod_manager.custom_behavior:
+            pet_api = cast(IPet, self)
+            self.mod_manager.custom_behavior.on_death(pet_api)
 
     def revive(self) -> None:
         if not self.is_dead: return
@@ -85,6 +104,11 @@ class PetWindow(QWidget):
         self.is_dead = False
         self.anim_sys.set_state(PetState.IDLE)
         self.ai_sys.timer.start(2500)
+        
+        # --- MODDERS API HOOK ---
+        if self.mod_manager.custom_behavior:
+            pet_api = cast(IPet, self)
+            self.mod_manager.custom_behavior.on_revive(pet_api)
 
     # --- OS Events ---
     def mousePressEvent(self, event: QMouseEvent) -> None:

@@ -1,7 +1,8 @@
-from typing import List
+from typing import List, cast
 
 from pytoningans.core.pet.window import PetWindow
 from pytoningans.core.mod_manager import ModManager
+from pytoningans.core.api import IPet
 
 class PetManager:
     def __init__(self, mod_manager: ModManager) -> None:
@@ -14,6 +15,12 @@ class PetManager:
         
         pet: PetWindow = PetWindow(x, y, pet_mod, self)
         pet.show()
+        
+        # --- MODDER API HOOK ---
+        pet_api = cast(IPet, pet)
+        if pet.mod_manager.custom_behavior:
+            pet.mod_manager.custom_behavior.on_spawn(pet_api)
+            
         self.active_pets.append(pet)
     
     def remove_pet(self, pet: PetWindow) -> None:

@@ -63,17 +63,17 @@ class PhysicsSystem:
         self.pet.ai_sys.check_interactions()
 
         # Movement Execution
-        if self.pet.state is PetState.MOVING and self.pet.target_pos is not None:
+        if self.pet.state is PetState.MOVING and self.pet._target_pos is not None:
             curr_x, curr_y = self.pet.x(), self.pet.y()
-            target_x = self.pet.target_pos.x()
-            target_y = self.pet.target_pos.y() if self.pet.mod_manager.can_fly else curr_y
+            target_x = self.pet._target_pos.x()
+            target_y = self.pet._target_pos.y() if self.pet.mod_manager.can_fly else curr_y
 
             dx, dy = target_x - curr_x, target_y - curr_y
             dist = math.hypot(dx, dy)
 
             if dist < self.move_speed:
                 self.pet.move(target_x, target_y)
-                self.pet.target_pos = None
+                self.pet._target_pos = None
                 self.pet.anim_sys.set_state(PetState.IDLE)
             else:
                 step_x = int(curr_x + (dx / dist) * self.move_speed)

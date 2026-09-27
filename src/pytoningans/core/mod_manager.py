@@ -1,14 +1,14 @@
-import json, os
+import json, os, shutil, sys
 import importlib.util
 
 from typing import Dict, List, Optional
-from types import ModuleType
 from dataclasses import asdict
 
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import QRect
 
 from pytoningans.core.constants import PetState, AnimationMeta
+from pytoningans.core.api import BasePetBehavior
 
 CURRENT_CONFIG_VERSION = 4
 
@@ -29,13 +29,44 @@ class ModManager:
         self.animations: Dict[PetState, AnimationMeta] = {}
         self._global_sheet: Optional[QPixmap] = None
         self._frame_cache: Dict[str, QPixmap] = {}
-        self.custom_behavior: Optional[ModuleType] = None
-
+        self.custom_behavior: Optional[BasePetBehavior] = None
+        
+        self._scaffold_modding_api()
+        
+        # Inject the mods folder into Python's runtime path
+        abs_mods_dir = os.path.abspath(self.mods_dir)
+        if abs_mods_dir not in sys.path:
+            sys.path.insert(0, abs_mods_dir)
+    
+    def _scaffold_modding_api(self) -> None:
+        """Copies the internal api.py file directly to the external mods directory."""
+        os.makedirs(self.mods_dir, exist_ok=True)
+        
+        core_dir = os.path.dirname(os.path.abspath(__file__))
+        source_api_path = os.path.abspath(os.path.join(core_dir, "..", "core", "api.py"))
+        
+        target_api_path = os.path.join(self.mods_dir, "api.py")
+        
+        # Copy the file, overwriting any existing one to ensure modders have the latest API
+        if os.path.exists(source_api_path):
+            shutil.copyfile(source_api_path, target_api_path)
+        else:
+            print(f"Warning: Could not find source API file at {source_api_path}")
+    
     def get_available_mods(self) -> List[str]:
-        """Returns a list of folder names in the mods directory."""
+        """Returns a list of valid folder names in the mods directory."""
+        valid_mods = []
         if not os.path.exists(self.mods_dir):
-            os.makedirs(self.mods_dir)
-        return [f.name for f in os.scandir(self.mods_dir) if f.is_dir()]
+            return valid_mods
+            
+        for item in os.listdir(self.mods_dir):
+            item_path = os.path.join(self.mods_dir, item)
+            
+            # Ignore files, and ignore folders starting with '_' or '.'
+            if os.path.isdir(item_path) and not item.startswith(('_', '.')):
+                valid_mods.append(item)
+                
+        return valid_mods
 
     def load_mod(self, mod_folder_name: str) -> bool:
         mod_path = os.path.join(self.mods_dir, mod_folder_name)
@@ -109,7 +140,10 @@ class ModManager:
                 if spec and spec.loader:
                     module = importlib.util.module_from_spec(spec)
                     spec.loader.exec_module(module)
-                    self.custom_behavior = module
+                    if hasattr(module, "Behavior"):
+                        self.custom_behavior = module.Behavior()
+                    else:
+                        print(f"Warning: {mod_folder_name}/behavior.py is missing the 'Behavior' class.")
             except Exception as e:
                 print(f"Failed to load behavior.py for {mod_folder_name}: {e}")
 

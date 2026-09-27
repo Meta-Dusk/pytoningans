@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import random, math
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from PySide6.QtCore import QTimer, QPoint
 from PySide6.QtGui import QGuiApplication
 
 from pytoningans.core.constants import PetState
+from pytoningans.core.api import IPet
 
 if TYPE_CHECKING:
     from pytoningans.core.pet.window import PetWindow
@@ -25,10 +26,12 @@ class AISystem:
         if self.pet.state in (PetState.DRAG, PetState.INTERACT): return
 
         # --- MODDER API HOOK ---
-        if self.pet.mod_manager.custom_behavior and hasattr(self.pet.mod_manager.custom_behavior, "on_decision_tick"):
+        if self.pet.mod_manager.custom_behavior:
             try:
-                self.pet.mod_manager.custom_behavior.on_decision_tick(self.pet)
-                return
+                # If the modder returns True, skip the default roaming logic
+                pet_api = cast(IPet, self.pet)
+                if self.pet.mod_manager.custom_behavior.on_decision_tick(pet_api):
+                    return
             except Exception as e:
                 print(f"Custom AI Error (Decision): {e}")
 
@@ -49,10 +52,10 @@ class AISystem:
             else:
                 dest_y = self.pet.y()
 
-            self.pet.target_pos = QPoint(dest_x, dest_y)
+            self.pet._target_pos = QPoint(dest_x, dest_y)
             self.pet.anim_sys.set_state(PetState.MOVING)
         else:
-            self.pet.target_pos = None
+            self.pet._target_pos = None
             self.pet.anim_sys.set_state(PetState.IDLE)
 
     def check_interactions(self) -> None:
@@ -72,23 +75,26 @@ class AISystem:
 
             if distance < 120:
                 # --- MODDER API HOOK ---
-                if self.pet.mod_manager.custom_behavior and hasattr(self.pet.mod_manager.custom_behavior, "on_interact"):
+                override_default = False
+                if self.pet.mod_manager.custom_behavior:
                     try:
-                        self.pet.mod_manager.custom_behavior.on_interact(self.pet, other_pet)
-                        break
+                        pet_api = cast(IPet, self.pet)
+                        other_pet_api = cast(IPet, other_pet)
+                        override_default = self.pet.mod_manager.custom_behavior.on_interact(pet_api, other_pet_api)
                     except Exception as e:
                         print(f"Custom AI Error (Interact): {e}")
                 
                 # --- DEFAULT LOGIC ---
-                self.pet.facing_left = other_center.x() < my_center.x()
-                other_pet.facing_left = my_center.x() < other_center.x()
-
-                self.start_interaction()
-                other_pet.ai_sys.start_interaction()
+                if not override_default:
+                    self.pet.facing_left = other_center.x() < my_center.x()
+                    other_pet.facing_left = my_center.x() < other_center.x()
+                    self.start_interaction()
+                    other_pet.ai_sys.start_interaction()
+                    
                 break
 
     def start_interaction(self) -> None:
-        self.pet.target_pos = None
+        self.pet._target_pos = None
         self.interact_ticks_left = 180
         self.interaction_cooldown = 400
         self.pet.anim_sys.set_state(PetState.INTERACT)

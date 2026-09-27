@@ -1,6 +1,6 @@
 [project]
 name = "pytoningans"
-version = "0.5.3"
+version = "0.5.4"
 description = "A PySide6 Desktop Pets App"
 readme = "README.md"
 authors = [{ name = "MetaDusk", email = "andredcxxv@gmail.com" }]

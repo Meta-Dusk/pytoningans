@@ -110,6 +110,7 @@ class ModEditorUI:
         self._build_global_settings()
         self._build_behavior_settings()
         self._build_state_overrides()
+        self._build_behavior_options()
 
         self.main_layout.addWidget(content_widget, stretch=1)
         
@@ -223,7 +224,8 @@ class ModEditorUI:
         self.offset_y_spin = self._create_spinbox(-2048, 2048)
         self.fps_spin = self._create_spinbox(1, 60)
 
-        form.addRow(self._create_info_label("Mapped Row Index:", "..."), self.row_spin)
+        form.addRow(self._create_info_label(
+            "Mapped Row Index:", "The row index (from 0) where the animation frames are sourced from."), self.row_spin)
         form.addRow(self._create_info_label(
             "Start Frame Index:", "The column index (from 0) where the animation begins."), self.start_spin)
         form.addRow(self._create_info_label(
@@ -264,7 +266,21 @@ class ModEditorUI:
         layout.addWidget(self.restart_btn)
         self.left_layout.addLayout(layout)
         self.left_layout.addStretch()
-
+    
+    def _build_behavior_options(self) -> None:
+        section = CollapsibleSection("Behavior AI Options")
+        layout = QFormLayout()
+        
+        self.add_script_btn = QPushButton("Create Custom AI")
+        self.edit_script_btn = QPushButton("Open in VS Code")
+        self.delete_script_btn = QPushButton("Delete Script")
+        
+        layout.addWidget(self.add_script_btn)
+        layout.addWidget(self.edit_script_btn)
+        layout.addWidget(self.delete_script_btn)
+        section.content_layout.addLayout(layout)
+        self.right_layout.addWidget(section)
+    
     def _create_spinbox(self, min_val: int, max_val: int, special_text: Optional[str] = None) -> QSpinBox:
         spin = QSpinBox()
         spin.setRange(min_val, max_val)

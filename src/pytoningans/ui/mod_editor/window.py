@@ -1,8 +1,10 @@
+import os, subprocess
+
 from typing import Optional
 from dataclasses import replace
 
 from PySide6.QtWidgets import QWidget, QMessageBox
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, Signal
 from PySide6.QtGui import QGuiApplication
 
 from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION
@@ -13,6 +15,7 @@ from pytoningans.ui.mod_editor.ui import ModEditorUI
 
 class ModEditorWindow(QWidget):
     """The main event hub housing logical operations and timers."""
+    mods_updated = Signal()
     
     def __init__(self, mod_manager: ModManager) -> None:
         super().__init__()
@@ -66,6 +69,10 @@ class ModEditorWindow(QWidget):
             
         for check in (self.ui.loop_check, self.ui.reverse_check):
             check.stateChanged.connect(self._on_value_edited)
+        
+        self.ui.add_script_btn.clicked.connect(self._open_behavior_script)
+        self.ui.edit_script_btn.clicked.connect(self._open_behavior_script)
+        self.ui.delete_script_btn.clicked.connect(self._delete_behavior)
 
     # --- Signal Handlers & Logic Delegation ---
     
@@ -170,6 +177,7 @@ class ModEditorWindow(QWidget):
             self._refresh_dynamic_info()
             self._refresh_state_dropdown()
             self._on_state_changed()
+            self._refresh_script_buttons()
         else:
             QMessageBox.warning(self, "Load Error", f"Could not load config or sprites for {mod_folder}.")
 
@@ -221,6 +229,7 @@ class ModEditorWindow(QWidget):
         if not mod_folder: return
             
         self.controller.save_mod(mod_folder)
+        self.mods_updated.emit()
         QMessageBox.information(self, "Success", f"Saved configuration for {mod_folder}!")
     
     def _update_preview(self) -> None:
@@ -276,3 +285,75 @@ class ModEditorWindow(QWidget):
             window_geom = self.frameGeometry()
             window_geom.moveCenter(screen_geom.center())
             self.move(window_geom.topLeft())
+    
+    def _create_behavior_script(self, mod_path: str) -> None:
+        behavior_path = os.path.join(mod_path, "behavior.py")
+        
+        # Create the boilerplate if it doesn't exist
+        if not os.path.exists(behavior_path):
+            boilerplate = (
+                "from api import BasePetBehavior, IPet, Pos2D\n\n"
+                "class Behavior(BasePetBehavior):\n"
+                "    def on_decision_tick(self, pet: IPet) -> bool:\n"
+                "        return False\n"
+            )
+            with open(behavior_path, "w", encoding="utf-8") as f:
+                f.write(boilerplate)
+    
+    def _open_behavior_script(self) -> None:
+        mod_folder = self.ui.mod_combo.currentText()
+        if not mod_folder: return
+        
+        mods_dir = self.controller.manager.mods_dir
+        mod_path = os.path.join(mods_dir, mod_folder)
+        behavior_path = os.path.join(mod_path, "behavior.py")
+        
+        # Create the boilerplate if it doesn't exist
+        if not os.path.exists(behavior_path):
+            boilerplate = (
+                "from api import BasePetBehavior, IPet, Pos2D\n\n"
+                "class Behavior(BasePetBehavior):\n"
+                "    def on_decision_tick(self, pet: IPet) -> bool:\n"
+                "        return False\n"
+            )
+            with open(behavior_path, "w", encoding="utf-8") as f:
+                f.write(boilerplate)
+            
+            self._refresh_script_buttons()
+
+        # Attempt to open VS Code with the mods folder as the workspace, 
+        # and immediately open the behavior.py file in a tab
+        try:
+            subprocess.Popen(['code', mods_dir, behavior_path], shell=True)
+        except Exception:
+            # Fallback: Open with the default OS handler
+            os.startfile(behavior_path)
+    
+    def _delete_behavior(self) -> None:
+        mod_folder = self.ui.mod_combo.currentText()
+        if not mod_folder: return
+        
+        mod_path = os.path.join(self.controller.manager.mods_dir, mod_folder)
+        behavior_path = os.path.join(mod_path, "behavior.py")
+        
+        if os.path.exists(behavior_path):
+            os.remove(behavior_path)
+            # Refresh buttons immediately so 'Edit'/'Delete' disable and 'Add' enables
+            self._refresh_script_buttons()
+    
+    def _refresh_script_buttons(self) -> None:
+        mod_folder = self.ui.mod_combo.currentText()
+        if not mod_folder:
+            self.ui.add_script_btn.setEnabled(False)
+            self.ui.edit_script_btn.setEnabled(False)
+            self.ui.delete_script_btn.setEnabled(False)
+            return
+
+        mod_path = os.path.join(self.controller.manager.mods_dir, mod_folder)
+        behavior_path = os.path.join(mod_path, "behavior.py")
+        
+        script_exists = os.path.exists(behavior_path)
+        
+        self.ui.add_script_btn.setEnabled(not script_exists)
+        self.ui.edit_script_btn.setEnabled(script_exists)
+        self.ui.delete_script_btn.setEnabled(script_exists)
