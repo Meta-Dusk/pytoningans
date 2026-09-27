@@ -92,6 +92,33 @@ QPushButton#TitleBarCloseBtn:hover {
     background-color: #e81123; 
     color: white; 
 }
+
+QLabel#SectionHeader {
+    font-weight: bold;
+    color: #333333;
+    font-size: 18px;
+}
+
+QFrame#MenuSeparator {
+    border: none;
+    border-top: 1px solid #d1d1d1;
+    max-height: 1px;
+}
+
+QMenu {
+    background-color: #ffffff;
+    border: 1px solid #d1d1d1;
+    border-radius: 4px;
+    padding: 4px 0px;
+}
+QMenu::item {
+    padding: 6px 24px;
+    color: #1e1e1e;
+}
+QMenu::item:selected {
+    background-color: #f0f0f0;
+    color: #0078d4;
+}
 """
 
 DARK_THEME = """
@@ -186,5 +213,32 @@ QPushButton#TitleBarCloseBtn {
 QPushButton#TitleBarCloseBtn:hover { 
     background-color: #e81123; 
     color: white; 
+}
+
+QLabel#SectionHeader {
+    font-weight: bold;
+    color: #cccccc;
+    font-size: 18px;
+}
+
+QFrame#MenuSeparator {
+    border: none;
+    border-top: 1px solid #3d3d3d;
+    max-height: 1px;
+}
+
+QMenu {
+    background-color: #2b2b2b;
+    border: 1px solid #3d3d3d;
+    border-radius: 4px;
+    padding: 4px 0px;
+}
+QMenu::item {
+    padding: 6px 24px;
+    color: #f3f3f3;
+}
+QMenu::item:selected {
+    background-color: #383838;
+    color: #4a90e2;
 }
 """

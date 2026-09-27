@@ -1,6 +1,8 @@
 import random
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QApplication
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QPushButton, QApplication, QLabel, QComboBox, QFrame
+)
 from PySide6.QtCore import Qt
 from typing import Optional
 
@@ -20,9 +22,8 @@ class MainMenu(QWidget):
     def _setup_ui(self) -> None:
         # Strip the OS window frame
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.resize(300, 150)
+        self.resize(300, 275)
         
-        # The main layout gets 0 margins so the title bar touches the edges
         main_layout: QVBoxLayout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
@@ -32,23 +33,54 @@ class MainMenu(QWidget):
         
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(10, 10, 10, 10)
+        content_layout.setContentsMargins(15, 15, 15, 15)
+        content_layout.setSpacing(10)
         
-        self.spawn_btn: QPushButton = QPushButton("Spawn Pet", self)
+        # --- Spawning Section ---
+        spawn_label = QLabel("--- Spawn a Pet ---")
+        spawn_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        spawn_label.setObjectName("SectionHeader")
+        
+        self.mod_combo = QComboBox()
+        self.mod_combo.addItems(self.manager.mod_manager.get_available_mods())
+        
+        self.spawn_btn: QPushButton = QPushButton("Spawn Pet")
         self.spawn_btn.clicked.connect(self._on_spawn_clicked)
         
-        self.edit_btn: QPushButton = QPushButton("Open Mod Editor", self)
+        content_layout.addWidget(spawn_label)
+        content_layout.addWidget(self.mod_combo)
+        content_layout.addWidget(self.spawn_btn)
+        
+        # --- Visual Separator ---
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setObjectName("MenuSeparator")
+        content_layout.addWidget(separator)
+        
+        # --- Utilities Section ---
+        utils_label = QLabel("--- Utilities ---")
+        utils_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        utils_label.setObjectName("SectionHeader")
+        
+        self.edit_btn: QPushButton = QPushButton("Open Mod Editor")
         self.edit_btn.clicked.connect(self._open_editor)
 
-        self.theme_btn: QPushButton = QPushButton("Switch to Light Mode", self)
+        self.theme_btn: QPushButton = QPushButton("Switch to Light Mode")
         self.theme_btn.clicked.connect(self._toggle_theme)
         
-        content_layout.addWidget(self.spawn_btn)
+        content_layout.addWidget(utils_label)
         content_layout.addWidget(self.edit_btn)
         content_layout.addWidget(self.theme_btn)
         content_layout.addStretch()
         
         main_layout.addWidget(content_widget)
+    
+    def _on_spawn_clicked(self) -> None:
+        random_x: int = random.randint(300, 1500)
+        random_y: int = random.randint(200, 800)
+        selected_mod = self.mod_combo.currentText()
+        if selected_mod:
+            self.manager.spawn_pet(random_x, random_y, selected_mod)
 
     def _toggle_theme(self) -> None:
         self._is_dark_mode = not self._is_dark_mode
@@ -61,12 +93,6 @@ class MainMenu(QWidget):
         else:
             app.setStyleSheet(LIGHT_THEME)
             self.theme_btn.setText("Switch to Dark Mode")
-
-    def _on_spawn_clicked(self) -> None:
-        # Spawn new pets at random coordinates near the center of a typical 1080p screen
-        random_x: int = random.randint(300, 1500)
-        random_y: int = random.randint(200, 800)
-        self.manager.spawn_pet(random_x, random_y)
     
     def _open_editor(self) -> None:
         if self.editor_window is None:

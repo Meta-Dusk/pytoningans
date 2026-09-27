@@ -1,17 +1,24 @@
-from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout
+from __future__ import annotations
+from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMenu
 from PySide6.QtCore import Qt, QPoint, QTimer
-from PySide6.QtGui import QMouseEvent, QPixmap
-
-from typing import Optional
+from PySide6.QtGui import QMouseEvent, QPixmap, QContextMenuEvent, QAction
+from typing import Optional, TYPE_CHECKING
 
 from pytoningans.core.constants import WINDOW_CFG, PetState
 from pytoningans.core.mod_manager import ModManager
 
+if TYPE_CHECKING:
+    from pytoningans.core.pet_manager import PetManager
+
 class PetWindow(QWidget):
-    def __init__(self, start_x: int, start_y: int, mod_manager: ModManager) -> None:
+    def __init__(
+        self, start_x: int, start_y: int,
+        mod_manager: ModManager, pet_manager: PetManager
+    ) -> None:
         super().__init__()
         self.mod_manager: ModManager = mod_manager
-        self._drag_offset: QPoint | None = None
+        self.pet_manager = pet_manager
+        self._drag_offset: Optional[QPoint] = None
         
         # Animation State Tracking
         self._current_state: PetState = PetState.IDLE
@@ -94,3 +101,22 @@ class PetWindow(QWidget):
             self._drag_offset = None
             self.set_state(PetState.IDLE)
             event.accept()
+    
+    # --- Context Menu Logic ---
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
+        """Triggered automatically on right-click."""
+        context_menu = QMenu(self)
+        
+        close_action = QAction("Close Pet", self)
+        close_action.triggered.connect(self._close_pet)
+        
+        context_menu.addAction(close_action)
+        
+        # Display the menu at the exact cursor position
+        context_menu.exec(event.globalPos())
+
+    def _close_pet(self) -> None:
+        """Safely stops timers and unregisters the window before destroying it."""
+        self._anim_timer.stop()
+        self.pet_manager.remove_pet(self)
+        self.close()
