@@ -40,12 +40,49 @@ class PetWindow(QWidget):
         self._target_pos: Optional[QPoint] = None
         self._interaction_cooldown: int = 0
         self._interact_ticks_left: int = 0
+        
+        # Health and Stuff
+        self.current_health = self.mod_manager.max_health
+        self.is_dead = False
 
         self._setup_window(start_x, start_y)
         self._setup_ui()
         self._setup_animation()
         self._setup_physics()
         self._setup_ai()
+    
+    # --- Pet Actions / Events ---
+    def jump(self) -> None:
+        """Applies immediate vertical velocity if the pet is on the 'ground'."""
+        if self.is_dead or self.mod_manager.can_fly:
+            return
+            
+        # Check if already jumping/falling so they don't double jump
+        if self.velocity_y != 0: return
+        
+        self.velocity_y = -self.mod_manager.jump_height
+        self.set_state(PetState.JUMPING)
+
+    def die(self) -> None:
+        """Kills the pet and stops AI behaviors."""
+        if self.is_dead: return
+        self.current_health = 0
+        self.is_dead = True
+        self.set_state(PetState.DYING)
+        
+        # Stop AI decision-making and clear current destinations
+        self._ai_timer.stop()
+        self._target_pos = None
+
+    def revive(self) -> None:
+        """Brings the pet back to full health and resumes AI."""
+        if not self.is_dead: return
+        self.current_health = self.mod_manager.max_health
+        self.is_dead = False
+        self.set_state(PetState.IDLE)
+        
+        # Resume the AI loop
+        self._ai_timer.start(2500)
     
     # --- Animations and UI ---
     def _setup_window(self, x: int, y: int) -> None:
@@ -139,6 +176,17 @@ class PetWindow(QWidget):
         close_action = QAction("Close Pet", self)
         close_action.triggered.connect(self._close_pet)
         context_menu.addAction(close_action)
+        context_menu.addSeparator()
+        
+        if not self.is_dead:
+            jump_action = context_menu.addAction("Force Jump")
+            jump_action.triggered.connect(self.jump)
+            
+            kill_action = context_menu.addAction("Kill Pet")
+            kill_action.triggered.connect(self.die)
+        else:
+            revive_action = context_menu.addAction("Revive Pet")
+            revive_action.triggered.connect(self.revive)
         
         # exec() blocks the local flow until the user clicks or dismisses the menu
         context_menu.exec(event.globalPos())
@@ -176,11 +224,25 @@ class PetWindow(QWidget):
             if pet_bottom < ground_y:
                 self.velocity_y += self.gravity
                 new_y = int(self.y() + self.velocity_y)
+                
+                # Floor collision detection
                 if new_y + self.height() > ground_y:
                     new_y = ground_y - self.height() + 1
+                    
+                    # Reset animation upon landing
+                    if self._current_state is PetState.JUMPING and not self.is_dead:
+                        self.set_state(PetState.IDLE)
+                        
                 self.move(self.x(), new_y)
             else:
                 self.velocity_y = 0
+                # Failsafe landing reset if they spawned on the ground while jumping
+                if self._current_state is PetState.JUMPING and not self.is_dead:
+                    self.set_state(PetState.IDLE)
+
+        # DEAD PETS STOP HERE: They fall to the ground, but do not interact or move.
+        if self.is_dead:
+            return
 
         # Count down interaction state duration
         if self._current_state is PetState.INTERACT:
@@ -231,6 +293,11 @@ class PetWindow(QWidget):
 
         screen = QGuiApplication.screenAt(self.geometry().center()) or QGuiApplication.primaryScreen()
         if not screen:
+            return
+
+        # 15% chance to spontaneously jump instead of walking or idling
+        if not self.mod_manager.can_fly and random.random() < 0.15:
+            self.jump()
             return
 
         geom = screen.availableGeometry()

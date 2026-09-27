@@ -46,6 +46,13 @@ class ModEditorWindow(QWidget):
         self.ui.swap_btn.clicked.connect(self._on_swap_clicked)
         self.ui.save_btn.clicked.connect(self._save_changes)
         self.ui.restart_btn.clicked.connect(self._restart_preview)
+        self.ui.can_fly_check.stateChanged.connect(self._on_behavior_edited)
+        
+        for stat_spin in (
+            self.ui.max_health_spin, self.ui.atk_dmg_spin,
+            self.ui.atk_range_spin, self.ui.jump_height_spin
+        ):
+            stat_spin.valueChanged.connect(self._on_behavior_edited)
         
         for spin in (self.ui.global_cols_spin, self.ui.global_rows_spin):
             spin.valueChanged.connect(self._on_global_edited)
@@ -83,7 +90,14 @@ class ModEditorWindow(QWidget):
     
     def _on_behavior_edited(self, *_) -> None:
         if self._is_updating_ui: return
-        self.controller.update_behavior(self.ui.can_fly_check.isChecked())
+        new_stats = {
+            "can_fly": self.ui.can_fly_check.isChecked(),
+            "max_health": self.ui.max_health_spin.value(),
+            "attack_damage": self.ui.atk_dmg_spin.value(),
+            "attack_range": self.ui.atk_range_spin.value(),
+            "jump_height": self.ui.jump_height_spin.value()
+        }
+        self.controller.update_behavior_stats(new_stats)
 
     def _refresh_state_dropdown(self) -> None:
         current_state = self.ui.state_combo.currentData()
@@ -143,6 +157,14 @@ class ModEditorWindow(QWidget):
             self.ui.global_cols_spin.setValue(cols)
             self.ui.global_rows_spin.setValue(rows)
             self.ui.can_fly_check.setChecked(self.controller.get_behavior())
+            
+            stats = self.controller.get_behavior_stats()
+            self.ui.can_fly_check.setChecked(stats["can_fly"])
+            self.ui.max_health_spin.setValue(stats["max_health"])
+            self.ui.atk_dmg_spin.setValue(stats["attack_damage"])
+            self.ui.atk_range_spin.setValue(stats["attack_range"])
+            self.ui.jump_height_spin.setValue(stats["jump_height"])
+            
             self._is_updating_ui = False
             
             self._refresh_dynamic_info()

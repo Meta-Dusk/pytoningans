@@ -8,7 +8,7 @@ from PySide6.QtCore import QRect
 
 from pytoningans.core.constants import PetState, AnimationMeta
 
-CURRENT_CONFIG_VERSION = 3
+CURRENT_CONFIG_VERSION = 4
 
 class ModManager:
     def __init__(self, mods_dir: str = "assets/mods") -> None:
@@ -18,6 +18,11 @@ class ModManager:
         self.global_rows: int = 1
         self.can_fly: bool = False
         self.config_version: int = CURRENT_CONFIG_VERSION
+        
+        self.max_health: int = 100
+        self.attack_damage: int = 10
+        self.attack_range: int = 50
+        self.jump_height: int = 15
         
         self.animations: Dict[PetState, AnimationMeta] = {}
         self._global_sheet: Optional[QPixmap] = None
@@ -45,6 +50,12 @@ class ModManager:
             self.can_fly = False
             self.config_version = CURRENT_CONFIG_VERSION
             
+            self.can_fly = False
+            self.max_health = 100
+            self.attack_damage = 10
+            self.attack_range = 50
+            self.jump_height = 15
+            
             self.animations = {
                 state: AnimationMeta(row=i, start_frame=0, end_frame=3)
                 for i, state in enumerate(PetState)
@@ -57,8 +68,15 @@ class ModManager:
             self.current_mod_name = data.get("name", mod_folder_name)
             self.global_columns = data.get("columns", 1)
             self.global_rows = data.get("rows", 1)
-            self.can_fly = data.get("behavior", {}).get("can_fly", False)
             self.config_version = data.get("version", 1)
+            
+            behavior_data = data.get("behavior", {})
+            self.can_fly = behavior_data.get("can_fly", False)
+            
+            self.max_health = behavior_data.get("max_health", 100)
+            self.attack_damage = behavior_data.get("attack_damage", 10)
+            self.attack_range = behavior_data.get("attack_range", 50)
+            self.jump_height = behavior_data.get("jump_height", 15)
             
             self.animations.clear()
             anim_data = data.get("animations", {})
@@ -94,7 +112,11 @@ class ModManager:
             "columns": self.global_columns,
             "rows": self.global_rows,
             "behavior": {
-                "can_fly": self.can_fly
+                "can_fly": self.can_fly,
+                "max_health": self.max_health,
+                "attack_damage": self.attack_damage,
+                "attack_range": self.attack_range,
+                "jump_height": self.jump_height
             },
             # Because self.animations is strictly Enums, .value works safely
             "animations": {

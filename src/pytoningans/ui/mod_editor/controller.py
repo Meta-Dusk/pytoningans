@@ -54,3 +54,19 @@ class ModEditorController:
 
     def update_behavior(self, can_fly: bool) -> None:
         self.manager.can_fly = can_fly
+    
+    def get_behavior_stats(self) -> dict:
+        return {
+            "can_fly": self.manager.can_fly,
+            "max_health": self.manager.max_health,
+            "attack_damage": self.manager.attack_damage,
+            "attack_range": self.manager.attack_range,
+            "jump_height": self.manager.jump_height
+        }
+
+    def update_behavior_stats(self, stats: dict) -> None:
+        self.manager.can_fly = stats.get("can_fly", self.manager.can_fly)
+        self.manager.max_health = stats.get("max_health", self.manager.max_health)
+        self.manager.attack_damage = stats.get("attack_damage", self.manager.attack_damage)
+        self.manager.attack_range = stats.get("attack_range", self.manager.attack_range)
+        self.manager.jump_height = stats.get("jump_height", self.manager.jump_height)

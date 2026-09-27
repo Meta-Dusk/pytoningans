@@ -2,8 +2,8 @@ LIGHT_THEME = """
 QWidget {
     background-color: #f9f9f9;
     color: #1e1e1e;
-    font-family: 'Adapa', -apple-system, sans-serif;
-    font-size: 20px;
+    font-family: 'Pixel Code', -apple-system, sans-serif;
+    font-size: 14px;
 }
 
 QPushButton {
@@ -59,7 +59,7 @@ QLabel#PreviewTitle {
 
 QLabel#ToolTipText {
     color: #1e1e1e;
-    font-size: 17px;
+    font-size: 12px;
 }
 
 QWidget#ToolTipLabel {
@@ -84,8 +84,8 @@ QPushButton#TitleBarCloseBtn {
     color: #666666; 
     border-radius: 0px; 
     padding: 0px; 
-    font-size: 16px; 
-    font-family: 'Adapa', -apple-system, sans-serif;
+    font-size: 14px; 
+    font-family: 'Pixel Code', -apple-system, sans-serif;
 }
 
 QPushButton#TitleBarCloseBtn:hover { 
@@ -96,7 +96,7 @@ QPushButton#TitleBarCloseBtn:hover {
 QLabel#SectionHeader {
     font-weight: bold;
     color: #333333;
-    font-size: 18px;
+    font-size: 14px;
 }
 
 QFrame#MenuSeparator {
@@ -131,8 +131,8 @@ DARK_THEME = """
 QWidget {
     background-color: #202020;
     color: #f3f3f3;
-    font-family: 'Adapa', -apple-system, sans-serif;
-    font-size: 20px;
+    font-family: 'Pixel Code', -apple-system, sans-serif;
+    font-size: 14px;
 }
 
 QPushButton {
@@ -188,7 +188,7 @@ QLabel#PreviewTitle {
 
 QLabel#ToolTipText {
     color: #f3f3f3;
-    font-size: 17px;
+    font-size: 12px;
 }
 
 QWidget#ToolTipLabel {
@@ -212,8 +212,8 @@ QPushButton#TitleBarCloseBtn {
     color: #aaaaaa; 
     border-radius: 0px; 
     padding: 0px; 
-    font-size: 16px; 
-    font-family: 'Adapa', -apple-system, sans-serif;
+    font-size: 14px; 
+    font-family: 'Pixel Code', -apple-system, sans-serif;
 }
 
 QPushButton#TitleBarCloseBtn:hover { 
@@ -224,7 +224,7 @@ QPushButton#TitleBarCloseBtn:hover {
 QLabel#SectionHeader {
     font-weight: bold;
     color: #cccccc;
-    font-size: 18px;
+    font-size: 14px;
 }
 
 QFrame#MenuSeparator {
