@@ -1,11 +1,13 @@
+from typing import Tuple, Callable, Optional
+from dataclasses import replace
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLabel, QSpinBox,
     QPushButton, QFormLayout, QMessageBox, QFrame, QCheckBox
 )
 from PySide6.QtCore import QTimer, Qt
-from typing import Tuple, Callable, Optional
 
-from pytoningans.core.mod_manager import ModManager
+from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import PetState, AnimationMeta
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
@@ -32,7 +34,7 @@ class ModEditorController:
         self.manager.global_rows = rows
 
     def get_meta(self, state: PetState) -> AnimationMeta:
-        return self.manager.animations.get(state, AnimationMeta(row=0, frames=1))
+        return self.manager.animations.get(state, AnimationMeta(row=0, start_frame=0, end_frame=1))
 
     def update_meta(self, state: PetState, meta: AnimationMeta) -> None:
         self.manager.animations[state] = meta
@@ -74,6 +76,8 @@ class ModEditorWindow(QWidget):
         self._preview_timer: QTimer = QTimer(self)
         self._preview_timer.timeout.connect(self._update_preview)
         self._preview_timer.setInterval(100)
+        
+        self._copied_meta: Optional[AnimationMeta] = None
         
         self._setup_ui()
         self._refresh_mod_list()
@@ -160,6 +164,16 @@ class ModEditorWindow(QWidget):
         self.state_combo = QComboBox()
         self.state_combo.currentIndexChanged.connect(self._on_state_changed)
         layout.addWidget(self.state_combo)
+        
+        self.copy_btn = QPushButton("Copy")
+        self.copy_btn.clicked.connect(self._on_copy_clicked)
+        
+        self.paste_btn = QPushButton("Paste")
+        self.paste_btn.clicked.connect(self._on_paste_clicked)
+        self.paste_btn.setEnabled(False) # Disabled until something is copied
+
+        layout.addWidget(self.copy_btn)
+        layout.addWidget(self.paste_btn)
         self.content_layout.addLayout(layout)
         
         swap_layout = QHBoxLayout()
@@ -178,20 +192,31 @@ class ModEditorWindow(QWidget):
 
         form = QFormLayout()
         self.row_spin = self._create_spinbox(0, 100, self._on_value_edited)
-        self.frames_spin = self._create_spinbox(1, 100, self._on_value_edited)
+        
+        self.start_spin = self._create_spinbox(0, 100, self._on_value_edited)
+        self.end_spin = self._create_spinbox(0, 100, self._on_value_edited)
+        
+        self.loop_check = QCheckBox("Loop Animation")
+        self.loop_check.stateChanged.connect(self._on_value_edited)
+        
+        self.reverse_check = QCheckBox("Play in Reverse")
+        self.reverse_check.stateChanged.connect(self._on_value_edited)
+        
         self.width_spin = self._create_spinbox(0, 2048, self._on_value_edited)
         self.height_spin = self._create_spinbox(0, 2048, self._on_value_edited)
         self.offset_x_spin = self._create_spinbox(-2048, 2048, self._on_value_edited)
         self.offset_y_spin = self._create_spinbox(-2048, 2048, self._on_value_edited)
         self.fps_spin = self._create_spinbox(1, 60, self._on_value_edited)
 
+        form.addRow(self._create_info_label("Mapped Row Index:", "..."), self.row_spin)
         form.addRow(self._create_info_label(
-            "Mapped Row Index:", 
-            "The row number (starting from 0 at the top) where this animation is located."
-        ), self.row_spin)
+            "Start Frame Index:", "The column index (from 0) where the animation begins."
+        ), self.start_spin)
         form.addRow(self._create_info_label(
-            "Total Frames:", "How many frames this specific animation has from left to right."
-        ), self.frames_spin)
+            "End Frame Index:", "The column index (from 0) where the animation ends."
+        ), self.end_spin)
+        form.addRow("", self.loop_check)
+        form.addRow("", self.reverse_check)
         form.addRow(self._create_info_label(
             "Override Width (px):", "Set above 0 to manually define this frame's width, ignoring the global grid."
         ), self.width_spin)
@@ -221,8 +246,12 @@ class ModEditorWindow(QWidget):
         self.preview_label.setMinimumHeight(150)
         self.preview_label.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Sunken)
         
+        self.restart_btn = QPushButton("Restart Animation")
+        self.restart_btn.clicked.connect(self._restart_preview)
+        
         layout.addWidget(title)
         layout.addWidget(self.preview_label)
+        layout.addWidget(self.restart_btn)
         self.content_layout.addLayout(layout)
 
     def _create_spinbox(
@@ -272,7 +301,7 @@ class ModEditorWindow(QWidget):
         self._on_state_changed()
         
         # Reset preview
-        self._preview_frame = 0
+        self._preview_frame = -1
         self._update_preview()
     
     def _on_behavior_edited(self, *_) -> None:
@@ -330,6 +359,17 @@ class ModEditorWindow(QWidget):
         if not mod_folder: return
             
         if self.controller.load_mod(mod_folder):
+            # Check for legacy versions immediately after loading
+            if self.controller.manager.config_version < 2:
+                QMessageBox.warning(
+                    self,
+                    "Legacy Mod Detected",
+                    f"'{mod_folder}' is using an older config version.\n\n"
+                    f"Saving changes will upgrade it to Version {CURRENT_CONFIG_VERSION} "
+                    "to support the newly added states.\n\n"
+                    "Please manually back up your 'config.json' file before saving."
+                )
+                
             self._is_updating_ui = True
             cols, rows = self.controller.get_global_grid()
             self.global_cols_spin.setValue(cols)
@@ -352,7 +392,10 @@ class ModEditorWindow(QWidget):
 
         self._is_updating_ui = True
         self.row_spin.setValue(meta.row)
-        self.frames_spin.setValue(meta.frames)
+        self.start_spin.setValue(meta.start_frame)
+        self.end_spin.setValue(meta.end_frame)
+        self.loop_check.setChecked(meta.loop)
+        self.reverse_check.setChecked(meta.reverse)
         self.width_spin.setValue(meta.override_width)
         self.height_spin.setValue(meta.override_height)
         self.offset_x_spin.setValue(meta.offset_x)
@@ -363,20 +406,23 @@ class ModEditorWindow(QWidget):
 
     def _on_value_edited(self, *_) -> None:
         if self._is_updating_ui: return
-        
         raw_state = self.state_combo.currentData()
         if not raw_state: return
         current_state = PetState(raw_state)
         
         new_meta = AnimationMeta(
             row=self.row_spin.value(),
-            frames=self.frames_spin.value(),
+            start_frame=self.start_spin.value(),
+            end_frame=self.end_spin.value(),
+            loop=self.loop_check.isChecked(),
+            reverse=self.reverse_check.isChecked(),
             override_width=self.width_spin.value(),
             override_height=self.height_spin.value(),
             offset_x=self.offset_x_spin.value(),
             offset_y=self.offset_y_spin.value(),
             fps=self.fps_spin.value()
         )
+        
         self.controller.update_meta(current_state, new_meta)
         self._preview_timer.setInterval(1000 // max(1, self.fps_spin.value()))
 
@@ -401,3 +447,42 @@ class ModEditorWindow(QWidget):
             self.preview_label.setPixmap(frame)
         else:
             self.preview_label.setText("No Image Loaded")
+    
+    def _on_copy_clicked(self) -> None:
+        raw_state = self.state_combo.currentData()
+        if not raw_state: return
+
+        current_state = PetState(raw_state)
+        meta = self.controller.get_meta(current_state)
+
+        # Use replace() to create a safe, disconnected clone
+        self._copied_meta = replace(meta)
+
+        self.paste_btn.setEnabled(True)
+
+    def _on_paste_clicked(self) -> None:
+        if not self._copied_meta: return
+
+        raw_state = self.state_combo.currentData()
+        if not raw_state: return
+
+        current_state = PetState(raw_state)
+
+        # Clone the copied meta again so the user can paste it multiple times safely
+        new_meta = replace(self._copied_meta)
+
+        # Update the controller (which automatically flushes the cache)
+        self.controller.update_meta(current_state, new_meta)
+
+        # Refresh the spinboxes and dropdown text
+        self._refresh_state_dropdown()
+        self._on_state_changed()
+
+        # Reset the preview sequence to immediately show the pasted frames
+        self._preview_frame = -1
+        self._update_preview()
+    
+    def _restart_preview(self) -> None:
+        """Forces the animation sequence to start from the beginning."""
+        self._preview_frame = -1
+        self._update_preview()

@@ -119,6 +119,12 @@ QMenu::item:selected {
     background-color: #f0f0f0;
     color: #0078d4;
 }
+
+QPushButton:disabled {
+    background-color: #f5f5f5;
+    border: 1px solid #e5e5e5;
+    color: #a0a0a0;
+}
 """
 
 DARK_THEME = """
@@ -240,5 +246,11 @@ QMenu::item {
 QMenu::item:selected {
     background-color: #383838;
     color: #4a90e2;
+}
+
+QPushButton:disabled {
+    background-color: #222222;
+    border: 1px solid #2a2a2a;
+    color: #666666;
 }
 """

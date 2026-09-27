@@ -1,13 +1,14 @@
 from __future__ import annotations
 import random, math
 
+from typing import Optional, TYPE_CHECKING
+
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMenu
 from PySide6.QtCore import Qt, QPoint, QTimer
 from PySide6.QtGui import (
     QMouseEvent, QPixmap, QContextMenuEvent, QAction, QGuiApplication,
-    QMoveEvent, QTransform
+    QTransform
 )
-from typing import Optional, TYPE_CHECKING
 
 from pytoningans.core.constants import WINDOW_CFG, PetState
 from pytoningans.core.mod_manager import ModManager

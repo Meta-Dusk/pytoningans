@@ -8,7 +8,7 @@ from PySide6.QtCore import QRect
 
 from pytoningans.core.constants import PetState, AnimationMeta
 
-CURRENT_CONFIG_VERSION = 2
+CURRENT_CONFIG_VERSION = 3
 
 class ModManager:
     def __init__(self, mods_dir: str = "assets/mods") -> None:
@@ -43,8 +43,10 @@ class ModManager:
             self.global_columns = 4
             self.global_rows = len(PetState)
             self.can_fly = False
+            self.config_version = CURRENT_CONFIG_VERSION
+            
             self.animations = {
-                state: AnimationMeta(row=i, frames=4)
+                state: AnimationMeta(row=i, start_frame=0, end_frame=3)
                 for i, state in enumerate(PetState)
             }
             self.save_mod_config(mod_folder_name, self.current_mod_name)
@@ -55,16 +57,24 @@ class ModManager:
             self.current_mod_name = data.get("name", mod_folder_name)
             self.global_columns = data.get("columns", 1)
             self.global_rows = data.get("rows", 1)
+            self.can_fly = data.get("behavior", {}).get("can_fly", False)
+            self.config_version = data.get("version", 1)
             
-            behavior_data = data.get("behavior", {})
-            self.can_fly = behavior_data.get("can_fly", False)
+            self.animations.clear()
+            anim_data = data.get("animations", {})
             
-            self.animations = {}
-            for state_str, meta_dict in data.get("animations", {}).items():
-                try:
-                    self.animations[PetState(state_str)] = AnimationMeta(**meta_dict)
-                except ValueError:
-                    pass
+            for state in PetState:
+                if state.value in anim_data:
+                    raw_meta = anim_data[state.value]
+                    
+                    # Migration: Convert V2 'frames' to V3 'start_frame' & 'end_frame'
+                    if "frames" in raw_meta:
+                        raw_meta["start_frame"] = 0
+                        raw_meta["end_frame"] = max(0, raw_meta.pop("frames") - 1)
+                        
+                    self.animations[state] = AnimationMeta(**raw_meta)
+                else:
+                    self.animations[state] = AnimationMeta(row=0, start_frame=0, end_frame=0)
 
         sheet: QPixmap = QPixmap(sprite_path)
         if sheet.isNull():
@@ -79,12 +89,14 @@ class ModManager:
         config_path = os.path.join(mod_path, "config.json")
         
         data = {
+            "version": CURRENT_CONFIG_VERSION,
             "name": name,
             "columns": self.global_columns,
             "rows": self.global_rows,
             "behavior": {
                 "can_fly": self.can_fly
             },
+            # Because self.animations is strictly Enums, .value works safely
             "animations": {
                 state.value: asdict(meta) for state, meta in self.animations.items()
             }
@@ -93,36 +105,44 @@ class ModManager:
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
 
-    def get_frame(self, state: PetState, frame_index: int) -> Optional[QPixmap]:
-        if not self._global_sheet:
-            return None
-            
+    def get_frame(self, state: PetState, tick_index: int) -> Optional[QPixmap]:
+        if not self._global_sheet: return None
         anim_meta = self.animations.get(state)
-        if not anim_meta:
-            return None
+        if not anim_meta: return None
 
-        # Calculate the looped safe index FIRST
-        safe_index: int = frame_index % anim_meta.frames
+        # Determine the length of the slice
+        total_play_frames = max(1, (anim_meta.end_frame - anim_meta.start_frame) + 1)
         
-        # Use the safe index to build the cache key
-        cache_key: str = f"{state.value}_{safe_index}"
+        # Handle Looping vs Clamping
+        if anim_meta.loop:
+            mapped_index = tick_index % total_play_frames
+        else:
+            # If not looping, hold on the final frame indefinitely (e.g. death state)
+            mapped_index = min(tick_index, total_play_frames - 1)
+            
+        # Handle Reversing
+        if anim_meta.reverse:
+            mapped_index = (total_play_frames - 1) - mapped_index
+            
+        # Offset by the starting frame to find the actual grid column
+        actual_sheet_index = anim_meta.start_frame + mapped_index
         
+        cache_key = f"{state.value}_{actual_sheet_index}"
         if cache_key in self._frame_cache:
             return self._frame_cache[cache_key]
 
-        # CALCULATE DYNAMIC GRID
-        base_w: int = self._global_sheet.width() // max(1, self.global_columns)
-        base_h: int = self._global_sheet.height() // max(1, self.global_rows)
+        base_w = self._global_sheet.width() // max(1, self.global_columns)
+        base_h = self._global_sheet.height() // max(1, self.global_rows)
         
-        # USE OVERRIDES IF > 0, OTHERWISE USE GRID
-        final_w: int = anim_meta.override_width if anim_meta.override_width > 0 else base_w
-        final_h: int = anim_meta.override_height if anim_meta.override_height > 0 else base_h
+        final_w = anim_meta.override_width if anim_meta.override_width > 0 else base_w
+        final_h = anim_meta.override_height if anim_meta.override_height > 0 else base_h
 
-        x_pos: int = (safe_index * final_w) + anim_meta.offset_x
-        y_pos: int = (anim_meta.row * base_h) + anim_meta.offset_y 
+        # Extract using the actual spatial sheet index
+        x_pos = (actual_sheet_index * final_w) + anim_meta.offset_x
+        y_pos = (anim_meta.row * base_h) + anim_meta.offset_y 
         
-        crop_rect: QRect = QRect(x_pos, y_pos, final_w, final_h)
-        frame: QPixmap = self._global_sheet.copy(crop_rect)
+        crop_rect = QRect(x_pos, y_pos, final_w, final_h)
+        frame = self._global_sheet.copy(crop_rect)
         self._frame_cache[cache_key] = frame
         
         return frame
