@@ -1,6 +1,8 @@
 import json, os
+import importlib.util
 
 from typing import Dict, List, Optional
+from types import ModuleType
 from dataclasses import asdict
 
 from PySide6.QtGui import QPixmap
@@ -27,6 +29,7 @@ class ModManager:
         self.animations: Dict[PetState, AnimationMeta] = {}
         self._global_sheet: Optional[QPixmap] = None
         self._frame_cache: Dict[str, QPixmap] = {}
+        self.custom_behavior: Optional[ModuleType] = None
 
     def get_available_mods(self) -> List[str]:
         """Returns a list of folder names in the mods directory."""
@@ -93,6 +96,22 @@ class ModManager:
                     self.animations[state] = AnimationMeta(**raw_meta)
                 else:
                     self.animations[state] = AnimationMeta(row=0, start_frame=0, end_frame=0)
+        
+        # Reset any previously loaded script
+        self.custom_behavior = None
+        
+        # Check for a custom script in the target mod folder
+        behavior_path = os.path.join(mod_path, "behavior.py")
+        if os.path.exists(behavior_path):
+            try:
+                # Dynamically compile and load the Python file
+                spec = importlib.util.spec_from_file_location("mod_behavior", behavior_path)
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    self.custom_behavior = module
+            except Exception as e:
+                print(f"Failed to load behavior.py for {mod_folder_name}: {e}")
 
         sheet: QPixmap = QPixmap(sprite_path)
         if sheet.isNull():

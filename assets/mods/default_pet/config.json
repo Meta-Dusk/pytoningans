@@ -1,11 +1,22 @@
 {
+    "version": 4,
     "name": "defaul_pet",
     "columns": 24,
     "rows": 7,
+    "behavior": {
+        "can_fly": false,
+        "max_health": 100,
+        "attack_damage": 10,
+        "attack_range": 50,
+        "jump_height": 15
+    },
     "animations": {
         "drag": {
             "row": 0,
-            "frames": 4,
+            "start_frame": 0,
+            "end_frame": 3,
+            "loop": true,
+            "reverse": false,
             "override_width": 53,
             "override_height": 0,
             "offset_x": 0,
@@ -14,7 +25,10 @@
         },
         "idle": {
             "row": 1,
-            "frames": 24,
+            "start_frame": 0,
+            "end_frame": 23,
+            "loop": true,
+            "reverse": false,
             "override_width": 0,
             "override_height": 76,
             "offset_x": 0,
@@ -22,30 +36,75 @@
             "fps": 10
         },
         "clicked": {
+            "row": 4,
+            "start_frame": 0,
+            "end_frame": 17,
+            "loop": true,
+            "reverse": false,
+            "override_width": 82,
+            "override_height": 80,
+            "offset_x": 0,
+            "offset_y": -1,
+            "fps": 10
+        },
+        "interact": {
+            "row": 4,
+            "start_frame": 0,
+            "end_frame": 17,
+            "loop": true,
+            "reverse": false,
+            "override_width": 82,
+            "override_height": 80,
+            "offset_x": 0,
+            "offset_y": -1,
+            "fps": 10
+        },
+        "moving": {
             "row": 2,
-            "frames": 8,
+            "start_frame": 0,
+            "end_frame": 7,
+            "loop": true,
+            "reverse": false,
             "override_width": 73,
             "override_height": 71,
             "offset_x": 0,
             "offset_y": -2,
             "fps": 10
         },
-        "interact": {
+        "jumping": {
             "row": 3,
-            "frames": 9,
+            "start_frame": 0,
+            "end_frame": 8,
+            "loop": false,
+            "reverse": false,
             "override_width": 73,
             "override_height": 75,
             "offset_x": 0,
             "offset_y": -3,
             "fps": 10
         },
-        "moving": {
-            "row": 4,
-            "frames": 18,
-            "override_width": 82,
-            "override_height": 80,
+        "dying": {
+            "row": 6,
+            "start_frame": 0,
+            "end_frame": 3,
+            "loop": false,
+            "reverse": false,
+            "override_width": 72,
+            "override_height": 100,
             "offset_x": 0,
-            "offset_y": -1,
+            "offset_y": -4,
+            "fps": 5
+        },
+        "climbing": {
+            "row": 2,
+            "start_frame": 0,
+            "end_frame": 7,
+            "loop": true,
+            "reverse": false,
+            "override_width": 73,
+            "override_height": 71,
+            "offset_x": 0,
+            "offset_y": -2,
             "fps": 10
         }
     }

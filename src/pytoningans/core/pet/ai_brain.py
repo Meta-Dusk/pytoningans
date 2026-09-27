@@ -14,8 +14,8 @@ if TYPE_CHECKING:
 class AISystem:
     def __init__(self, pet: PetWindow) -> None:
         self.pet = pet
-        self.interaction_cooldown = 0
-        self.interact_ticks_left = 0
+        self.interaction_cooldown: int = 0
+        self.interact_ticks_left: int = 0
         
         self.timer = QTimer(self.pet)
         self.timer.timeout.connect(self._ai_decision_tick)
@@ -24,17 +24,24 @@ class AISystem:
     def _ai_decision_tick(self) -> None:
         if self.pet.state in (PetState.DRAG, PetState.INTERACT): return
 
+        # --- MODDER API HOOK ---
+        if self.pet.mod_manager.custom_behavior and hasattr(self.pet.mod_manager.custom_behavior, "on_decision_tick"):
+            try:
+                self.pet.mod_manager.custom_behavior.on_decision_tick(self.pet)
+                return
+            except Exception as e:
+                print(f"Custom AI Error (Decision): {e}")
+
+        # --- DEFAULT LOGIC ---
         screen = QGuiApplication.screenAt(self.pet.geometry().center()) or QGuiApplication.primaryScreen()
         if not screen: return
 
-        # Jump Logic
         if not self.pet.mod_manager.can_fly and random.random() < 0.15:
             self.pet.jump()
             return
 
         geom = screen.availableGeometry()
 
-        # Movement Logic
         if random.random() < 0.60:
             dest_x = random.randint(geom.left() + 50, geom.right() - self.pet.width() - 50)
             if self.pet.mod_manager.can_fly:
@@ -64,6 +71,15 @@ class AISystem:
             distance = math.hypot(my_center.x() - other_center.x(), my_center.y() - other_center.y())
 
             if distance < 120:
+                # --- MODDER API HOOK ---
+                if self.pet.mod_manager.custom_behavior and hasattr(self.pet.mod_manager.custom_behavior, "on_interact"):
+                    try:
+                        self.pet.mod_manager.custom_behavior.on_interact(self.pet, other_pet)
+                        break
+                    except Exception as e:
+                        print(f"Custom AI Error (Interact): {e}")
+                
+                # --- DEFAULT LOGIC ---
                 self.pet.facing_left = other_center.x() < my_center.x()
                 other_pet.facing_left = my_center.x() < other_center.x()
 
