@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from typing import Optional
 
 from pytoningans.core.pet_manager import PetManager
-from pytoningans.ui.mod_editor import ModEditorWindow
+from pytoningans.ui.mod_manager_hub import ModManagerHub
 from pytoningans.ui.theme import LIGHT_THEME, DARK_THEME
 from pytoningans.ui.title_bar import CustomTitleBar
 
@@ -15,7 +15,7 @@ class MainMenu(QWidget):
     def __init__(self, manager: PetManager) -> None:
         super().__init__()
         self.manager: PetManager = manager
-        self.editor_window: Optional[ModEditorWindow] = None
+        self.hub_window: Optional[ModManagerHub] = None
         self._is_dark_mode: bool = True
         self._setup_ui()
 
@@ -58,18 +58,17 @@ class MainMenu(QWidget):
         content_layout.addWidget(separator)
         
         # --- Utilities Section ---
-        utils_label = QLabel("--- Utilities ---")
-        utils_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        utils_label = QLabel("Utilities:")
         utils_label.setObjectName("SectionHeader")
         
-        self.edit_btn: QPushButton = QPushButton("Open Mod Editor")
-        self.edit_btn.clicked.connect(self._open_editor)
-
+        self.manage_btn: QPushButton = QPushButton("Manage Mods")
+        self.manage_btn.clicked.connect(self._open_hub)
+        
         self.theme_btn: QPushButton = QPushButton("Switch to Light Mode")
         self.theme_btn.clicked.connect(self._toggle_theme)
         
         content_layout.addWidget(utils_label)
-        content_layout.addWidget(self.edit_btn)
+        content_layout.addWidget(self.manage_btn)
         content_layout.addWidget(self.theme_btn)
         content_layout.addStretch()
         
@@ -94,8 +93,9 @@ class MainMenu(QWidget):
             app.setStyleSheet(LIGHT_THEME)
             self.theme_btn.setText("Switch to Dark Mode")
     
-    def _open_editor(self) -> None:
-        if self.editor_window is None:
-            self.editor_window = ModEditorWindow(self.manager.mod_manager)
-        self.editor_window.showNormal()
-        self.editor_window.activateWindow()
+    def _open_hub(self) -> None:
+        if self.hub_window is None or not self.hub_window.isVisible():
+            self.hub_window = ModManagerHub(self.manager.mod_manager)
+            self.hub_window.show()
+        else:
+            self.hub_window.activateWindow()
