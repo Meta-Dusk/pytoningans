@@ -22,7 +22,7 @@ class ModManager:
         self.max_health: int = 100
         self.attack_damage: int = 10
         self.attack_range: int = 50
-        self.jump_height: int = 15
+        self.jump_height: int = 150
         
         self.animations: Dict[PetState, AnimationMeta] = {}
         self._global_sheet: Optional[QPixmap] = None

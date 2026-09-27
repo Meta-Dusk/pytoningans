@@ -35,6 +35,7 @@ class PetWindow(QWidget):
         self.velocity_y: float = 0.0
         self.gravity: float = 0.8
         self.move_speed: float = 2.0
+        self.enable_gravity: bool = True
 
         # AI State Machine variables
         self._target_pos: Optional[QPoint] = None
@@ -50,6 +51,11 @@ class PetWindow(QWidget):
         self._setup_animation()
         self._setup_physics()
         self._setup_ai()
+    
+    @property
+    def is_interactable(self) -> bool:
+        """Returns True if the Pet is interactable by other pets."""
+        return self._current_state not in (PetState.DRAG, PetState.INTERACT) or not self.is_dead
     
     # --- Pet Actions / Events ---
     def jump(self) -> None:
@@ -149,7 +155,9 @@ class PetWindow(QWidget):
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            self.set_state(PetState.DRAG)
+            if not self.is_dead:
+                self.set_state(PetState.DRAG)
+            self.enable_gravity = False
             event.accept()
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
@@ -160,14 +168,18 @@ class PetWindow(QWidget):
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_offset = None
-            self.set_state(PetState.IDLE)
+            if not self.is_dead:
+                self.set_state(PetState.IDLE)
+            self.enable_gravity = True
             event.accept()
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         """Triggered automatically on right-click."""
         # Force the pet to stop and clear its current destination
         self._target_pos = None
-        self.set_state(PetState.IDLE)
+        
+        if not self.is_dead:
+            self.set_state(PetState.IDLE)
         
         # Pause AI decisions so it doesn't walk away while the menu is open
         self._ai_timer.stop()
@@ -191,8 +203,9 @@ class PetWindow(QWidget):
         # exec() blocks the local flow until the user clicks or dismisses the menu
         context_menu.exec(event.globalPos())
         
-        # Resume AI once the menu is closed
-        self._ai_timer.start()
+        # Resume AI once the menu is closed (if alive)
+        if not self.is_dead:
+            self._ai_timer.start()
 
     def _close_pet(self) -> None:
         """Safely stops timers and unregisters the window before destroying it."""
@@ -208,7 +221,7 @@ class PetWindow(QWidget):
         self._physics_timer.start(16) # ~60 FPS
 
     def _physics_tick(self) -> None:
-        if self._current_state is PetState.DRAG:
+        if not self.enable_gravity:
             self.velocity_y = 0
             return
 
@@ -221,13 +234,16 @@ class PetWindow(QWidget):
         # Apply Gravity for Grounded Pets
         if not self.mod_manager.can_fly:
             pet_bottom = self.geometry().bottom()
-            if pet_bottom < ground_y:
+            
+            # Apply physics if in the air OR if moving upwards (jumping)
+            if pet_bottom < ground_y or self.velocity_y < 0:
                 self.velocity_y += self.gravity
                 new_y = int(self.y() + self.velocity_y)
                 
                 # Floor collision detection
                 if new_y + self.height() > ground_y:
                     new_y = ground_y - self.height() + 1
+                    self.velocity_y = 0 # Stop falling
                     
                     # Reset animation upon landing
                     if self._current_state is PetState.JUMPING and not self.is_dead:
@@ -240,7 +256,7 @@ class PetWindow(QWidget):
                 if self._current_state is PetState.JUMPING and not self.is_dead:
                     self.set_state(PetState.IDLE)
 
-        # DEAD PETS STOP HERE: They fall to the ground, but do not interact or move.
+        # DEAD PETS STOP HERE
         if self.is_dead:
             return
 
@@ -266,18 +282,14 @@ class PetWindow(QWidget):
             dist = math.hypot(dx, dy)
 
             if dist < self.move_speed:
-                # Target reached
                 self.move(target_x, target_y)
                 self._target_pos = None
                 self.set_state(PetState.IDLE)
             else:
-                # Step toward target
                 step_x = int(curr_x + (dx / dist) * self.move_speed)
                 step_y = int(curr_y + (dy / dist) * self.move_speed) if self.mod_manager.can_fly else curr_y
 
-                # Turn sprite in direction of travel
                 self._facing_left = (dx < 0)
-
                 self.move(step_x, step_y)
     
     # --- AI State Machine & Proximity ---
@@ -322,13 +334,12 @@ class PetWindow(QWidget):
             self._interaction_cooldown -= 1
             return
 
-        if self._current_state in (PetState.DRAG, PetState.INTERACT):
-            return
+        if not self.is_interactable: return
 
         my_center = self.geometry().center()
 
         for other_pet in self.pet_manager.active_pets:
-            if other_pet is self or other_pet._current_state in (PetState.DRAG, PetState.INTERACT):
+            if other_pet is self or not other_pet.is_interactable:
                 continue
 
             other_center = other_pet.geometry().center()
