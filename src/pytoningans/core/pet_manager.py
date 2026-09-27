@@ -1,6 +1,6 @@
 from typing import List
 
-from pytoningans.ui.pet_window import PetWindow
+from pytoningans.core.pet.window import PetWindow
 from pytoningans.core.mod_manager import ModManager
 
 class PetManager:

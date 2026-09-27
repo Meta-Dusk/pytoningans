@@ -2,8 +2,8 @@ LIGHT_THEME = """
 QWidget {
     background-color: #f9f9f9;
     color: #1e1e1e;
-    font-family: 'Adapa', -apple-system, sans-serif;
-    font-size: 20px;
+    font-family: 'Pixel Code', -apple-system, sans-serif;
+    font-size: 14px;
 }
 
 QPushButton {
@@ -59,7 +59,7 @@ QLabel#PreviewTitle {
 
 QLabel#ToolTipText {
     color: #1e1e1e;
-    font-size: 17px;
+    font-size: 12px;
 }
 
 QWidget#ToolTipLabel {
@@ -70,7 +70,7 @@ QWidget#ToolTipLabel {
 
 QWidget#CustomTitleBar {
     background-color: #e5e5e5;
-    border-bottom: 1px solid #d1d1d1; 
+    border: 1px solid #b0b0b0;
 }
 
 QLabel#TitleBarText {
@@ -84,8 +84,8 @@ QPushButton#TitleBarCloseBtn {
     color: #666666; 
     border-radius: 0px; 
     padding: 0px; 
-    font-size: 16px; 
-    font-family: 'Adapa', -apple-system, sans-serif;
+    font-size: 14px; 
+    font-family: 'Pixel Code', -apple-system, sans-serif;
 }
 
 QPushButton#TitleBarCloseBtn:hover { 
@@ -96,7 +96,7 @@ QPushButton#TitleBarCloseBtn:hover {
 QLabel#SectionHeader {
     font-weight: bold;
     color: #333333;
-    font-size: 18px;
+    font-size: 14px;
 }
 
 QFrame#MenuSeparator {
@@ -119,14 +119,20 @@ QMenu::item:selected {
     background-color: #f0f0f0;
     color: #0078d4;
 }
+
+QPushButton:disabled {
+    background-color: #f5f5f5;
+    border: 1px solid #e5e5e5;
+    color: #a0a0a0;
+}
 """
 
 DARK_THEME = """
 QWidget {
     background-color: #202020;
     color: #f3f3f3;
-    font-family: 'Adapa', -apple-system, sans-serif;
-    font-size: 20px;
+    font-family: 'Pixel Code', -apple-system, sans-serif;
+    font-size: 14px;
 }
 
 QPushButton {
@@ -182,7 +188,7 @@ QLabel#PreviewTitle {
 
 QLabel#ToolTipText {
     color: #f3f3f3;
-    font-size: 17px;
+    font-size: 12px;
 }
 
 QWidget#ToolTipLabel {
@@ -193,7 +199,7 @@ QWidget#ToolTipLabel {
 
 QWidget#CustomTitleBar {
     background-color: #1a1a1a;
-    border-bottom: 1px solid #333333; 
+    border: 1px solid #4a4a4a;
 }
 
 QLabel#TitleBarText {
@@ -206,8 +212,8 @@ QPushButton#TitleBarCloseBtn {
     color: #aaaaaa; 
     border-radius: 0px; 
     padding: 0px; 
-    font-size: 16px; 
-    font-family: 'Adapa', -apple-system, sans-serif;
+    font-size: 14px; 
+    font-family: 'Pixel Code', -apple-system, sans-serif;
 }
 
 QPushButton#TitleBarCloseBtn:hover { 
@@ -218,7 +224,7 @@ QPushButton#TitleBarCloseBtn:hover {
 QLabel#SectionHeader {
     font-weight: bold;
     color: #cccccc;
-    font-size: 18px;
+    font-size: 14px;
 }
 
 QFrame#MenuSeparator {
@@ -240,5 +246,11 @@ QMenu::item {
 QMenu::item:selected {
     background-color: #383838;
     color: #4a90e2;
+}
+
+QPushButton:disabled {
+    background-color: #222222;
+    border: 1px solid #2a2a2a;
+    color: #666666;
 }
 """

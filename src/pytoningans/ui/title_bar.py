@@ -1,6 +1,6 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton, QStyle, QStyleOption
 from PySide6.QtCore import Qt, QPoint
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QMouseEvent, QPainter, QPaintEvent
 
 class CustomTitleBar(QWidget):
     def __init__(self, parent: QWidget, title: str) -> None:
@@ -27,6 +27,13 @@ class CustomTitleBar(QWidget):
         layout.addWidget(self.title_label)
         layout.addStretch()
         layout.addWidget(self.close_btn)
+
+    def paintEvent(self, _: QPaintEvent) -> None:
+        """Forces the QSS engine to render backgrounds and borders on custom QWidgets."""
+        opt = QStyleOption()
+        opt.initFrom(self)
+        painter = QPainter(self)
+        self.style().drawPrimitive(QStyle.PrimitiveElement.PE_Widget, opt, painter, self)
 
     # --- Window Dragging Logic ---
     def mousePressEvent(self, event: QMouseEvent) -> None:

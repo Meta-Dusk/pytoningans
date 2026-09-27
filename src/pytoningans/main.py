@@ -24,7 +24,7 @@ def main() -> None:
     app.setStyleSheet(DARK_THEME)
     app.setWindowIcon(QIcon("assets/ui/teto.ico"))
     
-    font_path = get_asset_path("assets/ui/Adapa.otf")
+    font_path = get_asset_path("assets/ui/PixelCode.otf")
     font_id = QFontDatabase.addApplicationFont(font_path)
     
     if font_id < 0:
