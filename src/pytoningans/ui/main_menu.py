@@ -1,9 +1,12 @@
 import random
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QPushButton, QApplication, QLabel, QComboBox, QFrame
+    QWidget, QVBoxLayout, QPushButton, QApplication, QLabel, QComboBox, QFrame,
+    QSpinBox, QHBoxLayout
 )
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QGuiApplication
+
 from typing import Optional
 
 from pytoningans.core.pet_manager import PetManager
@@ -22,7 +25,7 @@ class MainMenu(QWidget):
     def _setup_ui(self) -> None:
         # Strip the OS window frame
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.resize(300, 275)
+        self.resize(300, 310)
         
         main_layout: QVBoxLayout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -37,19 +40,28 @@ class MainMenu(QWidget):
         content_layout.setSpacing(10)
         
         # --- Spawning Section ---
-        spawn_label = QLabel("--- Spawn a Pet ---")
-        spawn_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        spawn_label = QLabel("Spawn a Pet:")
         spawn_label.setObjectName("SectionHeader")
         
         self.mod_combo = QComboBox()
         self.mod_combo.addItems(self.manager.mod_manager.get_available_mods())
         
+        # Group the amount spinbox and spawn button horizontally
+        spawn_action_layout = QHBoxLayout()
+        self.amount_spin = QSpinBox()
+        self.amount_spin.setRange(1, 100)
+        self.amount_spin.setValue(1)
+        self.amount_spin.setToolTip("Number of pets to spawn at once")
+        
         self.spawn_btn: QPushButton = QPushButton("Spawn Pet")
         self.spawn_btn.clicked.connect(self._on_spawn_clicked)
         
+        spawn_action_layout.addWidget(self.amount_spin)
+        spawn_action_layout.addWidget(self.spawn_btn, stretch=1)
+        
         content_layout.addWidget(spawn_label)
         content_layout.addWidget(self.mod_combo)
-        content_layout.addWidget(self.spawn_btn)
+        content_layout.addLayout(spawn_action_layout)
         
         # --- Visual Separator ---
         separator = QFrame()
@@ -61,13 +73,17 @@ class MainMenu(QWidget):
         utils_label = QLabel("Utilities:")
         utils_label.setObjectName("SectionHeader")
         
+        self.close_all_btn: QPushButton = QPushButton("Close All Pets")
+        self.close_all_btn.clicked.connect(self._on_close_all_clicked)
+        
         self.manage_btn: QPushButton = QPushButton("Manage Mods")
         self.manage_btn.clicked.connect(self._open_hub)
-        
+
         self.theme_btn: QPushButton = QPushButton("Switch to Light Mode")
         self.theme_btn.clicked.connect(self._toggle_theme)
         
         content_layout.addWidget(utils_label)
+        content_layout.addWidget(self.close_all_btn)
         content_layout.addWidget(self.manage_btn)
         content_layout.addWidget(self.theme_btn)
         content_layout.addStretch()
@@ -75,11 +91,30 @@ class MainMenu(QWidget):
         main_layout.addWidget(content_widget)
     
     def _on_spawn_clicked(self) -> None:
-        random_x: int = random.randint(300, 1500)
-        random_y: int = random.randint(200, 800)
         selected_mod = self.mod_combo.currentText()
-        if selected_mod:
+        if not selected_mod:
+            return
+            
+        screen = QGuiApplication.primaryScreen()
+        geom = screen.availableGeometry() if screen else None
+        
+        amount = self.amount_spin.value()
+        for _ in range(amount):
+            if geom:
+                # Constrain random coordinates to the visible screen area
+                random_x = random.randint(geom.left() + 50, geom.right() - 150)
+                random_y = random.randint(geom.top() + 50, geom.bottom() - 150)
+            else:
+                random_x = random.randint(300, 1500)
+                random_y = random.randint(200, 800)
+                
             self.manager.spawn_pet(random_x, random_y, selected_mod)
+
+    def _on_close_all_clicked(self) -> None:
+        # We iterate over a list copy `list(self.manager.active_pets)` because 
+        # _close_pet() removes the pet from the original list during iteration
+        for pet in list(self.manager.active_pets):
+            pet._close_pet()
 
     def _toggle_theme(self) -> None:
         self._is_dark_mode = not self._is_dark_mode
