@@ -79,18 +79,18 @@ class PetWindow(QWidget):
 
     # --- Mouse Events ---
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() is Qt.MouseButton.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             self.set_state(PetState.DRAG)
             event.accept()
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        if event.buttons() is Qt.MouseButton.LeftButton and self._drag_offset is not None:
+        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_offset is not None:
             self.move(event.globalPosition().toPoint() - self._drag_offset)
             event.accept()
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        if event.button() is Qt.MouseButton.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self._drag_offset = None
             self.set_state(PetState.IDLE)
             event.accept()

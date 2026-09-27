@@ -8,7 +8,7 @@ from typing import Tuple, Callable, Optional
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.constants import PetState, AnimationMeta
 from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.ui.tool_tip import CustomToolTip
+from pytoningans.ui.tool_tip import ToolTipLabel
 
 class ModEditorController:
     """Handles data bridging between the UI and the ModManager."""
@@ -60,17 +60,17 @@ class ModEditorWindow(QWidget):
     """Handles ONLY visual drawing and user interactions."""
     def __init__(self, mod_manager: ModManager) -> None:
         super().__init__()
-        # Instantiate the controller using the manager passed from MainMenu
         self.controller: ModEditorController = ModEditorController(mod_manager)
         self._is_updating_ui: bool = False
         
         self._preview_frame: int = 0
         self._preview_timer: QTimer = QTimer(self)
         self._preview_timer.timeout.connect(self._update_preview)
+        self._preview_timer.setInterval(100)
         
         self._setup_ui()
         self._refresh_mod_list()
-        self._preview_timer.start(100)
+        self._preview_timer.start()
 
     # --- UI Construction Helpers ---
 
@@ -84,13 +84,19 @@ class ModEditorWindow(QWidget):
         
         self.title_bar: CustomTitleBar = CustomTitleBar(self, "Mod Editor")
         self.main_layout.addWidget(self.title_bar)
+        
+        # Create a container with padding for the rest of the UI
+        content_widget = QWidget()
+        self.content_layout = QVBoxLayout(content_widget)
+        self.content_layout.setContentsMargins(20, 15, 20, 20)
+        self.content_layout.setSpacing(10)
 
         self._build_header()
         
         self.sheet_info_label = QLabel("Sheet: -- x -- px | Base Tile: -- x -- px")
         self.sheet_info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.sheet_info_label.setObjectName("BannerText")
-        self.main_layout.addWidget(self.sheet_info_label)
+        self.content_layout.addWidget(self.sheet_info_label)
 
         self._build_mod_selection()
         self._build_global_settings()
@@ -99,7 +105,10 @@ class ModEditorWindow(QWidget):
 
         self.save_btn: QPushButton = QPushButton("Save config.json")
         self.save_btn.clicked.connect(self._save_changes)
-        self.main_layout.addWidget(self.save_btn)
+        self.content_layout.addWidget(self.save_btn)
+        
+        # Add the padded container to the main window
+        self.main_layout.addWidget(content_widget)
 
     def _build_header(self) -> None:
         info_label = QLabel(
@@ -108,7 +117,7 @@ class ModEditorWindow(QWidget):
             alignment=Qt.AlignmentFlag.AlignCenter
         )
         info_label.setObjectName("HelperText")
-        self.main_layout.addWidget(info_label)
+        self.content_layout.addWidget(info_label)
 
     def _build_mod_selection(self) -> None:
         layout = QHBoxLayout()
@@ -116,21 +125,23 @@ class ModEditorWindow(QWidget):
         self.mod_combo = QComboBox()
         self.mod_combo.currentTextChanged.connect(self._on_mod_changed)
         layout.addWidget(self.mod_combo)
-        self.main_layout.addLayout(layout)
+        self.content_layout.addLayout(layout)
 
     def _build_global_settings(self) -> None:
         layout = QFormLayout()
         self.global_cols_spin = self._create_spinbox(1, 100, self._on_global_edited)
         self.global_rows_spin = self._create_spinbox(1, 100, self._on_global_edited)
         
-        lbl_cols = self._create_info_label("Total Sheet Columns:", 
-                                           "How many columns the entire sprite sheet is divided into evenly.")
-        lbl_rows = self._create_info_label("Total Sheet Rows:",
-                                           "How many rows the entire sprite sheet is divided into evenly.")
+        lbl_cols = self._create_info_label(
+            "Total Sheet Columns:", "How many columns the entire sprite sheet is divided into evenly."
+        )
+        lbl_rows = self._create_info_label(
+            "Total Sheet Rows:", "How many rows the entire sprite sheet is divided into evenly."
+        )
         
         layout.addRow(lbl_cols, self.global_cols_spin)
         layout.addRow(lbl_rows, self.global_rows_spin)
-        self.main_layout.addLayout(layout)
+        self.content_layout.addLayout(layout)
 
     def _build_state_overrides(self) -> None:
         layout = QHBoxLayout()
@@ -138,7 +149,7 @@ class ModEditorWindow(QWidget):
         self.state_combo = QComboBox()
         self.state_combo.currentIndexChanged.connect(self._on_state_changed)
         layout.addWidget(self.state_combo)
-        self.main_layout.addLayout(layout)
+        self.content_layout.addLayout(layout)
 
         form = QFormLayout()
         self.row_spin = self._create_spinbox(0, 100, self._on_value_edited)
@@ -172,7 +183,7 @@ class ModEditorWindow(QWidget):
             "Playback Speed (FPS):", "How fast the animation plays. Higher means faster."
         ), self.fps_spin)
         
-        self.main_layout.addLayout(form)
+        self.content_layout.addLayout(form)
 
     def _build_preview_area(self) -> None:
         layout = QVBoxLayout()
@@ -187,7 +198,7 @@ class ModEditorWindow(QWidget):
         
         layout.addWidget(title)
         layout.addWidget(self.preview_label)
-        self.main_layout.addLayout(layout)
+        self.content_layout.addLayout(layout)
 
     def _create_spinbox(
         self, min_val: int, max_val: int, callback: Callable, special_text: Optional[str] = None
@@ -207,12 +218,7 @@ class ModEditorWindow(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         
         lbl = QLabel(text)
-        
-        # TODO: Update icon_lbl to use the custom QLabel class
-        icon_lbl = QLabel("[?]")
-        icon_lbl.setToolTip(tooltip_text)
-        icon_lbl.setObjectName("InfoLabel")
-        icon_lbl.setCursor(Qt.CursorShape.WhatsThisCursor)
+        icon_lbl = ToolTipLabel(text="[?]", tooltip_text=tooltip_text)
         
         layout.addWidget(lbl)
         layout.addWidget(icon_lbl)

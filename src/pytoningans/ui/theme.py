@@ -57,8 +57,15 @@ QLabel#PreviewTitle {
     color: #666666;
 }
 
-QLabel#InfoLabel {
-    color: #0078D7;
+QLabel#ToolTipText {
+    color: #1e1e1e;
+    font-size: 17px;
+}
+
+QWidget#ToolTipLabel {
+    background-color: #ffffff;
+    border: 1px solid #dcdcdc;
+    border-radius: 6px;
 }
 
 QWidget#CustomTitleBar {
@@ -146,8 +153,15 @@ QLabel#PreviewTitle {
     color: #aaaaaa;
 }
 
-QLabel#InfoLabel {
-    color: #0078D7;
+QLabel#ToolTipText {
+    color: #f3f3f3;
+    font-size: 17px;
+}
+
+QWidget#ToolTipLabel {
+    background-color: #2b2b2b;
+    border: 1px solid #3d3d3d;
+    border-radius: 6px;
 }
 
 QWidget#CustomTitleBar {
