@@ -9,6 +9,9 @@ class PetState(StrEnum):
     CLICKED = "clicked"
     INTERACT = "interact"
     MOVING = "moving"
+    JUMPING = "jumping"
+    DYING = "dying"
+    CLIMBING = "climbing"
 
 @dataclass(frozen=True)
 class WindowConfig:

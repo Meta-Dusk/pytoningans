@@ -8,16 +8,20 @@ from PySide6.QtCore import QRect
 
 from pytoningans.core.constants import PetState, AnimationMeta
 
+CURRENT_CONFIG_VERSION = 2
+
 class ModManager:
     def __init__(self, mods_dir: str = "assets/mods") -> None:
         self.mods_dir: str = mods_dir
-        self._global_sheet: Optional[QPixmap] = None
-        self._frame_cache: Dict[str, QPixmap] = {}
-        
         self.current_mod_name: str = ""
         self.global_columns: int = 1
         self.global_rows: int = 1
+        self.can_fly: bool = False
+        self.config_version: int = CURRENT_CONFIG_VERSION
+        
         self.animations: Dict[PetState, AnimationMeta] = {}
+        self._global_sheet: Optional[QPixmap] = None
+        self._frame_cache: Dict[str, QPixmap] = {}
 
     def get_available_mods(self) -> List[str]:
         """Returns a list of folder names in the mods directory."""
@@ -122,3 +126,7 @@ class ModManager:
         self._frame_cache[cache_key] = frame
         
         return frame
+    
+    def clear_cache(self) -> None:
+        """Flushes the extracted frame cache to force re-slicing."""
+        self._frame_cache.clear()

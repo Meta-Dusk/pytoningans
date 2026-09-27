@@ -36,6 +36,7 @@ class ModEditorController:
 
     def update_meta(self, state: PetState, meta: AnimationMeta) -> None:
         self.manager.animations[state] = meta
+        self.manager.clear_cache()
 
     def get_frame(self, state: PetState, frame_index: int):
         return self.manager.get_frame(state, frame_index)
@@ -160,6 +161,20 @@ class ModEditorWindow(QWidget):
         self.state_combo.currentIndexChanged.connect(self._on_state_changed)
         layout.addWidget(self.state_combo)
         self.content_layout.addLayout(layout)
+        
+        swap_layout = QHBoxLayout()
+        swap_layout.addWidget(QLabel("Swap Data With:"))
+        
+        self.swap_combo = QComboBox()
+        for state in PetState:
+            self.swap_combo.addItem(state.value.capitalize(), userData=state)
+            
+        self.swap_btn = QPushButton("Swap")
+        self.swap_btn.clicked.connect(self._on_swap_clicked)
+        
+        swap_layout.addWidget(self.swap_combo)
+        swap_layout.addWidget(self.swap_btn)
+        self.content_layout.addLayout(swap_layout)
 
         form = QFormLayout()
         self.row_spin = self._create_spinbox(0, 100, self._on_value_edited)
@@ -237,19 +252,52 @@ class ModEditorWindow(QWidget):
 
     # --- Signal Handlers & Logic Delegation ---
     
+    def _on_swap_clicked(self, *_) -> None:
+        state_a = self.state_combo.currentData()
+        state_b = self.swap_combo.currentData()
+        
+        if not state_a or not state_b or state_a == state_b:
+            return
+            
+        # Fetch both configurations
+        meta_a = self.controller.get_meta(state_a)
+        meta_b = self.controller.get_meta(state_b)
+        
+        # Swap them in the controller
+        self.controller.update_meta(state_a, meta_b)
+        self.controller.update_meta(state_b, meta_a)
+        
+        # Refresh the UI to show the new mapped rows
+        self._refresh_state_dropdown()
+        self._on_state_changed()
+        
+        # Reset preview
+        self._preview_frame = 0
+        self._update_preview()
+    
     def _on_behavior_edited(self, *_) -> None:
         if self._is_updating_ui: return
         self.controller.update_behavior(self.can_fly_check.isChecked())
 
     def _refresh_state_dropdown(self) -> None:
+        # Remember the currently selected state
+        current_state = self.state_combo.currentData()
+        
         self.state_combo.blockSignals(True)
         self.state_combo.clear()
         
-        for state in PetState:
+        target_index = 0
+        for i, state in enumerate(PetState):
             exists, row = self.controller.has_mapped_row(state)
             row_text = f"[Row {row}]" if exists else "[Missing!]"
             self.state_combo.addItem(f"{state.value.capitalize()} {row_text}", userData=state)
             
+            # Find the index of our cached state
+            if state == current_state:
+                target_index = i
+                
+        # Restore the selection
+        self.state_combo.setCurrentIndex(target_index)
         self.state_combo.blockSignals(False)
     
     def _refresh_dynamic_info(self) -> None:
