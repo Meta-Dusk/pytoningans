@@ -70,7 +70,7 @@ QWidget#ToolTipLabel {
 
 QWidget#CustomTitleBar {
     background-color: #e5e5e5;
-    border-bottom: 1px solid #d1d1d1; 
+    border: 1px solid #b0b0b0;
 }
 
 QLabel#TitleBarText {
@@ -199,7 +199,7 @@ QWidget#ToolTipLabel {
 
 QWidget#CustomTitleBar {
     background-color: #1a1a1a;
-    border-bottom: 1px solid #333333; 
+    border: 1px solid #4a4a4a;
 }
 
 QLabel#TitleBarText {

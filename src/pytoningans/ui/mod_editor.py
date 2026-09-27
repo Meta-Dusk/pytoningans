@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QPushButton, QFormLayout, QMessageBox, QFrame, QCheckBox
 )
 from PySide6.QtCore import QTimer, Qt
+from PySide6.QtGui import QGuiApplication
 
 from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import PetState, AnimationMeta
@@ -86,22 +87,24 @@ class ModEditorWindow(QWidget):
     # --- UI Construction Helpers ---
 
     def _setup_ui(self) -> None:
-        # Strip the OS window frame
+        # Strip the OS window frame and resize for a horizontal layout
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.resize(450, 650)
+        self.resize(850, 580)
+        
         self.main_layout: QVBoxLayout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
         
-        self.title_bar: CustomTitleBar = CustomTitleBar(self, "Mod Editor")
+        self.title_bar = CustomTitleBar(self, "Mod Editor")
         self.main_layout.addWidget(self.title_bar)
         
-        # Create a container with padding for the rest of the UI
+        # Create the padded content container
         content_widget = QWidget()
         self.content_layout = QVBoxLayout(content_widget)
         self.content_layout.setContentsMargins(20, 15, 20, 20)
         self.content_layout.setSpacing(10)
 
+        # Top Span (Header and Banner)
         self._build_header()
         
         self.sheet_info_label = QLabel("Sheet: -- x -- px | Base Tile: -- x -- px")
@@ -109,17 +112,31 @@ class ModEditorWindow(QWidget):
         self.sheet_info_label.setObjectName("BannerText")
         self.content_layout.addWidget(self.sheet_info_label)
 
+        # Horizontal Split
+        split_layout = QHBoxLayout()
+        self.left_layout = QVBoxLayout()
+        self.right_layout = QVBoxLayout()
+        
+        split_layout.addLayout(self.left_layout, stretch=1)
+        split_layout.addLayout(self.right_layout, stretch=1)
+        
+        self.content_layout.addLayout(split_layout)
+
+        # Build Components (Now they will route to left/right layouts)
         self._build_mod_selection()
         self._build_global_settings()
-        self._build_state_overrides()
         self._build_preview_area()
+        self._build_state_overrides()
 
-        self.save_btn: QPushButton = QPushButton("Save config.json")
+        # Bottom Span (Save Button)
+        self.save_btn = QPushButton("Save config.json")
         self.save_btn.clicked.connect(self._save_changes)
         self.content_layout.addWidget(self.save_btn)
         
-        # Add the padded container to the main window
         self.main_layout.addWidget(content_widget)
+        
+        # Center the window before it draws
+        self._center_window()
 
     def _build_header(self) -> None:
         info_label = QLabel(
@@ -136,7 +153,7 @@ class ModEditorWindow(QWidget):
         self.mod_combo = QComboBox()
         self.mod_combo.currentTextChanged.connect(self._on_mod_changed)
         layout.addWidget(self.mod_combo)
-        self.content_layout.addLayout(layout)
+        self.left_layout.addLayout(layout)
 
     def _build_global_settings(self) -> None:
         layout = QFormLayout()
@@ -156,7 +173,7 @@ class ModEditorWindow(QWidget):
         layout.addRow(lbl_cols, self.global_cols_spin)
         layout.addRow(lbl_rows, self.global_rows_spin)
         layout.addRow("", self.can_fly_check)
-        self.content_layout.addLayout(layout)
+        self.left_layout.addLayout(layout)
 
     def _build_state_overrides(self) -> None:
         layout = QHBoxLayout()
@@ -233,7 +250,7 @@ class ModEditorWindow(QWidget):
             "Playback Speed (FPS):", "How fast the animation plays. Higher means faster."
         ), self.fps_spin)
         
-        self.content_layout.addLayout(form)
+        self.right_layout.addLayout(form)
 
     def _build_preview_area(self) -> None:
         layout = QVBoxLayout()
@@ -252,7 +269,7 @@ class ModEditorWindow(QWidget):
         layout.addWidget(title)
         layout.addWidget(self.preview_label)
         layout.addWidget(self.restart_btn)
-        self.content_layout.addLayout(layout)
+        self.left_layout.addLayout(layout)
 
     def _create_spinbox(
         self, min_val: int, max_val: int, callback: Callable, special_text: Optional[str] = None
@@ -486,3 +503,12 @@ class ModEditorWindow(QWidget):
         """Forces the animation sequence to start from the beginning."""
         self._preview_frame = -1
         self._update_preview()
+    
+    def _center_window(self) -> None:
+        """Centers the window on the primary screen."""
+        screen = QGuiApplication.primaryScreen()
+        if screen:
+            screen_geom = screen.availableGeometry()
+            window_geom = self.frameGeometry()
+            window_geom.moveCenter(screen_geom.center())
+            self.move(window_geom.topLeft())
