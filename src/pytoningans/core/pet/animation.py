@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
-
+from typing import TYPE_CHECKING, Optional, Dict, Tuple
 from PySide6.QtGui import QTransform, QPixmap
 
 from pytoningans.core.constants import PetState
@@ -15,8 +14,13 @@ class AnimationSystem:
         self.current_frame = 0
         self.time_since_last_frame = 0
         
-        # # Force initial draw
-        # self.pet.mod_manager.animations.get(self.pet.state)
+        # Cache for flipped frames to prevent C++ memory leaks
+        self._flipped_cache: Dict[Tuple[PetState, int], QPixmap] = {}
+        
+        # Clear the placeholder text
+        self.pet.sprite_label.setStyleSheet("")
+        self.pet.sprite_label.setText("")
+        
         self._update_frame()
 
     def update(self, dt: int) -> None:
@@ -48,9 +52,13 @@ class AnimationSystem:
         if frame is None: return
         # Mirror the frame horizontally if facing left
         if self.pet.facing_left:
-            frame = frame.transformed(QTransform().scale(-1, 1))
+            cache_key = (self.pet.state, self.current_frame)
+            
+            # Generate the flipped C++ pixmap only once and cache it
+            if cache_key not in self._flipped_cache:
+                self._flipped_cache[cache_key] = frame.transformed(QTransform().scale(-1, 1))
+                
+            frame = self._flipped_cache[cache_key]
 
         self.pet.sprite_label.setPixmap(frame)
-        self.pet.sprite_label.setStyleSheet("")
-        self.pet.sprite_label.setText("")
-        self.pet.resize(frame.width(), frame.height())
+        if self.pet.size() != frame.size(): self.pet.resize(frame.size())

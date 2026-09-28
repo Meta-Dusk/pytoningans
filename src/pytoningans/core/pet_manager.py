@@ -35,12 +35,14 @@ class PetManager:
         pet: PetWindow = PetWindow(x, y, pet_mod, self)
         pet.show()
         
-        # --- MODDER API HOOK ---
+        self._on_spawn(pet)
+        self.active_pets.append(pet)
+
+    def _on_spawn(self, pet: PetWindow) -> None:
+        """Modding API hook."""
         pet_api = cast(IPet, pet)
         if pet.mod_manager.custom_behavior:
             pet.mod_manager.custom_behavior.on_spawn(pet_api)
-            
-        self.active_pets.append(pet)
     
     def remove_pet(self, pet: PetWindow) -> None:
         """Unregisters the pet from memory when closed."""

@@ -79,8 +79,7 @@ class PetWindow(QWidget):
     
     def update_systems(self, dt: int) -> None:
         """Called every frame by the PetManager's global tick."""
-        if self.is_paused:
-            return # Completely freeze all logic while right-clicked
+        if self.is_paused: return
             
         if self.is_dead:
             # Let the dying animation finish and allow physics to drop the pet to the ground
@@ -108,6 +107,10 @@ class PetWindow(QWidget):
         self._target_pos = None
         
         # --- MODDERS API HOOK ---
+        self._on_die()
+
+    def _on_die(self) -> None:
+        """Modding API hook."""
         if self.mod_manager.custom_behavior:
             pet_api = cast(IPet, self)
             self.mod_manager.custom_behavior.on_death(pet_api)
@@ -117,8 +120,10 @@ class PetWindow(QWidget):
         self.current_health = self.mod_manager.max_health
         self.is_dead = False
         self.anim_sys.set_state(PetState.IDLE)
-        
-        # --- MODDERS API HOOK ---
+        self._on_revive()
+
+    def _on_revive(self) -> None:
+        """Modding API hook."""
         if self.mod_manager.custom_behavior:
             pet_api = cast(IPet, self)
             self.mod_manager.custom_behavior.on_revive(pet_api)

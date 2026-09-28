@@ -143,7 +143,10 @@ class ModManager:
                     if hasattr(module, "Behavior"):
                         self.custom_behavior = module.Behavior()
                     else:
-                        print(f"Warning: {mod_folder_name}/behavior.py is missing the 'Behavior' class.")
+                        print(
+                            f"Warning: {mod_folder_name}/behavior.py "
+                            "is missing the 'Behavior' class, using defaults."
+                        )
             except Exception as e:
                 print(f"Failed to load behavior.py for {mod_folder_name}: {e}")
 
