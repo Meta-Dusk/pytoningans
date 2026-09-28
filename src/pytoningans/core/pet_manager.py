@@ -1,3 +1,4 @@
+import ctypes
 from typing import List, cast
 
 from PySide6.QtCore import QTimer, QElapsedTimer
@@ -8,10 +9,34 @@ from pytoningans.core.api import IPet
 from pytoningans.core.pet.animation import AnimationSystem
 from pytoningans.core.mod_manager import ModManager
 
+def get_visible_windows() -> List[str]:
+    """Queries the OS for all currently visible window titles."""
+    EnumWindows = ctypes.windll.user32.EnumWindows
+    EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
+    GetWindowText = ctypes.windll.user32.GetWindowTextW
+    GetWindowTextLength = ctypes.windll.user32.GetWindowTextLengthW
+    IsWindowVisible = ctypes.windll.user32.IsWindowVisible
+
+    titles: List[str] = []
+    def foreach_window(hwnd, lParam):
+        if IsWindowVisible(hwnd):
+            length = GetWindowTextLength(hwnd)
+            if length > 0:
+                buff = ctypes.create_unicode_buffer(length + 1)
+                GetWindowText(hwnd, buff, length + 1)
+                titles.append(buff.value)
+        return True
+        
+    EnumWindows(EnumWindowsProc(foreach_window), 0)
+    return titles
+
 class PetManager:
     def __init__(self, mod_manager: ModManager) -> None:
         self.mod_manager: ModManager = mod_manager
         self.active_pets: List[PetWindow] = []
+        
+        self.active_window_titles: List[str] = []
+        self.vision_accumulator: int = 0
         
         # Central Game Loop
         self.clock = QElapsedTimer()
@@ -25,6 +50,12 @@ class PetManager:
     def _global_tick(self) -> None:
         """The heartbeat of the entire application."""
         dt = self.clock.restart()
+        
+        # Environmental Vision
+        self.vision_accumulator += dt
+        if self.vision_accumulator >= 3000:
+            self.vision_accumulator = 0
+            self.active_window_titles = get_visible_windows()
         
         # Update all systems for all active pets
         for pet in list(self.active_pets):

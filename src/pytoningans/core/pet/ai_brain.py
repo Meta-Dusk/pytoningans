@@ -53,6 +53,7 @@ class AISystem:
         # Trigger roaming AI every 2.5 seconds
         if self.decision_accumulator >= 2500:
             self.decision_accumulator = 0
+            if self._check_environment(): return
             self._ai_decision_tick()
             
         # Priority 1: Check for enemies in range
@@ -217,3 +218,50 @@ class AISystem:
         self.interact_time_left = 3000 
         self.interaction_cooldown = 6000
         self.pet.anim_sys.set_state(PetState.INTERACT)
+    
+    def _check_environment(self) -> bool:
+        """Evaluates active windows and triggers personality dialogue. Returns True if speaking."""
+        # Prevent overlapping dialogues
+        if hasattr(self.pet, 'bubble') and self.pet.bubble.isVisible(): 
+            return False
+        
+        if random.random() < 0.5: return False
+            
+        windows = self.pet.pet_manager.active_window_titles
+        
+        # --- Dynamic Environmental Triggers ---
+        for trigger in self.pet.mod_manager.window_triggers:
+            target_title = trigger.get("title", "")
+            
+            # Check if this trigger's target title matches any open window
+            if any(target_title in window for window in windows):
+                chance = trigger.get("chance", 1.0)
+                
+                # Roll the dice against the configured probability
+                if random.random() < chance:
+                    text = trigger.get("text", "...")
+                    duration = trigger.get("duration", 4000)
+                    
+                    self._trigger_dialogue(text, duration)
+                    return True
+
+        # --- Dynamic Personality Barks ---
+        if random.random() < 0.05:
+            # Match the pet's current behavior type to the JSON keys
+            behavior_key = self.pet.mod_manager.behavior_type.value
+            
+            phrases = self.pet.mod_manager.dialogue_barks.get(behavior_key)
+            if phrases:
+                self._trigger_dialogue(random.choice(phrases), 3000)
+                return True
+            
+        return False
+        
+    def _trigger_dialogue(self, text: str, duration_ms: int) -> None:
+        """Helper to push text to the UI and freeze movement."""
+        if hasattr(self.pet, 'bubble'):
+            self.pet.bubble.speak(text, duration_ms)
+            self.pet.anim_sys.set_state(PetState.IDLE)
+            self.pet._target_pos = None
+            self.pet.bubble.update_position()
+            self.pet.raise_()

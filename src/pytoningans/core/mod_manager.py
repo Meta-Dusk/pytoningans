@@ -10,7 +10,7 @@ from PySide6.QtCore import QRect
 from pytoningans.core.constants import PetState, AnimationMeta, BehaviorType
 from pytoningans.core.api import BasePetBehavior
 
-CURRENT_CONFIG_VERSION = 5
+CURRENT_CONFIG_VERSION = 6
 
 type CacheKey = Tuple[str, PetState, int]
 
@@ -40,6 +40,9 @@ class ModManager:
         self.animations: Dict[PetState, AnimationMeta] = {}
         self._global_sheet: Optional[QPixmap] = None
         self.custom_behavior: Optional[BasePetBehavior] = None
+        
+        self.dialogue_barks: Dict[str, List[str]] = {}
+        self.window_triggers: List[Dict[str, Any]] = []
         
         self._scaffold_modding_api()
         
@@ -104,6 +107,18 @@ class ModManager:
                 state: AnimationMeta(row=i, start_frame=0, end_frame=3)
                 for i, state in enumerate(PetState)
             }
+            
+            self.dialogue_barks = {
+                "hostile": ["Who are you looking at?", "I choose violence.", "Click me, I dare you."],
+                "neutral": ["Just hanging out.", "Lovely weather on this desktop.", "Need a break?"],
+                "passive": ["...", "*yawn*", "*stares into the void*"]
+            }
+            self.window_triggers = [
+                {"title": "secret_diary.txt", "text": "Are you writing about me?", "duration": 4000, "chance": 1.0},
+                {"title": "Visual Studio Code", "text": "Writing bugs or features today?", "duration": 4000, "chance": 0.1},
+                {"title": "Godot", "text": "Stacking 3D objects again?", "duration": 4000, "chance": 0.1},
+                {"title": "Minecraft", "text": "Automating with the Create mod?", "duration": 4000, "chance": 0.1}
+            ]
             self.save_mod_config(mod_folder_name, self.current_mod_name)
         else:
             with open(config_path, "r", encoding="utf-8") as f:
@@ -143,6 +158,12 @@ class ModManager:
                     self.animations[state] = AnimationMeta(**raw_meta)
                 else:
                     self.animations[state] = AnimationMeta(row=0, start_frame=0, end_frame=0)
+            
+            dialogue_data = data.get("dialogue", {})
+            self.dialogue_barks = dialogue_data.get("barks", {
+                "hostile": ["..."], "neutral": ["..."], "passive": ["..."]
+            })
+            self.window_triggers = dialogue_data.get("window_triggers", [])
         
         self.custom_behavior = None # Reset any previously loaded script
         self._compile_behavior_mod(mod_folder_name, mod_path)
@@ -194,6 +215,10 @@ class ModManager:
             # Because self.animations is strictly Enums, .value works safely
             "animations": {
                 state.value: asdict(meta) for state, meta in self.animations.items()
+            },
+            "dialogue": {
+                "barks": self.dialogue_barks,
+                "window_triggers": self.window_triggers
             }
         }
         

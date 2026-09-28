@@ -4,12 +4,13 @@ from typing import Optional, TYPE_CHECKING, cast
 
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMenu, QGraphicsColorizeEffect
 from PySide6.QtCore import Qt, QPoint
-from PySide6.QtGui import QMouseEvent, QContextMenuEvent, QColor
+from PySide6.QtGui import QMouseEvent, QContextMenuEvent, QColor, QMoveEvent
 
-from pytoningans.core.constants import WINDOW_CFG, PetState
+from pytoningans.core.constants import WINDOW_CFG, AnimationMeta, PetState, SystemLocks
 from pytoningans.core.pet.animation import AnimationSystem
 from pytoningans.core.pet.physics import PhysicsSystem
 from pytoningans.core.pet.ai_brain import AISystem
+from pytoningans.core.pet.speech_bubble import SpeechBubble
 from pytoningans.core.api import IPet
 
 if TYPE_CHECKING:
@@ -38,7 +39,6 @@ class PetWindow(QWidget):
         self.damage_tint_time_left: int = 0
         
         self.velocity_y: float = 0.0
-        self.enable_gravity: bool = True
         self._target_pos: Optional[QPoint] = None
         self._drag_offset: Optional[QPoint] = None
 
@@ -48,6 +48,9 @@ class PetWindow(QWidget):
         self.anim_sys = AnimationSystem(self)
         self.physics_sys = PhysicsSystem(self)
         self.ai_sys = AISystem(self)
+        self.bubble = SpeechBubble(self)
+        self.locks = SystemLocks()
+        self.revive_time_left: int = 0
 
     @property
     def is_interactable(self) -> bool:
@@ -92,6 +95,15 @@ class PetWindow(QWidget):
     
     def update_systems(self, dt: int) -> None:
         """Called every frame by the PetManager's global tick."""
+        if self.is_paused: return
+        
+        if self.revive_time_left > 0:
+            self.revive_time_left -= dt
+            if self.revive_time_left <= 0:
+                self.anim_sys.set_state(PetState.IDLE)
+                self.locks.ai = True
+                self.locks.physics = True
+                
         # Handle the red damage flash fade-out
         if self.damage_tint_time_left > 0:
             self.damage_tint_time_left -= dt
@@ -101,8 +113,6 @@ class PetWindow(QWidget):
                 # Calculate a linear fade from 0.7 (70% opacity) down to 0.0 over 300ms
                 fade_strength = 0.7 * (self.damage_tint_time_left / 300.0)
                 self.tint_effect.setStrength(fade_strength)
-                
-        if self.is_paused: return
             
         if self.is_dead:
             # Let the dying animation finish and allow physics to drop the pet to the ground
@@ -110,9 +120,9 @@ class PetWindow(QWidget):
             self.physics_sys.update(dt)
             return
             
-        self.ai_sys.update(dt)
-        self.physics_sys.update(dt)
-        self.anim_sys.update(dt)
+        if self.locks.ai: self.ai_sys.update(dt)
+        if self.locks.physics: self.physics_sys.update(dt)
+        if self.locks.animation: self.anim_sys.update(dt)
     
     # --- Core Actions ---
     def take_damage(self, amount: int) -> None:
@@ -152,15 +162,31 @@ class PetWindow(QWidget):
 
     def revive(self) -> None:
         if not self.is_dead: return
+        
         self.current_health = self.mod_manager.max_health
         self.is_dead = False
-        self.anim_sys.set_state(PetState.IDLE)
+        
+        anim_meta: AnimationMeta | None = self.mod_manager.animations.get(PetState.REVIVING)
+        
+        if anim_meta:
+            # Calculate: total_frames * ms_per_frame
+            total_frames: int = (anim_meta.end_frame - anim_meta.start_frame) + 1
+            ms_per_frame: int = 1000 // max(1, anim_meta.fps)
+            
+            self.revive_time_left = total_frames * ms_per_frame
+            self.anim_sys.set_state(PetState.REVIVING)
+            
+            # Lock systems so the pet doesn't slide or attack while standing up
+            self.locks.ai = False
+            self.locks.physics = False
+        else:
+            self.anim_sys.set_state(PetState.IDLE)
         self._on_revive()
 
     def _on_revive(self) -> None:
         """Modding API hook."""
         if self.mod_manager.custom_behavior:
-            pet_api = cast(IPet, self)
+            pet_api: IPet = cast(IPet, self)
             self.mod_manager.custom_behavior.on_revive(pet_api)
 
     # --- OS Events ---
@@ -169,7 +195,7 @@ class PetWindow(QWidget):
             self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             if not self.is_dead:
                 self.anim_sys.set_state(PetState.DRAG)
-            self.enable_gravity = False
+            self.locks.physics = False
             event.accept()
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
@@ -182,7 +208,7 @@ class PetWindow(QWidget):
             self._drag_offset = None
             if not self.is_dead:
                 self.anim_sys.set_state(PetState.IDLE)
-            self.enable_gravity = True
+            self.locks.physics = True
             event.accept()
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
@@ -208,8 +234,14 @@ class PetWindow(QWidget):
         
         # Unfreeze after the user clicks away or selects an option
         self.is_paused = False
-
+    
+    # --- Other Events ---
     def _close_pet(self) -> None:
         """Safely unregisters the window before destroying it."""
+        self.bubble.close()
         self.pet_manager.remove_pet(self)
         self.close()
+    
+    def moveEvent(self, event: QMoveEvent) -> None:
+        super().moveEvent(event)
+        self.bubble.update_position()

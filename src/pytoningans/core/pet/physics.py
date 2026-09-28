@@ -19,7 +19,7 @@ class PhysicsSystem:
 
     def update(self, dt: int) -> None:
         """Processes physics calculations based on elapsed time."""
-        if not self.pet.enable_gravity:
+        if not self.pet.locks.physics:
             self.pet.velocity_y = 0
             return
 

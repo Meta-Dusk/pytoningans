@@ -58,6 +58,12 @@ class ModConfig:
 class AppConfig:
     app_name: str = "PyToNingans"
 
+@dataclass
+class SystemLocks:
+    ai: bool = True
+    physics: bool = True
+    animation: bool = True
+
 WINDOW_CFG = WindowConfig()
 MOD_CFG = ModConfig()
 APP_CFG = AppConfig()

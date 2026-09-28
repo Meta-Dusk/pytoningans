@@ -30,7 +30,7 @@ class CollapsibleSection(QWidget):
                 text-align: left;
                 font-weight: bold;
                 font-size: 16px;
-                font-family: 'Pixel Code', -apple-system, sans-serif;
+                font-family: 'Pixel Code', monospace;
                 padding: 6px; background-color: rgba(150, 150, 150, 40);
                 border-radius: 4px;
             }
