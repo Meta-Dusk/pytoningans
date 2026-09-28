@@ -133,6 +133,7 @@ class PetWindow(QWidget):
         
         self.damage_tint_time_left = 300
         self.tint_effect.setStrength(0.85)
+        # TODO: Add Modding API hook here
         
         if self.current_health <= 0:
             self.die()
@@ -143,6 +144,7 @@ class PetWindow(QWidget):
         
         self.velocity_y = -self.mod_manager.jump_height
         self.anim_sys.set_state(PetState.JUMPING)
+        # TODO: Add Modding API hook here
 
     def die(self) -> None:
         if self.is_dead: return
@@ -154,12 +156,6 @@ class PetWindow(QWidget):
         
         # --- MODDERS API HOOK ---
         self._on_die()
-
-    def _on_die(self) -> None:
-        """Modding API hook."""
-        if self.mod_manager.custom_behavior:
-            pet_api = cast(IPet, self)
-            self.mod_manager.custom_behavior.on_death(pet_api)
 
     def revive(self) -> None:
         if not self.is_dead: return
@@ -184,12 +180,19 @@ class PetWindow(QWidget):
             self.anim_sys.set_state(PetState.IDLE)
         self._on_revive()
 
+    # --- Modding API Hooks ---
+    def _on_die(self) -> None:
+        """Modding API hook."""
+        if self.mod_manager.custom_behavior:
+            pet_api = cast(IPet, self)
+            self.mod_manager.custom_behavior.on_death(pet_api)
+    
     def _on_revive(self) -> None:
         """Modding API hook."""
         if self.mod_manager.custom_behavior:
             pet_api: IPet = cast(IPet, self)
             self.mod_manager.custom_behavior.on_revive(pet_api)
-
+    
     # --- OS Events ---
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -256,3 +259,4 @@ class PetWindow(QWidget):
         self.bubble.speak(text, 4000)
         self.anim_sys.set_state(PetState.IDLE)
         self._target_pos = None
+        # TODO: Add Modding API hook here
