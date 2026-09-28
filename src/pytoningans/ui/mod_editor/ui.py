@@ -5,12 +5,72 @@ from PySide6.QtWidgets import (
     QPushButton, QFormLayout, QFrame, QCheckBox, QScrollArea, QSizeGrip,
     QListWidget, QDialog, QLineEdit, QDoubleSpinBox, QDialogButtonBox
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QRect
 from PySide6.QtGui import QPaintEvent, QPainter, QPen, QColor
 
 from pytoningans.core.constants import PetState, BehaviorType
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
+
+class PreviewLabel(QLabel):
+    """Custom label that draws debug borders and cropping overlays."""
+    def __init__(self) -> None:
+        super().__init__()
+        self.show_borders: bool = False
+        self.show_crop: bool = False
+        self.crop_rect: QRect = QRect()
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        super().paintEvent(event)
+        if not self.pixmap(): return
+        
+        painter = QPainter(self)
+        px_w: int = self.pixmap().width()
+        px_h: int = self.pixmap().height()
+        
+        # QLabel AlignCenter offsets the pixmap to the middle of the widget
+        offset_x: int = (self.width() - px_w) // 2
+        offset_y: int = (self.height() - px_h) // 2
+        
+        # --- BLUE DEBUG BORDER ---
+        if self.show_borders:
+            painter.setPen(QPen(QColor(0, 150, 255), 2, Qt.PenStyle.DashLine))
+            painter.drawRect(offset_x, offset_y, px_w - 1, px_h - 1)
+            
+        # --- RED CROP OVERLAY ---
+        if self.show_crop and not self.crop_rect.isNull():
+            painter.setPen(QPen(QColor(255, 0, 0), 2, Qt.PenStyle.SolidLine))
+            cx: int = offset_x + self.crop_rect.x()
+            cy: int = offset_y + self.crop_rect.y()
+            cw: int = self.crop_rect.width()
+            ch: int = self.crop_rect.height()
+            
+            painter.drawRect(cx, cy, cw - 1, ch - 1)
+            
+            # Dim the cropped-out areas to make the red box pop
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(0, 0, 0, 120))
+            
+            # Top
+            painter.drawRect(
+                offset_x, offset_y,
+                px_w, self.crop_rect.y()
+            )
+            # Bottom
+            painter.drawRect(
+                offset_x, offset_y + self.crop_rect.y() + ch,
+                px_w, px_h - self.crop_rect.y() - ch
+            )
+            # Left
+            painter.drawRect(
+                offset_x, offset_y + self.crop_rect.y(),
+                self.crop_rect.x(), ch
+            )
+            # Right
+            painter.drawRect(
+                offset_x + self.crop_rect.x() + cw, offset_y + self.crop_rect.y(),
+                px_w - self.crop_rect.x() - cw, ch
+            )
 
 class TriggerDialog(QDialog):
     """A custom popup form to gather all window trigger variables."""
@@ -178,6 +238,7 @@ class ModEditorUI:
         self._build_state_overrides()
         self._build_behavior_options()
         self._build_dialogue_settings()
+        self._build_debug_settings()
 
         self.main_layout.addWidget(content_widget, stretch=1)
         
@@ -331,7 +392,7 @@ class ModEditorUI:
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setObjectName("PreviewTitle")
         
-        self.preview_label = QLabel()
+        self.preview_label = PreviewLabel()
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_label.setMinimumHeight(150)
         self.preview_label.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Sunken)
@@ -398,6 +459,19 @@ class ModEditorUI:
         
         section.content_layout.addLayout(layout)
         self.right_layout.addWidget(section)
+    
+    def _build_debug_settings(self) -> None:
+        section = CollapsibleSection("Debug Settings")
+        layout = QVBoxLayout()
+        
+        self.debug_borders_check = QCheckBox("Show Sprite Borders (Blue)")
+        self.debug_crop_check = QCheckBox("Show Cropping Overlay (Red Box)")
+        
+        layout.addWidget(self.debug_borders_check)
+        layout.addWidget(self.debug_crop_check)
+        
+        section.content_layout.addLayout(layout)
+        self.left_layout.addWidget(section)
     
     def _create_spinbox(self, min_val: int, max_val: int, special_text: Optional[str] = None) -> QSpinBox:
         spin = QSpinBox()

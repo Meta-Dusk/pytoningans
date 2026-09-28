@@ -81,6 +81,9 @@ class ModEditorWindow(QWidget):
         self.ui.del_trigger_btn.clicked.connect(self._on_remove_window_trigger)
         self.ui.edit_plain_btn.clicked.connect(self._on_edit_plain_dialogue)
         self.ui.edit_trigger_btn.clicked.connect(self._on_edit_window_trigger)
+        
+        self.ui.debug_borders_check.stateChanged.connect(self._on_debug_borders_toggled)
+        self.ui.debug_crop_check.stateChanged.connect(self._on_debug_crop_toggled)
 
     # --- Signal Handlers & Logic Delegation ---
     
@@ -269,7 +272,13 @@ class ModEditorWindow(QWidget):
         current_state = PetState(raw_state)
         
         self._preview_frame += 1
-        frame: Optional[QPixmap] = self.controller.get_frame(current_state, self._preview_frame)
+        if self.ui.preview_label.show_crop:
+            # Fetch the raw, uncropped tile and pass the crop coordinates to the label
+            frame, crop_rect = self.controller.get_raw_preview(current_state, self._preview_frame)
+            self.ui.preview_label.crop_rect = crop_rect
+        else:
+            # Fetch the final engine-ready frame
+            frame = self.controller.get_frame(current_state, self._preview_frame)
         
         if frame is not None:
             self.ui.preview_label.setPixmap(frame)
@@ -495,3 +504,11 @@ class ModEditorWindow(QWidget):
             current_item.setData(Qt.ItemDataRole.UserRole, new_data) 
             
             self._save_trigger_state()
+    
+    def _on_debug_borders_toggled(self, checked: bool) -> None:
+        self.ui.preview_label.show_borders = checked
+        self.ui.preview_label.update() # Force repaint
+        
+    def _on_debug_crop_toggled(self, checked: bool) -> None:
+        self.ui.preview_label.show_crop = checked
+        self._update_preview() # Force the timer loop to refresh the image instantly

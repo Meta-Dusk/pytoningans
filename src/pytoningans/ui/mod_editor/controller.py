@@ -1,4 +1,6 @@
-from typing import Tuple, Any
+from typing import Tuple, Any, Optional
+from PySide6.QtCore import QRect
+from PySide6.QtGui import QPixmap
 
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.constants import PetState, AnimationMeta
@@ -72,3 +74,35 @@ class ModEditorController:
         self.manager.attack_damage = stats.get("attack_damage", self.manager.attack_damage)
         self.manager.attack_range = stats.get("attack_range", self.manager.attack_range)
         self.manager.jump_height = stats.get("jump_height", self.manager.jump_height)
+    
+    def get_raw_preview(self, state: PetState, frame_index: int) -> Tuple[Optional[QPixmap], QRect]:
+        """Returns the uncropped base tile and the QRect representing the custom crop area."""
+        sheet = self.manager._global_sheet
+        if not sheet: return None, QRect()
+        
+        meta = self.manager.animations.get(state)
+        if not meta: return None, QRect()
+        
+        # Determine actual frame index
+        total_frames = max(1, (meta.end_frame - meta.start_frame) + 1)
+        mapped = frame_index % total_frames if meta.loop else min(frame_index, total_frames - 1)
+        if meta.reverse:
+            mapped = (total_frames - 1) - mapped
+            
+        actual_sheet_index = meta.start_frame + mapped
+        
+        # Extract the raw grid tile (No offsets applied yet)
+        cols = max(1, self.manager.global_columns)
+        rows = max(1, self.manager.global_rows)
+        base_w = sheet.width() // cols
+        base_h = sheet.height() // rows
+        
+        raw_rect = QRect(actual_sheet_index * base_w, meta.row * base_h, base_w, base_h)
+        raw_tile = sheet.copy(raw_rect)
+        
+        # Calculate the target crop area boundaries
+        final_w = meta.override_width if meta.override_width > 0 else base_w
+        final_h = meta.override_height if meta.override_height > 0 else base_h
+        crop_rect = QRect(meta.offset_x, meta.offset_y, final_w, final_h)
+        
+        return raw_tile, crop_rect
