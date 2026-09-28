@@ -41,7 +41,7 @@ class ModManager:
         self._global_sheet: Optional[QPixmap] = None
         self.custom_behavior: Optional[BasePetBehavior] = None
         
-        self.dialogue_barks: Dict[str, List[str]] = {}
+        self.plain_dialogue: List[str] = []
         self.window_triggers: List[Dict[str, Any]] = []
         
         self._scaffold_modding_api()
@@ -108,16 +108,20 @@ class ModManager:
                 for i, state in enumerate(PetState)
             }
             
-            self.dialogue_barks = {
-                "hostile": ["Who are you looking at?", "I choose violence.", "Click me, I dare you."],
-                "neutral": ["Just hanging out.", "Lovely weather on this desktop.", "Need a break?"],
-                "passive": ["...", "*yawn*", "*stares into the void*"]
-            }
+            self.plain_dialogue = ["Just hanging out.", "Lovely weather.", "Need a break?"]
             self.window_triggers = [
-                {"title": "secret_diary.txt", "text": "Are you writing about me?", "duration": 4000, "chance": 1.0},
-                {"title": "Visual Studio Code", "text": "Writing bugs or features today?", "duration": 4000, "chance": 0.1},
-                {"title": "Godot", "text": "Stacking 3D objects again?", "duration": 4000, "chance": 0.1},
-                {"title": "Minecraft", "text": "Automating with the Create mod?", "duration": 4000, "chance": 0.1}
+                {
+                    "title_matches": ["secret_diary.txt", "diary - notepad"], 
+                    "text": "Are you writing about me?", 
+                    "duration": 4000, 
+                    "chance": 1.0
+                },
+                {
+                    "title_matches": ["visual studio code", "vscode", "code.exe"], 
+                    "text": "Writing bugs or features today?", 
+                    "duration": 4000, 
+                    "chance": 0.1
+                }
             ]
             self.save_mod_config(mod_folder_name, self.current_mod_name)
         else:
@@ -160,9 +164,7 @@ class ModManager:
                     self.animations[state] = AnimationMeta(row=0, start_frame=0, end_frame=0)
             
             dialogue_data = data.get("dialogue", {})
-            self.dialogue_barks = dialogue_data.get("barks", {
-                "hostile": ["..."], "neutral": ["..."], "passive": ["..."]
-            })
+            self.plain_dialogue = dialogue_data.get("plain_dialogue", ["..."])
             self.window_triggers = dialogue_data.get("window_triggers", [])
         
         self.custom_behavior = None # Reset any previously loaded script
@@ -217,7 +219,7 @@ class ModManager:
                 state.value: asdict(meta) for state, meta in self.animations.items()
             },
             "dialogue": {
-                "barks": self.dialogue_barks,
+                "plain_dialogue": self.plain_dialogue,
                 "window_triggers": self.window_triggers
             }
         }

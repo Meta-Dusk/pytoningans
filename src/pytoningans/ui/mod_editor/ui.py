@@ -2,7 +2,8 @@ from typing import Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLabel, QSpinBox,
-    QPushButton, QFormLayout, QFrame, QCheckBox, QScrollArea, QSizeGrip
+    QPushButton, QFormLayout, QFrame, QCheckBox, QScrollArea, QSizeGrip,
+    QListWidget, QDialog, QLineEdit, QDoubleSpinBox, QDialogButtonBox
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPaintEvent, QPainter, QPen, QColor
@@ -11,9 +12,60 @@ from pytoningans.core.constants import PetState, BehaviorType
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
 
+class TriggerDialog(QDialog):
+    """A custom popup form to gather all window trigger variables."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Add Window Trigger")
+        layout = QFormLayout(self)
+        
+        self.text_input = QLineEdit()
+        
+        self.matches_input = QLineEdit()
+        self.matches_input.setPlaceholderText("vscode, code.exe, visual studio")
+        
+        self.chance_spin = QDoubleSpinBox()
+        self.chance_spin.setRange(0.01, 1.0)
+        self.chance_spin.setSingleStep(0.1)
+        self.chance_spin.setValue(0.5)
+        
+        self.duration_spin = QSpinBox()
+        self.duration_spin.setRange(500, 20000)
+        self.duration_spin.setValue(4000)
+        
+        layout.addRow("Spoken Text:", self.text_input)
+        layout.addRow("Window Matches (comma-separated):", self.matches_input)
+        layout.addRow("Trigger Chance (0.01 to 1.0):", self.chance_spin)
+        layout.addRow("Duration (ms):", self.duration_spin)
+        
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        btns.accepted.connect(self.accept)
+        btns.rejected.connect(self.reject)
+        layout.addWidget(btns)
+
+    def get_data(self) -> dict:
+        # Clean up the comma-separated string into a proper list
+        matches = [m.strip() for m in self.matches_input.text().split(",") if m.strip()]
+        return {
+            "text": self.text_input.text().strip(),
+            "title_matches": matches,
+            "chance": self.chance_spin.value(),
+            "duration": self.duration_spin.value()
+        }
+    
+    def set_data(self, data: dict) -> None:
+        """Pre-fills the form fields for editing an existing trigger."""
+        self.text_input.setText(data.get("text", ""))
+        
+        matches = data.get("title_matches", [])
+        self.matches_input.setText(", ".join(matches))
+        
+        self.chance_spin.setValue(data.get("chance", 1.0))
+        self.duration_spin.setValue(data.get("duration", 4000))
+
 class CollapsibleSection(QWidget):
     """A reusable UI component that expands and collapses its contents."""
-    def __init__(self, title: str):
+    def __init__(self, title: str, checked: bool = False):
         super().__init__()
         self.title = title
         
@@ -43,6 +95,7 @@ class CollapsibleSection(QWidget):
         
         layout.addWidget(self.btn)
         layout.addWidget(self.content)
+        self._on_toggle(checked)
         
     def _on_toggle(self, checked: bool) -> None:
         self.content.setVisible(checked)
@@ -124,6 +177,7 @@ class ModEditorUI:
         self._build_behavior_settings()
         self._build_state_overrides()
         self._build_behavior_options()
+        self._build_dialogue_settings()
 
         self.main_layout.addWidget(content_widget, stretch=1)
         
@@ -300,6 +354,48 @@ class ModEditorUI:
         layout.addWidget(self.add_script_btn)
         layout.addWidget(self.edit_script_btn)
         layout.addWidget(self.delete_script_btn)
+        section.content_layout.addLayout(layout)
+        self.right_layout.addWidget(section)
+    
+    def _build_dialogue_settings(self) -> None:
+        section = CollapsibleSection("Dialogue & Speech")
+        layout = QVBoxLayout()
+        
+        # --- Plain Dialogue UI ---
+        layout.addWidget(self._create_info_label(
+            "Plain Dialogue:", "Randomly spoken, or triggered via 'Talk To'."
+        ))
+        self.plain_dialogue_list = QListWidget()
+        self.plain_dialogue_list.setMinimumHeight(100)
+        layout.addWidget(self.plain_dialogue_list)
+        
+        plain_btn_layout = QHBoxLayout()
+        self.add_plain_btn = QPushButton("+ Add Line")
+        self.edit_plain_btn = QPushButton("✎ Edit")
+        self.del_plain_btn = QPushButton("- Remove Line")
+        plain_btn_layout.addWidget(self.add_plain_btn)
+        plain_btn_layout.addWidget(self.edit_plain_btn)
+        plain_btn_layout.addWidget(self.del_plain_btn)
+        layout.addLayout(plain_btn_layout)
+        
+        # --- Window Triggers UI ---
+        layout.addSpacing(10)
+        layout.addWidget(self._create_info_label(
+            "Window Triggers:", "Displays as: Text | Matches | Chance (%)"
+        ))
+        self.window_triggers_list = QListWidget()
+        self.window_triggers_list.setMinimumHeight(150)
+        layout.addWidget(self.window_triggers_list)
+        
+        trigger_btn_layout = QHBoxLayout()
+        self.add_trigger_btn = QPushButton("+ Add Trigger")
+        self.edit_trigger_btn = QPushButton("✎ Edit")
+        self.del_trigger_btn = QPushButton("- Remove Trigger")
+        trigger_btn_layout.addWidget(self.add_trigger_btn)
+        trigger_btn_layout.addWidget(self.edit_trigger_btn)
+        trigger_btn_layout.addWidget(self.del_trigger_btn)
+        layout.addLayout(trigger_btn_layout)
+        
         section.content_layout.addLayout(layout)
         self.right_layout.addWidget(section)
     

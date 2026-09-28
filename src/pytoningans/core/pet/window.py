@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from typing import Optional, TYPE_CHECKING, cast
 
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMenu, QGraphicsColorizeEffect
@@ -225,9 +226,9 @@ class PetWindow(QWidget):
         menu.addSeparator()
         
         if not self.is_dead:
+            menu.addAction("Talk To", self.force_talk)
             menu.addAction("Force Jump", self.jump)
             menu.addAction("Kill Pet", self.die)
-            # TODO: Add "Talk to" option here
         else:
             menu.addAction("Revive Pet", self.revive)
             
@@ -246,3 +247,12 @@ class PetWindow(QWidget):
     def moveEvent(self, event: QMoveEvent) -> None:
         super().moveEvent(event)
         self.bubble.update_position()
+    
+    def force_talk(self) -> None:
+        """Forces the pet to say a random plain dialogue line."""
+        if self.is_dead or not self.mod_manager.plain_dialogue: return
+        
+        text: str = random.choice(self.mod_manager.plain_dialogue)
+        self.bubble.speak(text, 4000)
+        self.anim_sys.set_state(PetState.IDLE)
+        self._target_pos = None

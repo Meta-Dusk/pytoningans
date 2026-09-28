@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random, math
 
-from typing import TYPE_CHECKING, cast, Optional
+from typing import TYPE_CHECKING, cast, Optional, List
 from PySide6.QtCore import QPoint, QRect
 from PySide6.QtGui import QScreen
 
@@ -227,33 +227,26 @@ class AISystem:
         
         if random.random() < 0.5: return False
             
-        windows = self.pet.pet_manager.active_window_titles
+        windows: List[str] = self.pet.pet_manager.active_window_titles
         
         # --- Dynamic Environmental Triggers ---
         for trigger in self.pet.mod_manager.window_triggers:
-            target_title = trigger.get("title", "")
+            matches: List[str] = trigger.get("title_matches", [])
+            chance: float = trigger.get("chance", 1.0)
             
-            # Check if this trigger's target title matches any open window
-            if any(target_title in window for window in windows):
-                chance = trigger.get("chance", 1.0)
-                
-                # Roll the dice against the configured probability
+            # Check if ANY of the trigger words are in ANY of the open windows (case-insensitive)
+            if any(m.lower() in w.lower() for m in matches for w in windows):
                 if random.random() < chance:
-                    text = trigger.get("text", "...")
-                    duration = trigger.get("duration", 4000)
-                    
+                    text: str = trigger.get("text", "...")
+                    duration: int = trigger.get("duration", 4000)
                     self._trigger_dialogue(text, duration)
                     return True
 
-        # --- Dynamic Personality Barks ---
-        if random.random() < 0.05:
-            # Match the pet's current behavior type to the JSON keys
-            behavior_key = self.pet.mod_manager.behavior_type.value
-            
-            phrases = self.pet.mod_manager.dialogue_barks.get(behavior_key)
-            if phrases:
-                self._trigger_dialogue(random.choice(phrases), 3000)
-                return True
+        # --- Random Plain Dialogue ---
+        if random.random() < 0.05 and self.pet.mod_manager.plain_dialogue:
+            text: str = random.choice(self.pet.mod_manager.plain_dialogue)
+            self._trigger_dialogue(text, 3000)
+            return True
             
         return False
         
