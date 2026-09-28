@@ -3,7 +3,7 @@ from __future__ import annotations
 import random, math
 
 from typing import TYPE_CHECKING, cast
-from PySide6.QtCore import QTimer, QPoint
+from PySide6.QtCore import QPoint
 from PySide6.QtGui import QGuiApplication
 
 from pytoningans.core.constants import PetState
@@ -17,11 +17,19 @@ class AISystem:
         self.pet = pet
         self.interaction_cooldown: int = 0
         self.interact_ticks_left: int = 0
+        self.decision_accumulator: int = 0
+    
+    def update(self, dt: int) -> None:
+        """Processes AI logic based on elapsed time."""
+        self.decision_accumulator += dt
         
-        self.timer = QTimer(self.pet)
-        self.timer.timeout.connect(self._ai_decision_tick)
-        self.timer.start(2500)
-
+        # Trigger decision tick in ms
+        if self.decision_accumulator >= 2500:
+            self.decision_accumulator = 0
+            self._ai_decision_tick()
+            
+        self.check_interactions()
+    
     def _ai_decision_tick(self) -> None:
         if self.pet.state in (PetState.DRAG, PetState.INTERACT): return
 

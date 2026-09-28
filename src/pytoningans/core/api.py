@@ -3,7 +3,7 @@ PyToNingans Modding API Reference
 Open the 'mods' folder as a workspace in VS Code for full autocompletion.
 """
 from typing import Protocol, Optional, List
-from enum import Enum
+from enum import Enum, unique
 from dataclasses import dataclass
 
 @dataclass
@@ -11,14 +11,18 @@ class Pos2D:
     x: int
     y: int
 
+@unique
 class PetState(Enum):
     """The current animation and behavioral state of the pet."""
+    DRAG = "drag"
     IDLE = "idle"
+    CLICKED = "clicked"
+    INTERACT = "interact"
     MOVING = "moving"
     JUMPING = "jumping"
-    INTERACT = "interact"
-    DRAG = "drag"
     DYING = "dying"
+    CLIMBING = "climbing"
+    REVIVING = "reviving"
 
 class IPetManager(Protocol):
     """Provides access to the global pet ecosystem."""

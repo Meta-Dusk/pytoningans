@@ -3,7 +3,6 @@ from __future__ import annotations
 import math
 
 from typing import TYPE_CHECKING
-from PySide6.QtCore import QTimer
 from PySide6.QtGui import QGuiApplication
 
 from pytoningans.core.constants import PetState
@@ -16,12 +15,9 @@ class PhysicsSystem:
         self.pet = pet
         self.gravity = 0.8
         self.move_speed = 2.0
-        
-        self.timer = QTimer(self.pet)
-        self.timer.timeout.connect(self._physics_tick)
-        self.timer.start(16) # ~60 FPS
 
-    def _physics_tick(self) -> None:
+    def update(self, dt: int) -> None:
+        """Processes physics calculations based on elapsed time."""
         if not self.pet.enable_gravity:
             self.pet.velocity_y = 0
             return
@@ -30,13 +26,18 @@ class PhysicsSystem:
         if not screen: return
 
         ground_y = screen.availableGeometry().bottom()
+        
+        # Normalize delta time against the expected 60 FPS (~16.6ms)
+        time_scale = dt / 16.0 
+        current_gravity = self.gravity * time_scale
+        current_move_speed = self.move_speed * time_scale
 
         # Gravity & Collision
         if not self.pet.mod_manager.can_fly:
             pet_bottom = self.pet.geometry().bottom()
             
             if pet_bottom < ground_y or self.pet.velocity_y < 0:
-                self.pet.velocity_y += self.gravity
+                self.pet.velocity_y += current_gravity
                 new_y = int(self.pet.y() + self.pet.velocity_y)
                 
                 if new_y + self.pet.height() > ground_y:
@@ -71,13 +72,13 @@ class PhysicsSystem:
             dx, dy = target_x - curr_x, target_y - curr_y
             dist = math.hypot(dx, dy)
 
-            if dist < self.move_speed:
+            if dist < current_move_speed:
                 self.pet.move(target_x, target_y)
                 self.pet._target_pos = None
                 self.pet.anim_sys.set_state(PetState.IDLE)
             else:
-                step_x = int(curr_x + (dx / dist) * self.move_speed)
-                step_y = int(curr_y + (dy / dist) * self.move_speed) if self.pet.mod_manager.can_fly else curr_y
+                step_x = int(curr_x + (dx / dist) * current_move_speed)
+                step_y = int(curr_y + (dy / dist) * current_move_speed) if self.pet.mod_manager.can_fly else curr_y
                 
                 self.pet.facing_left = (dx < 0)
                 self.pet.move(step_x, step_y)

@@ -12,6 +12,7 @@ class PetState(StrEnum):
     JUMPING = "jumping"
     DYING = "dying"
     CLIMBING = "climbing"
+    REVIVING = "reviving"
 
 @dataclass(frozen=True)
 class WindowConfig:

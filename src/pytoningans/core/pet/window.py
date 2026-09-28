@@ -31,6 +31,7 @@ class PetWindow(QWidget):
         self.state: PetState = PetState.IDLE
         self.facing_left: bool = False
         self.is_dead: bool = False
+        self.is_paused: bool = False
         self.current_health: int = self.mod_manager.max_health
         
         self.velocity_y: float = 0.0
@@ -75,7 +76,22 @@ class PetWindow(QWidget):
         self.sprite_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.sprite_label.setStyleSheet(WINDOW_CFG.placeholder_style)
         layout.addWidget(self.sprite_label)
-
+    
+    def update_systems(self, dt: int) -> None:
+        """Called every frame by the PetManager's global tick."""
+        if self.is_paused:
+            return # Completely freeze all logic while right-clicked
+            
+        if self.is_dead:
+            # Let the dying animation finish and allow physics to drop the pet to the ground
+            self.anim_sys.update(dt)
+            self.physics_sys.update(dt)
+            return
+            
+        self.ai_sys.update(dt)
+        self.physics_sys.update(dt)
+        self.anim_sys.update(dt)
+    
     # --- Core Actions ---
     def jump(self) -> None:
         if self.is_dead or self.mod_manager.can_fly: return
@@ -89,8 +105,6 @@ class PetWindow(QWidget):
         self.current_health = 0
         self.is_dead = True
         self.anim_sys.set_state(PetState.DYING)
-        
-        self.ai_sys.timer.stop()
         self._target_pos = None
         
         # --- MODDERS API HOOK ---
@@ -103,7 +117,6 @@ class PetWindow(QWidget):
         self.current_health = self.mod_manager.max_health
         self.is_dead = False
         self.anim_sys.set_state(PetState.IDLE)
-        self.ai_sys.timer.start(2500)
         
         # --- MODDERS API HOOK ---
         if self.mod_manager.custom_behavior:
@@ -136,7 +149,9 @@ class PetWindow(QWidget):
         """Triggered automatically on right-click."""
         self._target_pos = None
         if not self.is_dead: self.anim_sys.set_state(PetState.IDLE)
-        self.ai_sys.timer.stop()
+        
+        # Freeze the systems while the menu is open
+        self.is_paused = True 
         
         menu = QMenu(self)
         menu.addAction("Close Pet", self._close_pet)
@@ -149,10 +164,11 @@ class PetWindow(QWidget):
             menu.addAction("Revive Pet", self.revive)
             
         menu.exec(event.globalPos())
-        if not self.is_dead: self.ai_sys.timer.start()
+        
+        # Unfreeze after the user clicks away or selects an option
+        self.is_paused = False
 
     def _close_pet(self) -> None:
-        """Safely stops timers and unregisters the window before destroying it."""
-        self.anim_sys.timer.stop()
+        """Safely unregisters the window before destroying it."""
         self.pet_manager.remove_pet(self)
         self.close()

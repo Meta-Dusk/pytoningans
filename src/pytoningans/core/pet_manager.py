@@ -1,5 +1,7 @@
 from typing import List, cast
 
+from PySide6.QtCore import QTimer, QElapsedTimer
+
 from pytoningans.core.pet.window import PetWindow
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.api import IPet
@@ -8,6 +10,23 @@ class PetManager:
     def __init__(self, mod_manager: ModManager) -> None:
         self.mod_manager: ModManager = mod_manager
         self.active_pets: List[PetWindow] = []
+        
+        # Central Game Loop
+        self.clock = QElapsedTimer()
+        self.timer = QTimer()
+        self.timer.timeout.connect(self._global_tick)
+        
+        # ~60 FPS (1000ms / 60 = ~16.6ms)
+        self.timer.start(16) 
+        self.clock.start()
+
+    def _global_tick(self) -> None:
+        """The heartbeat of the entire application."""
+        dt = self.clock.restart()
+        
+        # Update all systems for all active pets
+        for pet in list(self.active_pets):
+            pet.update_systems(dt)
 
     def spawn_pet(self, x: int, y: int, mod_folder: str) -> None:
         pet_mod = ModManager(self.mod_manager.mods_dir)
