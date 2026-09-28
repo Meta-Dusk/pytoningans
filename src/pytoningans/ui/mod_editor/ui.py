@@ -91,20 +91,33 @@ class ModEditorUI:
         self.content_layout.addWidget(self.sheet_info_label)
 
         split_layout = QHBoxLayout()
-        self.left_layout = QVBoxLayout()
         
+        # --- LEFT SCROLL AREA ---
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        left_scroll_content = QWidget()
+        
+        self.left_layout = QVBoxLayout(left_scroll_content)
+        self.left_layout.setAlignment(Qt.AlignmentFlag.AlignTop) # Packs elements at the top
+        left_scroll.setWidget(left_scroll_content)
+        
+        # --- RIGHT SCROLL AREA ---
         right_scroll = QScrollArea()
         right_scroll.setWidgetResizable(True)
         right_scroll.setFrameShape(QFrame.Shape.NoFrame)
         right_scroll_content = QWidget()
+        
         self.right_layout = QVBoxLayout(right_scroll_content)
+        self.right_layout.setAlignment(Qt.AlignmentFlag.AlignTop) # Packs elements at the top
         right_scroll.setWidget(right_scroll_content)
         
-        split_layout.addLayout(self.left_layout, stretch=1)
+        split_layout.addWidget(left_scroll, stretch=1)
         split_layout.addWidget(right_scroll, stretch=1)
         
         self.content_layout.addLayout(split_layout)
 
+        # Build elements inside the layouts
         self._build_mod_selection()
         self._build_preview_area()
         self._build_global_settings()
@@ -114,10 +127,16 @@ class ModEditorUI:
 
         self.main_layout.addWidget(content_widget, stretch=1)
         
+        # --- FOOTER & SAVE BUTTON ---
         footer_layout = QHBoxLayout()
-        footer_layout.setContentsMargins(20, 0, 0, 0) 
+        footer_layout.setContentsMargins(20, 10, 0, 15) 
         
         self.save_btn = QPushButton("Save config.json")
+        self.save_btn.setMinimumWidth(200)
+        self.save_btn.setMinimumHeight(35)
+        
+        # Adding stretches on BOTH sides perfectly centers the button at the bottom
+        footer_layout.addStretch()
         footer_layout.addWidget(self.save_btn)
         footer_layout.addStretch()
         
@@ -184,7 +203,6 @@ class ModEditorUI:
         
         section.content_layout.addLayout(layout)
         self.left_layout.addWidget(section)
-        self.left_layout.addStretch()
 
     def _build_state_overrides(self) -> None:
         section = CollapsibleSection("Animation State Config")
@@ -252,7 +270,6 @@ class ModEditorUI:
         section.content_layout.addLayout(form)
         
         self.right_layout.addWidget(section)
-        self.right_layout.addStretch()
 
     def _build_preview_area(self) -> None:
         layout = QVBoxLayout()
@@ -271,7 +288,6 @@ class ModEditorUI:
         layout.addWidget(self.preview_label)
         layout.addWidget(self.restart_btn)
         self.left_layout.addLayout(layout)
-        self.left_layout.addStretch()
     
     def _build_behavior_options(self) -> None:
         section = CollapsibleSection("Behavior AI Options")

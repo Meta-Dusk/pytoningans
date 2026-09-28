@@ -227,6 +227,7 @@ class PetWindow(QWidget):
         if not self.is_dead:
             menu.addAction("Force Jump", self.jump)
             menu.addAction("Kill Pet", self.die)
+            # TODO: Add "Talk to" option here
         else:
             menu.addAction("Revive Pet", self.revive)
             
