@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton,
     QLabel, QMessageBox, QDialog
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
 
 from pytoningans.core.mod_manager import ModManager
@@ -14,6 +14,8 @@ from pytoningans.ui.mod_creation_dialog import ModCreationDialog
 from pytoningans.ui.mod_editor import ModEditorWindow
 
 class ModManagerHub(QWidget):
+    mods_updated = Signal()
+    
     def __init__(self, mod_manager: ModManager) -> None:
         super().__init__()
         self.mod_manager = mod_manager
@@ -90,6 +92,7 @@ class ModManagerHub(QWidget):
         dialog = ModCreationDialog(self.mod_manager.mods_dir, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._refresh_list()
+            self.mods_updated.emit()
             self._open_editor(dialog.new_mod_folder)
 
     def _on_edit_clicked(self) -> None:
@@ -100,6 +103,7 @@ class ModManagerHub(QWidget):
     def _open_editor(self, mod_folder: str) -> None:
         if self.editor_window is None or not self.editor_window.isVisible():
             self.editor_window = ModEditorWindow(self.mod_manager)
+            self.editor_window.mods_updated.connect(self.mods_updated.emit)
             self.editor_window.show()
         else:
             self.editor_window.activateWindow()
@@ -124,6 +128,7 @@ class ModManagerHub(QWidget):
             try:
                 shutil.rmtree(target_dir)
                 self._refresh_list()
+                self.mods_updated.emit()
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to delete mod: {str(e)}")
     

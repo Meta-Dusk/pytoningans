@@ -131,20 +131,13 @@ class MainMenu(QWidget):
     def _open_hub(self) -> None:
         if self.hub_window is None or not self.hub_window.isVisible():
             self.hub_window = ModManagerHub(self.manager.mod_manager)
+            self.hub_window.mods_updated.connect(self._refresh_spawn_list)
             self.hub_window.show()
         else:
             self.hub_window.activateWindow()
-            
-        if self.hub_window and self.hub_window.editor_window:
-            self.hub_window.editor_window.mods_updated.connect(self._refresh_spawn_list)
     
-    # FIXME: Refresh mod list not triggering
     def _refresh_spawn_list(self) -> None:
         """Rebuilds the dropdown/list of available pets to spawn."""
-        if self.hub_window is None or self.hub_window.editor_window is None:
-            return
-        
         self.mod_combo.clear()
-        if self.hub_window is None: return
-        valid_mods = self.hub_window.mod_manager.get_available_mods()
+        valid_mods = self.manager.mod_manager.get_available_mods()
         self.mod_combo.addItems(valid_mods)
