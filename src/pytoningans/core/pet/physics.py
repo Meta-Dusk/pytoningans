@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 
 from typing import TYPE_CHECKING
+from PySide6.QtCore import QPoint
 from PySide6.QtGui import QScreen
 
 from pytoningans.core.constants import PetState
@@ -35,19 +36,39 @@ class PhysicsSystem:
         self._tick_gravity_and_collisions(ground_y, current_gravity)
 
         if self.pet.is_dead: return
-        if self._tick_interaction(): return
 
-        self.pet.ai_sys.check_interactions()
+        self._tick_soft_collision(current_move_speed)
         self._tick_movement(current_move_speed)
+    
+    def _tick_soft_collision(self, current_move_speed: float) -> None:
+        """Gently repels overlapping pets to prevent dense clustering."""
+        if self.pet.state in (PetState.DRAG, PetState.MOVING):
+            return
 
-    def _tick_interaction(self) -> bool:
-        """Returns True if Pet is already Interacting."""
-        if self.pet.state is PetState.INTERACT:
-            self.pet.ai_sys.interact_time_left -= 1
-            if self.pet.ai_sys.interact_time_left <= 0:
-                self.pet.anim_sys.set_state(PetState.IDLE)
-            return True
-        return False
+        my_center: QPoint = self.pet.geometry().center()
+        repel_x, repel_y = 0.0, 0.0
+        
+        for other in self.pet.pet_manager.active_pets:
+            if other is self.pet or other.is_dead: continue
+            
+            other_center: QPoint = other.geometry().center()
+            dx: int = my_center.x() - other_center.x()
+            dy: int = my_center.y() - other_center.y()
+            dist: float = math.hypot(dx, dy)
+            
+            min_dist: float = self.pet.width() * 0.6
+            
+            if 0 < dist < min_dist:
+                force = (min_dist - dist) / min_dist
+                repel_x += (dx / dist) * force * (current_move_speed * 1.5)
+                
+                if self.pet.mod_manager.can_fly:
+                    repel_y += (dy / dist) * force * (current_move_speed * 1.5)
+                    
+        if repel_x != 0 or repel_y != 0:
+            new_x: int = int(self.pet.x() + repel_x)
+            new_y: int = int(self.pet.y() + repel_y) if self.pet.mod_manager.can_fly else self.pet.y()
+            self.pet.move(new_x, new_y)
 
     def _tick_movement(self, current_move_speed: float) -> None:
         if self.pet.state is not PetState.MOVING or self.pet._target_pos is None: return
@@ -78,7 +99,7 @@ class PhysicsSystem:
             self.pet.move(step_x, step_y)
 
     def _tick_gravity_and_collisions(self, ground_y: int, current_gravity: float) -> None:
-        if self.pet.mod_manager.can_fly: return
+        if self.pet.mod_manager.can_fly and not self.pet.is_dead: return
         pet_bottom: int = self.pet.geometry().bottom()
         
         if pet_bottom < ground_y or self.pet.velocity_y < 0:

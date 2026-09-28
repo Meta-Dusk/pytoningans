@@ -118,12 +118,10 @@ class PetWindow(QWidget):
     def take_damage(self, amount: int) -> None:
         """Applies damage, flashes red, and kills the pet if health <= 0."""
         if self.is_dead: return
-        
         self.current_health -= amount
         
-        # Set the flash duration to 300 milliseconds and instantly turn it on
         self.damage_tint_time_left = 300
-        self.tint_effect.setStrength(0.7) 
+        self.tint_effect.setStrength(0.85)
         
         if self.current_health <= 0:
             self.die()
@@ -191,7 +189,7 @@ class PetWindow(QWidget):
         """Triggered automatically on right-click."""
         self._target_pos = None
         self.rotation = 0.0
-        if not self.is_dead: self.anim_sys.set_state(PetState.IDLE)
+        if not self.is_dead: self.anim_sys.set_state(PetState.CLICKED)
         
         # Freeze the systems while the menu is open
         self.is_paused = True 
