@@ -1,5 +1,5 @@
 import os, json, shutil, re
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit,
@@ -118,8 +118,8 @@ class ModCreationDialog(QDialog):
             self.img_label.setText(os.path.basename(file_path))
 
     def _create_mod(self) -> None:
-        folder_name = self.folder_input.text().strip()
-        display_name = self.name_input.text().strip()
+        folder_name: str = self.folder_input.text().strip()
+        display_name: str = self.name_input.text().strip()
         
         if not folder_name or not display_name:
             QMessageBox.warning(self, "Error", "Folder name and display name are required.")
@@ -133,7 +133,7 @@ class ModCreationDialog(QDialog):
             QMessageBox.warning(self, "Error", "Please select a sprite sheet (.png).")
             return
             
-        target_dir = os.path.join(self.mods_dir, folder_name)
+        target_dir: str = os.path.join(self.mods_dir, folder_name)
         if os.path.exists(target_dir):
             QMessageBox.warning(self, "Error", f"A mod folder named '{folder_name}' already exists.")
             return
@@ -142,7 +142,7 @@ class ModCreationDialog(QDialog):
             os.makedirs(target_dir)
             shutil.copy(self.selected_image_path, os.path.join(target_dir, "sprite_sheet.png"))
             
-            config_data = {
+            config_data: Dict[str, Any] = {
                 "version": 3,
                 "name": display_name,
                 "columns": self.cols_spin.value(),

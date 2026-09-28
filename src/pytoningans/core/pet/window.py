@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Optional, TYPE_CHECKING, cast
 
-from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMenu
+from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMenu, QGraphicsColorizeEffect
 from PySide6.QtCore import Qt, QPoint
-from PySide6.QtGui import QMouseEvent, QContextMenuEvent
+from PySide6.QtGui import QMouseEvent, QContextMenuEvent, QColor
 
 from pytoningans.core.constants import WINDOW_CFG, PetState
 from pytoningans.core.pet.animation import AnimationSystem
@@ -30,9 +30,12 @@ class PetWindow(QWidget):
         # --- Shared Entity Data ---
         self.state: PetState = PetState.IDLE
         self.facing_left: bool = False
+        self.rotation: float = 0.0
         self.is_dead: bool = False
         self.is_paused: bool = False
         self.current_health: int = self.mod_manager.max_health
+        
+        self.damage_tint_time_left: int = 0
         
         self.velocity_y: float = 0.0
         self.enable_gravity: bool = True
@@ -64,7 +67,10 @@ class PetWindow(QWidget):
             self._target_pos = QPoint(pos.x, pos.y)
 
     def _setup_ui(self, x: int, y: int) -> None:
-        flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool
+        flags: Qt.WindowType = (
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.WindowStaysOnTopHint |
+            Qt.WindowType.Tool)
         self.setWindowFlags(flags)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.resize(WINDOW_CFG.default_width, WINDOW_CFG.default_height)
@@ -75,10 +81,27 @@ class PetWindow(QWidget):
         self.sprite_label = QLabel(WINDOW_CFG.placeholder_text, self)
         self.sprite_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.sprite_label.setStyleSheet(WINDOW_CFG.placeholder_style)
+        
+        # Apply the colorize effect
+        self.tint_effect = QGraphicsColorizeEffect(self)
+        self.tint_effect.setColor(QColor(255, 0, 0)) # Pure Red
+        self.tint_effect.setStrength(0.0) # 0.0 means completely invisible
+        self.sprite_label.setGraphicsEffect(self.tint_effect)
+        
         layout.addWidget(self.sprite_label)
     
     def update_systems(self, dt: int) -> None:
         """Called every frame by the PetManager's global tick."""
+        # Handle the red damage flash fade-out
+        if self.damage_tint_time_left > 0:
+            self.damage_tint_time_left -= dt
+            if self.damage_tint_time_left <= 0:
+                self.tint_effect.setStrength(0.0)
+            else:
+                # Calculate a linear fade from 0.7 (70% opacity) down to 0.0 over 300ms
+                fade_strength = 0.7 * (self.damage_tint_time_left / 300.0)
+                self.tint_effect.setStrength(fade_strength)
+                
         if self.is_paused: return
             
         if self.is_dead:
@@ -92,6 +115,19 @@ class PetWindow(QWidget):
         self.anim_sys.update(dt)
     
     # --- Core Actions ---
+    def take_damage(self, amount: int) -> None:
+        """Applies damage, flashes red, and kills the pet if health <= 0."""
+        if self.is_dead: return
+        
+        self.current_health -= amount
+        
+        # Set the flash duration to 300 milliseconds and instantly turn it on
+        self.damage_tint_time_left = 300
+        self.tint_effect.setStrength(0.7) 
+        
+        if self.current_health <= 0:
+            self.die()
+            
     def jump(self) -> None:
         if self.is_dead or self.mod_manager.can_fly: return
         if self.velocity_y != 0: return
@@ -103,6 +139,7 @@ class PetWindow(QWidget):
         if self.is_dead: return
         self.current_health = 0
         self.is_dead = True
+        self.rotation = 0.0
         self.anim_sys.set_state(PetState.DYING)
         self._target_pos = None
         
@@ -153,6 +190,7 @@ class PetWindow(QWidget):
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         """Triggered automatically on right-click."""
         self._target_pos = None
+        self.rotation = 0.0
         if not self.is_dead: self.anim_sys.set_state(PetState.IDLE)
         
         # Freeze the systems while the menu is open

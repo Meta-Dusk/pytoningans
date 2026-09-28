@@ -1,13 +1,13 @@
 import random
 
+from typing import List, Optional
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QApplication, QLabel, QComboBox, QFrame,
     QSpinBox, QHBoxLayout
 )
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QGuiApplication
-
-from typing import Optional
+from PySide6.QtCore import QCoreApplication, QRect, Qt, QTimer
+from PySide6.QtGui import QGuiApplication, QScreen
 
 from pytoningans.core.pet_manager import PetManager
 from pytoningans.ui.mod_manager_hub import ModManagerHub
@@ -107,21 +107,21 @@ class MainMenu(QWidget):
     
     def _update_stats(self) -> None:
         """Polls the PetManager to update the UI counters."""
-        total_active = len(self.manager.active_pets)
-        total_dead = sum(1 for p in self.manager.active_pets if p.is_dead)
+        total_active: int = len(self.manager.active_pets)
+        total_dead: int = sum(1 for p in self.manager.active_pets if p.is_dead)
         
         self.active_count_label.setText(f"Active Pets: {total_active}")
         self.dead_count_label.setText(f"Dead Pets: {total_dead}")
     
     def _on_spawn_clicked(self) -> None:
-        selected_mod = self.mod_combo.currentText()
+        selected_mod: str = self.mod_combo.currentText()
         if not selected_mod:
             return
             
-        screen = QGuiApplication.primaryScreen()
-        geom = screen.availableGeometry() if screen else None
+        screen: QScreen = QGuiApplication.primaryScreen()
+        geom: Optional[QRect] = screen.availableGeometry() if screen else None
         
-        amount = self.amount_spin.value()
+        amount: int = self.amount_spin.value()
         for _ in range(amount):
             if geom:
                 # Constrain random coordinates to the visible screen area
@@ -141,7 +141,7 @@ class MainMenu(QWidget):
 
     def _toggle_theme(self) -> None:
         self._is_dark_mode = not self._is_dark_mode
-        app = QApplication.instance()
+        app: Optional[QCoreApplication] = QApplication.instance()
         
         if not isinstance(app, QApplication): return
         if self._is_dark_mode:
@@ -162,5 +162,5 @@ class MainMenu(QWidget):
     def _refresh_spawn_list(self) -> None:
         """Rebuilds the dropdown/list of available pets to spawn."""
         self.mod_combo.clear()
-        valid_mods = self.manager.mod_manager.get_available_mods()
+        valid_mods: List[str] = self.manager.mod_manager.get_available_mods()
         self.mod_combo.addItems(valid_mods)

@@ -63,6 +63,10 @@ class IPet(Protocol):
     def jump(self) -> None:
         """Forces the pet to jump. Ignored if dead or if the pet can fly."""
         ...
+    
+    def take_damage(self, amount: int) -> None:
+        """Reduces the pet's health by the specified amount and triggers a red flash."""
+        ...
 
     def die(self) -> None:
         """Immediately kills the pet, stopping AI and playing the death animation."""

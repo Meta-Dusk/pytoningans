@@ -42,7 +42,7 @@ class PetManager:
 
     def _on_spawn(self, pet: PetWindow) -> None:
         """Modding API hook."""
-        pet_api = cast(IPet, pet)
+        pet_api: IPet = cast(IPet, pet)
         if pet.mod_manager.custom_behavior:
             pet.mod_manager.custom_behavior.on_spawn(pet_api)
     

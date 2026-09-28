@@ -2,18 +2,19 @@ from __future__ import annotations
 
 import random, math
 
-from typing import TYPE_CHECKING, cast
-from PySide6.QtCore import QPoint
+from typing import TYPE_CHECKING, cast, Optional
+from PySide6.QtCore import QPoint, QRect
+from PySide6.QtGui import QScreen
 
 from pytoningans.core.constants import PetState, BehaviorType
-from pytoningans.core.api import IPet
+from pytoningans.core.api import BasePetBehavior, IPet
 
 if TYPE_CHECKING:
     from pytoningans.core.pet.window import PetWindow
 
 class AISystem:
     def __init__(self, pet: PetWindow) -> None:
-        self.pet = pet
+        self.pet: PetWindow = pet
         
         # State Durations (in milliseconds)
         self.decision_accumulator: int = 0
@@ -25,7 +26,11 @@ class AISystem:
         self.attack_cooldown: int = 0
     
     def update(self, dt: int) -> None:
-        """Processes AI logic based on elapsed time."""
+        """Processes AI logic based on elapsed time.
+
+        Args:
+            dt (int): Delta time
+        """
         self.decision_accumulator += dt
         
         # Decrement cooldowns
@@ -59,19 +64,17 @@ class AISystem:
     
     def _ai_decision_tick(self) -> None:
         if self.pet.state in (PetState.DRAG, PetState.INTERACT): return
+        if self._on_ai_decision_tick(): return  # Modder API hook
+        self._default_ai_decision()             # Default logic
 
-        # --- MODDER API HOOK ---
-        if self._on_ai_decision_tick(): return
-
-        # --- DEFAULT LOGIC ---
-        screen = self.pet.screen()
-        if not screen: return
-
+    def _default_ai_decision(self) -> None:
         if not self.pet.mod_manager.can_fly and random.random() < 0.15:
             self.pet.jump()
             return
-
-        geom = screen.availableGeometry()
+        
+        screen: QScreen = self.pet.screen()
+        if not screen: return
+        geom: QRect = screen.availableGeometry()
 
         if random.random() < 0.60:
             dest_x = random.randint(geom.left() + 50, geom.right() - self.pet.width() - 50)
@@ -88,11 +91,11 @@ class AISystem:
     
     def _on_ai_decision_tick(self) -> bool:
         """Returns True if the AI decision should end."""
-        behavior = self.pet.mod_manager.custom_behavior
+        behavior: Optional[BasePetBehavior] = self.pet.mod_manager.custom_behavior
         if behavior is None: return False
         try:
             # If the modder returns True, skip the default roaming logic
-            pet_api = cast(IPet, self.pet)
+            pet_api: IPet = cast(IPet, self.pet)
             if behavior.on_decision_tick(pet_api): return True
         except Exception as e:
             print(f"Custom AI Error (Decision): {e}")
@@ -107,7 +110,7 @@ class AISystem:
         if self.attack_cooldown > 0 or not self.pet.is_interactable: 
             return
 
-        my_center = self.pet.geometry().center()
+        my_center: QPoint = self.pet.geometry().center()
 
         for other_pet in self.pet.pet_manager.active_pets:
             if other_pet is self.pet or not other_pet.is_interactable: 
@@ -118,40 +121,53 @@ class AISystem:
             if other_pet.mod_manager.current_mod_name == self.pet.mod_manager.current_mod_name:
                 continue
             
-            other_center = other_pet.geometry().center()
-            distance = math.hypot(my_center.x() - other_center.x(), my_center.y() - other_center.y())
+            other_center: QPoint = other_pet.geometry().center()
+            distance: float = self._get_distance(my_center, other_center)
 
             # Evaluate against the mod's specific attack range
             if distance > self.pet.mod_manager.attack_range: continue
             
             # --- MODDER API HOOK ---
-            override_default = False
-            if self.pet.mod_manager.custom_behavior:
-                try:
-                    pet_api = cast(IPet, self.pet)
-                    other_api = cast(IPet, other_pet)
-                    override_default = self.pet.mod_manager.custom_behavior.on_attack(pet_api, other_api)
-                except Exception as e:
-                    print(f"Custom AI Error (Attack): {e}")
+            override_default: bool = self._on_combat_check(other_pet)
 
             # --- DEFAULT COMBAT LOGIC ---
             if not override_default:
-                # Face the target
-                self.pet.facing_left = other_center.x() < my_center.x()
-                
-                # Apply damage
-                other_pet.current_health -= self.pet.mod_manager.attack_damage
-                
-                # Start attack animation
-                self.pet._target_pos = None
-                self.attack_time_left = 800 
-                self.attack_cooldown = 2000 
-                self.pet.anim_sys.set_state(PetState.ATTACK)
-                
-                if other_pet.current_health <= 0:
-                    other_pet.die()
+                self._default_combat_logic(my_center, other_pet, other_center)
                     
             break # Only initiate one attack per tick
+
+    def _get_distance(self, my_center: QPoint, other_center: QPoint) -> float:
+        return math.hypot(my_center.x() - other_center.x(), my_center.y() - other_center.y())
+
+    def _default_combat_logic(
+        self, my_center: QPoint, other_pet: PetWindow, other_center: QPoint
+    ) -> None:
+        dx: int = other_center.x() - my_center.x()
+        dy: int = other_center.y() - my_center.y()
+                
+        self.pet.facing_left = (dx < 0)
+                
+        if self.pet.mod_manager.can_fly:
+            self.pet.rotation = math.degrees(math.atan2(dy, abs(dx) if dx != 0 else 0.1))
+                
+        other_pet.take_damage(self.pet.mod_manager.attack_damage)
+                
+        # Start attack animation (lasts 800ms) with a 2-second cooldown
+        self.pet._target_pos = None
+        self.attack_time_left = 800 
+        self.attack_cooldown = 2000 
+        self.pet.anim_sys.set_state(PetState.ATTACK)
+
+    def _on_combat_check(self, other_pet: PetWindow) -> bool:
+        """Modder API hook."""
+        if not self.pet.mod_manager.custom_behavior: return False
+        try:
+            pet_api: IPet = cast(IPet, self.pet)
+            other_api: IPet = cast(IPet, other_pet)
+            return self.pet.mod_manager.custom_behavior.on_attack(pet_api, other_api)
+        except Exception as e:
+            print(f"Custom AI Error (Attack): {e}")
+        return False
     
     def check_interactions(self) -> None:
         # TODO: Add sociability modifiers soon
@@ -165,24 +181,17 @@ class AISystem:
 
         if not self.pet.is_interactable: return
 
-        my_center = self.pet.geometry().center()
+        my_center: QPoint = self.pet.geometry().center()
 
         for other_pet in self.pet.pet_manager.active_pets:
             if other_pet is self.pet or not other_pet.is_interactable: continue
 
-            other_center = other_pet.geometry().center()
-            distance = math.hypot(my_center.x() - other_center.x(), my_center.y() - other_center.y())
+            other_center: QPoint = other_pet.geometry().center()
+            distance: float = self._get_distance(my_center, other_center)
 
             if distance >= 120: return
             # --- MODDER API HOOK ---
-            override_default = False
-            if self.pet.mod_manager.custom_behavior:
-                try:
-                    pet_api = cast(IPet, self.pet)
-                    other_pet_api = cast(IPet, other_pet)
-                    override_default = self.pet.mod_manager.custom_behavior.on_interact(pet_api, other_pet_api)
-                except Exception as e:
-                    print(f"Custom AI Error (Interact): {e}")
+            override_default: bool = self._on_check_interactions(other_pet)
             
             # --- DEFAULT LOGIC ---
             if not override_default:
@@ -192,6 +201,16 @@ class AISystem:
                 other_pet.ai_sys.start_interaction()
                 
             break
+
+    def _on_check_interactions(self, other_pet: PetWindow) -> bool:
+        if not self.pet.mod_manager.custom_behavior: return False
+        try:
+            pet_api: IPet = cast(IPet, self.pet)
+            other_pet_api: IPet = cast(IPet, other_pet)
+            return self.pet.mod_manager.custom_behavior.on_interact(pet_api, other_pet_api)
+        except Exception as e:
+            print(f"Custom AI Error (Interact): {e}")
+        return False
 
     def start_interaction(self) -> None:
         self.pet._target_pos = None

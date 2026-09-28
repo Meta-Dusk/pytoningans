@@ -1,11 +1,11 @@
 import os, subprocess
 
-from typing import Optional
+from typing import Optional, Dict, Any
 from dataclasses import replace
 
 from PySide6.QtWidgets import QWidget, QMessageBox
-from PySide6.QtCore import QTimer, Signal
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import QRect, QTimer, Signal
+from PySide6.QtGui import QGuiApplication, QPixmap, QScreen
 
 from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import PetState, AnimationMeta, BehaviorType
@@ -84,8 +84,8 @@ class ModEditorWindow(QWidget):
         if not state_a or not state_b or state_a == state_b:
             return
             
-        meta_a = self.controller.get_meta(state_a)
-        meta_b = self.controller.get_meta(state_b)
+        meta_a: AnimationMeta = self.controller.get_meta(state_a)
+        meta_b: AnimationMeta = self.controller.get_meta(state_b)
         
         self.controller.update_meta(state_a, meta_b)
         self.controller.update_meta(state_b, meta_a)
@@ -98,7 +98,7 @@ class ModEditorWindow(QWidget):
     
     def _on_behavior_edited(self, *_) -> None:
         if self._is_updating_ui: return
-        new_stats = {
+        new_stats: Dict[str, Any] = {
             "type": self.ui.behavior_type_combo.currentData(),
             "can_fly": self.ui.can_fly_check.isChecked(),
             "max_health": self.ui.max_health_spin.value(),
@@ -114,7 +114,7 @@ class ModEditorWindow(QWidget):
         self.ui.state_combo.blockSignals(True)
         self.ui.state_combo.clear()
         
-        target_index = 0
+        target_index: int = 0
         for i, state in enumerate(PetState):
             exists, row = self.controller.has_mapped_row(state)
             row_text = f"[Row {row}]" if exists else "[Missing!]"
@@ -165,7 +165,7 @@ class ModEditorWindow(QWidget):
             self.ui.global_cols_spin.setValue(cols)
             self.ui.global_rows_spin.setValue(rows)
             
-            stats = self.controller.get_behavior_stats()
+            stats: Dict[str, Any] = self.controller.get_behavior_stats()
             self.ui.can_fly_check.setChecked(stats["can_fly"])
             self.ui.max_health_spin.setValue(stats["max_health"])
             self.ui.atk_dmg_spin.setValue(stats["attack_damage"])
@@ -173,7 +173,7 @@ class ModEditorWindow(QWidget):
             self.ui.jump_height_spin.setValue(stats["jump_height"])
             
             current_type = stats.get("type", BehaviorType.NEUTRAL)
-            target_index = self.ui.behavior_type_combo.findData(current_type)
+            target_index: int = self.ui.behavior_type_combo.findData(current_type)
             self.ui.behavior_type_combo.setCurrentIndex(target_index)
             
             self._is_updating_ui = False
@@ -190,7 +190,7 @@ class ModEditorWindow(QWidget):
         if not raw_state: return
         
         current_state = PetState(raw_state)
-        meta = self.controller.get_meta(current_state)
+        meta: AnimationMeta = self.controller.get_meta(current_state)
 
         self._is_updating_ui = True
         self.ui.row_spin.setValue(meta.row)
@@ -229,7 +229,7 @@ class ModEditorWindow(QWidget):
         self._preview_timer.setInterval(1000 // max(1, self.ui.fps_spin.value()))
 
     def _save_changes(self) -> None:
-        mod_folder = self.ui.mod_combo.currentText()
+        mod_folder: str = self.ui.mod_combo.currentText()
         if not mod_folder: return
             
         self.controller.save_mod(mod_folder)
@@ -244,7 +244,7 @@ class ModEditorWindow(QWidget):
         current_state = PetState(raw_state)
         
         self._preview_frame += 1
-        frame = self.controller.get_frame(current_state, self._preview_frame)
+        frame: Optional[QPixmap] = self.controller.get_frame(current_state, self._preview_frame)
         
         if frame is not None:
             self.ui.preview_label.setPixmap(frame)
@@ -256,7 +256,7 @@ class ModEditorWindow(QWidget):
         if not raw_state: return
 
         current_state = PetState(raw_state)
-        meta = self.controller.get_meta(current_state)
+        meta: AnimationMeta = self.controller.get_meta(current_state)
 
         self._copied_meta = replace(meta)
         self.ui.paste_btn.setEnabled(True)
@@ -268,7 +268,7 @@ class ModEditorWindow(QWidget):
         if not raw_state: return
 
         current_state = PetState(raw_state)
-        new_meta = replace(self._copied_meta)
+        new_meta: AnimationMeta = replace(self._copied_meta)
 
         self.controller.update_meta(current_state, new_meta)
 
@@ -283,16 +283,16 @@ class ModEditorWindow(QWidget):
         self._update_preview()
     
     def _center_window(self) -> None:
-        screen = QGuiApplication.primaryScreen()
+        screen: QScreen = QGuiApplication.primaryScreen()
         if not screen: return
         
-        screen_geom = screen.availableGeometry()
-        window_geom = self.frameGeometry()
+        screen_geom: QRect = screen.availableGeometry()
+        window_geom: QRect = self.frameGeometry()
         window_geom.moveCenter(screen_geom.center())
         self.move(window_geom.topLeft())
     
     def _create_behavior_script(self, mod_path: str) -> None:
-        behavior_path = os.path.join(mod_path, "behavior.py")
+        behavior_path: str = os.path.join(mod_path, "behavior.py")
         
         # Create the boilerplate if it doesn't exist
         if os.path.exists(behavior_path): return
@@ -306,12 +306,12 @@ class ModEditorWindow(QWidget):
             f.write(boilerplate)
     
     def _open_behavior_script(self) -> None:
-        mod_folder = self.ui.mod_combo.currentText()
+        mod_folder: str = self.ui.mod_combo.currentText()
         if not mod_folder: return
         
-        mods_dir = self.controller.manager.mods_dir
-        mod_path = os.path.join(mods_dir, mod_folder)
-        behavior_path = os.path.join(mod_path, "behavior.py")
+        mods_dir: str = self.controller.manager.mods_dir
+        mod_path: str = os.path.join(mods_dir, mod_folder)
+        behavior_path: str = os.path.join(mod_path, "behavior.py")
         
         # Create the boilerplate if it doesn't exist
         if not os.path.exists(behavior_path):
@@ -335,11 +335,11 @@ class ModEditorWindow(QWidget):
             os.startfile(behavior_path)
     
     def _delete_behavior(self) -> None:
-        mod_folder = self.ui.mod_combo.currentText()
+        mod_folder: str = self.ui.mod_combo.currentText()
         if not mod_folder: return
         
-        mod_path = os.path.join(self.controller.manager.mods_dir, mod_folder)
-        behavior_path = os.path.join(mod_path, "behavior.py")
+        mod_path: str = os.path.join(self.controller.manager.mods_dir, mod_folder)
+        behavior_path: str = os.path.join(mod_path, "behavior.py")
         
         if os.path.exists(behavior_path):
             os.remove(behavior_path)
@@ -347,17 +347,17 @@ class ModEditorWindow(QWidget):
             self._refresh_script_buttons()
     
     def _refresh_script_buttons(self) -> None:
-        mod_folder = self.ui.mod_combo.currentText()
+        mod_folder: str = self.ui.mod_combo.currentText()
         if not mod_folder:
             self.ui.add_script_btn.setEnabled(False)
             self.ui.edit_script_btn.setEnabled(False)
             self.ui.delete_script_btn.setEnabled(False)
             return
 
-        mod_path = os.path.join(self.controller.manager.mods_dir, mod_folder)
-        behavior_path = os.path.join(mod_path, "behavior.py")
+        mod_path: str = os.path.join(self.controller.manager.mods_dir, mod_folder)
+        behavior_path: str = os.path.join(mod_path, "behavior.py")
         
-        script_exists = os.path.exists(behavior_path)
+        script_exists: bool = os.path.exists(behavior_path)
         
         self.ui.add_script_btn.setEnabled(not script_exists)
         self.ui.edit_script_btn.setEnabled(script_exists)
