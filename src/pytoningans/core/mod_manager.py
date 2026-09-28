@@ -1,7 +1,7 @@
 import json, os, shutil, sys
 import importlib.util
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from dataclasses import asdict
 
 from PySide6.QtGui import QPixmap
@@ -10,9 +10,17 @@ from PySide6.QtCore import QRect
 from pytoningans.core.constants import PetState, AnimationMeta
 from pytoningans.core.api import BasePetBehavior
 
-CURRENT_CONFIG_VERSION = 4
+CURRENT_CONFIG_VERSION = 5
 
 class ModManager:
+    _shared_frame_cache: Dict[Tuple[str, PetState, int], QPixmap] = {}
+    """Class-level cache: (mod_folder_name, state, frame_index) -> QPixmap"""
+
+    @classmethod
+    def clear_shared_cache(cls) -> None:
+        """Flushes the extracted master frames from memory."""
+        cls._shared_frame_cache.clear()
+        
     def __init__(self, mods_dir: str = "assets/mods") -> None:
         self.mods_dir: str = mods_dir
         self.current_mod_name: str = ""
@@ -28,7 +36,6 @@ class ModManager:
         
         self.animations: Dict[PetState, AnimationMeta] = {}
         self._global_sheet: Optional[QPixmap] = None
-        self._frame_cache: Dict[str, QPixmap] = {}
         self.custom_behavior: Optional[BasePetBehavior] = None
         
         self._scaffold_modding_api()
@@ -155,7 +162,6 @@ class ModManager:
             return False
             
         self._global_sheet = sheet
-        self._frame_cache.clear()
         return True
 
     def save_mod_config(self, mod_folder_name: str, name: str) -> None:
@@ -205,9 +211,9 @@ class ModManager:
         # Offset by the starting frame to find the actual grid column
         actual_sheet_index = anim_meta.start_frame + mapped_index
         
-        cache_key = f"{state.value}_{actual_sheet_index}"
-        if cache_key in self._frame_cache:
-            return self._frame_cache[cache_key]
+        cache_key = (self.current_mod_name, state, actual_sheet_index)
+        if cache_key in ModManager._shared_frame_cache:
+            return ModManager._shared_frame_cache[cache_key]
 
         base_w = self._global_sheet.width() // max(1, self.global_columns)
         base_h = self._global_sheet.height() // max(1, self.global_rows)
@@ -221,10 +227,8 @@ class ModManager:
         
         crop_rect = QRect(x_pos, y_pos, final_w, final_h)
         frame = self._global_sheet.copy(crop_rect)
-        self._frame_cache[cache_key] = frame
+        
+        # Save to the shared class-level cache
+        ModManager._shared_frame_cache[cache_key] = frame
         
         return frame
-    
-    def clear_cache(self) -> None:
-        """Flushes the extracted frame cache to force re-slicing."""
-        self._frame_cache.clear()

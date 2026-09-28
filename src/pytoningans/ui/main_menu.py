@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QApplication, QLabel, QComboBox, QFrame,
     QSpinBox, QHBoxLayout
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QGuiApplication
 
 from typing import Optional
@@ -63,6 +63,17 @@ class MainMenu(QWidget):
         content_layout.addWidget(self.mod_combo)
         content_layout.addLayout(spawn_action_layout)
         
+        # --- Live Stats Section ---
+        stats_layout = QHBoxLayout()
+        self.active_count_label = QLabel("Active Pets: 0")
+        self.dead_count_label = QLabel("Dead Pets: 0")
+        self.active_count_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+        self.dead_count_label.setStyleSheet("color: #F44336; font-weight: bold;")
+        
+        stats_layout.addWidget(self.active_count_label)
+        stats_layout.addWidget(self.dead_count_label)
+        content_layout.addLayout(stats_layout)
+        
         # --- Visual Separator ---
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
@@ -89,6 +100,18 @@ class MainMenu(QWidget):
         content_layout.addStretch()
         
         main_layout.addWidget(content_widget)
+        
+        self.stats_timer = QTimer(self)
+        self.stats_timer.timeout.connect(self._update_stats)
+        self.stats_timer.start(500)
+    
+    def _update_stats(self) -> None:
+        """Polls the PetManager to update the UI counters."""
+        total_active = len(self.manager.active_pets)
+        total_dead = sum(1 for p in self.manager.active_pets if p.is_dead)
+        
+        self.active_count_label.setText(f"Active Pets: {total_active}")
+        self.dead_count_label.setText(f"Dead Pets: {total_dead}")
     
     def _on_spawn_clicked(self) -> None:
         selected_mod = self.mod_combo.currentText()

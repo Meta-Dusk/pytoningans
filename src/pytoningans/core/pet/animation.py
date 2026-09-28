@@ -9,13 +9,18 @@ if TYPE_CHECKING:
     from pytoningans.core.pet.window import PetWindow
 
 class AnimationSystem:
+    # Class-level cache shared by EVERY pet instance
+    _shared_flipped_cache: Dict[Tuple[int, PetState, int], QPixmap] = {}
+
+    @classmethod
+    def clear_shared_cache(cls) -> None:
+        """Flushes the C++ image buffers from memory."""
+        cls._shared_flipped_cache.clear()
+        
     def __init__(self, pet: PetWindow) -> None:
         self.pet = pet
         self.current_frame = 0
         self.time_since_last_frame = 0
-        
-        # Cache for flipped frames to prevent C++ memory leaks
-        self._flipped_cache: Dict[Tuple[PetState, int], QPixmap] = {}
         
         # Clear the placeholder text
         self.pet.sprite_label.setStyleSheet("")
@@ -45,20 +50,18 @@ class AnimationSystem:
 
     def _update_frame(self) -> None:
         self.current_frame += 1
-        frame: Optional[QPixmap] = self.pet.mod_manager.get_frame(
-            self.pet.state, self.current_frame
-        )
+        frame = self.pet.mod_manager.get_frame(self.pet.state, self.current_frame)
 
         if frame is None: return
-        # Mirror the frame horizontally if facing left
         if self.pet.facing_left:
-            cache_key = (self.pet.state, self.current_frame)
+            # Use the ModManager's unique ID to prevent cross-mod cache collisions
+            cache_key = (id(self.pet.mod_manager), self.pet.state, self.current_frame)
             
-            # Generate the flipped C++ pixmap only once and cache it
-            if cache_key not in self._flipped_cache:
-                self._flipped_cache[cache_key] = frame.transformed(QTransform().scale(-1, 1))
-                
-            frame = self._flipped_cache[cache_key]
+            if cache_key not in self._shared_flipped_cache:
+                self._shared_flipped_cache[cache_key] = frame.transformed(QTransform().scale(-1, 1))
+            
+            frame = self._shared_flipped_cache[cache_key]
 
         self.pet.sprite_label.setPixmap(frame)
+        
         if self.pet.size() != frame.size(): self.pet.resize(frame.size())

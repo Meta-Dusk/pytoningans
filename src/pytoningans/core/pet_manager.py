@@ -5,6 +5,8 @@ from PySide6.QtCore import QTimer, QElapsedTimer
 from pytoningans.core.pet.window import PetWindow
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.api import IPet
+from pytoningans.core.pet.animation import AnimationSystem
+from pytoningans.core.mod_manager import ModManager
 
 class PetManager:
     def __init__(self, mod_manager: ModManager) -> None:
@@ -48,3 +50,8 @@ class PetManager:
         """Unregisters the pet from memory when closed."""
         if pet in self.active_pets:
             self.active_pets.remove(pet)
+        
+        # Free up memory when the screen is completely empty
+        if not self.active_pets:
+            AnimationSystem.clear_shared_cache()
+            ModManager.clear_shared_cache()
