@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPaintEvent, QPainter, QPen, QColor
 
-from pytoningans.core.constants import PetState
+from pytoningans.core.constants import PetState, BehaviorType
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
 
@@ -169,6 +169,12 @@ class ModEditorUI:
         self.atk_dmg_spin = self._create_spinbox(0, 9999)
         self.atk_range_spin = self._create_spinbox(0, 2000)
         self.jump_height_spin = self._create_spinbox(0, 100)
+        
+        self.behavior_type_combo = QComboBox()
+        for b_type in BehaviorType:
+            self.behavior_type_combo.addItem(b_type.value.capitalize(), userData=b_type)
+            
+        layout.addRow(self._create_info_label("Behavior Type:", "Determines engine-level AI logic."), self.behavior_type_combo)
         
         layout.addRow("", self.can_fly_check)
         layout.addRow(self._create_info_label("Max Health:", "The total health points of the pet."), self.max_health_spin)

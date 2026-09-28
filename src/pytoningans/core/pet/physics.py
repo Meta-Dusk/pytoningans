@@ -42,8 +42,8 @@ class PhysicsSystem:
     def tick_interaction(self) -> bool:
         """Returns True if Pet is already Interacting."""
         if self.pet.state is PetState.INTERACT:
-            self.pet.ai_sys.interact_ticks_left -= 1
-            if self.pet.ai_sys.interact_ticks_left <= 0:
+            self.pet.ai_sys.interact_time_left -= 1
+            if self.pet.ai_sys.interact_time_left <= 0:
                 self.pet.anim_sys.set_state(PetState.IDLE)
             return True
         return False

@@ -3,7 +3,7 @@ PyToNingans Modding API Reference
 Open the 'mods' folder as a workspace in VS Code for full autocompletion.
 """
 from typing import Protocol, Optional, List
-from enum import Enum, unique
+from enum import StrEnum, unique
 from dataclasses import dataclass
 
 @dataclass
@@ -12,7 +12,7 @@ class Pos2D:
     y: int
 
 @unique
-class PetState(Enum):
+class PetState(StrEnum):
     """The current animation and behavioral state of the pet."""
     DRAG = "drag"
     IDLE = "idle"
@@ -23,6 +23,13 @@ class PetState(Enum):
     DYING = "dying"
     CLIMBING = "climbing"
     REVIVING = "reviving"
+    ATTACK = "attack"
+
+@unique
+class BehaviorType(StrEnum):
+    PASSIVE = "passive"
+    NEUTRAL = "neutral"
+    HOSTILE = "hostile"
 
 class IPetManager(Protocol):
     """Provides access to the global pet ecosystem."""
@@ -48,6 +55,7 @@ class IPet(Protocol):
     current_health: int
     target_pos: Optional[Pos2D]
     facing_left: bool
+    behavior_type: BehaviorType
     
     # Access to the global manager
     pet_manager: IPetManager
@@ -105,3 +113,10 @@ class BasePetBehavior:
     def on_revive(self, pet: IPet) -> None:
         """Triggered when a pet who was once dead, is no longer."""
         pass
+    
+    def on_attack(self, pet: IPet, target: IPet) -> bool:
+        """
+        Triggered when a target enters attack range.
+        Return True to block the default damage and attack animation.
+        """
+        return False

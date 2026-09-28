@@ -7,7 +7,7 @@ from dataclasses import asdict
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import QRect
 
-from pytoningans.core.constants import PetState, AnimationMeta
+from pytoningans.core.constants import PetState, AnimationMeta, BehaviorType
 from pytoningans.core.api import BasePetBehavior
 
 CURRENT_CONFIG_VERSION = 5
@@ -26,13 +26,14 @@ class ModManager:
         self.current_mod_name: str = ""
         self.global_columns: int = 1
         self.global_rows: int = 1
-        self.can_fly: bool = False
-        self.config_version: int = CURRENT_CONFIG_VERSION
         
+        self.config_version: int = CURRENT_CONFIG_VERSION
+        self.can_fly: bool = False
         self.max_health: int = 100
         self.attack_damage: int = 10
         self.attack_range: int = 50
         self.jump_height: int = 150
+        self.behavior_type: BehaviorType = BehaviorType.NEUTRAL
         
         self.animations: Dict[PetState, AnimationMeta] = {}
         self._global_sheet: Optional[QPixmap] = None
@@ -119,6 +120,12 @@ class ModManager:
             self.attack_range = behavior_data.get("attack_range", 50)
             self.jump_height = behavior_data.get("jump_height", 15)
             
+            raw_type = behavior_data.get("type", "neutral")
+            try:
+                self.behavior_type = BehaviorType(raw_type)
+            except ValueError:
+                self.behavior_type = BehaviorType.NEUTRAL
+            
             self.animations.clear()
             anim_data = data.get("animations", {})
             
@@ -135,34 +142,35 @@ class ModManager:
                 else:
                     self.animations[state] = AnimationMeta(row=0, start_frame=0, end_frame=0)
         
-        # Reset any previously loaded script
-        self.custom_behavior = None
-        
-        # Check for a custom script in the target mod folder
-        behavior_path = os.path.join(mod_path, "behavior.py")
-        if os.path.exists(behavior_path):
-            try:
-                # Dynamically compile and load the Python file
-                spec = importlib.util.spec_from_file_location("mod_behavior", behavior_path)
-                if spec and spec.loader:
-                    module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(module)
-                    if hasattr(module, "Behavior"):
-                        self.custom_behavior = module.Behavior()
-                    else:
-                        print(
-                            f"Warning: {mod_folder_name}/behavior.py "
-                            "is missing the 'Behavior' class, using defaults."
-                        )
-            except Exception as e:
-                print(f"Failed to load behavior.py for {mod_folder_name}: {e}")
+        self.custom_behavior = None # Reset any previously loaded script
+        self._compile_behavior_mod(mod_folder_name, mod_path)
 
         sheet: QPixmap = QPixmap(sprite_path)
-        if sheet.isNull():
-            return False
+        if sheet.isNull(): return False
             
         self._global_sheet = sheet
         return True
+
+    def _compile_behavior_mod(self, mod_folder_name: str, mod_path: str) -> None:
+        # Check for a custom script in the target mod folder
+        behavior_path = os.path.join(mod_path, "behavior.py")
+        if not os.path.exists(behavior_path): return
+        try:
+            # Dynamically compile and load the Python file
+            spec = importlib.util.spec_from_file_location("mod_behavior", behavior_path)
+            if spec is None or spec.loader is None: return
+            
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            if hasattr(module, "Behavior"):
+                self.custom_behavior = module.Behavior()
+            else:
+                print(
+                    f"Warning: {mod_folder_name}/behavior.py "
+                    "is missing the 'Behavior' class, using defaults."
+                )
+        except Exception as e:
+            print(f"Failed to load behavior.py for {mod_folder_name}: {e}")
 
     def save_mod_config(self, mod_folder_name: str, name: str) -> None:
         mod_path = os.path.join(self.mods_dir, mod_folder_name)
@@ -174,6 +182,7 @@ class ModManager:
             "columns": self.global_columns,
             "rows": self.global_rows,
             "behavior": {
+                "type": BehaviorType(self.behavior_type).value,
                 "can_fly": self.can_fly,
                 "max_health": self.max_health,
                 "attack_damage": self.attack_damage,

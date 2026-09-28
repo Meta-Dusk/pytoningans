@@ -8,7 +8,7 @@ from PySide6.QtCore import QTimer, Signal
 from PySide6.QtGui import QGuiApplication
 
 from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION
-from pytoningans.core.constants import PetState, AnimationMeta
+from pytoningans.core.constants import PetState, AnimationMeta, BehaviorType
 from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.ui import ModEditorUI
 
@@ -49,6 +49,7 @@ class ModEditorWindow(QWidget):
         self.ui.swap_btn.clicked.connect(self._on_swap_clicked)
         self.ui.save_btn.clicked.connect(self._save_changes)
         self.ui.restart_btn.clicked.connect(self._restart_preview)
+        self.ui.behavior_type_combo.currentIndexChanged.connect(self._on_behavior_edited)
         self.ui.can_fly_check.stateChanged.connect(self._on_behavior_edited)
         
         for stat_spin in (
@@ -98,6 +99,7 @@ class ModEditorWindow(QWidget):
     def _on_behavior_edited(self, *_) -> None:
         if self._is_updating_ui: return
         new_stats = {
+            "type": self.ui.behavior_type_combo.currentData(),
             "can_fly": self.ui.can_fly_check.isChecked(),
             "max_health": self.ui.max_health_spin.value(),
             "attack_damage": self.ui.atk_dmg_spin.value(),
@@ -118,8 +120,7 @@ class ModEditorWindow(QWidget):
             row_text = f"[Row {row}]" if exists else "[Missing!]"
             self.ui.state_combo.addItem(f"{state.value.capitalize()} {row_text}", userData=state)
             
-            if state == current_state:
-                target_index = i
+            if state == current_state: target_index = i
                 
         self.ui.state_combo.setCurrentIndex(target_index)
         self.ui.state_combo.blockSignals(False)
@@ -149,7 +150,7 @@ class ModEditorWindow(QWidget):
         if not mod_folder: return
             
         if self.controller.load_mod(mod_folder):
-            if self.controller.manager.config_version < 2:
+            if self.controller.manager.config_version < CURRENT_CONFIG_VERSION:
                 QMessageBox.warning(
                     self,
                     "Legacy Mod Detected",
@@ -163,7 +164,6 @@ class ModEditorWindow(QWidget):
             cols, rows = self.controller.get_global_grid()
             self.ui.global_cols_spin.setValue(cols)
             self.ui.global_rows_spin.setValue(rows)
-            self.ui.can_fly_check.setChecked(self.controller.get_behavior())
             
             stats = self.controller.get_behavior_stats()
             self.ui.can_fly_check.setChecked(stats["can_fly"])
@@ -171,6 +171,10 @@ class ModEditorWindow(QWidget):
             self.ui.atk_dmg_spin.setValue(stats["attack_damage"])
             self.ui.atk_range_spin.setValue(stats["attack_range"])
             self.ui.jump_height_spin.setValue(stats["jump_height"])
+            
+            current_type = stats.get("type", BehaviorType.NEUTRAL)
+            target_index = self.ui.behavior_type_combo.findData(current_type)
+            self.ui.behavior_type_combo.setCurrentIndex(target_index)
             
             self._is_updating_ui = False
             
@@ -280,25 +284,26 @@ class ModEditorWindow(QWidget):
     
     def _center_window(self) -> None:
         screen = QGuiApplication.primaryScreen()
-        if screen:
-            screen_geom = screen.availableGeometry()
-            window_geom = self.frameGeometry()
-            window_geom.moveCenter(screen_geom.center())
-            self.move(window_geom.topLeft())
+        if not screen: return
+        
+        screen_geom = screen.availableGeometry()
+        window_geom = self.frameGeometry()
+        window_geom.moveCenter(screen_geom.center())
+        self.move(window_geom.topLeft())
     
     def _create_behavior_script(self, mod_path: str) -> None:
         behavior_path = os.path.join(mod_path, "behavior.py")
         
         # Create the boilerplate if it doesn't exist
-        if not os.path.exists(behavior_path):
-            boilerplate = (
-                "from api import BasePetBehavior, IPet, Pos2D\n\n"
-                "class Behavior(BasePetBehavior):\n"
-                "    def on_decision_tick(self, pet: IPet) -> bool:\n"
-                "        return False\n"
-            )
-            with open(behavior_path, "w", encoding="utf-8") as f:
-                f.write(boilerplate)
+        if os.path.exists(behavior_path): return
+        boilerplate = (
+            "from api import BasePetBehavior, IPet, Pos2D\n\n"
+            "class Behavior(BasePetBehavior):\n"
+            "    def on_decision_tick(self, pet: IPet) -> bool:\n"
+            "        return False\n"
+        )
+        with open(behavior_path, "w", encoding="utf-8") as f:
+            f.write(boilerplate)
     
     def _open_behavior_script(self) -> None:
         mod_folder = self.ui.mod_combo.currentText()

@@ -13,6 +13,13 @@ class PetState(StrEnum):
     DYING = "dying"
     CLIMBING = "climbing"
     REVIVING = "reviving"
+    ATTACK = "attack"
+
+@unique
+class BehaviorType(StrEnum):
+    PASSIVE = "passive"
+    NEUTRAL = "neutral"
+    HOSTILE = "hostile"
 
 @dataclass(frozen=True)
 class WindowConfig:

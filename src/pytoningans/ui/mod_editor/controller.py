@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Any
 
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.constants import PetState, AnimationMeta
@@ -29,7 +29,7 @@ class ModEditorController:
 
     def update_meta(self, state: PetState, meta: AnimationMeta) -> None:
         self.manager.animations[state] = meta
-        self.manager.clear_cache()
+        self.manager.clear_shared_cache()
 
     def get_frame(self, state: PetState, frame_index: int):
         return self.manager.get_frame(state, frame_index)
@@ -55,8 +55,9 @@ class ModEditorController:
     def update_behavior(self, can_fly: bool) -> None:
         self.manager.can_fly = can_fly
     
-    def get_behavior_stats(self) -> dict:
+    def get_behavior_stats(self) -> dict[str, Any]:
         return {
+            "type": self.manager.behavior_type,
             "can_fly": self.manager.can_fly,
             "max_health": self.manager.max_health,
             "attack_damage": self.manager.attack_damage,
@@ -64,7 +65,8 @@ class ModEditorController:
             "jump_height": self.manager.jump_height
         }
 
-    def update_behavior_stats(self, stats: dict) -> None:
+    def update_behavior_stats(self, stats: dict[str, Any]) -> None:
+        self.manager.behavior_type = stats.get("type", self.manager.behavior_type)
         self.manager.can_fly = stats.get("can_fly", self.manager.can_fly)
         self.manager.max_health = stats.get("max_health", self.manager.max_health)
         self.manager.attack_damage = stats.get("attack_damage", self.manager.attack_damage)
