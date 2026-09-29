@@ -1,16 +1,24 @@
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QPushButton, QSizeGrip,
-)
-from PySide6.QtCore import Qt, QRect
-from PySide6.QtGui import QPaintEvent, QPainter, QPen, QColor
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QSizeGrip
+from PySide6.QtCore import Qt, QRect, Signal, QPoint
+from PySide6.QtGui import QPaintEvent, QPainter, QPen, QColor, QMouseEvent
 
 class PreviewLabel(QLabel):
-    """Custom label that draws debug borders and cropping overlays."""
+    """Custom label that draws debug borders and interactive cropping overlays."""
+    
+    crop_updated = Signal(int, int, int, int) 
+    """Emits the raw coordinates whenever the red box is dragged"""
+
     def __init__(self) -> None:
         super().__init__()
         self.show_borders: bool = False
         self.show_crop: bool = False
         self.crop_rect: QRect = QRect()
+        
+        # Mouse tracking variables
+        self.setMouseTracking(True) 
+        self._drag_edge: str = ""
+        self._drag_start_pos: QPoint = QPoint()
+        self._original_rect: QRect = QRect()
 
     def paintEvent(self, event: QPaintEvent) -> None:
         super().paintEvent(event)
@@ -20,16 +28,13 @@ class PreviewLabel(QLabel):
         px_w: int = self.pixmap().width()
         px_h: int = self.pixmap().height()
         
-        # QLabel AlignCenter offsets the pixmap to the middle of the widget
         offset_x: int = (self.width() - px_w) // 2
         offset_y: int = (self.height() - px_h) // 2
         
-        # --- BLUE DEBUG BORDER ---
         if self.show_borders:
             painter.setPen(QPen(QColor(0, 150, 255), 2, Qt.PenStyle.DashLine))
             painter.drawRect(offset_x, offset_y, px_w - 1, px_h - 1)
             
-        # --- RED CROP OVERLAY ---
         if self.show_crop and not self.crop_rect.isNull():
             painter.setPen(QPen(QColor(255, 0, 0), 2, Qt.PenStyle.SolidLine))
             cx: int = offset_x + self.crop_rect.x()
@@ -63,6 +68,78 @@ class PreviewLabel(QLabel):
                 offset_x + self.crop_rect.x() + cw, offset_y + self.crop_rect.y(),
                 px_w - self.crop_rect.x() - cw, ch
             )
+
+    # --- Interactive Mouse Controls ---
+    def _get_pixmap_offset(self) -> tuple[int, int]:
+        if not self.pixmap(): return 0, 0
+        return (self.width() - self.pixmap().width()) // 2, (self.height() - self.pixmap().height()) // 2
+
+    def _get_edge_under_mouse(self, pos: QPoint) -> str:
+        """Determines if the mouse is hovering over an edge, corner, or the center of the crop rect."""
+        if not self.show_crop or self.crop_rect.isNull(): return ""
+        
+        ox, oy = self._get_pixmap_offset()
+        rect = QRect(
+            ox + self.crop_rect.x(), oy + self.crop_rect.y(),
+            self.crop_rect.width(), self.crop_rect.height()
+        )
+        
+        margin: int = 6
+        edges: str = ""
+        if abs(pos.y() - rect.top()) <= margin: edges += "t"
+        elif abs(pos.y() - rect.bottom()) <= margin: edges += "b"
+        
+        if abs(pos.x() - rect.left()) <= margin: edges += "l"
+        elif abs(pos.x() - rect.right()) <= margin: edges += "r"
+        
+        if not edges and rect.contains(pos): edges = "c" # Center drag
+        return edges
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton and self.show_crop:
+            self._drag_edge = self._get_edge_under_mouse(event.pos())
+            if self._drag_edge:
+                self._drag_start_pos = event.pos()
+                self._original_rect = QRect(self.crop_rect)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if not self.show_crop:
+            self.unsetCursor()
+            return
+
+        if self._drag_edge:
+            # Apply translations based on the starting drag position
+            dx: int = event.pos().x() - self._drag_start_pos.x()
+            dy: int = event.pos().y() - self._drag_start_pos.y()
+            new_rect = QRect(self._original_rect)
+
+            if "c" in self._drag_edge:
+                new_rect.translate(dx, dy)
+            else:
+                if "t" in self._drag_edge: new_rect.setTop(new_rect.top() + dy)
+                if "b" in self._drag_edge: new_rect.setBottom(new_rect.bottom() + dy)
+                if "l" in self._drag_edge: new_rect.setLeft(new_rect.left() + dx)
+                if "r" in self._drag_edge: new_rect.setRight(new_rect.right() + dx)
+
+            # Prevent the user from collapsing the box into itself
+            if new_rect.width() >= 1 and new_rect.height() >= 1:
+                self.crop_rect = new_rect
+                self.update() # Force instant visual refresh
+                
+                # Broadcast the new math back to the UI panel
+                self.crop_updated.emit(new_rect.x(), new_rect.y(), new_rect.width(), new_rect.height())
+        else:
+            # Dynamically update the mouse cursor icon based on hover position
+            edge: str = self._get_edge_under_mouse(event.pos())
+            if edge in ("tl", "br"): self.setCursor(Qt.CursorShape.SizeFDiagCursor)
+            elif edge in ("tr", "bl"): self.setCursor(Qt.CursorShape.SizeBDiagCursor)
+            elif edge in ("t", "b"): self.setCursor(Qt.CursorShape.SizeVerCursor)
+            elif edge in ("l", "r"): self.setCursor(Qt.CursorShape.SizeHorCursor)
+            elif edge == "c": self.setCursor(Qt.CursorShape.SizeAllCursor)
+            else: self.unsetCursor()
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        self._drag_edge = ""
 
 class CollapsibleSection(QWidget):
     """A reusable UI component that expands and collapses its contents."""

@@ -261,13 +261,15 @@ class ModManager:
         final_h: int = anim_meta.override_height if anim_meta.override_height > 0 else base_h
 
         # Extract using the actual spatial sheet index
-        x_pos: int = (actual_sheet_index * final_w) + anim_meta.offset_x
-        y_pos: int = (anim_meta.row * base_h) + anim_meta.offset_y 
+        x_pos = (actual_sheet_index * base_w) + anim_meta.offset_x
+        y_pos = (anim_meta.row * base_h) + anim_meta.offset_y
         
         crop_rect = QRect(x_pos, y_pos, final_w, final_h)
-        frame: QPixmap = self._global_sheet.copy(crop_rect)
+        safe_rect = crop_rect.intersected(self._global_sheet.rect())
         
-        # Save to the shared class-level cache
+        if safe_rect.isEmpty(): return None
+        
+        frame = self._global_sheet.copy(safe_rect)
         ModManager._shared_frame_cache[cache_key] = frame
         
         return frame

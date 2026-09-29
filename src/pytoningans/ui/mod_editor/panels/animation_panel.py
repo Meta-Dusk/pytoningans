@@ -87,10 +87,8 @@ class AnimationSubsystem:
         sec_layout = QVBoxLayout()
         
         self.borders_check = QCheckBox("Show Sprite Borders (Blue)")
-        self.crop_check = QCheckBox("Show Cropping Overlay (Red Box)")
         
         sec_layout.addWidget(self.borders_check)
-        sec_layout.addWidget(self.crop_check)
         section.content_layout.addLayout(sec_layout)
         layout.addWidget(section)
 
@@ -127,6 +125,8 @@ class AnimationSubsystem:
         self.end_spin = create_spinbox(0, 100)
         self.loop_check = QCheckBox("Loop Animation")
         self.reverse_check = QCheckBox("Play in Reverse")
+        self.crop_check = QCheckBox("Enable Interactive Cropping")
+        self.crop_check.setStyleSheet("font-weight: bold; color: #ff4444;")
         self.width_spin = create_spinbox(0, 2048)
         self.height_spin = create_spinbox(0, 2048)
         self.off_x_spin = create_spinbox(-2048, 2048)
@@ -138,6 +138,7 @@ class AnimationSubsystem:
         form.addRow("End Frame Index:", self.end_spin)
         form.addRow("", self.loop_check)
         form.addRow("", self.reverse_check)
+        form.addRow("", self.crop_check)
         form.addRow("Override Width:", self.width_spin)
         form.addRow("Override Height:", self.height_spin)
         form.addRow("Offset X:", self.off_x_spin)
@@ -146,7 +147,7 @@ class AnimationSubsystem:
         
         section.content_layout.addLayout(form)
         layout.addWidget(section)
-
+    
     def _connect_signals(self) -> None:
         self.cols_spin.valueChanged.connect(self._on_global_edited)
         self.rows_spin.valueChanged.connect(self._on_global_edited)
@@ -165,6 +166,7 @@ class AnimationSubsystem:
             widget.valueChanged.connect(self._on_meta_edited)
         self.loop_check.stateChanged.connect(self._on_meta_edited)
         self.reverse_check.stateChanged.connect(self._on_meta_edited)
+        self.preview_label.crop_updated.connect(self._on_crop_dragged)
 
     # --- Handlers ---
     def _refresh_dynamic_info(self) -> None:
@@ -281,3 +283,18 @@ class AnimationSubsystem:
     def _on_crop_toggled(self, checked: bool) -> None:
         self.preview_label.show_crop = checked
         self._update_preview()
+    
+    def _on_crop_dragged(self, x: int, y: int, w: int, h: int) -> None:
+        """Instantly updates the UI spinboxes while dragging the red overlay."""
+        # Block _on_meta_edited from firing prematurely during the fast setValue updates
+        self._is_updating_ui = True
+        
+        self.off_x_spin.setValue(x)
+        self.off_y_spin.setValue(y)
+        self.width_spin.setValue(w)
+        self.height_spin.setValue(h)
+        
+        self._is_updating_ui = False
+        
+        # Manually trigger the meta save to apply the new coordinates to the Controller
+        self._on_meta_edited()
