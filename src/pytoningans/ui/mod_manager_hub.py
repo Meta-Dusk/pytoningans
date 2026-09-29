@@ -1,4 +1,5 @@
-import os, shutil
+import shutil
+from pathlib import Path
 from typing import List, Optional
 
 from PySide6.QtWidgets import (
@@ -6,18 +7,22 @@ from PySide6.QtWidgets import (
     QLabel, QMessageBox, QDialog
 )
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QIcon
 
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_creation_dialog import ModCreationDialog
 from pytoningans.ui.mod_editor import ModEditorWindow
+from pytoningans.utils.paths import get_asset_path
 
 class ModManagerHub(QWidget):
     mods_updated = Signal()
     
     def __init__(self, mod_manager: ModManager) -> None:
-        super().__init__()
+        super().__init__(
+            windowTitle="Mod Manager Hub",
+            windowIcon=QIcon(get_asset_path("assets/ui/teto.ico").as_posix())
+        )
         self.mod_manager = mod_manager
         self.editor_window: Optional[ModEditorWindow] = None
         
@@ -40,7 +45,6 @@ class ModManagerHub(QWidget):
         content_layout.setContentsMargins(20, 20, 20, 20)
         content_layout.setSpacing(15)
         
-        # --- Left Side: Mod List ---
         list_layout = QVBoxLayout()
         list_layout.addWidget(QLabel("Installed Mods:"))
         
@@ -49,18 +53,15 @@ class ModManagerHub(QWidget):
         
         content_layout.addLayout(list_layout, stretch=2)
         
-        # --- Right Side: Action Buttons ---
         btn_layout = QVBoxLayout()
         
         self.create_btn = QPushButton("Create New Mod")
         self.edit_btn = QPushButton("Edit Selected")
         self.delete_btn = QPushButton("Delete Selected")
         
-        # Disable context buttons by default
         self.edit_btn.setEnabled(False)
         self.delete_btn.setEnabled(False)
         
-        # Connect signals
         self.create_btn.clicked.connect(self._on_create_clicked)
         self.edit_btn.clicked.connect(self._on_edit_clicked)
         self.delete_btn.clicked.connect(self._on_delete_clicked)
@@ -107,7 +108,6 @@ class ModManagerHub(QWidget):
         else:
             self.editor_window.activateWindow()
             
-        # Programmatically select the target mod in the Editor's dropdown
         self.editor_window.mod_combo.setCurrentText(mod_folder)
 
     def _on_delete_clicked(self) -> None:
@@ -123,7 +123,7 @@ class ModManagerHub(QWidget):
         )
         
         if reply == QMessageBox.StandardButton.Yes:
-            target_dir: str = os.path.join(self.mod_manager.mods_dir, mod_folder)
+            target_dir: Path = self.mod_manager.mods_dir / mod_folder
             try:
                 shutil.rmtree(target_dir)
                 self._refresh_list()
@@ -132,7 +132,6 @@ class ModManagerHub(QWidget):
                 QMessageBox.critical(self, "Error", f"Failed to delete mod: {str(e)}")
     
     def _on_selection_changed(self) -> None:
-        """Enables context buttons only if a mod is actually selected."""
         has_selection: bool = len(self.mod_list.selectedItems()) > 0
         self.edit_btn.setEnabled(has_selection)
         self.delete_btn.setEnabled(has_selection)

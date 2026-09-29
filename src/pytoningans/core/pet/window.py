@@ -26,6 +26,7 @@ class PetWindow(QWidget):
         mod_manager: ModManager, pet_manager: PetManager
     ) -> None:
         super().__init__()
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.mod_manager: ModManager = mod_manager
         self.pet_manager: PetManager = pet_manager
         

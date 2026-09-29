@@ -26,7 +26,7 @@ def main() -> None:
     app.setStyleSheet(DARK_THEME)
     app.setWindowIcon(QIcon("assets/ui/teto.ico"))
     
-    font_path: str = get_asset_path("assets/ui/PixelCode.otf")
+    font_path: str = get_asset_path("assets/ui/PixelCode.otf").as_posix()
     font_id: int = QFontDatabase.addApplicationFont(font_path)
     
     if font_id < 0:
@@ -43,11 +43,11 @@ def main() -> None:
         app.setFont(default_font)
     
     # Setup external directory and ensure the default mod exists
-    mods_dir: str = get_mods_directory()
+    mods_dir = get_mods_directory()
     setup_default_mod(mods_dir)
     
     # Initialize Mod Manager
-    mod_manager: ModManager = ModManager(mods_dir)
+    mod_manager: ModManager = ModManager(mods_dir.as_posix())
     
     available_mods: List[str] = mod_manager.get_available_mods()
     if available_mods:

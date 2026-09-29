@@ -1,52 +1,53 @@
-import sys, os, shutil
+import sys, shutil
+from pathlib import Path
 from PySide6.QtCore import QStandardPaths
 
 from pytoningans.core.constants import APP_CFG
 
-def get_mods_directory() -> str:
+def is_compiled() -> bool:
+    """Detects if the app is packaged via pyside6-deploy (Nuitka) or PyInstaller."""
+    return getattr(sys, 'frozen', False) or "__compiled__" in globals()
+
+def get_base_path() -> Path:
+    """
+    Returns the absolute root path.
+    - pyside6-deploy (Nuitka): The .dist folder containing the .exe
+    - PyInstaller: The temporary _MEIPASS folder
+    - Source: The project root directory
+    """
+    if hasattr(sys, '_MEIPASS'):
+        return Path(getattr(sys, '_MEIPASS'))
+        
+    if is_compiled():
+        return Path(sys.executable).parent
+        
+    # If running from source, go up 4 levels (src/pytoningans/utils/paths.py -> root)
+    return Path(__file__).resolve().parents[3]
+
+def get_asset_path(relative_path: str) -> Path:
+    """Helper to safely resolve asset paths using pathlib."""
+    return get_base_path() / relative_path
+
+def get_mods_directory() -> Path:
     """Safely resolves and creates the Documents/PyToNingans/mods folder."""
-    docs_path: str = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
-    mods_dir: str = os.path.join(docs_path, APP_CFG.app_name, "mods")
-    os.makedirs(mods_dir, exist_ok=True)
+    docs_path = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation))
+    
+    # Resolves to Documents/PyToNingans/mods
+    mods_dir = docs_path / APP_CFG.app_name / "mods"
+    mods_dir.mkdir(parents=True, exist_ok=True)
+    
     return mods_dir
 
-def get_asset_path(relative_path: str) -> str:
-    """
-    Helper to safely resolve asset paths whether running from source or compiled.
-    
-    **Examples of** `relative_path`:
-    - (if file is in `assets/`) "assets/image.png"
-    - (if file is in a subdirectory) "assets/images/image.png"
-    """
-    current_dir: str = os.path.dirname(os.path.abspath(__file__))
-    base_path: str = os.path.abspath(os.path.join(current_dir, "..", "..", ".."))
-    
-    is_frozen: bool = getattr(sys, 'frozen', False)
-    if is_frozen and hasattr(sys, '_MEIPASS'):
-        base_path = getattr(sys, '_MEIPASS')
-        
-    return os.path.join(base_path, relative_path)
-
-def setup_default_mod(external_mods_dir: str) -> None:
+def setup_default_mod(external_mods_dir: Path) -> None:
     """Copies the bundled default mod to the Documents folder on first launch."""
-    target_mod_path: str = os.path.join(external_mods_dir, "default_pet")
+    target_mod_path = external_mods_dir / "default_pet"
     
-    if os.path.exists(target_mod_path):
+    if target_mod_path.exists():
         return
 
-    # Default behavior (Works for Source Code AND pyside6-deploy / Nuitka)
-    current_dir: str = os.path.dirname(os.path.abspath(__file__))
-    bundled_assets: str = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "assets"))
+    bundled_mod_path = get_asset_path("assets/mods/default_pet")
 
-    # PyInstaller Fallback
-    is_frozen: bool = getattr(sys, 'frozen', False)
-    if is_frozen and hasattr(sys, '_MEIPASS'):
-        meipass_path: str = getattr(sys, '_MEIPASS')
-        bundled_assets = os.path.join(meipass_path, "assets")
-
-    bundled_mod_path: str = os.path.join(bundled_assets, "mods", "default_pet")
-
-    if os.path.exists(bundled_mod_path):
+    if bundled_mod_path.exists():
         try:
             shutil.copytree(bundled_mod_path, target_mod_path)
             print(f"First launch: Copied default mod to {target_mod_path}")

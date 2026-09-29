@@ -1,6 +1,6 @@
 {
     "version": 6,
-    "name": "defaul_pet",
+    "name": "default_pet",
     "columns": 24,
     "rows": 7,
     "behavior": {
@@ -146,19 +146,13 @@
                 "chance": 0.1,
                 "duration": 4000,
                 "text": "Can you code me a baguette?",
-                "title_matches": [
-                    "vscode",
-                    "code.exe",
-                    "visual studio code"
-                ]
+                "title_matches": ["vscode", "code.exe", "visual studio code"]
             },
             {
                 "chance": 1.0,
                 "duration": 4000,
                 "text": "Happy Birthday, Lance!",
-                "title_matches": [
-                    "hbdl"
-                ]
+                "title_matches": ["hbdl"]
             }
         ]
     }

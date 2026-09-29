@@ -7,16 +7,20 @@ from PySide6.QtWidgets import (
     QSpinBox, QHBoxLayout
 )
 from PySide6.QtCore import QCoreApplication, QRect, Qt, QTimer
-from PySide6.QtGui import QGuiApplication, QScreen
+from PySide6.QtGui import QGuiApplication, QScreen, QIcon
 
 from pytoningans.core.pet_manager import PetManager
 from pytoningans.ui.mod_manager_hub import ModManagerHub
 from pytoningans.ui.theme import LIGHT_THEME, DARK_THEME
 from pytoningans.ui.title_bar import CustomTitleBar
+from pytoningans.utils.paths import get_asset_path
 
 class MainMenu(QWidget):
     def __init__(self, manager: PetManager) -> None:
-        super().__init__()
+        super().__init__(
+            windowTitle="Control Panel",
+            windowIcon=QIcon(get_asset_path("assets/ui/teto.ico").as_posix())
+        )
         self.manager: PetManager = manager
         self.hub_window: Optional[ModManagerHub] = None
         self._is_dark_mode: bool = True

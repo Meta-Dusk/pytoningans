@@ -3,11 +3,12 @@ from PySide6.QtGui import QIcon, QAction
 
 from pytoningans.ui.main_menu import MainMenu
 from pytoningans.core.constants import APP_CFG
+from pytoningans.utils.paths import get_asset_path
 
 class AppTray(QSystemTrayIcon):
     def __init__(self, main_menu: MainMenu, icon_path: str = "assets/ui/teto.png") -> None:
         # Create the icon, falling back to a default empty one if the PNG is missing
-        icon: QIcon = QIcon(icon_path)
+        icon: QIcon = QIcon(get_asset_path(icon_path).as_posix())
         super().__init__(icon)
         
         self.main_menu: MainMenu = main_menu

@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QFrame, QMessageBox, QLabel
 )
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QIcon
 
 from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION
 from pytoningans.ui.title_bar import CustomTitleBar
@@ -13,12 +13,16 @@ from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.panels.dialogue_panel import DialoguePanel
 from pytoningans.ui.mod_editor.panels.behavior_panel import BehaviorStatsPanel, BehaviorScriptPanel
 from pytoningans.ui.mod_editor.panels.animation_panel import AnimationSubsystem
+from pytoningans.utils.paths import get_asset_path
 
 class ModEditorWindow(QWidget):
     mods_updated = Signal()
     
     def __init__(self, mod_manager: ModManager) -> None:
-        super().__init__()
+        super().__init__(
+            windowTitle="Mod Editor",
+            windowIcon=QIcon(get_asset_path("assets/ui/teto.ico").as_posix())
+        )
         self.controller = ModEditorController(mod_manager)
         
         self._setup_ui()
