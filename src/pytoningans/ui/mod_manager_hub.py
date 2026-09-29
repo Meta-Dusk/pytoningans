@@ -108,7 +108,7 @@ class ModManagerHub(QWidget):
             self.editor_window.activateWindow()
             
         # Programmatically select the target mod in the Editor's dropdown
-        self.editor_window.ui.mod_combo.setCurrentText(mod_folder)
+        self.editor_window.mod_combo.setCurrentText(mod_folder)
 
     def _on_delete_clicked(self) -> None:
         selected: List[QListWidgetItem] = self.mod_list.selectedItems()

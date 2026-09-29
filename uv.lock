@@ -52,7 +52,7 @@ wheels = [
 
 [[package]]
 name = "pytoningans"
-version = "0.5.14"
+version = "0.5.15"
 source = { editable = "." }
 dependencies = [
     { name = "pyside6" },
