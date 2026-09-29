@@ -1,6 +1,33 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QSizeGrip
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QLabel, QPushButton, QSizeGrip, QHBoxLayout, QSpinBox
+)
 from PySide6.QtCore import Qt, QRect, Signal, QPoint
 from PySide6.QtGui import QPaintEvent, QPainter, QPen, QColor, QMouseEvent
+
+from pytoningans.ui.tool_tip import ToolTipLabel
+
+def create_info_label(text: str, tooltip_text: str) -> QWidget:
+    widget = QWidget()
+    layout = QHBoxLayout(widget)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.addWidget(QLabel(text))
+    layout.addWidget(ToolTipLabel(text="[?]", tooltip_text=tooltip_text))
+    layout.addStretch() 
+    return widget
+
+def create_info_widget(widget: QWidget, tooltip_text: str) -> QWidget:
+    combined_widget = QWidget()
+    layout = QHBoxLayout(combined_widget)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.addWidget(widget)
+    layout.addWidget(ToolTipLabel(text="[?]", tooltip_text=tooltip_text))
+    layout.addStretch() 
+    return combined_widget
+
+def create_spinbox(min_val: int, max_val: int) -> QSpinBox:
+    spin = QSpinBox()
+    spin.setRange(min_val, max_val)
+    return spin
 
 class PreviewLabel(QLabel):
     """Custom label that draws debug borders and interactive cropping overlays."""

@@ -106,11 +106,17 @@ class ModEditorWindow(QWidget):
         
         # Footer
         footer_layout = QHBoxLayout()
-        footer_layout.setContentsMargins(20, 10, 0, 15) 
+        footer_layout.setContentsMargins(20, 10, 0, 15)
+        
+        self.reload_btn = QPushButton("Discard Unsaved Changes")
+        self.reload_btn.setMinimumSize(200, 35)
+         
         self.save_btn = QPushButton("Save config.json")
         self.save_btn.setMinimumSize(200, 35)
         
         footer_layout.addStretch()
+        footer_layout.addWidget(self.reload_btn)
+        footer_layout.addSpacing(35)
         footer_layout.addWidget(self.save_btn)
         footer_layout.addStretch()
         
@@ -122,6 +128,7 @@ class ModEditorWindow(QWidget):
     def _connect_signals(self) -> None:
         self.mod_combo.currentTextChanged.connect(self._on_mod_changed)
         self.save_btn.clicked.connect(self._save_changes)
+        self.reload_btn.clicked.connect(self._on_reload_clicked)
 
     def _on_mod_changed(self, mod_folder: str) -> None:
         if not mod_folder: return
@@ -151,3 +158,22 @@ class ModEditorWindow(QWidget):
             geom = self.frameGeometry()
             geom.moveCenter(screen.availableGeometry().center())
             self.move(geom.topLeft())
+    
+    def _on_reload_clicked(self) -> None:
+        mod_folder: str = self.mod_combo.currentText()
+        if not mod_folder: return
+        
+        reply = QMessageBox.question(
+            self, "Discard Changes",
+            "This will wipe all unsaved tweaks (including cropping boundaries)"
+            " and reload the last saved config.json.\n\nAre you sure?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            # Re-triggering this method flushes the engine's memory cache,
+            # reads the disk files again, and forces every panel to update its UI.
+            self._on_mod_changed(mod_folder)
+            
+            # Explicitly kill crop mode in the animation panel
+            self.anim_sys.crop_check.setChecked(False)

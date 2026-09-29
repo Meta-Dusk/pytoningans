@@ -3,14 +3,15 @@ from typing import Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox, 
-    QPushButton, QLabel, QFormLayout, QFrame
+    QPushButton, QLabel, QFormLayout, QFrame, QMessageBox
 )
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QRect
 
 from pytoningans.core.constants import PetState, AnimationMeta
 from pytoningans.ui.mod_editor.controller import ModEditorController
-from pytoningans.ui.mod_editor.components import CollapsibleSection, PreviewLabel
-from pytoningans.ui.mod_editor.panels.behavior_panel import create_info_label, create_spinbox
+from pytoningans.ui.mod_editor.components import (
+    CollapsibleSection, PreviewLabel, create_info_label, create_spinbox, create_info_widget
+)
 
 class AnimationSubsystem:
     """Manages all animation-related UI panels, timers, and state bridging."""
@@ -99,7 +100,12 @@ class AnimationSubsystem:
         section = CollapsibleSection("Animation State Config")
         
         h_layout = QHBoxLayout()
-        h_layout.addWidget(QLabel("State:"))
+        h_layout.addWidget(
+            create_info_label(
+                "State:",
+                "The State of the Pet to edit the values for."
+            )
+        )
         self.state_combo = QComboBox()
         h_layout.addWidget(self.state_combo)
         self.copy_btn = QPushButton("Copy")
@@ -110,7 +116,13 @@ class AnimationSubsystem:
         section.content_layout.addLayout(h_layout)
         
         swap_layout = QHBoxLayout()
-        swap_layout.addWidget(QLabel("Swap With:"))
+        swap_layout.addWidget(
+            create_info_label(
+                "Swap State Data With:",
+                "Swaps all the data between the two selected States "
+                "(the top and bottom combo boxes)."
+            )
+        )
         self.swap_combo = QComboBox()
         for state in PetState:
             self.swap_combo.addItem(state.value.capitalize(), userData=state)
@@ -125,25 +137,89 @@ class AnimationSubsystem:
         self.end_spin = create_spinbox(0, 100)
         self.loop_check = QCheckBox("Loop Animation")
         self.reverse_check = QCheckBox("Play in Reverse")
-        self.crop_check = QCheckBox("Enable Interactive Cropping")
+        self.crop_check = QCheckBox("Interactive Cropping")
+        
+        crop_layout = QHBoxLayout()
+        self.crop_check = QCheckBox("Interactive Crop")
         self.crop_check.setStyleSheet("font-weight: bold; color: #ff4444;")
+        crop_check_info = create_info_widget(
+            self.crop_check,
+            "Shows a red outline as the cropping area. Resizeable by dragging its borders."
+        )
+        
+        self.apply_all_btn = QPushButton("Apply to All")
+        self.apply_all_btn.setStyleSheet("font-weight: bold;")
+        
+        self.bake_btn = QPushButton("Bake to File")
+        self.bake_btn.setStyleSheet("background-color: #aa0000; color: white; font-weight: bold;")
+        
+        crop_layout.addWidget(self.apply_all_btn)
+        crop_layout.addWidget(self.bake_btn)
+        
         self.width_spin = create_spinbox(0, 2048)
         self.height_spin = create_spinbox(0, 2048)
-        self.off_x_spin = create_spinbox(-2048, 2048)
-        self.off_y_spin = create_spinbox(-2048, 2048)
+        self.offset_x_spin = create_spinbox(-2048, 2048)
+        self.offset_y_spin = create_spinbox(-2048, 2048)
         self.fps_spin = create_spinbox(1, 60)
         
-        form.addRow("Mapped Row Index:", self.row_spin)
-        form.addRow("Start Frame Index:", self.start_spin)
-        form.addRow("End Frame Index:", self.end_spin)
-        form.addRow("", self.loop_check)
-        form.addRow("", self.reverse_check)
-        form.addRow("", self.crop_check)
-        form.addRow("Override Width:", self.width_spin)
-        form.addRow("Override Height:", self.height_spin)
-        form.addRow("Offset X:", self.off_x_spin)
-        form.addRow("Offset Y:", self.off_y_spin)
-        form.addRow("FPS:", self.fps_spin)
+        form.addRow(
+            create_info_label(
+                "Mapped Row Index:",
+                "The row index (from 0) where the animation frames are sourced from."
+            ),
+            self.row_spin
+        )
+        form.addRow(
+            create_info_label(
+                "Start Frame Index:",
+                "The column index (from 0) where the animation begins."
+            ),
+            self.start_spin
+        )
+        form.addRow(
+            create_info_label(
+                "End Frame Index:",
+                "The column index (from 0) where the animation ends."
+            ),
+            self.end_spin
+        )
+        form.addRow(self.loop_check, self.reverse_check)
+        form.addRow(crop_check_info, crop_layout)
+        form.addRow(
+            create_info_label(
+                "Override Width (px):",
+                "Set above 0 to manually define this frame's width, ignoring the global grid."
+            ),
+            self.width_spin
+        )
+        form.addRow(
+            create_info_label(
+                "Override Height (px):",
+                "Set above 0 to manually define this frame's height, ignoring the global grid."
+            ),
+            self.height_spin
+        )
+        form.addRow(
+            create_info_label(
+                "Offset X (px):",
+                "Nudge the frame extraction boundary horizontally."
+            ),
+            self.offset_x_spin
+        )
+        form.addRow(
+            create_info_label(
+                "Offset Y (px):",
+                "Nudge the frame extraction boundary vertically."
+            ),
+            self.offset_y_spin
+        )
+        form.addRow(
+            create_info_label(
+                "Playback Speed (FPS):",
+                "How fast the animation plays. Higher means faster."
+            ),
+            self.fps_spin
+        )
         
         section.content_layout.addLayout(form)
         layout.addWidget(section)
@@ -162,11 +238,13 @@ class AnimationSubsystem:
         self.crop_check.stateChanged.connect(self._on_crop_toggled)
         
         for widget in (self.row_spin, self.start_spin, self.end_spin, self.width_spin, 
-                       self.height_spin, self.off_x_spin, self.off_y_spin, self.fps_spin):
+                       self.height_spin, self.offset_x_spin, self.offset_y_spin, self.fps_spin):
             widget.valueChanged.connect(self._on_meta_edited)
         self.loop_check.stateChanged.connect(self._on_meta_edited)
         self.reverse_check.stateChanged.connect(self._on_meta_edited)
         self.preview_label.crop_updated.connect(self._on_crop_dragged)
+        self.bake_btn.clicked.connect(self._on_bake_clicked)
+        self.apply_all_btn.clicked.connect(self._on_apply_all_clicked)
 
     # --- Handlers ---
     def _refresh_dynamic_info(self) -> None:
@@ -209,8 +287,8 @@ class AnimationSubsystem:
         self.reverse_check.setChecked(meta.reverse)
         self.width_spin.setValue(meta.override_width)
         self.height_spin.setValue(meta.override_height)
-        self.off_x_spin.setValue(meta.offset_x)
-        self.off_y_spin.setValue(meta.offset_y)
+        self.offset_x_spin.setValue(meta.offset_x)
+        self.offset_y_spin.setValue(meta.offset_y)
         self.fps_spin.setValue(meta.fps)
         self._is_updating_ui = False
         self._preview_timer.setInterval(1000 // max(1, meta.fps))
@@ -228,8 +306,8 @@ class AnimationSubsystem:
             reverse=self.reverse_check.isChecked(),
             override_width=self.width_spin.value(),
             override_height=self.height_spin.value(),
-            offset_x=self.off_x_spin.value(),
-            offset_y=self.off_y_spin.value(),
+            offset_x=self.offset_x_spin.value(),
+            offset_y=self.offset_y_spin.value(),
             fps=self.fps_spin.value()
         )
         self.controller.update_meta(state, new_meta)
@@ -289,8 +367,8 @@ class AnimationSubsystem:
         # Block _on_meta_edited from firing prematurely during the fast setValue updates
         self._is_updating_ui = True
         
-        self.off_x_spin.setValue(x)
-        self.off_y_spin.setValue(y)
+        self.offset_x_spin.setValue(x)
+        self.offset_y_spin.setValue(y)
         self.width_spin.setValue(w)
         self.height_spin.setValue(h)
         
@@ -298,3 +376,51 @@ class AnimationSubsystem:
         
         # Manually trigger the meta save to apply the new coordinates to the Controller
         self._on_meta_edited()
+    
+    def _on_bake_clicked(self) -> None:
+        self.bake_btn.setEnabled(False)
+        
+        reply = QMessageBox.question(
+            self.state_panel, "Bake Sprite Sheet",
+            "This will permanently crop the physical sprite_sheet.png "
+            "file and reset your offsets to 0.\n\nAre you sure?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            if self.controller.bake_sprite_sheet():
+                self.crop_check.setChecked(False)
+                self.preview_label.crop_rect = QRect()
+                self.load_data() # Reload UI to reflect the reset 0 offsets
+                self._restart_preview()
+                QMessageBox.information(
+                    self.state_panel, "Success",
+                    "Sprite sheet successfully baked and optimized!"
+                )
+            else:
+                QMessageBox.critical(
+                    self.state_panel, 
+                    "Error", 
+                    "Failed to overwrite sprite_sheet.png. Ensure the file isn't open in an image editor."
+                )
+        
+        self.bake_btn.setEnabled(True)
+    
+    def _on_apply_all_clicked(self) -> None:
+        state = self.state_combo.currentData()
+        if not state: return
+        
+        reply = QMessageBox.question(
+            self.state_panel, "Apply Crop to All",
+            "This will overwrite the Width, Height, Offset X, and Offset Y of "
+            "EVERY state with the current state's values.\n\nContinue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.controller.apply_crop_to_all(state)
+            QMessageBox.information(
+                self.state_panel, 
+                "Success", 
+                "Crop settings successfully applied to all animation states!"
+            )

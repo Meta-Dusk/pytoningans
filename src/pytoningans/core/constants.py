@@ -28,7 +28,7 @@ class WindowConfig:
     placeholder_text: str = "🐾"
     placeholder_style: str = "font-size: 50px; color: black;"
 
-@dataclass(frozen=True)
+@dataclass()
 class AnimationMeta:
     row: int
     start_frame: int = 0

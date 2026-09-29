@@ -77,32 +77,58 @@ class ModEditorController:
     
     def get_raw_preview(self, state: PetState, frame_index: int) -> Tuple[Optional[QPixmap], QRect]:
         """Returns the uncropped base tile and the QRect representing the custom crop area."""
-        sheet = self.manager._global_sheet
+        sheet: Optional[QPixmap] = self.manager._global_sheet
         if not sheet: return None, QRect()
         
-        meta = self.manager.animations.get(state)
+        meta: Optional[AnimationMeta] = self.manager.animations.get(state)
         if not meta: return None, QRect()
         
         # Determine actual frame index
-        total_frames = max(1, (meta.end_frame - meta.start_frame) + 1)
-        mapped = frame_index % total_frames if meta.loop else min(frame_index, total_frames - 1)
+        total_frames: int = max(1, (meta.end_frame - meta.start_frame) + 1)
+        mapped: int = frame_index % total_frames if meta.loop else min(frame_index, total_frames - 1)
         if meta.reverse:
             mapped = (total_frames - 1) - mapped
             
-        actual_sheet_index = meta.start_frame + mapped
+        actual_sheet_index: int = meta.start_frame + mapped
         
         # Extract the raw grid tile (No offsets applied yet)
-        cols = max(1, self.manager.global_columns)
-        rows = max(1, self.manager.global_rows)
-        base_w = sheet.width() // cols
-        base_h = sheet.height() // rows
+        cols: int = max(1, self.manager.global_columns)
+        rows: int = max(1, self.manager.global_rows)
+        base_w: int = sheet.width() // cols
+        base_h: int = sheet.height() // rows
         
         raw_rect = QRect(actual_sheet_index * base_w, meta.row * base_h, base_w, base_h)
         raw_tile = sheet.copy(raw_rect)
         
         # Calculate the target crop area boundaries
-        final_w = meta.override_width if meta.override_width > 0 else base_w
-        final_h = meta.override_height if meta.override_height > 0 else base_h
+        final_w: int = meta.override_width if meta.override_width > 0 else base_w
+        final_h: int = meta.override_height if meta.override_height > 0 else base_h
+        
+        origin_x: int = actual_sheet_index * final_w
+        origin_y: int = meta.row * base_h
+        
+        # Pad the extracted background so you don't lose the ability to expand the crop box
+        display_w: int = max(base_w, final_w * 2)
+        display_h: int = max(base_h, final_h * 2)
+        
+        raw_rect = QRect(origin_x, origin_y, display_w, display_h)
+        raw_tile: QPixmap = sheet.copy(raw_rect)
+        
         crop_rect = QRect(meta.offset_x, meta.offset_y, final_w, final_h)
         
         return raw_tile, crop_rect
+    
+    def bake_sprite_sheet(self) -> bool:
+        return self.manager.bake_sprite_sheet()
+    
+    def apply_crop_to_all(self, source_state: PetState) -> None:
+        """Copies the crop offsets and dimensions of the source state to all other states."""
+        source_meta: Optional[AnimationMeta] = self.manager.animations.get(source_state)
+        if not source_meta: return
+        
+        for state, meta in self.manager.animations.items():
+            if state != source_state:
+                meta.override_width = source_meta.override_width
+                meta.override_height = source_meta.override_height
+                meta.offset_x = source_meta.offset_x
+                meta.offset_y = source_meta.offset_y

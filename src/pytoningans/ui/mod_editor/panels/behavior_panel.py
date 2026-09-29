@@ -2,27 +2,11 @@ import os, subprocess
 from typing import Dict, Any
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox, 
-    QPushButton, QLabel, QSpinBox, QFormLayout
+    QWidget, QVBoxLayout, QComboBox, QCheckBox, QPushButton, QFormLayout
 )
 from pytoningans.core.constants import BehaviorType
 from pytoningans.ui.mod_editor.controller import ModEditorController
-from pytoningans.ui.mod_editor.components import CollapsibleSection
-from pytoningans.ui.tool_tip import ToolTipLabel
-
-def create_info_label(text: str, tooltip_text: str) -> QWidget:
-    widget = QWidget()
-    layout = QHBoxLayout(widget)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.addWidget(QLabel(text))
-    layout.addWidget(ToolTipLabel(text="[?]", tooltip_text=tooltip_text))
-    layout.addStretch() 
-    return widget
-
-def create_spinbox(min_val: int, max_val: int) -> QSpinBox:
-    spin = QSpinBox()
-    spin.setRange(min_val, max_val)
-    return spin
+from pytoningans.ui.mod_editor.components import CollapsibleSection, create_spinbox, create_info_label
 
 class BehaviorStatsPanel(QWidget):
     def __init__(self, controller: ModEditorController) -> None:

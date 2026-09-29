@@ -4,8 +4,8 @@ import importlib.util
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import asdict
 
-from PySide6.QtGui import QPixmap
-from PySide6.QtCore import QRect
+from PySide6.QtGui import QPixmap, QPainter
+from PySide6.QtCore import QRect, Qt
 
 from pytoningans.core.constants import PetState, AnimationMeta, BehaviorType
 from pytoningans.core.api import BasePetBehavior
@@ -26,6 +26,7 @@ class ModManager:
     def __init__(self, mods_dir: str = "assets/mods") -> None:
         self.mods_dir: str = mods_dir
         self.current_mod_name: str = ""
+        self.current_mod_folder: str = ""
         self.global_columns: int = 1
         self.global_rows: int = 1
         
@@ -82,6 +83,7 @@ class ModManager:
         return valid_mods
 
     def load_mod(self, mod_folder_name: str) -> bool:
+        self.current_mod_folder = mod_folder_name
         mod_path: str = os.path.join(self.mods_dir, mod_folder_name)
         config_path: str = os.path.join(mod_path, "config.json")
         sprite_path: str = os.path.join(mod_path, "sprite_sheet.png")
@@ -170,7 +172,10 @@ class ModManager:
         self.custom_behavior = None # Reset any previously loaded script
         self._compile_behavior_mod(mod_folder_name, mod_path)
 
-        sheet: QPixmap = QPixmap(sprite_path)
+        with open(sprite_path, "rb") as f:
+            sheet = QPixmap()
+            sheet.loadFromData(f.read())
+            
         if sheet.isNull(): return False
             
         self._global_sheet = sheet
@@ -261,8 +266,8 @@ class ModManager:
         final_h: int = anim_meta.override_height if anim_meta.override_height > 0 else base_h
 
         # Extract using the actual spatial sheet index
-        x_pos = (actual_sheet_index * base_w) + anim_meta.offset_x
-        y_pos = (anim_meta.row * base_h) + anim_meta.offset_y
+        x_pos: int = (actual_sheet_index * final_w) + anim_meta.offset_x
+        y_pos: int = (anim_meta.row * base_h) + anim_meta.offset_y 
         
         crop_rect = QRect(x_pos, y_pos, final_w, final_h)
         safe_rect = crop_rect.intersected(self._global_sheet.rect())
@@ -273,3 +278,71 @@ class ModManager:
         ModManager._shared_frame_cache[cache_key] = frame
         
         return frame
+    
+    def bake_sprite_sheet(self) -> bool:
+        """Permanently bakes all crop settings into a new optimized sprite sheet file."""
+        if not self._global_sheet: return False
+
+        cols: int = max(1, self.global_columns)
+        rows: int = max(1, self.global_rows)
+        base_w: int = self._global_sheet.width() // cols
+        base_h: int = self._global_sheet.height() // rows
+
+        # Find the largest cropped dimensions across all mapped states
+        new_cell_w, new_cell_h = 1, 1
+        for meta in self.animations.values():
+            w = meta.override_width if meta.override_width > 0 else base_w
+            h = meta.override_height if meta.override_height > 0 else base_h
+            new_cell_w = max(new_cell_w, w)
+            new_cell_h = max(new_cell_h, h)
+
+        # Create the new optimized canvas
+        new_sheet = QPixmap(new_cell_w * cols, new_cell_h * rows)
+        new_sheet.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(new_sheet)
+
+        # Paint the cropped frames onto the new canvas
+        painted_cells = set()
+
+        for _, meta in self.animations.items():
+            w: int = meta.override_width if meta.override_width > 0 else base_w
+            h: int = meta.override_height if meta.override_height > 0 else base_h
+
+            for sheet_idx in range(meta.start_frame, meta.end_frame + 1):
+                cell_key: Tuple[int, int] = (meta.row, sheet_idx)
+                if cell_key in painted_cells: 
+                    continue # Prevent re-drawing cells shared by multiple states
+
+                x_pos: int = (sheet_idx * w) + meta.offset_x
+                y_pos: int = (meta.row * base_h) + meta.offset_y
+                crop_rect: QRect = QRect(x_pos, y_pos, w, h).intersected(self._global_sheet.rect())
+
+                if not crop_rect.isEmpty():
+                    frame: QPixmap = self._global_sheet.copy(crop_rect)
+                    # Center the cropped frame inside its new uniform cell
+                    dest_x: int = (sheet_idx * new_cell_w) + ((new_cell_w - frame.width()) // 2)
+                    dest_y: int = (meta.row * new_cell_h) + ((new_cell_h - frame.height()) // 2)
+                    painter.drawPixmap(dest_x, dest_y, frame)
+
+                painted_cells.add(cell_key)
+
+        painter.end()
+
+        # Overwrite the original sprite sheet file
+        mod_path: str = os.path.join(self.mods_dir, self.current_mod_folder)
+        sprite_path: str = os.path.join(mod_path, "sprite_sheet.png")
+        success: bool = new_sheet.save(sprite_path, "PNG")
+        if not success: return False
+
+        # Update engine memory and reset JSON crops to zero
+        self._global_sheet = new_sheet
+        self.clear_shared_cache()
+
+        for meta in self.animations.values():
+            meta.offset_x = 0
+            meta.offset_y = 0
+            meta.override_width = 0
+            meta.override_height = 0
+
+        self.save_mod_config(self.current_mod_folder, self.current_mod_name)
+        return True
