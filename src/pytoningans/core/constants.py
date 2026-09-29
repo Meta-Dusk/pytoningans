@@ -12,6 +12,14 @@ class PetState(StrEnum):
     JUMPING = "jumping"
     DYING = "dying"
     CLIMBING = "climbing"
+    REVIVING = "reviving"
+    ATTACK = "attack"
+
+@unique
+class BehaviorType(StrEnum):
+    PASSIVE = "passive"
+    NEUTRAL = "neutral"
+    HOSTILE = "hostile"
 
 @dataclass(frozen=True)
 class WindowConfig:
@@ -20,7 +28,7 @@ class WindowConfig:
     placeholder_text: str = "🐾"
     placeholder_style: str = "font-size: 50px; color: black;"
 
-@dataclass(frozen=True)
+@dataclass()
 class AnimationMeta:
     row: int
     start_frame: int = 0
@@ -49,6 +57,12 @@ class ModConfig:
 @dataclass(frozen=True)
 class AppConfig:
     app_name: str = "PyToNingans"
+
+@dataclass
+class SystemLocks:
+    ai: bool = True
+    physics: bool = True
+    animation: bool = True
 
 WINDOW_CFG = WindowConfig()
 MOD_CFG = ModConfig()

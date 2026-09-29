@@ -1,13 +1,13 @@
 import random
 
+from typing import List, Optional
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QApplication, QLabel, QComboBox, QFrame,
     QSpinBox, QHBoxLayout
 )
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QGuiApplication
-
-from typing import Optional
+from PySide6.QtCore import QCoreApplication, QRect, Qt, QTimer
+from PySide6.QtGui import QGuiApplication, QScreen
 
 from pytoningans.core.pet_manager import PetManager
 from pytoningans.ui.mod_manager_hub import ModManagerHub
@@ -63,6 +63,17 @@ class MainMenu(QWidget):
         content_layout.addWidget(self.mod_combo)
         content_layout.addLayout(spawn_action_layout)
         
+        # --- Live Stats Section ---
+        stats_layout = QHBoxLayout()
+        self.active_count_label = QLabel("Active Pets: 0")
+        self.dead_count_label = QLabel("Dead Pets: 0")
+        self.active_count_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+        self.dead_count_label.setStyleSheet("color: #F44336; font-weight: bold;")
+        
+        stats_layout.addWidget(self.active_count_label)
+        stats_layout.addWidget(self.dead_count_label)
+        content_layout.addLayout(stats_layout)
+        
         # --- Visual Separator ---
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
@@ -89,16 +100,28 @@ class MainMenu(QWidget):
         content_layout.addStretch()
         
         main_layout.addWidget(content_widget)
+        
+        self.stats_timer = QTimer(self)
+        self.stats_timer.timeout.connect(self._update_stats)
+        self.stats_timer.start(500)
+    
+    def _update_stats(self) -> None:
+        """Polls the PetManager to update the UI counters."""
+        total_active: int = len(self.manager.active_pets)
+        total_dead: int = sum(1 for p in self.manager.active_pets if p.is_dead)
+        
+        self.active_count_label.setText(f"Active Pets: {total_active}")
+        self.dead_count_label.setText(f"Dead Pets: {total_dead}")
     
     def _on_spawn_clicked(self) -> None:
-        selected_mod = self.mod_combo.currentText()
+        selected_mod: str = self.mod_combo.currentText()
         if not selected_mod:
             return
             
-        screen = QGuiApplication.primaryScreen()
-        geom = screen.availableGeometry() if screen else None
+        screen: QScreen = QGuiApplication.primaryScreen()
+        geom: Optional[QRect] = screen.availableGeometry() if screen else None
         
-        amount = self.amount_spin.value()
+        amount: int = self.amount_spin.value()
         for _ in range(amount):
             if geom:
                 # Constrain random coordinates to the visible screen area
@@ -118,7 +141,7 @@ class MainMenu(QWidget):
 
     def _toggle_theme(self) -> None:
         self._is_dark_mode = not self._is_dark_mode
-        app = QApplication.instance()
+        app: Optional[QCoreApplication] = QApplication.instance()
         
         if not isinstance(app, QApplication): return
         if self._is_dark_mode:
@@ -131,6 +154,13 @@ class MainMenu(QWidget):
     def _open_hub(self) -> None:
         if self.hub_window is None or not self.hub_window.isVisible():
             self.hub_window = ModManagerHub(self.manager.mod_manager)
+            self.hub_window.mods_updated.connect(self._refresh_spawn_list)
             self.hub_window.show()
         else:
             self.hub_window.activateWindow()
+    
+    def _refresh_spawn_list(self) -> None:
+        """Rebuilds the dropdown/list of available pets to spawn."""
+        self.mod_combo.clear()
+        valid_mods: List[str] = self.manager.mod_manager.get_available_mods()
+        self.mod_combo.addItems(valid_mods)

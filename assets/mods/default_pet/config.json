@@ -1,9 +1,10 @@
 {
-    "version": 4,
+    "version": 6,
     "name": "defaul_pet",
     "columns": 24,
     "rows": 7,
     "behavior": {
+        "type": "neutral",
         "can_fly": false,
         "max_health": 100,
         "attack_damage": 10,
@@ -49,7 +50,7 @@
         },
         "interact": {
             "row": 4,
-            "start_frame": 0,
+            "start_frame": 6,
             "end_frame": 17,
             "loop": true,
             "reverse": false,
@@ -106,6 +107,59 @@
             "offset_x": 0,
             "offset_y": -2,
             "fps": 10
+        },
+        "reviving": {
+            "row": 6,
+            "start_frame": 0,
+            "end_frame": 3,
+            "loop": false,
+            "reverse": true,
+            "override_width": 72,
+            "override_height": 100,
+            "offset_x": 0,
+            "offset_y": -4,
+            "fps": 5
+        },
+        "attack": {
+            "row": 4,
+            "start_frame": 0,
+            "end_frame": 17,
+            "loop": true,
+            "reverse": false,
+            "override_width": 82,
+            "override_height": 80,
+            "offset_x": 0,
+            "offset_y": -1,
+            "fps": 10
         }
+    },
+    "dialogue": {
+        "plain_dialogue": [
+            "Hello, I'm Teto",
+            "Teto teto teto",
+            "I am Kasane Teto!",
+            "Hello, how are you?",
+            "I like baguettes :)"
+        ],
+        "window_triggers": [
+            {
+                "chance": 0.1,
+                "duration": 4000,
+                "text": "Can you code me a baguette?",
+                "title_matches": [
+                    "vscode",
+                    "code.exe",
+                    "visual studio code"
+                ]
+            },
+            {
+                "chance": 1.0,
+                "duration": 4000,
+                "text": "Happy Birthday, Lance!",
+                "title_matches": [
+                    "hbdl"
+                ]
+            }
+        ]
     }
 }

@@ -2,7 +2,7 @@ LIGHT_THEME = """
 QWidget {
     background-color: #f9f9f9;
     color: #1e1e1e;
-    font-family: 'Pixel Code', -apple-system, sans-serif;
+    font-family: 'Pixel Code', monospace;
     font-size: 14px;
 }
 
@@ -85,7 +85,7 @@ QPushButton#TitleBarCloseBtn {
     border-radius: 0px; 
     padding: 0px; 
     font-size: 14px; 
-    font-family: 'Pixel Code', -apple-system, sans-serif;
+    font-family: 'Pixel Code', monospace;
 }
 
 QPushButton#TitleBarCloseBtn:hover { 
@@ -125,13 +125,23 @@ QPushButton:disabled {
     border: 1px solid #e5e5e5;
     color: #a0a0a0;
 }
+
+#SpeechBubbleLabel {
+    background-color: #FFFFFF;
+    color: #000000;
+    border: 2px solid #333333;
+    border-radius: 8px;
+    padding: 8px;
+    font-family: 'Pixel Code', monospace;
+    font-size: 14px;
+}
 """
 
 DARK_THEME = """
 QWidget {
     background-color: #202020;
     color: #f3f3f3;
-    font-family: 'Pixel Code', -apple-system, sans-serif;
+    font-family: 'Pixel Code', monospace;
     font-size: 14px;
 }
 
@@ -213,7 +223,7 @@ QPushButton#TitleBarCloseBtn {
     border-radius: 0px; 
     padding: 0px; 
     font-size: 14px; 
-    font-family: 'Pixel Code', -apple-system, sans-serif;
+    font-family: 'Pixel Code', monospace;
 }
 
 QPushButton#TitleBarCloseBtn:hover { 
@@ -252,5 +262,15 @@ QPushButton:disabled {
     background-color: #222222;
     border: 1px solid #2a2a2a;
     color: #666666;
+}
+
+#SpeechBubbleLabel {
+    background-color: #2D2D2D;
+    color: #FFFFFF;
+    border: 2px solid #555555;
+    border-radius: 8px;
+    padding: 8px;
+    font-family: 'Pixel Code', monospace;
+    font-size: 14px;
 }
 """

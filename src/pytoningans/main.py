@@ -1,4 +1,5 @@
 import sys, signal, os
+from typing import List
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon, QFontDatabase, QFont
@@ -16,7 +17,8 @@ def main() -> None:
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     
     os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
-    QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    QApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     
     app: QApplication = QApplication(sys.argv)
     app.setApplicationName(APP_CFG.app_name)
@@ -24,16 +26,17 @@ def main() -> None:
     app.setStyleSheet(DARK_THEME)
     app.setWindowIcon(QIcon("assets/ui/teto.ico"))
     
-    font_path = get_asset_path("assets/ui/PixelCode.otf")
-    font_id = QFontDatabase.addApplicationFont(font_path)
+    font_path: str = get_asset_path("assets/ui/PixelCode.otf")
+    font_id: int = QFontDatabase.addApplicationFont(font_path)
     
     if font_id < 0:
         print(f"Warning: Failed to load custom font from {font_path}")
     else:
-        font_families = QFontDatabase.applicationFontFamilies(font_id)
+        font_families: List[str] = QFontDatabase.applicationFontFamilies(font_id)
         
         default_font = QFont(font_families[0])
-        default_font.setStyleStrategy(QFont.StyleStrategy.PreferQuality | QFont.StyleStrategy.PreferAntialias)
+        default_font.setStyleStrategy(
+            QFont.StyleStrategy.PreferQuality | QFont.StyleStrategy.PreferAntialias)
         default_font.setHintingPreference(QFont.HintingPreference.PreferFullHinting)
         
         # Apply the crisp font settings to the entire application
@@ -46,7 +49,7 @@ def main() -> None:
     # Initialize Mod Manager
     mod_manager: ModManager = ModManager(mods_dir)
     
-    available_mods = mod_manager.get_available_mods()
+    available_mods: List[str] = mod_manager.get_available_mods()
     if available_mods:
         # Load the default_pet (or whatever the first item is)
         mod_manager.load_mod(available_mods[0])

@@ -1,11 +1,11 @@
 import os, shutil
-from typing import Optional
+from typing import List, Optional
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton,
+    QListWidgetItem, QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton,
     QLabel, QMessageBox, QDialog
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
 
 from pytoningans.core.mod_manager import ModManager
@@ -14,6 +14,8 @@ from pytoningans.ui.mod_creation_dialog import ModCreationDialog
 from pytoningans.ui.mod_editor import ModEditorWindow
 
 class ModManagerHub(QWidget):
+    mods_updated = Signal()
+    
     def __init__(self, mod_manager: ModManager) -> None:
         super().__init__()
         self.mod_manager = mod_manager
@@ -76,11 +78,10 @@ class ModManagerHub(QWidget):
 
     def _center_window(self) -> None:
         screen = QGuiApplication.primaryScreen()
-        if screen:
-            screen_geom = screen.availableGeometry()
-            window_geom = self.frameGeometry()
-            window_geom.moveCenter(screen_geom.center())
-            self.move(window_geom.topLeft())
+        screen_geom = screen.availableGeometry()
+        window_geom = self.frameGeometry()
+        window_geom.moveCenter(screen_geom.center())
+        self.move(window_geom.topLeft())
 
     def _refresh_list(self) -> None:
         self.mod_list.clear()
@@ -90,29 +91,31 @@ class ModManagerHub(QWidget):
         dialog = ModCreationDialog(self.mod_manager.mods_dir, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._refresh_list()
+            self.mods_updated.emit()
             self._open_editor(dialog.new_mod_folder)
 
     def _on_edit_clicked(self) -> None:
-        selected = self.mod_list.selectedItems()
+        selected: List[QListWidgetItem] = self.mod_list.selectedItems()
         if not selected: return
         self._open_editor(selected[0].text())
 
     def _open_editor(self, mod_folder: str) -> None:
         if self.editor_window is None or not self.editor_window.isVisible():
             self.editor_window = ModEditorWindow(self.mod_manager)
+            self.editor_window.mods_updated.connect(self.mods_updated.emit)
             self.editor_window.show()
         else:
             self.editor_window.activateWindow()
             
         # Programmatically select the target mod in the Editor's dropdown
-        self.editor_window.ui.mod_combo.setCurrentText(mod_folder)
+        self.editor_window.mod_combo.setCurrentText(mod_folder)
 
     def _on_delete_clicked(self) -> None:
-        selected = self.mod_list.selectedItems()
+        selected: List[QListWidgetItem] = self.mod_list.selectedItems()
         if not selected: return
-        mod_folder = selected[0].text()
+        mod_folder: str = selected[0].text()
         
-        reply = QMessageBox.question(
+        reply: QMessageBox.StandardButton = QMessageBox.question(
             self, "Confirm Deletion",
             f"Are you sure you want to permanently delete the '{mod_folder}' "
             "mod?\n\nThis action cannot be undone.",
@@ -120,15 +123,16 @@ class ModManagerHub(QWidget):
         )
         
         if reply == QMessageBox.StandardButton.Yes:
-            target_dir = os.path.join(self.mod_manager.mods_dir, mod_folder)
+            target_dir: str = os.path.join(self.mod_manager.mods_dir, mod_folder)
             try:
                 shutil.rmtree(target_dir)
                 self._refresh_list()
+                self.mods_updated.emit()
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to delete mod: {str(e)}")
     
     def _on_selection_changed(self) -> None:
         """Enables context buttons only if a mod is actually selected."""
-        has_selection = len(self.mod_list.selectedItems()) > 0
+        has_selection: bool = len(self.mod_list.selectedItems()) > 0
         self.edit_btn.setEnabled(has_selection)
         self.delete_btn.setEnabled(has_selection)

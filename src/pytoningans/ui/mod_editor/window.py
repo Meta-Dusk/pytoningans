@@ -1,278 +1,179 @@
-from typing import Optional
-from dataclasses import replace
-
-from PySide6.QtWidgets import QWidget, QMessageBox
-from PySide6.QtCore import QTimer
+# src/pytoningans/ui/mod_editor/window.py
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, 
+    QScrollArea, QFrame, QMessageBox, QLabel
+)
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
 
 from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION
-from pytoningans.core.constants import PetState, AnimationMeta
+from pytoningans.ui.title_bar import CustomTitleBar
+from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.ui.mod_editor.controller import ModEditorController
-from pytoningans.ui.mod_editor.ui import ModEditorUI
-
+from pytoningans.ui.mod_editor.panels.dialogue_panel import DialoguePanel
+from pytoningans.ui.mod_editor.panels.behavior_panel import BehaviorStatsPanel, BehaviorScriptPanel
+from pytoningans.ui.mod_editor.panels.animation_panel import AnimationSubsystem
 
 class ModEditorWindow(QWidget):
-    """The main event hub housing logical operations and timers."""
+    mods_updated = Signal()
     
     def __init__(self, mod_manager: ModManager) -> None:
         super().__init__()
-        self.controller: ModEditorController = ModEditorController(mod_manager)
-        self._is_updating_ui: bool = False
+        self.controller = ModEditorController(mod_manager)
         
-        self._preview_frame: int = 0
-        self._preview_timer: QTimer = QTimer(self)
-        self._preview_timer.timeout.connect(self._update_preview)
-        self._preview_timer.setInterval(100)
-        
-        self._copied_meta: Optional[AnimationMeta] = None
-        
-        self.ui = ModEditorUI()
-        self.ui.setup_ui(self)
-        
+        self._setup_ui()
         self._connect_signals()
         
-        self._refresh_mod_list()
-        self._preview_timer.start()
+        # Hydrate the Mod Dropdown to kick off the load cycle
+        self.mod_combo.addItems(self.controller.get_mod_list())
+        if self.mod_combo.count() > 0:
+            self._on_mod_changed(self.mod_combo.currentText())
+            
         self._center_window()
 
+    def _setup_ui(self) -> None:
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.resize(880, 620)
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        main_layout.addWidget(CustomTitleBar(self, "Mod Editor"))
+        
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(20, 15, 20, 5)
+        
+        # Header Info
+        header_lbl = QLabel("Grid automatically splits your sprite sheet.\nEnsure every state is mapped.")
+        header_lbl.setObjectName("HelperText")
+        header_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        content_layout.addWidget(header_lbl)
+        
+        self.sheet_info_label = QLabel()
+        self.sheet_info_label.setObjectName("BannerText")
+        self.sheet_info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        content_layout.addWidget(self.sheet_info_label)
+        
+        # Instantiate Subsystems
+        self.dialogue_panel = DialoguePanel(self.controller)
+        self.behavior_stats = BehaviorStatsPanel(self.controller)
+        self.behavior_script = BehaviorScriptPanel(self.controller)
+        self.anim_sys = AnimationSubsystem(self.controller, self.sheet_info_label)
+        
+        self.panels = [self.dialogue_panel, self.behavior_stats, self.behavior_script, self.anim_sys]
+
+        # Scroll Areas
+        split_layout = QHBoxLayout()
+        
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        left_content = QWidget()
+        self.left_layout = QVBoxLayout(left_content)
+        self.left_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        
+        right_scroll = QScrollArea()
+        right_scroll.setWidgetResizable(True)
+        right_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        right_content = QWidget()
+        self.right_layout = QVBoxLayout(right_content)
+        self.right_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        
+        # Build Top Mod Selection
+        mod_layout = QHBoxLayout()
+        mod_layout.addWidget(QLabel("Target Mod:"))
+        self.mod_combo = QComboBox()
+        mod_layout.addWidget(self.mod_combo)
+        self.left_layout.addLayout(mod_layout)
+        
+        # Mount the Domain Panels
+        self.left_layout.addWidget(self.anim_sys.preview_panel)
+        self.left_layout.addWidget(self.anim_sys.grid_panel)
+        self.left_layout.addWidget(self.behavior_stats)
+        self.left_layout.addWidget(self.anim_sys.debug_panel)
+        
+        self.right_layout.addWidget(self.anim_sys.state_panel)
+        self.right_layout.addWidget(self.behavior_script)
+        self.right_layout.addWidget(self.dialogue_panel)
+        
+        left_scroll.setWidget(left_content)
+        right_scroll.setWidget(right_content)
+        split_layout.addWidget(left_scroll, stretch=1)
+        split_layout.addWidget(right_scroll, stretch=1)
+        content_layout.addLayout(split_layout)
+        main_layout.addWidget(content_widget, stretch=1)
+        
+        # Footer
+        footer_layout = QHBoxLayout()
+        footer_layout.setContentsMargins(20, 10, 0, 15)
+        
+        self.reload_btn = QPushButton("Discard Unsaved Changes")
+        self.reload_btn.setMinimumSize(200, 35)
+         
+        self.save_btn = QPushButton("Save config.json")
+        self.save_btn.setMinimumSize(200, 35)
+        
+        footer_layout.addStretch()
+        footer_layout.addWidget(self.reload_btn)
+        footer_layout.addSpacing(35)
+        footer_layout.addWidget(self.save_btn)
+        footer_layout.addStretch()
+        
+        grip = CustomSizeGrip(self)
+        grip.setFixedSize(16, 16)
+        footer_layout.addWidget(grip)
+        main_layout.addLayout(footer_layout)
+
     def _connect_signals(self) -> None:
-        """Centrally binds all UI elements to their logical event handlers."""
-        self.ui.mod_combo.currentTextChanged.connect(self._on_mod_changed)
-        self.ui.can_fly_check.stateChanged.connect(self._on_behavior_edited)
-        self.ui.state_combo.currentIndexChanged.connect(self._on_state_changed)
-        
-        self.ui.copy_btn.clicked.connect(self._on_copy_clicked)
-        self.ui.paste_btn.clicked.connect(self._on_paste_clicked)
-        self.ui.swap_btn.clicked.connect(self._on_swap_clicked)
-        self.ui.save_btn.clicked.connect(self._save_changes)
-        self.ui.restart_btn.clicked.connect(self._restart_preview)
-        self.ui.can_fly_check.stateChanged.connect(self._on_behavior_edited)
-        
-        for stat_spin in (
-            self.ui.max_health_spin, self.ui.atk_dmg_spin,
-            self.ui.atk_range_spin, self.ui.jump_height_spin
-        ):
-            stat_spin.valueChanged.connect(self._on_behavior_edited)
-        
-        for spin in (self.ui.global_cols_spin, self.ui.global_rows_spin):
-            spin.valueChanged.connect(self._on_global_edited)
-            
-        for widget in (
-            self.ui.row_spin, self.ui.start_spin, self.ui.end_spin,
-            self.ui.width_spin, self.ui.height_spin, self.ui.offset_x_spin, 
-            self.ui.offset_y_spin, self.ui.fps_spin
-        ):
-            widget.valueChanged.connect(self._on_value_edited)
-            
-        for check in (self.ui.loop_check, self.ui.reverse_check):
-            check.stateChanged.connect(self._on_value_edited)
-
-    # --- Signal Handlers & Logic Delegation ---
-    
-    def _on_swap_clicked(self, *_) -> None:
-        state_a = self.ui.state_combo.currentData()
-        state_b = self.ui.swap_combo.currentData()
-        
-        if not state_a or not state_b or state_a == state_b:
-            return
-            
-        meta_a = self.controller.get_meta(state_a)
-        meta_b = self.controller.get_meta(state_b)
-        
-        self.controller.update_meta(state_a, meta_b)
-        self.controller.update_meta(state_b, meta_a)
-        
-        self._refresh_state_dropdown()
-        self._on_state_changed()
-        
-        self._preview_frame = -1
-        self._update_preview()
-    
-    def _on_behavior_edited(self, *_) -> None:
-        if self._is_updating_ui: return
-        new_stats = {
-            "can_fly": self.ui.can_fly_check.isChecked(),
-            "max_health": self.ui.max_health_spin.value(),
-            "attack_damage": self.ui.atk_dmg_spin.value(),
-            "attack_range": self.ui.atk_range_spin.value(),
-            "jump_height": self.ui.jump_height_spin.value()
-        }
-        self.controller.update_behavior_stats(new_stats)
-
-    def _refresh_state_dropdown(self) -> None:
-        current_state = self.ui.state_combo.currentData()
-        
-        self.ui.state_combo.blockSignals(True)
-        self.ui.state_combo.clear()
-        
-        target_index = 0
-        for i, state in enumerate(PetState):
-            exists, row = self.controller.has_mapped_row(state)
-            row_text = f"[Row {row}]" if exists else "[Missing!]"
-            self.ui.state_combo.addItem(f"{state.value.capitalize()} {row_text}", userData=state)
-            
-            if state == current_state:
-                target_index = i
-                
-        self.ui.state_combo.setCurrentIndex(target_index)
-        self.ui.state_combo.blockSignals(False)
-    
-    def _refresh_dynamic_info(self) -> None:
-        sw, sh, base_w, base_h = self.controller.get_sheet_info()
-        self.ui.sheet_info_label.setText(f"Sheet: {sw} x {sh} px | Base Tile: {base_w} x {base_h} px")
-        self.ui.width_spin.setSpecialValueText(f"0 (Auto: {base_w}px)")
-        self.ui.height_spin.setSpecialValueText(f"0 (Auto: {base_h}px)")
-
-    def _on_global_edited(self, *_) -> None:
-        if self._is_updating_ui: return
-        self.controller.update_global_grid(self.ui.global_cols_spin.value(), self.ui.global_rows_spin.value())
-        self._refresh_dynamic_info()
-        self._update_preview()
-
-    def _refresh_mod_list(self) -> None:
-        self.ui.mod_combo.blockSignals(True)
-        self.ui.mod_combo.clear()
-        self.ui.mod_combo.addItems(self.controller.get_mod_list())
-        self.ui.mod_combo.blockSignals(False)
-        
-        if self.ui.mod_combo.count() > 0:
-            self._on_mod_changed(self.ui.mod_combo.currentText())
+        self.mod_combo.currentTextChanged.connect(self._on_mod_changed)
+        self.save_btn.clicked.connect(self._save_changes)
+        self.reload_btn.clicked.connect(self._on_reload_clicked)
 
     def _on_mod_changed(self, mod_folder: str) -> None:
         if not mod_folder: return
             
         if self.controller.load_mod(mod_folder):
-            if self.controller.manager.config_version < 2:
+            if self.controller.manager.config_version < CURRENT_CONFIG_VERSION:
                 QMessageBox.warning(
-                    self,
-                    "Legacy Mod Detected",
-                    f"'{mod_folder}' is using an older config version.\n\n"
-                    f"Saving changes will upgrade it to Version {CURRENT_CONFIG_VERSION} "
-                    "to support the newly added states.\n\n"
-                    "Please manually back up your 'config.json' file before saving."
+                    self, "Legacy Mod",
+                    f"Saving will upgrade config to v{CURRENT_CONFIG_VERSION}."
                 )
                 
-            self._is_updating_ui = True
-            cols, rows = self.controller.get_global_grid()
-            self.ui.global_cols_spin.setValue(cols)
-            self.ui.global_rows_spin.setValue(rows)
-            self.ui.can_fly_check.setChecked(self.controller.get_behavior())
-            
-            stats = self.controller.get_behavior_stats()
-            self.ui.can_fly_check.setChecked(stats["can_fly"])
-            self.ui.max_health_spin.setValue(stats["max_health"])
-            self.ui.atk_dmg_spin.setValue(stats["attack_damage"])
-            self.ui.atk_range_spin.setValue(stats["attack_range"])
-            self.ui.jump_height_spin.setValue(stats["jump_height"])
-            
-            self._is_updating_ui = False
-            
-            self._refresh_dynamic_info()
-            self._refresh_state_dropdown()
-            self._on_state_changed()
+            for panel in self.panels:
+                panel.load_data()
         else:
-            QMessageBox.warning(self, "Load Error", f"Could not load config or sprites for {mod_folder}.")
-
-    def _on_state_changed(self, *_) -> None:
-        raw_state = self.ui.state_combo.currentData()
-        if not raw_state: return
-        
-        current_state = PetState(raw_state)
-        meta = self.controller.get_meta(current_state)
-
-        self._is_updating_ui = True
-        self.ui.row_spin.setValue(meta.row)
-        self.ui.start_spin.setValue(meta.start_frame)
-        self.ui.end_spin.setValue(meta.end_frame)
-        self.ui.loop_check.setChecked(meta.loop)
-        self.ui.reverse_check.setChecked(meta.reverse)
-        self.ui.width_spin.setValue(meta.override_width)
-        self.ui.height_spin.setValue(meta.override_height)
-        self.ui.offset_x_spin.setValue(meta.offset_x)
-        self.ui.offset_y_spin.setValue(meta.offset_y)
-        self.ui.fps_spin.setValue(meta.fps)
-        self._is_updating_ui = False
-        self._preview_timer.setInterval(1000 // max(1, meta.fps))
-
-    def _on_value_edited(self, *_) -> None:
-        if self._is_updating_ui: return
-        raw_state = self.ui.state_combo.currentData()
-        if not raw_state: return
-        current_state = PetState(raw_state)
-        
-        new_meta = AnimationMeta(
-            row=self.ui.row_spin.value(),
-            start_frame=self.ui.start_spin.value(),
-            end_frame=self.ui.end_spin.value(),
-            loop=self.ui.loop_check.isChecked(),
-            reverse=self.ui.reverse_check.isChecked(),
-            override_width=self.ui.width_spin.value(),
-            override_height=self.ui.height_spin.value(),
-            offset_x=self.ui.offset_x_spin.value(),
-            offset_y=self.ui.offset_y_spin.value(),
-            fps=self.ui.fps_spin.value()
-        )
-        
-        self.controller.update_meta(current_state, new_meta)
-        self._preview_timer.setInterval(1000 // max(1, self.ui.fps_spin.value()))
+            QMessageBox.warning(self, "Load Error", f"Could not load {mod_folder}.")
 
     def _save_changes(self) -> None:
-        mod_folder = self.ui.mod_combo.currentText()
-        if not mod_folder: return
+        mod_folder = self.mod_combo.currentText()
+        if mod_folder:
+            self.controller.save_mod(mod_folder)
+            self.mods_updated.emit()
+            QMessageBox.information(self, "Success", f"Saved configuration for {mod_folder}!")
             
-        self.controller.save_mod(mod_folder)
-        QMessageBox.information(self, "Success", f"Saved configuration for {mod_folder}!")
-    
-    def _update_preview(self) -> None:
-        if self.ui.state_combo.count() == 0: return
-        
-        raw_state = self.ui.state_combo.currentData()
-        if not raw_state: return
-        current_state = PetState(raw_state)
-        
-        self._preview_frame += 1
-        frame = self.controller.get_frame(current_state, self._preview_frame)
-        
-        if frame is not None:
-            self.ui.preview_label.setPixmap(frame)
-        else:
-            self.ui.preview_label.setText("No Image Loaded")
-    
-    def _on_copy_clicked(self) -> None:
-        raw_state = self.ui.state_combo.currentData()
-        if not raw_state: return
-
-        current_state = PetState(raw_state)
-        meta = self.controller.get_meta(current_state)
-
-        self._copied_meta = replace(meta)
-        self.ui.paste_btn.setEnabled(True)
-
-    def _on_paste_clicked(self) -> None:
-        if not self._copied_meta: return
-
-        raw_state = self.ui.state_combo.currentData()
-        if not raw_state: return
-
-        current_state = PetState(raw_state)
-        new_meta = replace(self._copied_meta)
-
-        self.controller.update_meta(current_state, new_meta)
-
-        self._refresh_state_dropdown()
-        self._on_state_changed()
-
-        self._preview_frame = -1
-        self._update_preview()
-    
-    def _restart_preview(self) -> None:
-        self._preview_frame = -1
-        self._update_preview()
-    
     def _center_window(self) -> None:
         screen = QGuiApplication.primaryScreen()
         if screen:
-            screen_geom = screen.availableGeometry()
-            window_geom = self.frameGeometry()
-            window_geom.moveCenter(screen_geom.center())
-            self.move(window_geom.topLeft())
+            geom = self.frameGeometry()
+            geom.moveCenter(screen.availableGeometry().center())
+            self.move(geom.topLeft())
+    
+    def _on_reload_clicked(self) -> None:
+        mod_folder: str = self.mod_combo.currentText()
+        if not mod_folder: return
+        
+        reply = QMessageBox.question(
+            self, "Discard Changes",
+            "This will wipe all unsaved tweaks (including cropping boundaries)"
+            " and reload the last saved config.json.\n\nAre you sure?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            # Re-triggering this method flushes the engine's memory cache,
+            # reads the disk files again, and forces every panel to update its UI.
+            self._on_mod_changed(mod_folder)
+            
+            # Explicitly kill crop mode in the animation panel
+            self.anim_sys.crop_check.setChecked(False)

@@ -1,4 +1,6 @@
-from typing import Tuple
+from typing import Tuple, Any, Optional
+from PySide6.QtCore import QRect
+from PySide6.QtGui import QPixmap
 
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.constants import PetState, AnimationMeta
@@ -29,7 +31,7 @@ class ModEditorController:
 
     def update_meta(self, state: PetState, meta: AnimationMeta) -> None:
         self.manager.animations[state] = meta
-        self.manager.clear_cache()
+        self.manager.clear_shared_cache()
 
     def get_frame(self, state: PetState, frame_index: int):
         return self.manager.get_frame(state, frame_index)
@@ -55,8 +57,9 @@ class ModEditorController:
     def update_behavior(self, can_fly: bool) -> None:
         self.manager.can_fly = can_fly
     
-    def get_behavior_stats(self) -> dict:
+    def get_behavior_stats(self) -> dict[str, Any]:
         return {
+            "type": self.manager.behavior_type,
             "can_fly": self.manager.can_fly,
             "max_health": self.manager.max_health,
             "attack_damage": self.manager.attack_damage,
@@ -64,9 +67,68 @@ class ModEditorController:
             "jump_height": self.manager.jump_height
         }
 
-    def update_behavior_stats(self, stats: dict) -> None:
+    def update_behavior_stats(self, stats: dict[str, Any]) -> None:
+        self.manager.behavior_type = stats.get("type", self.manager.behavior_type)
         self.manager.can_fly = stats.get("can_fly", self.manager.can_fly)
         self.manager.max_health = stats.get("max_health", self.manager.max_health)
         self.manager.attack_damage = stats.get("attack_damage", self.manager.attack_damage)
         self.manager.attack_range = stats.get("attack_range", self.manager.attack_range)
         self.manager.jump_height = stats.get("jump_height", self.manager.jump_height)
+    
+    def get_raw_preview(self, state: PetState, frame_index: int) -> Tuple[Optional[QPixmap], QRect]:
+        """Returns the uncropped base tile and the QRect representing the custom crop area."""
+        sheet: Optional[QPixmap] = self.manager._global_sheet
+        if not sheet: return None, QRect()
+        
+        meta: Optional[AnimationMeta] = self.manager.animations.get(state)
+        if not meta: return None, QRect()
+        
+        # Determine actual frame index
+        total_frames: int = max(1, (meta.end_frame - meta.start_frame) + 1)
+        mapped: int = frame_index % total_frames if meta.loop else min(frame_index, total_frames - 1)
+        if meta.reverse:
+            mapped = (total_frames - 1) - mapped
+            
+        actual_sheet_index: int = meta.start_frame + mapped
+        
+        # Extract the raw grid tile (No offsets applied yet)
+        cols: int = max(1, self.manager.global_columns)
+        rows: int = max(1, self.manager.global_rows)
+        base_w: int = sheet.width() // cols
+        base_h: int = sheet.height() // rows
+        
+        raw_rect = QRect(actual_sheet_index * base_w, meta.row * base_h, base_w, base_h)
+        raw_tile = sheet.copy(raw_rect)
+        
+        # Calculate the target crop area boundaries
+        final_w: int = meta.override_width if meta.override_width > 0 else base_w
+        final_h: int = meta.override_height if meta.override_height > 0 else base_h
+        
+        origin_x: int = actual_sheet_index * final_w
+        origin_y: int = meta.row * base_h
+        
+        # Pad the extracted background so you don't lose the ability to expand the crop box
+        display_w: int = max(base_w, final_w * 2)
+        display_h: int = max(base_h, final_h * 2)
+        
+        raw_rect = QRect(origin_x, origin_y, display_w, display_h)
+        raw_tile: QPixmap = sheet.copy(raw_rect)
+        
+        crop_rect = QRect(meta.offset_x, meta.offset_y, final_w, final_h)
+        
+        return raw_tile, crop_rect
+    
+    def bake_sprite_sheet(self) -> bool:
+        return self.manager.bake_sprite_sheet()
+    
+    def apply_crop_to_all(self, source_state: PetState) -> None:
+        """Copies the crop offsets and dimensions of the source state to all other states."""
+        source_meta: Optional[AnimationMeta] = self.manager.animations.get(source_state)
+        if not source_meta: return
+        
+        for state, meta in self.manager.animations.items():
+            if state != source_state:
+                meta.override_width = source_meta.override_width
+                meta.override_height = source_meta.override_height
+                meta.offset_x = source_meta.offset_x
+                meta.offset_y = source_meta.offset_y
