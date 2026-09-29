@@ -292,6 +292,7 @@ class AnimationSubsystem:
         self.fps_spin.setValue(meta.fps)
         self._is_updating_ui = False
         self._preview_timer.setInterval(1000 // max(1, meta.fps))
+        self._restart_preview()
 
     def _on_meta_edited(self, *_) -> None:
         if self._is_updating_ui: return
