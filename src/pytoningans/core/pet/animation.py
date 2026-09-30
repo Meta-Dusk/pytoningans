@@ -9,7 +9,7 @@ from pytoningans.core.constants import AnimationMeta, PetState
 if TYPE_CHECKING:
     from pytoningans.core.pet.window import PetWindow
 
-type PetTransforms = Tuple[int, PetState, int, bool, int]
+type PetTransforms = Tuple[int, bool, int]
 
 class AnimationSystem:
     # Class-level cache shared by EVERY pet instance
@@ -64,7 +64,6 @@ class AnimationSystem:
         
         total_play_frames = max(1, (meta.end_frame - meta.start_frame) + 1)
         
-        # Safely increment and cap the frame counter to prevent infinite integer growth
         if meta.loop:
             self.current_frame = (self.current_frame + 1) % total_play_frames
         else:
@@ -73,23 +72,23 @@ class AnimationSystem:
         frame = self.pet.mod_manager.get_frame(self.pet.state, self.current_frame)
         if frame is None: return
         
-        # Since current_frame is already capped, we just need to handle the reverse logic
-        mapped_index = self.current_frame
-        if meta.reverse:
-            mapped_index = (total_play_frames - 1) - mapped_index
-            
         raw_angle = int(round(self.pet.rotation / 5.0) * 5.0)
         normalized_angle = raw_angle % 360
         
         if self.pet.facing_left or normalized_angle != 0:
+            
+            # Cache by the underlying QPixmap's unique C++ cache key
             cache_key: PetTransforms = (
-                id(self.pet.mod_manager),
-                self.pet.state,
-                mapped_index,
-                self.pet.facing_left, normalized_angle
+                frame.cacheKey(),
+                self.pet.facing_left, 
+                normalized_angle
             )
             
             if cache_key not in self._shared_transform_cache:
+                # Prevent combinatorial explosion from flight angles
+                if len(self._shared_transform_cache) > 500:
+                    self._shared_transform_cache.clear()
+
                 transform = QTransform()
                 if self.pet.facing_left: transform.scale(-1, 1)
                 if normalized_angle != 0: transform.rotate(normalized_angle)

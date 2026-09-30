@@ -13,7 +13,7 @@ from pytoningans.core.api import BasePetBehavior
 
 CURRENT_CONFIG_VERSION = 6
 
-type CacheKey = Tuple[str, PetState, int]
+type CacheKey = Tuple[str, int, int, int, int]
 
 class ModManager:
     _shared_frame_cache: dict[CacheKey, QPixmap] = {}
@@ -237,12 +237,7 @@ class ModManager:
             mapped_index = (total_play_frames - 1) - mapped_index
             
         actual_sheet_index: int = anim_meta.start_frame + mapped_index
-        
-        cache_key: CacheKey = (self.current_mod_name, state, actual_sheet_index)
-        if cache_key in ModManager._shared_frame_cache:
-            return ModManager._shared_frame_cache[cache_key]
 
-        # Use precomputed dimensions directly
         final_w: int = anim_meta.computed_w
         final_h: int = anim_meta.computed_h
 
@@ -253,6 +248,15 @@ class ModManager:
         safe_rect = crop_rect.intersected(self._global_sheet.rect())
         
         if safe_rect.isEmpty(): return None
+
+        # Cache using the Mod Name + X, Y, Width, Height
+        cache_key: CacheKey = (
+            self.current_mod_name, 
+            safe_rect.x(), safe_rect.y(), safe_rect.width(), safe_rect.height()
+        )
+        
+        if cache_key in ModManager._shared_frame_cache:
+            return ModManager._shared_frame_cache[cache_key]
         
         frame = self._global_sheet.copy(safe_rect)
         ModManager._shared_frame_cache[cache_key] = frame

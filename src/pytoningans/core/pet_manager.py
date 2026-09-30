@@ -2,6 +2,7 @@ import ctypes, gc
 from typing import List, cast
 
 from PySide6.QtCore import QTimer, QElapsedTimer, QRunnable, QThreadPool, QObject, Signal, QPoint
+from PySide6.QtGui import QPixmapCache
 
 from pytoningans.core.pet.window import PetWindow
 from pytoningans.core.mod_manager import ModManager
@@ -117,4 +118,5 @@ class PetManager:
         if not self.active_pets:
             AnimationSystem.clear_shared_cache()
             ModManager.clear_shared_cache()
+            QPixmapCache.clear()
             gc.collect()
