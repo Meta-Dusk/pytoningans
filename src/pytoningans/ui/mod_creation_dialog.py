@@ -1,6 +1,6 @@
 import json, shutil, re
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Any
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit,
@@ -139,7 +139,7 @@ class ModCreationDialog(QDialog):
             target_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy(self.selected_image_path, target_dir / "sprite_sheet.png")
             
-            config_data: Dict[str, Any] = {
+            config_data: dict[str, Any] = {
                 "version": 3,
                 "name": display_name,
                 "columns": self.cols_spin.value(),

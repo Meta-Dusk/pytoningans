@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Dict, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 from PySide6.QtGui import QTransform, QPixmap
 from PySide6.QtCore import Qt
 
@@ -13,7 +13,7 @@ type PetTransforms = Tuple[int, PetState, int, bool, int]
 
 class AnimationSystem:
     # Class-level cache shared by EVERY pet instance
-    _shared_transform_cache: Dict[PetTransforms, QPixmap] = {}
+    _shared_transform_cache: dict[PetTransforms, QPixmap] = {}
 
     @classmethod
     def clear_shared_cache(cls) -> None:

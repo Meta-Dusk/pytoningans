@@ -17,7 +17,7 @@ class PhysicsSystem:
         self.gravity: float = 0.8
         self.move_speed: float = 2.0
 
-    def update(self, dt: int) -> None:
+    def update(self, dt: int, centers: dict[PetWindow, QPoint] | None = None) -> None:
         """Processes physics calculations based on elapsed time."""
         if not self.pet.locks.physics:
             self.pet.velocity_y = 0
@@ -28,7 +28,6 @@ class PhysicsSystem:
 
         ground_y: int = screen.availableGeometry().bottom()
         
-        # Normalize delta time against the expected 60 FPS (~16.6ms)
         time_scale: float = dt / 16.0
         current_gravity: float = self.gravity * time_scale
         current_move_speed: float = self.move_speed * time_scale
@@ -37,26 +36,26 @@ class PhysicsSystem:
 
         if self.pet.is_dead: return
 
-        self._tick_soft_collision(current_move_speed)
+        self._tick_soft_collision(current_move_speed, centers)
         self._tick_movement(current_move_speed)
-    
-    def _tick_soft_collision(self, current_move_speed: float) -> None:
+
+    def _tick_soft_collision(self, current_move_speed: float, centers: dict[PetWindow, QPoint] | None = None) -> None:
         """Gently repels overlapping pets to prevent dense clustering."""
         if self.pet.state in (PetState.DRAG, PetState.MOVING):
             return
 
-        my_center: QPoint = self.pet.geometry().center()
+        my_center = centers.get(self.pet) if centers else self.pet.geometry().center()
         repel_x, repel_y = 0.0, 0.0
+        min_dist: float = self.pet.width() * 0.6
         
         for other in self.pet.pet_manager.active_pets:
             if other is self.pet or other.is_dead: continue
             
-            other_center: QPoint = other.geometry().center()
+            other_center = centers.get(other) if centers else other.geometry().center()
+            if other_center is None or my_center is None: continue
             dx: int = my_center.x() - other_center.x()
             dy: int = my_center.y() - other_center.y()
             dist: float = math.hypot(dx, dy)
-            
-            min_dist: float = self.pet.width() * 0.6
             
             if 0 < dist < min_dist:
                 force = (min_dist - dist) / min_dist

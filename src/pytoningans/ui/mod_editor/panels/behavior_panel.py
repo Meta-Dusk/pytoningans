@@ -1,5 +1,5 @@
 import os, subprocess
-from typing import Dict, Any
+from typing import Any
 from pathlib import Path
 
 from PySide6.QtWidgets import (
@@ -51,7 +51,7 @@ class BehaviorStatsPanel(QWidget):
 
     def _on_edited(self, *_) -> None:
         if self._is_updating_ui: return
-        stats: Dict[str, Any] = {
+        stats: dict[str, Any] = {
             "type": self.behavior_type_combo.currentData(),
             "can_fly": self.can_fly_check.isChecked(),
             "max_health": self.max_health_spin.value(),

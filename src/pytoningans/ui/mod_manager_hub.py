@@ -6,14 +6,14 @@ from PySide6.QtWidgets import (
     QListWidgetItem, QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton,
     QLabel, QMessageBox, QDialog
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QGuiApplication, QIcon
+from PySide6.QtCore import Qt, Signal, QUrl
+from PySide6.QtGui import QGuiApplication, QDesktopServices
 
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_creation_dialog import ModCreationDialog
 from pytoningans.ui.mod_editor import ModEditorWindow
-from pytoningans.utils.paths import get_asset_path
+from pytoningans.utils.assets import get_main_icon
 
 class ModManagerHub(QWidget):
     mods_updated = Signal()
@@ -21,7 +21,7 @@ class ModManagerHub(QWidget):
     def __init__(self, mod_manager: ModManager) -> None:
         super().__init__(
             windowTitle="Mod Manager Hub",
-            windowIcon=QIcon(get_asset_path("assets/ui/teto.ico").as_posix())
+            windowIcon=get_main_icon()
         )
         self.mod_manager = mod_manager
         self.editor_window: Optional[ModEditorWindow] = None
@@ -57,18 +57,22 @@ class ModManagerHub(QWidget):
         
         self.create_btn = QPushButton("Create New Mod")
         self.edit_btn = QPushButton("Edit Selected")
+        self.open_folder_btn = QPushButton("Open Folder")
         self.delete_btn = QPushButton("Delete Selected")
         
         self.edit_btn.setEnabled(False)
+        self.open_folder_btn.setEnabled(False)
         self.delete_btn.setEnabled(False)
         
         self.create_btn.clicked.connect(self._on_create_clicked)
         self.edit_btn.clicked.connect(self._on_edit_clicked)
+        self.open_folder_btn.clicked.connect(self._on_open_folder_clicked)
         self.delete_btn.clicked.connect(self._on_delete_clicked)
         self.mod_list.itemSelectionChanged.connect(self._on_selection_changed)
         
         btn_layout.addWidget(self.create_btn)
         btn_layout.addWidget(self.edit_btn)
+        btn_layout.addWidget(self.open_folder_btn)
         btn_layout.addWidget(self.delete_btn)
         btn_layout.addStretch()
         
@@ -134,4 +138,14 @@ class ModManagerHub(QWidget):
     def _on_selection_changed(self) -> None:
         has_selection: bool = len(self.mod_list.selectedItems()) > 0
         self.edit_btn.setEnabled(has_selection)
+        self.open_folder_btn.setEnabled(has_selection)
         self.delete_btn.setEnabled(has_selection)
+    
+    def _on_open_folder_clicked(self) -> None:
+        selected: List[QListWidgetItem] = self.mod_list.selectedItems()
+        if not selected: return
+        mod_folder: str = selected[0].text()
+        
+        target_dir: Path = self.mod_manager.mods_dir / mod_folder
+        if target_dir.exists():
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(target_dir.resolve())))

@@ -25,11 +25,12 @@ class AISystem:
         self.attack_time_left: int = 0
         self.attack_cooldown: int = 0
     
-    def update(self, dt: int) -> None:
+    def update(self, dt: int, centers: Optional[dict[PetWindow, QPoint]] = None) -> None:
         """Processes AI logic based on elapsed time.
 
         Args:
             dt (int): Delta time
+            centers (dict[PetWindow, QPoint] | None): The centers of each active pet
         """
         self.decision_accumulator += dt
         
@@ -57,7 +58,7 @@ class AISystem:
             self._ai_decision_tick()
             
         # Priority 1: Check for enemies in range
-        self.check_combat()
+        self.check_combat(centers)
         
         # Priority 2: Check for neutral interactions if not already attacking
         if self.pet.state is not PetState.ATTACK:
@@ -103,7 +104,7 @@ class AISystem:
             
         return False
     
-    def check_combat(self) -> None:
+    def check_combat(self, centers: Optional[dict[PetWindow, QPoint]] = None) -> None:
         # Only HOSTILE pets initiate attacks
         if self.pet.mod_manager.behavior_type is not BehaviorType.HOSTILE:
             return
@@ -111,7 +112,7 @@ class AISystem:
         if self.attack_cooldown > 0 or not self.pet.is_interactable: 
             return
 
-        my_center: QPoint = self.pet.geometry().center()
+        my_center = centers.get(self.pet) if centers else self.pet.geometry().center()
 
         for other_pet in self.pet.pet_manager.active_pets:
             if other_pet is self.pet or not other_pet.is_interactable: 
@@ -122,7 +123,8 @@ class AISystem:
             if other_pet.mod_manager.current_mod_name == self.pet.mod_manager.current_mod_name:
                 continue
             
-            other_center: QPoint = other_pet.geometry().center()
+            other_center = centers.get(other_pet) if centers else other_pet.geometry().center()
+            if other_center is None or my_center is None: continue
             distance: float = self._get_distance(my_center, other_center)
 
             # Evaluate against the mod's specific attack range
@@ -170,7 +172,7 @@ class AISystem:
             print(f"Custom AI Error (Attack): {e}")
         return False
     
-    def check_interactions(self) -> None:
+    def check_interactions(self, centers: Optional[dict[PetWindow, QPoint]] = None) -> None:
         # TODO: Add sociability modifiers soon
         # PASSIVE pets do not initiate social interactions
         if self.pet.mod_manager.behavior_type is BehaviorType.PASSIVE:
@@ -182,12 +184,13 @@ class AISystem:
 
         if not self.pet.is_interactable: return
 
-        my_center: QPoint = self.pet.geometry().center()
+        my_center = centers.get(self.pet) if centers else self.pet.geometry().center()
 
         for other_pet in self.pet.pet_manager.active_pets:
             if other_pet is self.pet or not other_pet.is_interactable: continue
 
-            other_center: QPoint = other_pet.geometry().center()
+            other_center = centers.get(other_pet) if centers else other_pet.geometry().center()
+            if other_center is None or my_center is None: continue
             distance: float = self._get_distance(my_center, other_center)
 
             if distance >= 120: return

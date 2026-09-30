@@ -95,9 +95,11 @@ class PetWindow(QWidget):
         
         layout.addWidget(self.sprite_label)
     
-    def update_systems(self, dt: int) -> None:
+    def update_systems(self, dt: int, centers: Optional[dict[PetWindow, QPoint]] = None) -> None:
         """Called every frame by the PetManager's global tick."""
         if self.is_paused: return
+
+        self.bubble.tick(dt)
         
         if self.revive_time_left > 0:
             self.revive_time_left -= dt
@@ -106,24 +108,21 @@ class PetWindow(QWidget):
                 self.locks.ai = True
                 self.locks.physics = True
                 
-        # Handle the red damage flash fade-out
         if self.damage_tint_time_left > 0:
             self.damage_tint_time_left -= dt
             if self.damage_tint_time_left <= 0:
                 self.tint_effect.setStrength(0.0)
             else:
-                # Calculate a linear fade from 0.7 (70% opacity) down to 0.0 over 300ms
                 fade_strength = 0.7 * (self.damage_tint_time_left / 300.0)
                 self.tint_effect.setStrength(fade_strength)
             
         if self.is_dead:
-            # Let the dying animation finish and allow physics to drop the pet to the ground
             self.anim_sys.update(dt)
-            self.physics_sys.update(dt)
+            self.physics_sys.update(dt, centers)
             return
             
-        if self.locks.ai: self.ai_sys.update(dt)
-        if self.locks.physics: self.physics_sys.update(dt)
+        if self.locks.ai: self.ai_sys.update(dt, centers)
+        if self.locks.physics: self.physics_sys.update(dt, centers)
         if self.locks.animation: self.anim_sys.update(dt)
     
     # --- Core Actions ---
@@ -244,9 +243,13 @@ class PetWindow(QWidget):
     # --- Other Events ---
     def _close_pet(self) -> None:
         """Safely unregisters the window before destroying it."""
-        self.bubble.close()
         self.pet_manager.remove_pet(self)
-        self.close()
+        
+        # Force native C++ deletion of the unparented tool window
+        self.bubble.deleteLater()
+        
+        # Schedule the pet window itself for safe C++ deletion
+        self.deleteLater()
     
     def moveEvent(self, event: QMoveEvent) -> None:
         super().moveEvent(event)

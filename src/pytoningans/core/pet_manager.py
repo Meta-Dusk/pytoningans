@@ -1,34 +1,50 @@
 import ctypes
 from typing import List, cast
 
-from PySide6.QtCore import QTimer, QElapsedTimer
+from PySide6.QtCore import QTimer, QElapsedTimer, QRunnable, QThreadPool, QObject, Signal, QPoint
 
 from pytoningans.core.pet.window import PetWindow
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.api import IPet
 from pytoningans.core.pet.animation import AnimationSystem
-from pytoningans.core.mod_manager import ModManager
 
-def get_visible_windows() -> List[str]:
-    """Queries the OS for all currently visible window titles."""
+def fetch_visible_windows_worker() -> List[str]:
+    """Background worker function querying visible window titles."""
     EnumWindows = ctypes.windll.user32.EnumWindows
-    EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
+    EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
     GetWindowText = ctypes.windll.user32.GetWindowTextW
     GetWindowTextLength = ctypes.windll.user32.GetWindowTextLengthW
     IsWindowVisible = ctypes.windll.user32.IsWindowVisible
 
     titles: List[str] = []
+
     def foreach_window(hwnd, lParam):
         if IsWindowVisible(hwnd):
             length = GetWindowTextLength(hwnd)
             if length > 0:
                 buff = ctypes.create_unicode_buffer(length + 1)
                 GetWindowText(hwnd, buff, length + 1)
-                titles.append(buff.value)
+                if buff.value:
+                    titles.append(buff.value)
         return True
-        
+
     EnumWindows(EnumWindowsProc(foreach_window), 0)
     return titles
+
+
+class VisionWorkerSignals(QObject):
+    finished = Signal(list)
+
+
+class VisionWorker(QRunnable):
+    def __init__(self) -> None:
+        super().__init__()
+        self.signals = VisionWorkerSignals()
+
+    def run(self) -> None:
+        titles = fetch_visible_windows_worker()
+        self.signals.finished.emit(titles)
+
 
 class PetManager:
     def __init__(self, mod_manager: ModManager) -> None:
@@ -37,29 +53,43 @@ class PetManager:
         
         self.active_window_titles: List[str] = []
         self.vision_accumulator: int = 0
+        self._vision_in_progress: bool = False
         
         # Central Game Loop
         self.clock = QElapsedTimer()
         self.timer = QTimer()
         self.timer.timeout.connect(self._global_tick)
         
-        # ~60 FPS (1000ms / 60 = ~16.6ms)
         self.timer.start(16) 
         self.clock.start()
+
+    def _on_vision_ready(self, titles: List[str]) -> None:
+        self.active_window_titles = titles
+        self._vision_in_progress = False
 
     def _global_tick(self) -> None:
         """The heartbeat of the entire application."""
         dt = self.clock.restart()
         
-        # Environmental Vision
+        # Trigger non-blocking OS polling every 3 seconds
         self.vision_accumulator += dt
         if self.vision_accumulator >= 3000:
             self.vision_accumulator = 0
-            self.active_window_titles = get_visible_windows()
+            if not self._vision_in_progress:
+                self._vision_in_progress = True
+                worker = VisionWorker()
+                worker.signals.finished.connect(self._on_vision_ready)
+                QThreadPool.globalInstance().start(worker)
+
+        # Pre-compute centers and positions once for all pets
+        # This replaces redundant C++ geometry/center evaluations in the collision loop
+        centers: dict[PetWindow, QPoint] = {
+            pet: pet.geometry().center() for pet in self.active_pets
+        }
         
-        # Update all systems for all active pets
+        # Update all active pets
         for pet in list(self.active_pets):
-            pet.update_systems(dt)
+            pet.update_systems(dt, centers)
 
     def spawn_pet(self, x: int, y: int, mod_folder: str) -> None:
         pet_mod = ModManager(self.mod_manager.mods_dir)

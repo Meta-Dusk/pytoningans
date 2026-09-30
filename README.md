@@ -15,6 +15,14 @@ one of them was the Python version of Qt; PySide6. I have tried this before with
 the issue with that, was I'm not that good with C++ yet, and was also my very first
 language (and GUI framework used), which dates back a couple of years ago...
 
+Now you might ask yourself, what does `PyToNingans` mean? Well, it's literally just a
+combination of puns and acronyms:
+
+- **Py**: Python
+- **To**: (_Te_)to (_Yes, Kasane Teto_)
+- **Ningans**: This is a combination of the Japanese term for "human" or "person," which is "Ningen," and "Shenanigans," which just means
+random stuff :D
+
 Anyway, hope you'll like this simple app about desktop pets! You can refer to the rest of the
 sections below about what this app offers and such :)
 

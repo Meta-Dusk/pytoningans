@@ -2,7 +2,7 @@ import json, sys
 import importlib.util
 from pathlib import Path
 
-from typing import Dict, List, Optional, Tuple, Any
+from typing import List, Optional, Tuple, Any
 from dataclasses import asdict
 
 from PySide6.QtGui import QPixmap, QPainter
@@ -16,7 +16,7 @@ CURRENT_CONFIG_VERSION = 6
 type CacheKey = Tuple[str, PetState, int]
 
 class ModManager:
-    _shared_frame_cache: Dict[CacheKey, QPixmap] = {}
+    _shared_frame_cache: dict[CacheKey, QPixmap] = {}
     """Class-level cache: (mod_folder_name, state, frame_index) -> QPixmap"""
 
     @classmethod
@@ -39,12 +39,12 @@ class ModManager:
         self.jump_height: int = 150
         self.behavior_type: BehaviorType = BehaviorType.NEUTRAL
         
-        self.animations: Dict[PetState, AnimationMeta] = {}
+        self.animations: dict[PetState, AnimationMeta] = {}
         self._global_sheet: Optional[QPixmap] = None
         self.custom_behavior: Optional[BasePetBehavior] = None
         
         self.plain_dialogue: List[str] = []
-        self.window_triggers: List[Dict[str, Any]] = []
+        self.window_triggers: List[dict[str, Any]] = []
         
         # Inject the mods folder into Python's runtime path
         abs_mods_dir: str = str(self.mods_dir.resolve())
@@ -114,14 +114,14 @@ class ModManager:
             self.save_mod_config(mod_folder_name, self.current_mod_name)
         else:
             with open(config_path, "r", encoding="utf-8") as f:
-                data: Dict[str, Any] = json.load(f)
+                data: dict[str, Any] = json.load(f)
                 
             self.current_mod_name = data.get("name", mod_folder_name)
             self.global_columns = data.get("columns", 1)
             self.global_rows = data.get("rows", 1)
             self.config_version = data.get("version", 1)
             
-            behavior_data: Dict[str, Any] = data.get("behavior", {})
+            behavior_data: dict[str, Any] = data.get("behavior", {})
             self.can_fly = behavior_data.get("can_fly", False)
             
             self.max_health = behavior_data.get("max_health", 100)
@@ -164,6 +164,7 @@ class ModManager:
         if sheet.isNull(): return False
             
         self._global_sheet = sheet
+        self._resolve_dimensions()
         return True
 
     def _compile_behavior_mod(self, mod_folder_name: str, mod_path: Path) -> None:
@@ -184,7 +185,7 @@ class ModManager:
         mod_path: Path = self.mods_dir / mod_folder_name
         config_path: Path = mod_path / "config.json"
         
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "version": CURRENT_CONFIG_VERSION,
             "name": name,
             "columns": self.global_columns,
@@ -231,14 +232,12 @@ class ModManager:
         if cache_key in ModManager._shared_frame_cache:
             return ModManager._shared_frame_cache[cache_key]
 
-        base_w: int = self._global_sheet.width() // max(1, self.global_columns)
-        base_h: int = self._global_sheet.height() // max(1, self.global_rows)
-        
-        final_w: int = anim_meta.override_width if anim_meta.override_width > 0 else base_w
-        final_h: int = anim_meta.override_height if anim_meta.override_height > 0 else base_h
+        # Use precomputed dimensions directly
+        final_w: int = anim_meta.computed_w
+        final_h: int = anim_meta.computed_h
 
         x_pos: int = (actual_sheet_index * final_w) + anim_meta.offset_x
-        y_pos: int = (anim_meta.row * base_h) + anim_meta.offset_y 
+        y_pos: int = (anim_meta.row * anim_meta.base_h) + anim_meta.offset_y 
         
         crop_rect = QRect(x_pos, y_pos, final_w, final_h)
         safe_rect = crop_rect.intersected(self._global_sheet.rect())
@@ -311,3 +310,14 @@ class ModManager:
 
         self.save_mod_config(self.current_mod_folder, self.current_mod_name)
         return True
+    
+    def _resolve_dimensions(self) -> None:
+        """Pre-computes tile and frame extraction dimensions."""
+        if not self._global_sheet: return
+        base_w: int = self._global_sheet.width() // max(1, self.global_columns)
+        base_h: int = self._global_sheet.height() // max(1, self.global_rows)
+        
+        for meta in self.animations.values():
+            meta.base_h = base_h
+            meta.computed_w = meta.override_width if meta.override_width > 0 else base_w
+            meta.computed_h = meta.override_height if meta.override_height > 0 else base_h
