@@ -1,5 +1,6 @@
 import ctypes, gc
-from typing import List, cast
+from ctypes import wintypes
+from typing import List, cast, Optional
 
 from PySide6.QtCore import QTimer, QElapsedTimer, QRunnable, QThreadPool, QObject, Signal, QPoint
 from PySide6.QtGui import QPixmapCache
@@ -10,26 +11,40 @@ from pytoningans.core.api import IPet
 from pytoningans.core.pet.animation import AnimationSystem
 
 def fetch_visible_windows_worker() -> List[str]:
-    """Background worker function querying visible window titles."""
-    EnumWindows = ctypes.windll.user32.EnumWindows
-    EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
-    GetWindowText = ctypes.windll.user32.GetWindowTextW
-    GetWindowTextLength = ctypes.windll.user32.GetWindowTextLengthW
-    IsWindowVisible = ctypes.windll.user32.IsWindowVisible
+    """Background worker function querying visible window titles safely."""
+    user32 = ctypes.windll.user32
+    
+    # Explicitly define C-types for compiled environments
+    WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    
+    user32.EnumWindows.argtypes = [WNDENUMPROC, wintypes.LPARAM]
+    user32.EnumWindows.restype = wintypes.BOOL
+    
+    user32.GetWindowTextLengthW.argtypes = [wintypes.HWND]
+    user32.GetWindowTextLengthW.restype = ctypes.c_int
+    
+    user32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+    user32.GetWindowTextW.restype = ctypes.c_int
+    
+    user32.IsWindowVisible.argtypes = [wintypes.HWND]
+    user32.IsWindowVisible.restype = wintypes.BOOL
 
     titles: List[str] = []
 
     def foreach_window(hwnd, lParam):
-        if IsWindowVisible(hwnd):
-            length = GetWindowTextLength(hwnd)
+        if user32.IsWindowVisible(hwnd):
+            length = user32.GetWindowTextLengthW(hwnd)
             if length > 0:
                 buff = ctypes.create_unicode_buffer(length + 1)
-                GetWindowText(hwnd, buff, length + 1)
+                user32.GetWindowTextW(hwnd, buff, length + 1)
                 if buff.value:
                     titles.append(buff.value)
         return True
 
-    EnumWindows(EnumWindowsProc(foreach_window), 0)
+    # Keep a strong reference to the callback during execution to prevent GC crashes
+    callback = WNDENUMPROC(foreach_window)
+    user32.EnumWindows(callback, 0)
+    
     return titles
 
 
@@ -55,6 +70,7 @@ class PetManager:
         self.active_window_titles: List[str] = []
         self.vision_accumulator: int = 0
         self._vision_in_progress: bool = False
+        self._vision_worker: Optional[VisionWorker] = None
         
         # Central Game Loop
         self.clock = QElapsedTimer()
@@ -78,9 +94,9 @@ class PetManager:
             self.vision_accumulator = 0
             if not self._vision_in_progress:
                 self._vision_in_progress = True
-                worker = VisionWorker()
-                worker.signals.finished.connect(self._on_vision_ready)
-                QThreadPool.globalInstance().start(worker)
+                self._vision_worker = VisionWorker()
+                self._vision_worker.signals.finished.connect(self._on_vision_ready)
+                QThreadPool.globalInstance().start(self._vision_worker)
 
         # Pre-compute centers and positions once for all pets
         # This replaces redundant C++ geometry/center evaluations in the collision loop
