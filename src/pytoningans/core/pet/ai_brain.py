@@ -8,6 +8,7 @@ from PySide6.QtGui import QScreen
 
 from pytoningans.core.constants import PetState, BehaviorType
 from pytoningans.core.api import BasePetBehavior, IPet
+from pytoningans.core.pet.speech_bubble import SpeechBubble
 
 if TYPE_CHECKING:
     from pytoningans.core.pet.window import PetWindow
@@ -225,7 +226,7 @@ class AISystem:
     def _check_environment(self) -> bool:
         """Evaluates active windows and triggers personality dialogue. Returns True if speaking."""
         # Prevent overlapping dialogues
-        if hasattr(self.pet, 'bubble') and self.pet.bubble.isVisible(): 
+        if self.pet.bubble is not None and self.pet.bubble.isVisible():
             return False
         
         if random.random() < 0.5: return False
@@ -255,9 +256,11 @@ class AISystem:
         
     def _trigger_dialogue(self, text: str, duration_ms: int) -> None:
         """Helper to push text to the UI and freeze movement."""
-        if hasattr(self.pet, 'bubble'):
-            self.pet.bubble.speak(text, duration_ms)
-            self.pet.anim_sys.set_state(PetState.IDLE)
-            self.pet._target_pos = None
-            self.pet.bubble.update_position()
-            self.pet.raise_()
+        if self.pet.bubble is None:
+            self.pet.bubble = SpeechBubble(self.pet)
+            
+        self.pet.bubble.speak(text, duration_ms)
+        self.pet.anim_sys.set_state(PetState.IDLE)
+        self.pet._target_pos = None
+        self.pet.bubble.update_position()
+        self.pet.raise_()

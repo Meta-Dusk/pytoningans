@@ -43,7 +43,10 @@ class SpeechBubble(QWidget):
         """Called by the parent pet's update_systems loop."""
         if self.time_left <= 0: return
         self.time_left -= dt
-        if self.time_left <= 0: self.hide()
+        if self.time_left <= 0:
+            self.hide()
+            self.deleteLater()
+            self.pet.bubble = None
 
     def update_position(self) -> None:
         if not self.isVisible(): return

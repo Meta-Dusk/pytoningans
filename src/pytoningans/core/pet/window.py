@@ -47,11 +47,11 @@ class PetWindow(QWidget):
         # --- Initialization ---
         self._setup_ui(start_x, start_y)
         
-        self.anim_sys = AnimationSystem(self)
-        self.physics_sys = PhysicsSystem(self)
-        self.ai_sys = AISystem(self)
-        self.bubble = SpeechBubble(self)
-        self.locks = SystemLocks()
+        self.anim_sys: AnimationSystem = AnimationSystem(self)
+        self.physics_sys: PhysicsSystem = PhysicsSystem(self)
+        self.ai_sys: AISystem = AISystem(self)
+        self.bubble: Optional[SpeechBubble] = None
+        self.locks: SystemLocks = SystemLocks()
         self.revive_time_left: int = 0
 
     @property
@@ -90,7 +90,7 @@ class PetWindow(QWidget):
         # Apply the colorize effect
         self.tint_effect = QGraphicsColorizeEffect(self)
         self.tint_effect.setColor(QColor(255, 0, 0)) # Pure Red
-        self.tint_effect.setStrength(0.0) # 0.0 means completely invisible
+        self.tint_effect.setEnabled(False)
         self.sprite_label.setGraphicsEffect(self.tint_effect)
         
         layout.addWidget(self.sprite_label)
@@ -99,7 +99,7 @@ class PetWindow(QWidget):
         """Called every frame by the PetManager's global tick."""
         if self.is_paused: return
 
-        self.bubble.tick(dt)
+        if self.bubble: self.bubble.tick(dt)
         
         if self.revive_time_left > 0:
             self.revive_time_left -= dt
@@ -111,7 +111,7 @@ class PetWindow(QWidget):
         if self.damage_tint_time_left > 0:
             self.damage_tint_time_left -= dt
             if self.damage_tint_time_left <= 0:
-                self.tint_effect.setStrength(0.0)
+                self.tint_effect.setEnabled(False)
             else:
                 fade_strength = 0.7 * (self.damage_tint_time_left / 300.0)
                 self.tint_effect.setStrength(fade_strength)
@@ -132,6 +132,7 @@ class PetWindow(QWidget):
         self.current_health -= amount
         
         self.damage_tint_time_left = 300
+        self.tint_effect.setEnabled(True)
         self.tint_effect.setStrength(0.85)
         # TODO: Add Modding API hook here
         
@@ -244,23 +245,23 @@ class PetWindow(QWidget):
     def _close_pet(self) -> None:
         """Safely unregisters the window before destroying it."""
         self.pet_manager.remove_pet(self)
-        
-        # Force native C++ deletion of the unparented tool window
-        self.bubble.deleteLater()
-        
-        # Schedule the pet window itself for safe C++ deletion
+        if self.bubble: self.bubble.deleteLater()
         self.deleteLater()
     
     def moveEvent(self, event: QMoveEvent) -> None:
         super().moveEvent(event)
-        self.bubble.update_position()
+        if self.bubble: self.bubble.update_position()
     
     def force_talk(self) -> None:
         """Forces the pet to say a random plain dialogue line."""
         if self.is_dead or not self.mod_manager.plain_dialogue: return
         
+        if self.bubble is None:
+            self.bubble = SpeechBubble(self)
+            
         text: str = random.choice(self.mod_manager.plain_dialogue)
         self.bubble.speak(text, 4000)
+            
         self.anim_sys.set_state(PetState.IDLE)
         self._target_pos = None
         # TODO: Add Modding API hook here

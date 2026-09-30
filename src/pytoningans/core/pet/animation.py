@@ -53,28 +53,32 @@ class AnimationSystem:
 
     def _update_frame(self) -> None:
         self.current_frame += 1
-        frame: Optional[QPixmap] = self.pet.mod_manager.get_frame(self.pet.state, self.current_frame)
+        frame = self.pet.mod_manager.get_frame(self.pet.state, self.current_frame)
         if frame is None: return
         
-        # Get raw pitch rounded to the nearest 5 degrees
-        raw_angle = int(round(self.pet.rotation / 5.0) * 5.0)
+        meta = self.pet.mod_manager.animations.get(self.pet.state)
+        if not meta: return
         
-        # Normalize to 0-359 for consistent cache keys
+        # Calculate the actual mapped index so we don't cache infinitely
+        total_play_frames = max(1, (meta.end_frame - meta.start_frame) + 1)
+        mapped_index = self.current_frame % total_play_frames if meta.loop else min(self.current_frame, total_play_frames - 1)
+        if meta.reverse:
+            mapped_index = (total_play_frames - 1) - mapped_index
+            
+        raw_angle = int(round(self.pet.rotation / 5.0) * 5.0)
         normalized_angle = raw_angle % 360
         
         if self.pet.facing_left or normalized_angle != 0:
             cache_key: PetTransforms = (
                 id(self.pet.mod_manager),
                 self.pet.state,
-                self.current_frame,
+                mapped_index,
                 self.pet.facing_left, normalized_angle
             )
             
             if cache_key not in self._shared_transform_cache:
                 transform = QTransform()
-                
                 if self.pet.facing_left: transform.scale(-1, 1)
-                    
                 if normalized_angle != 0: transform.rotate(normalized_angle)
                     
                 self._shared_transform_cache[cache_key] = frame.transformed(
