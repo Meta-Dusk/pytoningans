@@ -1,4 +1,4 @@
-import sys, shutil
+import sys
 from pathlib import Path
 from PySide6.QtCore import QStandardPaths
 
@@ -37,21 +37,3 @@ def get_mods_directory() -> Path:
     mods_dir.mkdir(parents=True, exist_ok=True)
     
     return mods_dir
-
-def setup_default_mod(external_mods_dir: Path) -> None:
-    """Copies the bundled default mod to the Documents folder on first launch."""
-    target_mod_path = external_mods_dir / "default_pet"
-    
-    if target_mod_path.exists():
-        return
-
-    bundled_mod_path = get_asset_path("assets/mods/default_pet")
-
-    if bundled_mod_path.exists():
-        try:
-            shutil.copytree(bundled_mod_path, target_mod_path)
-            print(f"First launch: Copied default mod to {target_mod_path}")
-        except Exception as e:
-            print(f"Failed to copy default mod: {e}")
-    else:
-        print(f"Warning: Bundled default mod not found at {bundled_mod_path}")

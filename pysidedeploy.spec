@@ -1,5 +1,5 @@
 [app]
-
+# Use pyside6-deploy -c pysidedeploy.spec to build
 # title of your application
 title = PyToNingans
 
@@ -16,7 +16,7 @@ exec_directory = F:\Coding Projects\Python Projects\pytoningans\build
 project_file = 
 
 # application icon
-icon = F:\Coding Projects\Python Projects\pytoningans\assets\ui\teto.ico
+icon = F:\Coding Projects\Python Projects\pytoningans\assets\icon.ico
 
 [python]
 
@@ -68,7 +68,7 @@ macos.permissions =
 mode = standalone
 
 # specify any extra nuitka arguments
-extra_args = --quiet --noinclude-qt-translations --include-data-dir=assets=assets --windows-company-name="MetaDusk" --windows-product-name="PyToNingans" --windows-file-version=0.5.19.0 --windows-product-version=0.5.19.0
+extra_args = --quiet --noinclude-qt-translations --include-data-dir=assets=assets --windows-company-name="MetaDusk" --windows-product-name="PyToNingans" --windows-file-version=0.6.0.0 --windows-product-version=0.6.0.0
 
 [buildozer]
 

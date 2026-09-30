@@ -1,13 +1,10 @@
-; Safe to share publicly — contains no private data
-; Paths are relative, version is auto-updated by build script
-
 #define MyAppName "PyToNingans"
-#define MyAppVersion "0.5.19"
+#define MyAppVersion "0.6.0"
 #define MyAppPublisher "MetaDusk Inc."
 #define MyAppURL "https://github.com/Meta-Dusk/pytoningans"
 #define MyAppExeName "PyToNingans.exe"
 #define MyAppAssocName MyAppName + " File"
-#define MyAppAssocExt ".teto"
+#define MyAppAssocExt ".pyto"
 #define MyAppAssocKey StringChange(MyAppAssocName, " ", "") + MyAppAssocExt
 
 [Setup]
@@ -30,7 +27,7 @@ OutputBaseFilename={#MyAppName}-v{#MyAppVersion}-Win64-Installer
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-SetupIconFile=..\src\assets\ui\teto.ico
+SetupIconFile=..\src\assets\icon.ico
 SignTool=signtool
 SignedUninstaller=yes
 
@@ -40,20 +37,38 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
+[Types]
+Name: "full"; Description: "Full installation"
+Name: "custom"; Description: "Custom installation"; Flags: iscustom
+
+[Components]
+; The core app is fixed and cannot be unchecked
+Name: "core"; Description: "Core Engine Files"; Types: full custom; Flags: fixed
+
+; Added a specific component for the API
+Name: "mods\api"; Description: "Modding API Base (api.py)"; Types: full custom
+Name: "mods\default_mod"; Description: "Include Default Pet Mod"; Types: full custom
+Name: "mods\example_mods"; Description: "Include All Example Mods"; Types: full custom
+
 [Files]
-Source: "..\build\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\src\assets\ui\teto.ico"; DestDir: "{app}"; Flags: ignoreversion
+; Core Application
+Source: "..\build\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: core
+Source: "..\src\assets\icon.ico"; DestDir: "{app}"; Flags: ignoreversion; Components: core
 
-; --- Modding Scaffolding ---
-; Copies the API file directly to the user's Documents folder
-Source: "..\src\pytoningans\core\api.py"; DestDir: "{userdocs}\{#MyAppName}\mods"; DestName: "api.py"; Flags: ignoreversion uninsneveruninstall
+; Modding API
+; By listing 'api default_mod example_mods', this file installs if ANY of those three boxes are checked.
+Source: "..\src\pytoningans\core\api.py"; DestDir: "{userdocs}\{#MyAppName}\mods"; DestName: "api.py"; Flags: ignoreversion uninsneveruninstall; Components: api default_mod example_mods
 
-; Copies the default pet
-Source: "..\assets\mods\default_pet\*"; DestDir: "{userdocs}\{#MyAppName}\mods\default_pet"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall
+; Default Mod
+Source: "..\assets\mods\default_pet\*"; DestDir: "{userdocs}\{#MyAppName}\mods\default_pet"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: default_mod
+
+; Example Mods
+; TODO: Add the rest of the example mods
+Source: "..\assets\mods\*"; DestDir: "{userdocs}\{#MyAppName}\mods"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: example_mods
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\teto.ico"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\teto.ico"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\icon.ico"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\icon.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent

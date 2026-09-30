@@ -1,4 +1,4 @@
-import json, sys, shutil
+import json, sys
 import importlib.util
 from pathlib import Path
 
@@ -10,7 +10,6 @@ from PySide6.QtCore import QRect, Qt
 
 from pytoningans.core.constants import PetState, AnimationMeta, BehaviorType
 from pytoningans.core.api import BasePetBehavior
-from pytoningans.utils.paths import get_asset_path
 
 CURRENT_CONFIG_VERSION = 6
 
@@ -47,8 +46,6 @@ class ModManager:
         self.plain_dialogue: List[str] = []
         self.window_triggers: List[Dict[str, Any]] = []
         
-        self._scaffold_modding_api()
-        
         # Inject the mods folder into Python's runtime path
         abs_mods_dir: str = str(self.mods_dir.resolve())
         if abs_mods_dir not in sys.path:
@@ -58,18 +55,6 @@ class ModManager:
     def current_mod_path(self) -> Path:
         """Returns the full Path to the currently loaded mod's directory."""
         return self.mods_dir / self.current_mod_folder
-    
-    def _scaffold_modding_api(self) -> None:
-        """Copies the api_template.py file directly to the external mods directory."""
-        self.mods_dir.mkdir(parents=True, exist_ok=True)
-        
-        source_api_path: Path = get_asset_path("assets/mods/api_template.py")
-        target_api_path: Path = self.mods_dir / "api.py"
-        
-        if source_api_path.exists():
-            shutil.copyfile(source_api_path, target_api_path)
-        else:
-            print(f"Warning: Could not find source API template at {source_api_path}")
     
     def get_available_mods(self) -> List[str]:
         """Returns a list of valid folder names in the mods directory."""
@@ -114,10 +99,10 @@ class ModManager:
             self.plain_dialogue = ["Just hanging out.", "Lovely weather.", "Need a break?"]
             self.window_triggers = [
                 {
-                    "title_matches": ["secret_diary.txt", "diary - notepad"], 
+                    "title_matches": ["secret_diary.txt", "diary - notepad", "diary"], 
                     "text": "Are you writing about me?", 
                     "duration": 4000, 
-                    "chance": 1.0
+                    "chance": 0.5
                 },
                 {
                     "title_matches": ["visual studio code", "vscode", "code.exe"], 
