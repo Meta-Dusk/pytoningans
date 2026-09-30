@@ -1,5 +1,6 @@
 import os, subprocess
-from typing import Dict, Any
+from typing import Any
+from pathlib import Path
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QComboBox, QCheckBox, QPushButton, QFormLayout
@@ -50,7 +51,7 @@ class BehaviorStatsPanel(QWidget):
 
     def _on_edited(self, *_) -> None:
         if self._is_updating_ui: return
-        stats: Dict[str, Any] = {
+        stats: dict[str, Any] = {
             "type": self.behavior_type_combo.currentData(),
             "can_fly": self.can_fly_check.isChecked(),
             "max_health": self.max_health_spin.value(),
@@ -101,18 +102,18 @@ class BehaviorScriptPanel(QWidget):
         self.edit_btn.clicked.connect(self._open_script)
         self.delete_btn.clicked.connect(self._delete_script)
 
-    def _get_script_path(self) -> str:
-        return os.path.join(self.controller.manager.mods_dir, self.controller.manager.current_mod_name, "behavior.py")
+    def _get_script_path(self) -> Path:
+        return self.controller.manager.current_mod_path / "behavior.py"
 
     def load_data(self) -> None:
-        exists = os.path.exists(self._get_script_path())
+        exists = self._get_script_path().exists()
         self.add_btn.setEnabled(not exists)
         self.edit_btn.setEnabled(exists)
         self.delete_btn.setEnabled(exists)
 
     def _open_script(self) -> None:
         path = self._get_script_path()
-        if not os.path.exists(path):
+        if not path.exists():
             boilerplate = (
                 "from api import BasePetBehavior, IPet, Pos2D\n\n"
                 "class Behavior(BasePetBehavior):\n"
@@ -124,12 +125,15 @@ class BehaviorScriptPanel(QWidget):
             self.load_data()
             
         try:
-            subprocess.Popen(['code', self.controller.manager.mods_dir, path], shell=True)
+            # Cast Path objects to strings for the CLI arguments
+            subprocess.Popen(['code', str(self.controller.manager.mods_dir), str(path)], shell=True)
         except Exception:
+            # os.startfile natively supports Path-like objects in Python 3.8+
+            import os
             os.startfile(path)
 
     def _delete_script(self) -> None:
         path = self._get_script_path()
-        if os.path.exists(path):
-            os.remove(path)
+        if path.exists():
+            path.unlink()
             self.load_data()

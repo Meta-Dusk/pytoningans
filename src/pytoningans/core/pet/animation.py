@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Dict, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 from PySide6.QtGui import QTransform, QPixmap
 from PySide6.QtCore import Qt
 
@@ -9,32 +9,37 @@ from pytoningans.core.constants import AnimationMeta, PetState
 if TYPE_CHECKING:
     from pytoningans.core.pet.window import PetWindow
 
-type PetTransforms = Tuple[int, PetState, int, bool, int]
+type PetTransforms = Tuple[int, bool, int]
 
 class AnimationSystem:
     # Class-level cache shared by EVERY pet instance
-    _shared_transform_cache: Dict[PetTransforms, QPixmap] = {}
+    _shared_transform_cache: dict[PetTransforms, QPixmap] = {}
 
     @classmethod
     def clear_shared_cache(cls) -> None:
         """Flushes the C++ image buffers from memory."""
         cls._shared_transform_cache.clear()
         
-    def __init__(self, pet: PetWindow) -> None:
-        self.pet: PetWindow = pet
+    def __init__(self, pet: Optional[PetWindow] = None) -> None:
+        self.pet: Optional[PetWindow] = pet
         self.current_frame: int = 0
         self.time_since_last_frame: int = 0
         
         # Clear the placeholder text
-        self.pet.sprite_label.setStyleSheet("")
-        self.pet.sprite_label.setText("")
+        if self.pet:
+            self.pet.sprite_label.setStyleSheet("")
+            self.pet.sprite_label.setText("")
         
         self._update_frame()
 
     def update(self, dt: int) -> None:
         self.time_since_last_frame += dt
         
-        meta: Optional[AnimationMeta] = self.pet.mod_manager.animations.get(self.pet.state)
+        meta: Optional[AnimationMeta]
+        if self.pet is None or self.pet.mod_manager is None:
+            meta = None
+        else:
+            meta = self.pet.mod_manager.animations.get(self.pet.state)
         if not meta: return
         
         frame_duration: int = 1000 // max(1, meta.fps)
@@ -45,6 +50,7 @@ class AnimationSystem:
             self._update_frame()
 
     def set_state(self, new_state: PetState) -> None:
+        if self.pet is None: return
         if self.pet.state is new_state: return
         self.pet.state = new_state
         self.current_frame = 0
@@ -52,29 +58,39 @@ class AnimationSystem:
         self._update_frame()
 
     def _update_frame(self) -> None:
-        self.current_frame += 1
-        frame: Optional[QPixmap] = self.pet.mod_manager.get_frame(self.pet.state, self.current_frame)
+        if self.pet is None or self.pet.mod_manager is None: return
+        meta = self.pet.mod_manager.animations.get(self.pet.state)
+        if not meta: return
+        
+        total_play_frames = max(1, (meta.end_frame - meta.start_frame) + 1)
+        
+        if meta.loop:
+            self.current_frame = (self.current_frame + 1) % total_play_frames
+        else:
+            self.current_frame = min(self.current_frame + 1, total_play_frames - 1)
+
+        frame = self.pet.mod_manager.get_frame(self.pet.state, self.current_frame)
         if frame is None: return
         
-        # Get raw pitch rounded to the nearest 5 degrees
         raw_angle = int(round(self.pet.rotation / 5.0) * 5.0)
-        
-        # Normalize to 0-359 for consistent cache keys
         normalized_angle = raw_angle % 360
         
         if self.pet.facing_left or normalized_angle != 0:
+            
+            # Cache by the underlying QPixmap's unique C++ cache key
             cache_key: PetTransforms = (
-                id(self.pet.mod_manager),
-                self.pet.state,
-                self.current_frame,
-                self.pet.facing_left, normalized_angle
+                frame.cacheKey(),
+                self.pet.facing_left, 
+                normalized_angle
             )
             
             if cache_key not in self._shared_transform_cache:
+                # Prevent combinatorial explosion from flight angles
+                if len(self._shared_transform_cache) > 500:
+                    self._shared_transform_cache.clear()
+
                 transform = QTransform()
-                
                 if self.pet.facing_left: transform.scale(-1, 1)
-                    
                 if normalized_angle != 0: transform.rotate(normalized_angle)
                     
                 self._shared_transform_cache[cache_key] = frame.transformed(

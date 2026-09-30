@@ -1,12 +1,23 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QRect, Qt
+
+if TYPE_CHECKING:
+    from pytoningans.core.pet.window import PetWindow
 
 class SpeechBubble(QWidget):
-    def __init__(self, parent_pet) -> None:
+    def __init__(self, parent_pet: PetWindow) -> None:
         super().__init__()
         self.pet = parent_pet
         
-        flags = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint
+        flags: Qt.WindowType = (
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.Tool |
+            Qt.WindowType.WindowStaysOnTopHint
+        )
         self.setWindowFlags(flags)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
@@ -18,9 +29,7 @@ class SpeechBubble(QWidget):
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.label)
         
-        self.hide_timer = QTimer(self)
-        self.hide_timer.setSingleShot(True)
-        self.hide_timer.timeout.connect(self.hide)
+        self.time_left: int = 0
 
     def speak(self, text: str, duration_ms: int = 4000) -> None:
         self.label.setText(text)
@@ -28,12 +37,21 @@ class SpeechBubble(QWidget):
         self.update_position()
         self.show()
         self.raise_()
-        self.hide_timer.start(duration_ms)
+        self.time_left = duration_ms
+
+    def tick(self, dt: int) -> None:
+        """Called by the parent pet's update_systems loop."""
+        if self.time_left <= 0: return
+        self.time_left -= dt
+        if self.time_left <= 0:
+            self.hide()
+            self.deleteLater()
+            self.pet.bubble = None
 
     def update_position(self) -> None:
         if not self.isVisible(): return
         # Anchor the bubble centered above the pet's head
-        pet_geom = self.pet.geometry()
-        x = pet_geom.center().x() - (self.width() // 2)
-        y = pet_geom.top() - self.height() - 10
+        pet_geom: QRect = self.pet.geometry()
+        x: int = pet_geom.center().x() - (self.width() // 2)
+        y: int = pet_geom.top() - self.height() - 10
         self.move(x, y)

@@ -8,13 +8,14 @@ from PySide6.QtGui import QScreen
 
 from pytoningans.core.constants import PetState, BehaviorType
 from pytoningans.core.api import BasePetBehavior, IPet
+from pytoningans.core.pet.speech_bubble import SpeechBubble
 
 if TYPE_CHECKING:
     from pytoningans.core.pet.window import PetWindow
 
 class AISystem:
-    def __init__(self, pet: PetWindow) -> None:
-        self.pet: PetWindow = pet
+    def __init__(self, pet: Optional[PetWindow] = None) -> None:
+        self.pet: Optional[PetWindow] = pet
         
         # State Durations (in milliseconds)
         self.decision_accumulator: int = 0
@@ -25,12 +26,14 @@ class AISystem:
         self.attack_time_left: int = 0
         self.attack_cooldown: int = 0
     
-    def update(self, dt: int) -> None:
+    def update(self, dt: int, centers: Optional[dict[PetWindow, QPoint]] = None) -> None:
         """Processes AI logic based on elapsed time.
 
         Args:
             dt (int): Delta time
+            centers (dict[PetWindow, QPoint] | None): The centers of each active pet
         """
+        if self.pet is None or self.pet.anim_sys is None: return
         self.decision_accumulator += dt
         
         # Decrement cooldowns
@@ -57,18 +60,25 @@ class AISystem:
             self._ai_decision_tick()
             
         # Priority 1: Check for enemies in range
-        self.check_combat()
+        self.check_combat(centers)
         
         # Priority 2: Check for neutral interactions if not already attacking
         if self.pet.state is not PetState.ATTACK:
             self.check_interactions()
     
     def _ai_decision_tick(self) -> None:
+        if self.pet is None: return
         if self.pet.state in (PetState.DRAG, PetState.INTERACT): return
         if self._on_ai_decision_tick(): return  # Modder API hook
         self._default_ai_decision()             # Default logic
 
     def _default_ai_decision(self) -> None:
+        if (
+            self.pet is None or
+            self.pet.mod_manager is None or
+            self.pet.anim_sys is None
+            
+        ): return
         if not self.pet.mod_manager.can_fly and random.random() < 0.15:
             self.pet.jump()
             return
@@ -92,6 +102,7 @@ class AISystem:
     
     def _on_ai_decision_tick(self) -> bool:
         """Returns True if the AI decision should end."""
+        if self.pet is None or self.pet.mod_manager is None: return False
         behavior: Optional[BasePetBehavior] = self.pet.mod_manager.custom_behavior
         if behavior is None: return False
         try:
@@ -103,7 +114,12 @@ class AISystem:
             
         return False
     
-    def check_combat(self) -> None:
+    def check_combat(self, centers: Optional[dict[PetWindow, QPoint]] = None) -> None:
+        if (
+            self.pet is None or
+            self.pet.mod_manager is None or
+            self.pet.pet_manager is None
+        ): return
         # Only HOSTILE pets initiate attacks
         if self.pet.mod_manager.behavior_type is not BehaviorType.HOSTILE:
             return
@@ -111,10 +127,16 @@ class AISystem:
         if self.attack_cooldown > 0 or not self.pet.is_interactable: 
             return
 
-        my_center: QPoint = self.pet.geometry().center()
+        my_center = centers.get(self.pet) if centers else self.pet.geometry().center()
 
         for other_pet in self.pet.pet_manager.active_pets:
-            if other_pet is self.pet or not other_pet.is_interactable: 
+            if (
+                other_pet is self.pet or not
+                other_pet.is_interactable or
+                other_pet is None or
+                other_pet.mod_manager is None or
+                other_pet.pet_manager is None
+            ):
                 continue
             
             # TODO: Add aggresion modifiers soon
@@ -122,7 +144,8 @@ class AISystem:
             if other_pet.mod_manager.current_mod_name == self.pet.mod_manager.current_mod_name:
                 continue
             
-            other_center: QPoint = other_pet.geometry().center()
+            other_center = centers.get(other_pet) if centers else other_pet.geometry().center()
+            if other_center is None or my_center is None: continue
             distance: float = self._get_distance(my_center, other_center)
 
             # Evaluate against the mod's specific attack range
@@ -143,6 +166,11 @@ class AISystem:
     def _default_combat_logic(
         self, my_center: QPoint, other_pet: PetWindow, other_center: QPoint
     ) -> None:
+        if (
+            self.pet is None or
+            self.pet.mod_manager is None or
+            self.pet.anim_sys is None
+        ): return
         dx: int = other_center.x() - my_center.x()
         dy: int = other_center.y() - my_center.y()
                 
@@ -161,6 +189,7 @@ class AISystem:
 
     def _on_combat_check(self, other_pet: PetWindow) -> bool:
         """Modder API hook."""
+        if self.pet is None or self.pet.mod_manager is None: return False
         if not self.pet.mod_manager.custom_behavior: return False
         try:
             pet_api: IPet = cast(IPet, self.pet)
@@ -170,11 +199,15 @@ class AISystem:
             print(f"Custom AI Error (Attack): {e}")
         return False
     
-    def check_interactions(self) -> None:
+    def check_interactions(self, centers: Optional[dict[PetWindow, QPoint]] = None) -> None:
         # TODO: Add sociability modifiers soon
         # PASSIVE pets do not initiate social interactions
-        if self.pet.mod_manager.behavior_type is BehaviorType.PASSIVE:
-            return
+        if (
+            self.pet is None or
+            self.pet.mod_manager is None or
+            self.pet.mod_manager.behavior_type is BehaviorType.PASSIVE or
+            self.pet.pet_manager is None
+        ): return
         
         if self.interaction_cooldown > 0:
             self.interaction_cooldown -= 1
@@ -182,12 +215,17 @@ class AISystem:
 
         if not self.pet.is_interactable: return
 
-        my_center: QPoint = self.pet.geometry().center()
+        my_center = centers.get(self.pet) if centers else self.pet.geometry().center()
 
         for other_pet in self.pet.pet_manager.active_pets:
-            if other_pet is self.pet or not other_pet.is_interactable: continue
+            if (
+                other_pet.ai_sys is None or
+                other_pet is self.pet or not
+                other_pet.is_interactable
+            ): continue
 
-            other_center: QPoint = other_pet.geometry().center()
+            other_center = centers.get(other_pet) if centers else other_pet.geometry().center()
+            if other_center is None or my_center is None: continue
             distance: float = self._get_distance(my_center, other_center)
 
             if distance >= 120: return
@@ -204,7 +242,11 @@ class AISystem:
             break
 
     def _on_check_interactions(self, other_pet: PetWindow) -> bool:
-        if not self.pet.mod_manager.custom_behavior: return False
+        if (
+            self.pet is None or
+            self.pet.mod_manager is None or
+            self.pet.mod_manager.custom_behavior is None
+        ): return False
         try:
             pet_api: IPet = cast(IPet, self.pet)
             other_pet_api: IPet = cast(IPet, other_pet)
@@ -214,6 +256,7 @@ class AISystem:
         return False
 
     def start_interaction(self) -> None:
+        if self.pet is None or self.pet.anim_sys is None: return
         self.pet._target_pos = None
         self.interact_time_left = 3000 
         self.interaction_cooldown = 6000
@@ -221,8 +264,14 @@ class AISystem:
     
     def _check_environment(self) -> bool:
         """Evaluates active windows and triggers personality dialogue. Returns True if speaking."""
+        if (
+            self.pet is None or
+            self.pet.mod_manager is None or
+            self.pet.pet_manager is None
+        ): return False
+        
         # Prevent overlapping dialogues
-        if hasattr(self.pet, 'bubble') and self.pet.bubble.isVisible(): 
+        if self.pet.bubble is not None and self.pet.bubble.isVisible():
             return False
         
         if random.random() < 0.5: return False
@@ -252,9 +301,12 @@ class AISystem:
         
     def _trigger_dialogue(self, text: str, duration_ms: int) -> None:
         """Helper to push text to the UI and freeze movement."""
-        if hasattr(self.pet, 'bubble'):
-            self.pet.bubble.speak(text, duration_ms)
-            self.pet.anim_sys.set_state(PetState.IDLE)
-            self.pet._target_pos = None
-            self.pet.bubble.update_position()
-            self.pet.raise_()
+        if self.pet is None or self.pet.anim_sys is None: return
+        if self.pet.bubble is None:
+            self.pet.bubble = SpeechBubble(self.pet)
+            
+        self.pet.bubble.speak(text, duration_ms)
+        self.pet.anim_sys.set_state(PetState.IDLE)
+        self.pet._target_pos = None
+        self.pet.bubble.update_position()
+        self.pet.raise_()

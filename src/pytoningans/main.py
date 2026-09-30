@@ -11,7 +11,7 @@ from pytoningans.core.pet_manager import PetManager
 from pytoningans.ui.main_menu import MainMenu
 from pytoningans.ui.tray_menu import AppTray
 from pytoningans.ui.theme import DARK_THEME
-from pytoningans.utils.paths import get_mods_directory, setup_default_mod, get_asset_path
+from pytoningans.utils.paths import get_mods_directory, get_asset_path
 
 def main() -> None:
     signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -24,9 +24,10 @@ def main() -> None:
     app.setApplicationName(APP_CFG.app_name)
     app.setQuitOnLastWindowClosed(False)
     app.setStyleSheet(DARK_THEME)
-    app.setWindowIcon(QIcon("assets/ui/teto.ico"))
+    window_icon = QIcon(get_asset_path("assets/icon.ico").as_posix())
+    app.setWindowIcon(window_icon)
     
-    font_path: str = get_asset_path("assets/ui/PixelCode.otf")
+    font_path: str = get_asset_path("assets/ui/PixelCode.otf").as_posix()
     font_id: int = QFontDatabase.addApplicationFont(font_path)
     
     if font_id < 0:
@@ -42,16 +43,12 @@ def main() -> None:
         # Apply the crisp font settings to the entire application
         app.setFont(default_font)
     
-    # Setup external directory and ensure the default mod exists
-    mods_dir: str = get_mods_directory()
-    setup_default_mod(mods_dir)
-    
     # Initialize Mod Manager
-    mod_manager: ModManager = ModManager(mods_dir)
+    mods_dir = get_mods_directory()
+    mod_manager: ModManager = ModManager(mods_dir.as_posix())
     
     available_mods: List[str] = mod_manager.get_available_mods()
     if available_mods:
-        # Load the default_pet (or whatever the first item is)
         mod_manager.load_mod(available_mods[0])
         
     # Initialize UI

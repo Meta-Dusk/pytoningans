@@ -1,7 +1,8 @@
-import json, os, shutil, sys
+import json, sys
 import importlib.util
+from pathlib import Path
 
-from typing import Dict, List, Optional, Tuple, Any
+from typing import List, Optional, Tuple, Any
 from dataclasses import asdict
 
 from PySide6.QtGui import QPixmap, QPainter
@@ -12,19 +13,23 @@ from pytoningans.core.api import BasePetBehavior
 
 CURRENT_CONFIG_VERSION = 6
 
-type CacheKey = Tuple[str, PetState, int]
+type CacheKey = Tuple[str, int, int, int, int]
 
 class ModManager:
-    _shared_frame_cache: Dict[CacheKey, QPixmap] = {}
+    _shared_frame_cache: dict[CacheKey, QPixmap] = {}
     """Class-level cache: (mod_folder_name, state, frame_index) -> QPixmap"""
+    
+    _shared_sheets: dict[str, QPixmap] = {}
+    """Class-level cache for full sprite sheets."""
 
     @classmethod
     def clear_shared_cache(cls) -> None:
         """Flushes the extracted master frames from memory."""
         cls._shared_frame_cache.clear()
+        cls._shared_sheets.clear()
         
-    def __init__(self, mods_dir: str = "assets/mods") -> None:
-        self.mods_dir: str = mods_dir
+    def __init__(self, mods_dir: str | Path = "assets/mods") -> None:
+        self.mods_dir: Path = Path(mods_dir)
         self.current_mod_name: str = ""
         self.current_mod_folder: str = ""
         self.global_columns: int = 1
@@ -38,61 +43,46 @@ class ModManager:
         self.jump_height: int = 150
         self.behavior_type: BehaviorType = BehaviorType.NEUTRAL
         
-        self.animations: Dict[PetState, AnimationMeta] = {}
+        self.animations: dict[PetState, AnimationMeta] = {}
         self._global_sheet: Optional[QPixmap] = None
         self.custom_behavior: Optional[BasePetBehavior] = None
         
         self.plain_dialogue: List[str] = []
-        self.window_triggers: List[Dict[str, Any]] = []
-        
-        self._scaffold_modding_api()
+        self.window_triggers: List[dict[str, Any]] = []
         
         # Inject the mods folder into Python's runtime path
-        abs_mods_dir: str = os.path.abspath(self.mods_dir)
+        abs_mods_dir: str = str(self.mods_dir.resolve())
         if abs_mods_dir not in sys.path:
             sys.path.insert(0, abs_mods_dir)
     
-    def _scaffold_modding_api(self) -> None:
-        """Copies the internal api.py file directly to the external mods directory."""
-        os.makedirs(self.mods_dir, exist_ok=True)
-        
-        core_dir: str = os.path.dirname(os.path.abspath(__file__))
-        source_api_path: str = os.path.abspath(os.path.join(core_dir, "..", "core", "api.py"))
-        
-        target_api_path: str = os.path.join(self.mods_dir, "api.py")
-        
-        # Copy the file, overwriting any existing one to ensure modders have the latest API
-        if os.path.exists(source_api_path):
-            shutil.copyfile(source_api_path, target_api_path)
-        else:
-            print(f"Warning: Could not find source API file at {source_api_path}")
+    @property
+    def current_mod_path(self) -> Path:
+        """Returns the full Path to the currently loaded mod's directory."""
+        return self.mods_dir / self.current_mod_folder
     
     def get_available_mods(self) -> List[str]:
         """Returns a list of valid folder names in the mods directory."""
         valid_mods: List[str] = []
-        if not os.path.exists(self.mods_dir):
+        if not self.mods_dir.exists():
             return valid_mods
             
-        for item in os.listdir(self.mods_dir):
-            item_path: str = os.path.join(self.mods_dir, item)
-            
-            # Ignore files, and ignore folders starting with '_' or '.'
-            if os.path.isdir(item_path) and not item.startswith(('_', '.')):
-                valid_mods.append(item)
+        for item in self.mods_dir.iterdir():
+            if item.is_dir() and not item.name.startswith(('_', '.')):
+                valid_mods.append(item.name)
                 
         return valid_mods
 
     def load_mod(self, mod_folder_name: str) -> bool:
         self.current_mod_folder = mod_folder_name
-        mod_path: str = os.path.join(self.mods_dir, mod_folder_name)
-        config_path: str = os.path.join(mod_path, "config.json")
-        sprite_path: str = os.path.join(mod_path, "sprite_sheet.png")
+        mod_path: Path = self.mods_dir / mod_folder_name
+        config_path: Path = mod_path / "config.json"
+        sprite_path: Path = mod_path / "sprite_sheet.png"
 
-        if not os.path.exists(sprite_path):
+        if not sprite_path.exists():
             return False
 
         # AUTO-SCAFFOLD
-        if not os.path.exists(config_path):
+        if not config_path.exists():
             self.current_mod_name = mod_folder_name
             self.global_columns = 4
             self.global_rows = len(PetState)
@@ -113,10 +103,10 @@ class ModManager:
             self.plain_dialogue = ["Just hanging out.", "Lovely weather.", "Need a break?"]
             self.window_triggers = [
                 {
-                    "title_matches": ["secret_diary.txt", "diary - notepad"], 
+                    "title_matches": ["secret_diary.txt", "diary - notepad", "diary"], 
                     "text": "Are you writing about me?", 
                     "duration": 4000, 
-                    "chance": 1.0
+                    "chance": 0.5
                 },
                 {
                     "title_matches": ["visual studio code", "vscode", "code.exe"], 
@@ -128,14 +118,14 @@ class ModManager:
             self.save_mod_config(mod_folder_name, self.current_mod_name)
         else:
             with open(config_path, "r", encoding="utf-8") as f:
-                data: Dict[str, Any] = json.load(f)
+                data: dict[str, Any] = json.load(f)
                 
             self.current_mod_name = data.get("name", mod_folder_name)
             self.global_columns = data.get("columns", 1)
             self.global_rows = data.get("rows", 1)
             self.config_version = data.get("version", 1)
             
-            behavior_data: Dict[str, Any] = data.get("behavior", {})
+            behavior_data: dict[str, Any] = data.get("behavior", {})
             self.can_fly = behavior_data.get("can_fly", False)
             
             self.max_health = behavior_data.get("max_health", 100)
@@ -156,7 +146,6 @@ class ModManager:
                 if state.value in anim_data:
                     raw_meta = anim_data[state.value]
                     
-                    # Migration: Convert V2 'frames' to V3 'start_frame' & 'end_frame'
                     if "frames" in raw_meta:
                         raw_meta["start_frame"] = 0
                         raw_meta["end_frame"] = max(0, raw_meta.pop("frames") - 1)
@@ -169,25 +158,30 @@ class ModManager:
             self.plain_dialogue = dialogue_data.get("plain_dialogue", ["..."])
             self.window_triggers = dialogue_data.get("window_triggers", [])
         
-        self.custom_behavior = None # Reset any previously loaded script
+        self.custom_behavior = None
         self._compile_behavior_mod(mod_folder_name, mod_path)
 
-        with open(sprite_path, "rb") as f:
-            sheet = QPixmap()
-            sheet.loadFromData(f.read())
+        # Only read the file from disk if it hasn't been cached yet
+        if mod_folder_name not in ModManager._shared_sheets:
+            with open(sprite_path, "rb") as f:
+                sheet = QPixmap()
+                sheet.loadFromData(f.read())
             
-        if sheet.isNull(): return False
+            if not sheet.isNull():
+                ModManager._shared_sheets[mod_folder_name] = sheet
             
-        self._global_sheet = sheet
+        self._global_sheet = ModManager._shared_sheets.get(mod_folder_name)
+        if self._global_sheet is None:
+            return False
+            
+        self._resolve_dimensions()
         return True
 
-    def _compile_behavior_mod(self, mod_folder_name: str, mod_path: str) -> None:
-        # Check for a custom script in the target mod folder
-        behavior_path: str = os.path.join(mod_path, "behavior.py")
-        if not os.path.exists(behavior_path): return
+    def _compile_behavior_mod(self, mod_folder_name: str, mod_path: Path) -> None:
+        behavior_path: Path = mod_path / "behavior.py"
+        if not behavior_path.exists(): return
         try:
-            # Dynamically compile and load the Python file
-            spec = importlib.util.spec_from_file_location("mod_behavior", behavior_path)
+            spec = importlib.util.spec_from_file_location("mod_behavior", str(behavior_path))
             if spec is None or spec.loader is None: return
             
             module = importlib.util.module_from_spec(spec)
@@ -198,10 +192,10 @@ class ModManager:
             print(f"Failed to load behavior.py for {mod_folder_name}: {e}")
 
     def save_mod_config(self, mod_folder_name: str, name: str) -> None:
-        mod_path = os.path.join(self.mods_dir, mod_folder_name)
-        config_path = os.path.join(mod_path, "config.json")
+        mod_path: Path = self.mods_dir / mod_folder_name
+        config_path: Path = mod_path / "config.json"
         
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "version": CURRENT_CONFIG_VERSION,
             "name": name,
             "columns": self.global_columns,
@@ -214,7 +208,6 @@ class ModManager:
                 "attack_range": self.attack_range,
                 "jump_height": self.jump_height
             },
-            # Because self.animations is strictly Enums, .value works safely
             "animations": {
                 state.value: asdict(meta) for state, meta in self.animations.items()
             },
@@ -232,42 +225,38 @@ class ModManager:
         anim_meta: Optional[AnimationMeta] = self.animations.get(state)
         if not anim_meta: return None
 
-        # Determine the length of the slice
         total_play_frames: int = max(1, (anim_meta.end_frame - anim_meta.start_frame) + 1)
         
-        # Handle Looping vs Clamping
         mapped_index: int = 0
         if anim_meta.loop:
             mapped_index = tick_index % total_play_frames
         else:
-            # If not looping, hold on the final frame indefinitely (e.g. death state)
             mapped_index = min(tick_index, total_play_frames - 1)
             
-        # Handle Reversing
         if anim_meta.reverse:
             mapped_index = (total_play_frames - 1) - mapped_index
             
-        # Offset by the starting frame to find the actual grid column
         actual_sheet_index: int = anim_meta.start_frame + mapped_index
-        
-        cache_key: CacheKey = (self.current_mod_name, state, actual_sheet_index)
-        if cache_key in ModManager._shared_frame_cache:
-            return ModManager._shared_frame_cache[cache_key]
 
-        base_w: int = self._global_sheet.width() // max(1, self.global_columns)
-        base_h: int = self._global_sheet.height() // max(1, self.global_rows)
-        
-        final_w: int = anim_meta.override_width if anim_meta.override_width > 0 else base_w
-        final_h: int = anim_meta.override_height if anim_meta.override_height > 0 else base_h
+        final_w: int = anim_meta.computed_w
+        final_h: int = anim_meta.computed_h
 
-        # Extract using the actual spatial sheet index
         x_pos: int = (actual_sheet_index * final_w) + anim_meta.offset_x
-        y_pos: int = (anim_meta.row * base_h) + anim_meta.offset_y 
+        y_pos: int = (anim_meta.row * anim_meta.base_h) + anim_meta.offset_y 
         
         crop_rect = QRect(x_pos, y_pos, final_w, final_h)
         safe_rect = crop_rect.intersected(self._global_sheet.rect())
         
         if safe_rect.isEmpty(): return None
+
+        # Cache using the Mod Name + X, Y, Width, Height
+        cache_key: CacheKey = (
+            self.current_mod_name, 
+            safe_rect.x(), safe_rect.y(), safe_rect.width(), safe_rect.height()
+        )
+        
+        if cache_key in ModManager._shared_frame_cache:
+            return ModManager._shared_frame_cache[cache_key]
         
         frame = self._global_sheet.copy(safe_rect)
         ModManager._shared_frame_cache[cache_key] = frame
@@ -283,7 +272,6 @@ class ModManager:
         base_w: int = self._global_sheet.width() // cols
         base_h: int = self._global_sheet.height() // rows
 
-        # Find the largest cropped dimensions across all mapped states
         new_cell_w, new_cell_h = 1, 1
         for meta in self.animations.values():
             w = meta.override_width if meta.override_width > 0 else base_w
@@ -291,12 +279,10 @@ class ModManager:
             new_cell_w = max(new_cell_w, w)
             new_cell_h = max(new_cell_h, h)
 
-        # Create the new optimized canvas
         new_sheet = QPixmap(new_cell_w * cols, new_cell_h * rows)
         new_sheet.fill(Qt.GlobalColor.transparent)
         painter = QPainter(new_sheet)
 
-        # Paint the cropped frames onto the new canvas
         painted_cells = set()
 
         for _, meta in self.animations.items():
@@ -306,7 +292,7 @@ class ModManager:
             for sheet_idx in range(meta.start_frame, meta.end_frame + 1):
                 cell_key: Tuple[int, int] = (meta.row, sheet_idx)
                 if cell_key in painted_cells: 
-                    continue # Prevent re-drawing cells shared by multiple states
+                    continue
 
                 x_pos: int = (sheet_idx * w) + meta.offset_x
                 y_pos: int = (meta.row * base_h) + meta.offset_y
@@ -314,7 +300,6 @@ class ModManager:
 
                 if not crop_rect.isEmpty():
                     frame: QPixmap = self._global_sheet.copy(crop_rect)
-                    # Center the cropped frame inside its new uniform cell
                     dest_x: int = (sheet_idx * new_cell_w) + ((new_cell_w - frame.width()) // 2)
                     dest_y: int = (meta.row * new_cell_h) + ((new_cell_h - frame.height()) // 2)
                     painter.drawPixmap(dest_x, dest_y, frame)
@@ -323,13 +308,11 @@ class ModManager:
 
         painter.end()
 
-        # Overwrite the original sprite sheet file
-        mod_path: str = os.path.join(self.mods_dir, self.current_mod_folder)
-        sprite_path: str = os.path.join(mod_path, "sprite_sheet.png")
-        success: bool = new_sheet.save(sprite_path, "PNG")
+        mod_path: Path = self.mods_dir / self.current_mod_folder
+        sprite_path: Path = mod_path / "sprite_sheet.png"
+        success: bool = new_sheet.save(str(sprite_path), "PNG")
         if not success: return False
 
-        # Update engine memory and reset JSON crops to zero
         self._global_sheet = new_sheet
         self.clear_shared_cache()
 
@@ -341,3 +324,14 @@ class ModManager:
 
         self.save_mod_config(self.current_mod_folder, self.current_mod_name)
         return True
+    
+    def _resolve_dimensions(self) -> None:
+        """Pre-computes tile and frame extraction dimensions."""
+        if not self._global_sheet: return
+        base_w: int = self._global_sheet.width() // max(1, self.global_columns)
+        base_h: int = self._global_sheet.height() // max(1, self.global_rows)
+        
+        for meta in self.animations.values():
+            meta.base_h = base_h
+            meta.computed_w = meta.override_width if meta.override_width > 0 else base_w
+            meta.computed_h = meta.override_height if meta.override_height > 0 else base_h

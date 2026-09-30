@@ -1,5 +1,6 @@
-import os, json, shutil, re
-from typing import Optional, Dict, Any
+import json, shutil, re
+from pathlib import Path
+from typing import Optional, Any
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit,
@@ -11,10 +12,10 @@ from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
 
 class ModCreationDialog(QDialog):
-    def __init__(self, mods_dir: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, mods_dir: str | Path, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self.mods_dir: str = mods_dir
-        self.selected_image_path: str = ""
+        self.mods_dir: Path = Path(mods_dir)
+        self.selected_image_path: Path | None = None
         self.new_mod_folder: str = ""
         self._setup_ui()
 
@@ -46,7 +47,6 @@ class ModCreationDialog(QDialog):
         self.rows_spin = QSpinBox()
         self.rows_spin.setRange(1, 100)
         
-        # Wrap the labels with the tooltip helper
         form.addRow(self._create_info_label(
             "Internal Folder Name:", 
             "The exact folder name on your drive. Use only letters, numbers, hyphens, and underscores."
@@ -69,7 +69,6 @@ class ModCreationDialog(QDialog):
         
         layout.addLayout(form)
         
-        # Image Selection
         img_layout = QHBoxLayout()
         self.img_btn = QPushButton("Select Sprite Sheet (.png)")
         self.img_btn.clicked.connect(self._select_image)
@@ -81,7 +80,6 @@ class ModCreationDialog(QDialog):
         
         layout.addStretch()
         
-        # Action Buttons
         btn_layout = QHBoxLayout()
         self.create_btn = QPushButton("Create Mod")
         self.create_btn.clicked.connect(self._create_mod)
@@ -96,7 +94,6 @@ class ModCreationDialog(QDialog):
         main_layout.addWidget(content)
 
     def _create_info_label(self, text: str, tooltip_text: str) -> QWidget:
-        """Creates a row label with an inline info icon and tooltip."""
         widget = QWidget()
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -114,8 +111,8 @@ class ModCreationDialog(QDialog):
             self, "Select Sprite Sheet", "", "Images (*.png)"
         )
         if file_path:
-            self.selected_image_path = file_path
-            self.img_label.setText(os.path.basename(file_path))
+            self.selected_image_path = Path(file_path)
+            self.img_label.setText(self.selected_image_path.name)
 
     def _create_mod(self) -> None:
         folder_name: str = self.folder_input.text().strip()
@@ -133,16 +130,16 @@ class ModCreationDialog(QDialog):
             QMessageBox.warning(self, "Error", "Please select a sprite sheet (.png).")
             return
             
-        target_dir: str = os.path.join(self.mods_dir, folder_name)
-        if os.path.exists(target_dir):
+        target_dir: Path = self.mods_dir / folder_name
+        if target_dir.exists():
             QMessageBox.warning(self, "Error", f"A mod folder named '{folder_name}' already exists.")
             return
             
         try:
-            os.makedirs(target_dir)
-            shutil.copy(self.selected_image_path, os.path.join(target_dir, "sprite_sheet.png"))
+            target_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy(self.selected_image_path, target_dir / "sprite_sheet.png")
             
-            config_data: Dict[str, Any] = {
+            config_data: dict[str, Any] = {
                 "version": 3,
                 "name": display_name,
                 "columns": self.cols_spin.value(),
@@ -151,7 +148,7 @@ class ModCreationDialog(QDialog):
                 "animations": {}
             }
             
-            with open(os.path.join(target_dir, "config.json"), "w", encoding="utf-8") as f:
+            with open(target_dir / "config.json", "w", encoding="utf-8") as f:
                 json.dump(config_data, f, indent=4)
                 
             self.new_mod_folder = folder_name

@@ -3,11 +3,11 @@ from PySide6.QtGui import QIcon, QAction
 
 from pytoningans.ui.main_menu import MainMenu
 from pytoningans.core.constants import APP_CFG
+from pytoningans.utils.paths import get_asset_path
 
 class AppTray(QSystemTrayIcon):
-    def __init__(self, main_menu: MainMenu, icon_path: str = "assets/ui/teto.png") -> None:
-        # Create the icon, falling back to a default empty one if the PNG is missing
-        icon: QIcon = QIcon(icon_path)
+    def __init__(self, main_menu: MainMenu, icon_path: str = "assets/icon.png") -> None:
+        icon: QIcon = QIcon(get_asset_path(icon_path).as_posix())
         super().__init__(icon)
         
         self.main_menu: MainMenu = main_menu
@@ -16,14 +16,17 @@ class AppTray(QSystemTrayIcon):
 
     def _setup_menu(self) -> None:
         menu: QMenu = QMenu()
+        menu.setStyleSheet("QMenu { icon-size: 48px; }")
         
-        show_action: QAction = QAction("Show Control Panel", menu)
+        show_icon: QIcon = QIcon(get_asset_path("assets/ui/control_teto.png").as_posix())
+        show_action: QAction = QAction("Show Control Panel", menu, icon=show_icon)
         show_action.triggered.connect(self._show_menu)
         menu.addAction(show_action)
         
         menu.addSeparator()
         
-        quit_action: QAction = QAction("Quit Tetoningans", menu)
+        quit_icon = QIcon(get_asset_path("assets/ui/leaving_teto.png").as_posix())
+        quit_action: QAction = QAction("Quit PyToNingans", menu, icon=quit_icon)
         quit_action.triggered.connect(QApplication.quit)
         menu.addAction(quit_action)
         

@@ -1,0 +1,221 @@
+{
+    "version": 6,
+    "name": "The Isaac",
+    "columns": 2,
+    "rows": 1,
+    "behavior": {
+        "type": "neutral",
+        "can_fly": true,
+        "max_health": 100,
+        "attack_damage": 10,
+        "attack_range": 50,
+        "jump_height": 15
+    },
+    "animations": {
+        "drag": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 1,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 3,
+            "computed_w": 261,
+            "computed_h": 291,
+            "base_h": 291
+        },
+        "idle": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 1,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 2,
+            "computed_w": 261,
+            "computed_h": 291,
+            "base_h": 291
+        },
+        "clicked": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 1,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 3,
+            "computed_w": 261,
+            "computed_h": 291,
+            "base_h": 291
+        },
+        "interact": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 1,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 7,
+            "computed_w": 261,
+            "computed_h": 291,
+            "base_h": 291
+        },
+        "moving": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 1,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 6,
+            "computed_w": 261,
+            "computed_h": 291,
+            "base_h": 291
+        },
+        "jumping": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 1,
+            "loop": false,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 4,
+            "computed_w": 261,
+            "computed_h": 291,
+            "base_h": 291
+        },
+        "dying": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 1,
+            "loop": false,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 2,
+            "computed_w": 261,
+            "computed_h": 291,
+            "base_h": 291
+        },
+        "climbing": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 1,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 4,
+            "computed_w": 261,
+            "computed_h": 291,
+            "base_h": 291
+        },
+        "reviving": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 1,
+            "loop": false,
+            "reverse": true,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 2,
+            "computed_w": 261,
+            "computed_h": 291,
+            "base_h": 291
+        },
+        "attack": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 1,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 8,
+            "computed_w": 261,
+            "computed_h": 291,
+            "base_h": 291
+        }
+    },
+    "dialogue": {
+        "plain_dialogue": [
+            "I love maja blanca",
+            "I am a chud",
+            "Hello I'm Isaac",
+            "You got them jokes?",
+            "I'm one of the biggest chuds"
+        ],
+        "window_triggers": [
+            {
+                "chance": 0.5,
+                "duration": 4000,
+                "text": "GG frickin' EZ",
+                "title_matches": [
+                    "valorant",
+                    "valorant.exe"
+                ]
+            },
+            {
+                "chance": 0.5,
+                "duration": 4000,
+                "text": "Hey, don't say that!",
+                "title_matches": [
+                    "valorant",
+                    "valorant.exe"
+                ]
+            },
+            {
+                "chance": 0.5,
+                "duration": 4000,
+                "text": "Frickin' EZ",
+                "title_matches": [
+                    "valorant",
+                    "valorant.exe"
+                ]
+            },
+            {
+                "chance": 0.5,
+                "duration": 4000,
+                "text": "I love playing Valorant... With women, 'cuz I'm a CHUD",
+                "title_matches": [
+                    "valorant",
+                    "valorant.exe"
+                ]
+            },
+            {
+                "chance": 1.0,
+                "duration": 4000,
+                "text": "Happy Birthday, Lance",
+                "title_matches": [
+                    "hbl"
+                ]
+            }
+        ]
+    }
+}

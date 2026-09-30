@@ -1,10 +1,9 @@
-# src/pytoningans/ui/mod_editor/window.py
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, 
     QScrollArea, QFrame, QMessageBox, QLabel
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import Qt, Signal, QUrl
+from PySide6.QtGui import QGuiApplication, QResizeEvent, QDesktopServices
 
 from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION
 from pytoningans.ui.title_bar import CustomTitleBar
@@ -13,12 +12,16 @@ from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.panels.dialogue_panel import DialoguePanel
 from pytoningans.ui.mod_editor.panels.behavior_panel import BehaviorStatsPanel, BehaviorScriptPanel
 from pytoningans.ui.mod_editor.panels.animation_panel import AnimationSubsystem
+from pytoningans.utils.assets import get_main_icon
 
 class ModEditorWindow(QWidget):
     mods_updated = Signal()
     
     def __init__(self, mod_manager: ModManager) -> None:
-        super().__init__()
+        super().__init__(
+            windowTitle="Mod Editor",
+            windowIcon=get_main_icon()
+        )
         self.controller = ModEditorController(mod_manager)
         
         self._setup_ui()
@@ -108,6 +111,9 @@ class ModEditorWindow(QWidget):
         footer_layout = QHBoxLayout()
         footer_layout.setContentsMargins(20, 10, 0, 15)
         
+        self.open_folder_btn = QPushButton("Open Mod Folder")
+        self.open_folder_btn.setMinimumSize(150, 35)
+        
         self.reload_btn = QPushButton("Discard Unsaved Changes")
         self.reload_btn.setMinimumSize(200, 35)
          
@@ -115,20 +121,22 @@ class ModEditorWindow(QWidget):
         self.save_btn.setMinimumSize(200, 35)
         
         footer_layout.addStretch()
+        footer_layout.addWidget(self.open_folder_btn)
+        footer_layout.addStretch()
         footer_layout.addWidget(self.reload_btn)
         footer_layout.addSpacing(35)
         footer_layout.addWidget(self.save_btn)
         footer_layout.addStretch()
         
-        grip = CustomSizeGrip(self)
-        grip.setFixedSize(16, 16)
-        footer_layout.addWidget(grip)
+        self.grip = CustomSizeGrip(self)
+        self.grip.setFixedSize(16, 16)
         main_layout.addLayout(footer_layout)
 
     def _connect_signals(self) -> None:
         self.mod_combo.currentTextChanged.connect(self._on_mod_changed)
         self.save_btn.clicked.connect(self._save_changes)
         self.reload_btn.clicked.connect(self._on_reload_clicked)
+        self.open_folder_btn.clicked.connect(self._on_open_folder_clicked)
 
     def _on_mod_changed(self, mod_folder: str) -> None:
         if not mod_folder: return
@@ -177,3 +185,19 @@ class ModEditorWindow(QWidget):
             
             # Explicitly kill crop mode in the animation panel
             self.anim_sys.crop_check.setChecked(False)
+    
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        # Move the grip to the absolute bottom-right corner
+        self.grip.move(
+            self.width() - self.grip.width(),
+            self.height() - self.grip.height()
+        )
+    
+    def _on_open_folder_clicked(self) -> None:
+        mod_folder: str = self.mod_combo.currentText()
+        if not mod_folder: return
+        
+        target_dir = self.controller.manager.mods_dir / mod_folder
+        if target_dir.exists():
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(target_dir.resolve())))

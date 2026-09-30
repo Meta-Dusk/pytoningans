@@ -23,11 +23,13 @@ class PetWindow(QWidget):
     """The core Entity holding shared state and routing OS events."""
     def __init__(
         self, start_x: int, start_y: int,
-        mod_manager: ModManager, pet_manager: PetManager
+        mod_manager: Optional[ModManager] = None,
+        pet_manager: Optional[PetManager] = None
     ) -> None:
         super().__init__()
-        self.mod_manager: ModManager = mod_manager
-        self.pet_manager: PetManager = pet_manager
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self.mod_manager: Optional[ModManager] = mod_manager
+        self.pet_manager: Optional[PetManager] = pet_manager
         
         # --- Shared Entity Data ---
         self.state: PetState = PetState.IDLE
@@ -35,7 +37,8 @@ class PetWindow(QWidget):
         self.rotation: float = 0.0
         self.is_dead: bool = False
         self.is_paused: bool = False
-        self.current_health: int = self.mod_manager.max_health
+        if self.mod_manager:
+            self.current_health: int = self.mod_manager.max_health
         
         self.damage_tint_time_left: int = 0
         
@@ -46,12 +49,14 @@ class PetWindow(QWidget):
         # --- Initialization ---
         self._setup_ui(start_x, start_y)
         
-        self.anim_sys = AnimationSystem(self)
-        self.physics_sys = PhysicsSystem(self)
-        self.ai_sys = AISystem(self)
-        self.bubble = SpeechBubble(self)
-        self.locks = SystemLocks()
+        self.anim_sys: Optional[AnimationSystem] = None
+        self.physics_sys: Optional[PhysicsSystem] = None
+        self.ai_sys: Optional[AISystem] = None
+        self.bubble: Optional[SpeechBubble] = None
+        self.locks: SystemLocks = SystemLocks()
         self.revive_time_left: int = 0
+        
+        self._init_systems()
 
     @property
     def is_interactable(self) -> bool:
@@ -69,7 +74,12 @@ class PetWindow(QWidget):
             self._target_pos = None
         else:
             self._target_pos = QPoint(pos.x, pos.y)
-
+    
+    def _init_systems(self) -> None:
+        self.anim_sys = AnimationSystem(self)
+        self.physics_sys = PhysicsSystem(self)
+        self.ai_sys = AISystem(self)
+    
     def _setup_ui(self, x: int, y: int) -> None:
         flags: Qt.WindowType = (
             Qt.WindowType.FramelessWindowHint |
@@ -89,41 +99,40 @@ class PetWindow(QWidget):
         # Apply the colorize effect
         self.tint_effect = QGraphicsColorizeEffect(self)
         self.tint_effect.setColor(QColor(255, 0, 0)) # Pure Red
-        self.tint_effect.setStrength(0.0) # 0.0 means completely invisible
+        self.tint_effect.setEnabled(False)
         self.sprite_label.setGraphicsEffect(self.tint_effect)
         
         layout.addWidget(self.sprite_label)
     
-    def update_systems(self, dt: int) -> None:
+    def update_systems(self, dt: int, centers: Optional[dict[PetWindow, QPoint]] = None) -> None:
         """Called every frame by the PetManager's global tick."""
         if self.is_paused: return
+
+        if self.bubble: self.bubble.tick(dt)
         
         if self.revive_time_left > 0:
             self.revive_time_left -= dt
             if self.revive_time_left <= 0:
-                self.anim_sys.set_state(PetState.IDLE)
+                if self.anim_sys: self.anim_sys.set_state(PetState.IDLE)
                 self.locks.ai = True
                 self.locks.physics = True
                 
-        # Handle the red damage flash fade-out
         if self.damage_tint_time_left > 0:
             self.damage_tint_time_left -= dt
             if self.damage_tint_time_left <= 0:
-                self.tint_effect.setStrength(0.0)
+                self.tint_effect.setEnabled(False)
             else:
-                # Calculate a linear fade from 0.7 (70% opacity) down to 0.0 over 300ms
                 fade_strength = 0.7 * (self.damage_tint_time_left / 300.0)
                 self.tint_effect.setStrength(fade_strength)
             
         if self.is_dead:
-            # Let the dying animation finish and allow physics to drop the pet to the ground
-            self.anim_sys.update(dt)
-            self.physics_sys.update(dt)
+            if self.anim_sys: self.anim_sys.update(dt)
+            if self.physics_sys: self.physics_sys.update(dt, centers)
             return
             
-        if self.locks.ai: self.ai_sys.update(dt)
-        if self.locks.physics: self.physics_sys.update(dt)
-        if self.locks.animation: self.anim_sys.update(dt)
+        if self.locks.ai and self.ai_sys: self.ai_sys.update(dt, centers)
+        if self.locks.physics and self.physics_sys: self.physics_sys.update(dt, centers)
+        if self.locks.animation and self.anim_sys: self.anim_sys.update(dt)
     
     # --- Core Actions ---
     def take_damage(self, amount: int) -> None:
@@ -132,6 +141,7 @@ class PetWindow(QWidget):
         self.current_health -= amount
         
         self.damage_tint_time_left = 300
+        self.tint_effect.setEnabled(True)
         self.tint_effect.setStrength(0.85)
         # TODO: Add Modding API hook here
         
@@ -139,11 +149,12 @@ class PetWindow(QWidget):
             self.die()
             
     def jump(self) -> None:
+        if self.mod_manager is None: return
         if self.is_dead or self.mod_manager.can_fly: return
         if self.velocity_y != 0: return
         
         self.velocity_y = -self.mod_manager.jump_height
-        self.anim_sys.set_state(PetState.JUMPING)
+        if self.anim_sys: self.anim_sys.set_state(PetState.JUMPING)
         # TODO: Add Modding API hook here
 
     def die(self) -> None:
@@ -151,13 +162,14 @@ class PetWindow(QWidget):
         self.current_health = 0
         self.is_dead = True
         self.rotation = 0.0
-        self.anim_sys.set_state(PetState.DYING)
+        if self.anim_sys: self.anim_sys.set_state(PetState.DYING)
         self._target_pos = None
         
         # --- MODDERS API HOOK ---
         self._on_die()
 
     def revive(self) -> None:
+        if self.mod_manager is None: return
         if not self.is_dead: return
         
         self.current_health = self.mod_manager.max_health
@@ -171,24 +183,26 @@ class PetWindow(QWidget):
             ms_per_frame: int = 1000 // max(1, anim_meta.fps)
             
             self.revive_time_left = total_frames * ms_per_frame
-            self.anim_sys.set_state(PetState.REVIVING)
+            if self.anim_sys: self.anim_sys.set_state(PetState.REVIVING)
             
             # Lock systems so the pet doesn't slide or attack while standing up
             self.locks.ai = False
             self.locks.physics = False
         else:
-            self.anim_sys.set_state(PetState.IDLE)
+            if self.anim_sys: self.anim_sys.set_state(PetState.IDLE)
         self._on_revive()
 
     # --- Modding API Hooks ---
     def _on_die(self) -> None:
         """Modding API hook."""
+        if self.mod_manager is None: return
         if self.mod_manager.custom_behavior:
             pet_api = cast(IPet, self)
             self.mod_manager.custom_behavior.on_death(pet_api)
     
     def _on_revive(self) -> None:
         """Modding API hook."""
+        if self.mod_manager is None: return
         if self.mod_manager.custom_behavior:
             pet_api: IPet = cast(IPet, self)
             self.mod_manager.custom_behavior.on_revive(pet_api)
@@ -197,7 +211,7 @@ class PetWindow(QWidget):
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            if not self.is_dead:
+            if not self.is_dead and self.anim_sys:
                 self.anim_sys.set_state(PetState.DRAG)
             self.locks.physics = False
             event.accept()
@@ -210,7 +224,7 @@ class PetWindow(QWidget):
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_offset = None
-            if not self.is_dead:
+            if not self.is_dead and self.anim_sys:
                 self.anim_sys.set_state(PetState.IDLE)
             self.locks.physics = True
             event.accept()
@@ -219,13 +233,14 @@ class PetWindow(QWidget):
         """Triggered automatically on right-click."""
         self._target_pos = None
         self.rotation = 0.0
-        if not self.is_dead: self.anim_sys.set_state(PetState.CLICKED)
+        if not self.is_dead and self.anim_sys:
+            self.anim_sys.set_state(PetState.CLICKED)
         
         # Freeze the systems while the menu is open
         self.is_paused = True 
         
         menu = QMenu(self)
-        menu.addAction("Close Pet", self._close_pet)
+        menu.addAction("Close Pet", self.close_pet)
         menu.addSeparator()
         
         if not self.is_dead:
@@ -241,22 +256,38 @@ class PetWindow(QWidget):
         self.is_paused = False
     
     # --- Other Events ---
-    def _close_pet(self) -> None:
+    def close_pet(self) -> None:
         """Safely unregisters the window before destroying it."""
-        self.bubble.close()
-        self.pet_manager.remove_pet(self)
-        self.close()
+        if self.pet_manager:
+            self.pet_manager.remove_pet(self)
+            
+        if self.bubble:
+            self.bubble.deleteLater()
+        
+        if self.anim_sys: self.anim_sys.pet = None
+        if self.physics_sys: self.physics_sys.pet = None
+        if self.ai_sys: self.ai_sys.pet = None
+        
+        self.mod_manager = None
+        self.pet_manager = None
+        
+        self.deleteLater()
     
     def moveEvent(self, event: QMoveEvent) -> None:
         super().moveEvent(event)
-        self.bubble.update_position()
+        if self.bubble: self.bubble.update_position()
     
     def force_talk(self) -> None:
         """Forces the pet to say a random plain dialogue line."""
+        if self.mod_manager is None: return
         if self.is_dead or not self.mod_manager.plain_dialogue: return
         
+        if self.bubble is None:
+            self.bubble = SpeechBubble(self)
+            
         text: str = random.choice(self.mod_manager.plain_dialogue)
         self.bubble.speak(text, 4000)
-        self.anim_sys.set_state(PetState.IDLE)
+            
+        if self.anim_sys: self.anim_sys.set_state(PetState.IDLE)
         self._target_pos = None
         # TODO: Add Modding API hook here

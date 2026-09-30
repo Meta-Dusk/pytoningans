@@ -13,10 +13,14 @@ from pytoningans.core.pet_manager import PetManager
 from pytoningans.ui.mod_manager_hub import ModManagerHub
 from pytoningans.ui.theme import LIGHT_THEME, DARK_THEME
 from pytoningans.ui.title_bar import CustomTitleBar
+from pytoningans.utils.assets import get_main_icon
 
 class MainMenu(QWidget):
     def __init__(self, manager: PetManager) -> None:
-        super().__init__()
+        super().__init__(
+            windowTitle="Control Panel",
+            windowIcon=get_main_icon()
+        )
         self.manager: PetManager = manager
         self.hub_window: Optional[ModManagerHub] = None
         self._is_dark_mode: bool = True
@@ -137,7 +141,7 @@ class MainMenu(QWidget):
         # We iterate over a list copy `list(self.manager.active_pets)` because 
         # _close_pet() removes the pet from the original list during iteration
         for pet in list(self.manager.active_pets):
-            pet._close_pet()
+            pet.close_pet()
 
     def _toggle_theme(self) -> None:
         self._is_dark_mode = not self._is_dark_mode
