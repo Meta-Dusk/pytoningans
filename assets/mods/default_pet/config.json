@@ -1,6 +1,6 @@
 {
     "version": 6,
-    "name": "default_pet",
+    "name": "defaul_pet",
     "columns": 24,
     "rows": 7,
     "behavior": {
@@ -22,7 +22,10 @@
             "override_height": 0,
             "offset_x": 0,
             "offset_y": 0,
-            "fps": 3
+            "fps": 3,
+            "computed_w": 53,
+            "computed_h": 71,
+            "base_h": 71
         },
         "idle": {
             "row": 1,
@@ -34,7 +37,10 @@
             "override_height": 76,
             "offset_x": 0,
             "offset_y": -5,
-            "fps": 10
+            "fps": 10,
+            "computed_w": 61,
+            "computed_h": 76,
+            "base_h": 71
         },
         "clicked": {
             "row": 4,
@@ -46,7 +52,10 @@
             "override_height": 80,
             "offset_x": 0,
             "offset_y": -1,
-            "fps": 10
+            "fps": 10,
+            "computed_w": 82,
+            "computed_h": 80,
+            "base_h": 71
         },
         "interact": {
             "row": 4,
@@ -58,7 +67,10 @@
             "override_height": 80,
             "offset_x": 0,
             "offset_y": -1,
-            "fps": 10
+            "fps": 10,
+            "computed_w": 82,
+            "computed_h": 80,
+            "base_h": 71
         },
         "moving": {
             "row": 2,
@@ -70,7 +82,10 @@
             "override_height": 71,
             "offset_x": 0,
             "offset_y": -2,
-            "fps": 10
+            "fps": 10,
+            "computed_w": 73,
+            "computed_h": 71,
+            "base_h": 71
         },
         "jumping": {
             "row": 3,
@@ -82,7 +97,10 @@
             "override_height": 75,
             "offset_x": 0,
             "offset_y": -3,
-            "fps": 10
+            "fps": 10,
+            "computed_w": 73,
+            "computed_h": 75,
+            "base_h": 71
         },
         "dying": {
             "row": 6,
@@ -94,7 +112,10 @@
             "override_height": 100,
             "offset_x": 0,
             "offset_y": -4,
-            "fps": 5
+            "fps": 5,
+            "computed_w": 72,
+            "computed_h": 100,
+            "base_h": 71
         },
         "climbing": {
             "row": 2,
@@ -106,7 +127,10 @@
             "override_height": 71,
             "offset_x": 0,
             "offset_y": -2,
-            "fps": 10
+            "fps": 10,
+            "computed_w": 73,
+            "computed_h": 71,
+            "base_h": 71
         },
         "reviving": {
             "row": 6,
@@ -118,7 +142,10 @@
             "override_height": 100,
             "offset_x": 0,
             "offset_y": -4,
-            "fps": 5
+            "fps": 5,
+            "computed_w": 72,
+            "computed_h": 100,
+            "base_h": 71
         },
         "attack": {
             "row": 4,
@@ -130,7 +157,10 @@
             "override_height": 80,
             "offset_x": 0,
             "offset_y": -1,
-            "fps": 10
+            "fps": 10,
+            "computed_w": 82,
+            "computed_h": 80,
+            "base_h": 71
         }
     },
     "dialogue": {
@@ -139,20 +169,60 @@
             "Teto teto teto",
             "I am Kasane Teto!",
             "Hello, how are you?",
-            "I like baguettes :)"
+            "I like baguettes :)",
+            "Have you seen Miku anywhere?"
         ],
         "window_triggers": [
             {
                 "chance": 0.1,
                 "duration": 4000,
                 "text": "Can you code me a baguette?",
-                "title_matches": ["vscode", "code.exe", "visual studio code"]
+                "title_matches": [
+                    "vscode",
+                    "code.exe",
+                    "visual studio code"
+                ]
             },
             {
                 "chance": 1.0,
                 "duration": 4000,
                 "text": "Happy Birthday, Lance!",
-                "title_matches": ["hbdl"]
+                "title_matches": [
+                    "hbl"
+                ]
+            },
+            {
+                "chance": 0.5,
+                "duration": 4000,
+                "text": "OMG, is that Hatsune Miku?!",
+                "title_matches": [
+                    "MikuMiku App",
+                    "mikumiku",
+                    "mikumiku app",
+                    "miku miku app"
+                ]
+            },
+            {
+                "chance": 0.5,
+                "duration": 4000,
+                "text": "Hello, Miku!",
+                "title_matches": [
+                    "MikuMiku App",
+                    "mikumiku",
+                    "mikumiku app",
+                    "miku miku app"
+                ]
+            },
+            {
+                "chance": 0.5,
+                "duration": 4000,
+                "text": "Now we're missing Neru...",
+                "title_matches": [
+                    "MikuMiku App",
+                    "mikumiku",
+                    "mikumiku app",
+                    "miku miku app"
+                ]
             }
         ]
     }

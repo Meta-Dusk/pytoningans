@@ -1,0 +1,184 @@
+{
+    "version": 6,
+    "name": "BotNets",
+    "columns": 4,
+    "rows": 1,
+    "behavior": {
+        "type": "hostile",
+        "can_fly": true,
+        "max_health": 100,
+        "attack_damage": 10,
+        "attack_range": 50,
+        "jump_height": 15
+    },
+    "animations": {
+        "drag": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 3,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 1,
+            "computed_w": 64,
+            "computed_h": 51,
+            "base_h": 51
+        },
+        "idle": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 3,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 2,
+            "computed_w": 64,
+            "computed_h": 51,
+            "base_h": 51
+        },
+        "clicked": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 3,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 4,
+            "computed_w": 64,
+            "computed_h": 51,
+            "base_h": 51
+        },
+        "interact": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 3,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 6,
+            "computed_w": 64,
+            "computed_h": 51,
+            "base_h": 51
+        },
+        "moving": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 3,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 4,
+            "computed_w": 64,
+            "computed_h": 51,
+            "base_h": 51
+        },
+        "jumping": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 3,
+            "loop": false,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 4,
+            "computed_w": 64,
+            "computed_h": 51,
+            "base_h": 51
+        },
+        "dying": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 3,
+            "loop": false,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 4,
+            "computed_w": 64,
+            "computed_h": 51,
+            "base_h": 51
+        },
+        "climbing": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 3,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 4,
+            "computed_w": 64,
+            "computed_h": 51,
+            "base_h": 51
+        },
+        "reviving": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 3,
+            "loop": false,
+            "reverse": true,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 4,
+            "computed_w": 64,
+            "computed_h": 51,
+            "base_h": 51
+        },
+        "attack": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 3,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 8,
+            "computed_w": 64,
+            "computed_h": 51,
+            "base_h": 51
+        }
+    },
+    "dialogue": {
+        "plain_dialogue": [
+            "I am EVIl",
+            "I will kill ANYONE if they come close...",
+            "I'm a bot :P",
+            "Try me >:("
+        ],
+        "window_triggers": [
+            {
+                "chance": 0.5,
+                "duration": 4000,
+                "text": "Happy Birthday ig...",
+                "title_matches": [
+                    "hbl"
+                ]
+            }
+        ]
+    }
+}
