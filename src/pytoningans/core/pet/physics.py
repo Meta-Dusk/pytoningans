@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import QPoint
 from PySide6.QtGui import QScreen
 
@@ -12,13 +12,14 @@ if TYPE_CHECKING:
     from pytoningans.core.pet.window import PetWindow
 
 class PhysicsSystem:
-    def __init__(self, pet: PetWindow) -> None:
-        self.pet: PetWindow = pet
+    def __init__(self, pet: Optional[PetWindow] = None) -> None:
+        self.pet: Optional[PetWindow] = pet
         self.gravity: float = 0.8
         self.move_speed: float = 2.0
 
     def update(self, dt: int, centers: dict[PetWindow, QPoint] | None = None) -> None:
         """Processes physics calculations based on elapsed time."""
+        if self.pet is None: return
         if not self.pet.locks.physics:
             self.pet.velocity_y = 0
             return
@@ -41,6 +42,11 @@ class PhysicsSystem:
 
     def _tick_soft_collision(self, current_move_speed: float, centers: dict[PetWindow, QPoint] | None = None) -> None:
         """Gently repels overlapping pets to prevent dense clustering."""
+        if (
+            self.pet is None or
+            self.pet.mod_manager is None or
+            self.pet.pet_manager is None
+        ): return
         if self.pet.state in (PetState.DRAG, PetState.MOVING):
             return
 
@@ -70,6 +76,11 @@ class PhysicsSystem:
             self.pet.move(new_x, new_y)
 
     def _tick_movement(self, current_move_speed: float) -> None:
+        if (
+            self.pet is None or
+            self.pet.mod_manager is None or
+            self.pet.anim_sys is None
+        ): return
         if self.pet.state is not PetState.MOVING or self.pet._target_pos is None: return
         curr_x, curr_y = self.pet.x(), self.pet.y()
         target_x: int = self.pet._target_pos.x()
@@ -98,6 +109,11 @@ class PhysicsSystem:
             self.pet.move(step_x, step_y)
 
     def _tick_gravity_and_collisions(self, ground_y: int, current_gravity: float) -> None:
+        if (
+            self.pet is None or
+            self.pet.mod_manager is None or
+            self.pet.anim_sys is None
+        ): return
         if self.pet.mod_manager.can_fly and not self.pet.is_dead: return
         pet_bottom: int = self.pet.geometry().bottom()
         

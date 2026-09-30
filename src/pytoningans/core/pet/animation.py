@@ -20,21 +20,26 @@ class AnimationSystem:
         """Flushes the C++ image buffers from memory."""
         cls._shared_transform_cache.clear()
         
-    def __init__(self, pet: PetWindow) -> None:
-        self.pet: PetWindow = pet
+    def __init__(self, pet: Optional[PetWindow] = None) -> None:
+        self.pet: Optional[PetWindow] = pet
         self.current_frame: int = 0
         self.time_since_last_frame: int = 0
         
         # Clear the placeholder text
-        self.pet.sprite_label.setStyleSheet("")
-        self.pet.sprite_label.setText("")
+        if self.pet:
+            self.pet.sprite_label.setStyleSheet("")
+            self.pet.sprite_label.setText("")
         
         self._update_frame()
 
     def update(self, dt: int) -> None:
         self.time_since_last_frame += dt
         
-        meta: Optional[AnimationMeta] = self.pet.mod_manager.animations.get(self.pet.state)
+        meta: Optional[AnimationMeta]
+        if self.pet is None or self.pet.mod_manager is None:
+            meta = None
+        else:
+            meta = self.pet.mod_manager.animations.get(self.pet.state)
         if not meta: return
         
         frame_duration: int = 1000 // max(1, meta.fps)
@@ -45,6 +50,7 @@ class AnimationSystem:
             self._update_frame()
 
     def set_state(self, new_state: PetState) -> None:
+        if self.pet is None: return
         if self.pet.state is new_state: return
         self.pet.state = new_state
         self.current_frame = 0
@@ -52,16 +58,23 @@ class AnimationSystem:
         self._update_frame()
 
     def _update_frame(self) -> None:
-        self.current_frame += 1
-        frame = self.pet.mod_manager.get_frame(self.pet.state, self.current_frame)
-        if frame is None: return
-        
+        if self.pet is None or self.pet.mod_manager is None: return
         meta = self.pet.mod_manager.animations.get(self.pet.state)
         if not meta: return
         
-        # Calculate the actual mapped index so we don't cache infinitely
         total_play_frames = max(1, (meta.end_frame - meta.start_frame) + 1)
-        mapped_index = self.current_frame % total_play_frames if meta.loop else min(self.current_frame, total_play_frames - 1)
+        
+        # Safely increment and cap the frame counter to prevent infinite integer growth
+        if meta.loop:
+            self.current_frame = (self.current_frame + 1) % total_play_frames
+        else:
+            self.current_frame = min(self.current_frame + 1, total_play_frames - 1)
+
+        frame = self.pet.mod_manager.get_frame(self.pet.state, self.current_frame)
+        if frame is None: return
+        
+        # Since current_frame is already capped, we just need to handle the reverse logic
+        mapped_index = self.current_frame
         if meta.reverse:
             mapped_index = (total_play_frames - 1) - mapped_index
             

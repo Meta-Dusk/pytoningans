@@ -18,11 +18,15 @@ type CacheKey = Tuple[str, PetState, int]
 class ModManager:
     _shared_frame_cache: dict[CacheKey, QPixmap] = {}
     """Class-level cache: (mod_folder_name, state, frame_index) -> QPixmap"""
+    
+    _shared_sheets: dict[str, QPixmap] = {}
+    """Class-level cache for full sprite sheets."""
 
     @classmethod
     def clear_shared_cache(cls) -> None:
         """Flushes the extracted master frames from memory."""
         cls._shared_frame_cache.clear()
+        cls._shared_sheets.clear()
         
     def __init__(self, mods_dir: str | Path = "assets/mods") -> None:
         self.mods_dir: Path = Path(mods_dir)
@@ -157,13 +161,19 @@ class ModManager:
         self.custom_behavior = None
         self._compile_behavior_mod(mod_folder_name, mod_path)
 
-        with open(sprite_path, "rb") as f:
-            sheet = QPixmap()
-            sheet.loadFromData(f.read())
+        # Only read the file from disk if it hasn't been cached yet
+        if mod_folder_name not in ModManager._shared_sheets:
+            with open(sprite_path, "rb") as f:
+                sheet = QPixmap()
+                sheet.loadFromData(f.read())
             
-        if sheet.isNull(): return False
+            if not sheet.isNull():
+                ModManager._shared_sheets[mod_folder_name] = sheet
             
-        self._global_sheet = sheet
+        self._global_sheet = ModManager._shared_sheets.get(mod_folder_name)
+        if self._global_sheet is None:
+            return False
+            
         self._resolve_dimensions()
         return True
 

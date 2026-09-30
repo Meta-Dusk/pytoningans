@@ -1,4 +1,4 @@
-import ctypes
+import ctypes, gc
 from typing import List, cast
 
 from PySide6.QtCore import QTimer, QElapsedTimer, QRunnable, QThreadPool, QObject, Signal, QPoint
@@ -104,6 +104,7 @@ class PetManager:
     def _on_spawn(self, pet: PetWindow) -> None:
         """Modding API hook."""
         pet_api: IPet = cast(IPet, pet)
+        if pet.mod_manager is None: return
         if pet.mod_manager.custom_behavior:
             pet.mod_manager.custom_behavior.on_spawn(pet_api)
     
@@ -116,3 +117,4 @@ class PetManager:
         if not self.active_pets:
             AnimationSystem.clear_shared_cache()
             ModManager.clear_shared_cache()
+            gc.collect()
