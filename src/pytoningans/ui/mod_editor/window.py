@@ -1,9 +1,11 @@
+from pathlib import Path
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, 
-    QScrollArea, QFrame, QMessageBox, QLabel
+    QScrollArea, QFrame, QMessageBox, QLabel, QLineEdit
 )
-from PySide6.QtCore import Qt, Signal, QUrl
-from PySide6.QtGui import QGuiApplication, QResizeEvent, QDesktopServices
+from PySide6.QtCore import QRect, Qt, Signal, QUrl
+from PySide6.QtGui import QGuiApplication, QResizeEvent, QDesktopServices, QScreen
 
 from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION
 from pytoningans.ui.title_bar import CustomTitleBar
@@ -28,9 +30,11 @@ class ModEditorWindow(QWidget):
         self._connect_signals()
         
         # Hydrate the Mod Dropdown to kick off the load cycle
-        self.mod_combo.addItems(self.controller.get_mod_list())
+        for folder, name in self.controller.get_mod_list().items():
+            self.mod_combo.addItem(name, userData=folder)
+            
         if self.mod_combo.count() > 0:
-            self._on_mod_changed(self.mod_combo.currentText())
+            self._on_mod_changed(self.mod_combo.currentData())
             
         self._center_window()
 
@@ -90,6 +94,14 @@ class ModEditorWindow(QWidget):
         mod_layout.addWidget(self.mod_combo)
         self.left_layout.addLayout(mod_layout)
         
+        # Display Name Editor
+        name_layout = QHBoxLayout()
+        name_layout.addWidget(QLabel("Display Name:"))
+        self.name_input = QLineEdit()
+        self.name_input.setPlaceholderText("e.g. My Cool Pet")
+        name_layout.addWidget(self.name_input)
+        self.left_layout.addLayout(name_layout)
+        
         # Mount the Domain Panels
         self.left_layout.addWidget(self.anim_sys.preview_panel)
         self.left_layout.addWidget(self.anim_sys.grid_panel)
@@ -133,10 +145,16 @@ class ModEditorWindow(QWidget):
         main_layout.addLayout(footer_layout)
 
     def _connect_signals(self) -> None:
-        self.mod_combo.currentTextChanged.connect(self._on_mod_changed)
+        self.mod_combo.currentIndexChanged.connect(self._on_combo_index_changed)
+        self.name_input.textChanged.connect(self._on_name_changed)
         self.save_btn.clicked.connect(self._save_changes)
         self.reload_btn.clicked.connect(self._on_reload_clicked)
         self.open_folder_btn.clicked.connect(self._on_open_folder_clicked)
+    
+    def _on_combo_index_changed(self, index: int) -> None:
+        if index < 0: return
+        mod_folder = self.mod_combo.itemData(index)
+        self._on_mod_changed(mod_folder)
 
     def _on_mod_changed(self, mod_folder: str) -> None:
         if not mod_folder: return
@@ -147,6 +165,11 @@ class ModEditorWindow(QWidget):
                     self, "Legacy Mod",
                     f"Saving will upgrade config to v{CURRENT_CONFIG_VERSION}."
                 )
+            
+            # Fill the Display Name box without triggering an edit event
+            self.name_input.blockSignals(True)
+            self.name_input.setText(self.controller.get_mod_name())
+            self.name_input.blockSignals(False)
                 
             for panel in self.panels:
                 panel.load_data()
@@ -154,21 +177,28 @@ class ModEditorWindow(QWidget):
             QMessageBox.warning(self, "Load Error", f"Could not load {mod_folder}.")
 
     def _save_changes(self) -> None:
-        mod_folder = self.mod_combo.currentText()
-        if mod_folder:
-            self.controller.save_mod(mod_folder)
-            self.mods_updated.emit()
-            QMessageBox.information(self, "Success", f"Saved configuration for {mod_folder}!")
+        mod_folder: str = self.mod_combo.currentData()
+        if not mod_folder: return
+        
+        self.controller.save_mod(mod_folder)
+        
+        # Update the editor's combo box to reflect the new display name
+        current_idx = self.mod_combo.currentIndex()
+        new_name = self.controller.get_mod_name()
+        self.mod_combo.setItemText(current_idx, new_name)
+        
+        self.mods_updated.emit()
+        QMessageBox.information(self, "Success", f"Saved configuration for {mod_folder}!")
             
     def _center_window(self) -> None:
-        screen = QGuiApplication.primaryScreen()
-        if screen:
-            geom = self.frameGeometry()
-            geom.moveCenter(screen.availableGeometry().center())
-            self.move(geom.topLeft())
+        screen: QScreen = QGuiApplication.primaryScreen()
+        if not screen: return
+        geom: QRect = self.frameGeometry()
+        geom.moveCenter(screen.availableGeometry().center())
+        self.move(geom.topLeft())
     
     def _on_reload_clicked(self) -> None:
-        mod_folder: str = self.mod_combo.currentText()
+        mod_folder: str = self.mod_combo.currentData()
         if not mod_folder: return
         
         reply = QMessageBox.question(
@@ -195,9 +225,13 @@ class ModEditorWindow(QWidget):
         )
     
     def _on_open_folder_clicked(self) -> None:
-        mod_folder: str = self.mod_combo.currentText()
+        mod_folder: str = self.mod_combo.currentData()
         if not mod_folder: return
         
-        target_dir = self.controller.manager.mods_dir / mod_folder
-        if target_dir.exists():
-            QDesktopServices.openUrl(QUrl.fromLocalFile(str(target_dir.resolve())))
+        target_dir: Path = self.controller.manager.mods_dir / mod_folder
+        if not target_dir.exists(): return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(target_dir.resolve())))
+    
+    def _on_name_changed(self, text: str) -> None:
+        if text.strip():
+            self.controller.update_mod_name(text.strip())

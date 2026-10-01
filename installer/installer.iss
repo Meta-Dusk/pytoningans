@@ -1,8 +1,8 @@
 #define MyAppName "PyToNingans"
-#define MyAppVersion "0.6.1"
+#define MyAppVersion "0.6.2"
 #define MyAppPublisher "MetaDusk Inc."
 #define MyAppURL "https://github.com/Meta-Dusk/pytoningans"
-#define MyAppExeName "PyToNingans.dist\main.exe"
+#define MyAppExeName "PyToNingans.dist\PyToNingans.exe"
 #define MyAppAssocName MyAppName + " File"
 #define MyAppAssocExt ".pyto"
 #define MyAppAssocKey StringChange(MyAppAssocName, " ", "") + MyAppAssocExt

@@ -1,5 +1,4 @@
 import sys, signal, os
-from typing import List
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon, QFontDatabase, QFont
@@ -33,7 +32,7 @@ def main() -> None:
     if font_id < 0:
         print(f"Warning: Failed to load custom font from {font_path}")
     else:
-        font_families: List[str] = QFontDatabase.applicationFontFamilies(font_id)
+        font_families: list[str] = QFontDatabase.applicationFontFamilies(font_id)
         
         default_font = QFont(font_families[0])
         default_font.setStyleStrategy(
@@ -47,9 +46,9 @@ def main() -> None:
     mods_dir = get_mods_directory()
     mod_manager: ModManager = ModManager(mods_dir.as_posix())
     
-    available_mods: List[str] = mod_manager.get_available_mods()
+    available_mods: dict[str, str] = mod_manager.get_available_mods()
     if available_mods:
-        mod_manager.load_mod(available_mods[0])
+        mod_manager.load_mod(list(available_mods.keys())[0])
         
     # Initialize UI
     pet_manager: PetManager = PetManager(mod_manager)

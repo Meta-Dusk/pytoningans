@@ -90,7 +90,10 @@ class ModManagerHub(QWidget):
 
     def _refresh_list(self) -> None:
         self.mod_list.clear()
-        self.mod_list.addItems(self.mod_manager.get_available_mods())
+        for folder, name in self.mod_manager.get_available_mods().items():
+            item = QListWidgetItem(f"{name} ({folder})")
+            item.setData(Qt.ItemDataRole.UserRole, folder)
+            self.mod_list.addItem(item)
 
     def _on_create_clicked(self) -> None:
         dialog = ModCreationDialog(self.mod_manager.mods_dir, self)
@@ -102,22 +105,25 @@ class ModManagerHub(QWidget):
     def _on_edit_clicked(self) -> None:
         selected: List[QListWidgetItem] = self.mod_list.selectedItems()
         if not selected: return
-        self._open_editor(selected[0].text())
+        self._open_editor(selected[0].data(Qt.ItemDataRole.UserRole))
 
     def _open_editor(self, mod_folder: str) -> None:
         if self.editor_window is None or not self.editor_window.isVisible():
             self.editor_window = ModEditorWindow(self.mod_manager)
-            self.editor_window.mods_updated.connect(self.mods_updated.emit)
+            self.editor_window.mods_updated.connect(self._on_editor_saved)
             self.editor_window.show()
         else:
             self.editor_window.activateWindow()
             
-        self.editor_window.mod_combo.setCurrentText(mod_folder)
+        # Select the item by its hidden user data instead of its text
+        idx = self.editor_window.mod_combo.findData(mod_folder)
+        if idx >= 0:
+            self.editor_window.mod_combo.setCurrentIndex(idx)
 
     def _on_delete_clicked(self) -> None:
         selected: List[QListWidgetItem] = self.mod_list.selectedItems()
         if not selected: return
-        mod_folder: str = selected[0].text()
+        mod_folder: str = selected[0].data(Qt.ItemDataRole.UserRole)
         
         reply: QMessageBox.StandardButton = QMessageBox.question(
             self, "Confirm Deletion",
@@ -144,8 +150,30 @@ class ModManagerHub(QWidget):
     def _on_open_folder_clicked(self) -> None:
         selected: List[QListWidgetItem] = self.mod_list.selectedItems()
         if not selected: return
-        mod_folder: str = selected[0].text()
+        mod_folder: str = selected[0].data(Qt.ItemDataRole.UserRole)
         
         target_dir: Path = self.mod_manager.mods_dir / mod_folder
         if target_dir.exists():
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(target_dir.resolve())))
+    
+    def _on_editor_saved(self) -> None:
+        """Refreshes the hub's list when the editor saves, preserving selection."""
+        # Remember what was selected
+        selected_folder: Optional[str] = None
+        selected_items = self.mod_list.selectedItems()
+        if selected_items:
+            selected_folder = selected_items[0].data(Qt.ItemDataRole.UserRole)
+            
+        # Refresh the UI list
+        self._refresh_list()
+        
+        # Restore the selection based on the hidden folder name
+        if selected_folder:
+            for i in range(self.mod_list.count()):
+                item = self.mod_list.item(i)
+                if item.data(Qt.ItemDataRole.UserRole) == selected_folder:
+                    item.setSelected(True)
+                    break
+                    
+        # Bubble the update up to the Main Menu
+        self.mods_updated.emit()

@@ -10,7 +10,7 @@ class ModEditorController:
     def __init__(self, mod_manager: ModManager) -> None:
         self.manager: ModManager = mod_manager
 
-    def get_mod_list(self) -> list[str]:
+    def get_mod_list(self) -> dict[str, str]:
         return self.manager.get_available_mods()
 
     def load_mod(self, folder: str) -> bool:
@@ -25,12 +25,15 @@ class ModEditorController:
     def update_global_grid(self, cols: int, rows: int) -> None:
         self.manager.global_columns = cols
         self.manager.global_rows = rows
+        self.manager._resolve_dimensions() # Recalculate base tile sizes
+        self.manager.clear_shared_cache()  # Flush old grid cuts
 
     def get_meta(self, state: PetState) -> AnimationMeta:
         return self.manager.animations.get(state, AnimationMeta(row=0, start_frame=0, end_frame=1))
 
     def update_meta(self, state: PetState, meta: AnimationMeta) -> None:
         self.manager.animations[state] = meta
+        self.manager._resolve_dimensions()
         self.manager.clear_shared_cache()
 
     def get_frame(self, state: PetState, frame_index: int):
@@ -132,3 +135,12 @@ class ModEditorController:
                 meta.override_height = source_meta.override_height
                 meta.offset_x = source_meta.offset_x
                 meta.offset_y = source_meta.offset_y
+        
+        self.manager._resolve_dimensions() # Recalculate dimensions for all states
+        self.manager.clear_shared_cache()  # Force the preview to redraw
+    
+    def get_mod_name(self) -> str:
+        return self.manager.current_mod_name
+
+    def update_mod_name(self, name: str) -> None:
+        self.manager.current_mod_name = name

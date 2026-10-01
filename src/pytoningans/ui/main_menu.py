@@ -48,7 +48,8 @@ class MainMenu(QWidget):
         spawn_label.setObjectName("SectionHeader")
         
         self.mod_combo = QComboBox()
-        self.mod_combo.addItems(self.manager.mod_manager.get_available_mods())
+        for folder, name in self.manager.mod_manager.get_available_mods().items():
+            self.mod_combo.addItem(name, userData=folder)
         
         # Group the amount spinbox and spawn button horizontally
         spawn_action_layout = QHBoxLayout()
@@ -118,9 +119,8 @@ class MainMenu(QWidget):
         self.dead_count_label.setText(f"Dead Pets: {total_dead}")
     
     def _on_spawn_clicked(self) -> None:
-        selected_mod: str = self.mod_combo.currentText()
-        if not selected_mod:
-            return
+        selected_mod: str = self.mod_combo.currentData()
+        if not selected_mod: return
             
         screen: QScreen = QGuiApplication.primaryScreen()
         geom: Optional[QRect] = screen.availableGeometry() if screen else None
@@ -166,5 +166,5 @@ class MainMenu(QWidget):
     def _refresh_spawn_list(self) -> None:
         """Rebuilds the dropdown/list of available pets to spawn."""
         self.mod_combo.clear()
-        valid_mods: List[str] = self.manager.mod_manager.get_available_mods()
-        self.mod_combo.addItems(valid_mods)
+        for folder, name in self.manager.mod_manager.get_available_mods().items():
+            self.mod_combo.addItem(name, userData=folder)
