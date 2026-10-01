@@ -60,15 +60,27 @@ class ModManager:
         """Returns the full Path to the currently loaded mod's directory."""
         return self.mods_dir / self.current_mod_folder
     
-    def get_available_mods(self) -> List[str]:
-        """Returns a list of valid folder names in the mods directory."""
-        valid_mods: List[str] = []
+    def get_available_mods(self) -> dict[str, str]:
+        """Returns a dict mapping internal folder names to human-readable display names."""
+        valid_mods: dict[str, str] = {}
         if not self.mods_dir.exists():
             return valid_mods
             
         for item in self.mods_dir.iterdir():
-            if item.is_dir() and not item.name.startswith(('_', '.')):
-                valid_mods.append(item.name)
+            if not item.is_dir() or item.name.startswith(('_', '.')): continue
+            folder_name: str = item.name
+            display_name: str = folder_name
+            
+            config_path: Path = item / "config.json"
+            if config_path.exists():
+                try:
+                    with open(config_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        display_name = data.get("name", folder_name)
+                except Exception:
+                    pass
+                    
+            valid_mods[folder_name] = display_name
                 
         return valid_mods
 

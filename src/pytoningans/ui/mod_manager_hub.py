@@ -90,7 +90,10 @@ class ModManagerHub(QWidget):
 
     def _refresh_list(self) -> None:
         self.mod_list.clear()
-        self.mod_list.addItems(self.mod_manager.get_available_mods())
+        for folder, name in self.mod_manager.get_available_mods().items():
+            item = QListWidgetItem(f"{name} ({folder})")
+            item.setData(Qt.ItemDataRole.UserRole, folder)
+            self.mod_list.addItem(item)
 
     def _on_create_clicked(self) -> None:
         dialog = ModCreationDialog(self.mod_manager.mods_dir, self)
@@ -102,7 +105,7 @@ class ModManagerHub(QWidget):
     def _on_edit_clicked(self) -> None:
         selected: List[QListWidgetItem] = self.mod_list.selectedItems()
         if not selected: return
-        self._open_editor(selected[0].text())
+        self._open_editor(selected[0].data(Qt.ItemDataRole.UserRole))
 
     def _open_editor(self, mod_folder: str) -> None:
         if self.editor_window is None or not self.editor_window.isVisible():
@@ -112,12 +115,15 @@ class ModManagerHub(QWidget):
         else:
             self.editor_window.activateWindow()
             
-        self.editor_window.mod_combo.setCurrentText(mod_folder)
+        # Select the item by its hidden user data instead of its text
+        idx = self.editor_window.mod_combo.findData(mod_folder)
+        if idx >= 0:
+            self.editor_window.mod_combo.setCurrentIndex(idx)
 
     def _on_delete_clicked(self) -> None:
         selected: List[QListWidgetItem] = self.mod_list.selectedItems()
         if not selected: return
-        mod_folder: str = selected[0].text()
+        mod_folder: str = selected[0].data(Qt.ItemDataRole.UserRole)
         
         reply: QMessageBox.StandardButton = QMessageBox.question(
             self, "Confirm Deletion",
@@ -144,7 +150,7 @@ class ModManagerHub(QWidget):
     def _on_open_folder_clicked(self) -> None:
         selected: List[QListWidgetItem] = self.mod_list.selectedItems()
         if not selected: return
-        mod_folder: str = selected[0].text()
+        mod_folder: str = selected[0].data(Qt.ItemDataRole.UserRole)
         
         target_dir: Path = self.mod_manager.mods_dir / mod_folder
         if target_dir.exists():
