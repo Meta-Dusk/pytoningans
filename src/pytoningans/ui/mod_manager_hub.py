@@ -110,7 +110,7 @@ class ModManagerHub(QWidget):
     def _open_editor(self, mod_folder: str) -> None:
         if self.editor_window is None or not self.editor_window.isVisible():
             self.editor_window = ModEditorWindow(self.mod_manager)
-            self.editor_window.mods_updated.connect(self.mods_updated.emit)
+            self.editor_window.mods_updated.connect(self._on_editor_saved)
             self.editor_window.show()
         else:
             self.editor_window.activateWindow()
@@ -155,3 +155,25 @@ class ModManagerHub(QWidget):
         target_dir: Path = self.mod_manager.mods_dir / mod_folder
         if target_dir.exists():
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(target_dir.resolve())))
+    
+    def _on_editor_saved(self) -> None:
+        """Refreshes the hub's list when the editor saves, preserving selection."""
+        # Remember what was selected
+        selected_folder: Optional[str] = None
+        selected_items = self.mod_list.selectedItems()
+        if selected_items:
+            selected_folder = selected_items[0].data(Qt.ItemDataRole.UserRole)
+            
+        # Refresh the UI list
+        self._refresh_list()
+        
+        # Restore the selection based on the hidden folder name
+        if selected_folder:
+            for i in range(self.mod_list.count()):
+                item = self.mod_list.item(i)
+                if item.data(Qt.ItemDataRole.UserRole) == selected_folder:
+                    item.setSelected(True)
+                    break
+                    
+        # Bubble the update up to the Main Menu
+        self.mods_updated.emit()

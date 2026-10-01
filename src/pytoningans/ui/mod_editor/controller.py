@@ -138,3 +138,9 @@ class ModEditorController:
         
         self.manager._resolve_dimensions() # Recalculate dimensions for all states
         self.manager.clear_shared_cache()  # Force the preview to redraw
+    
+    def get_mod_name(self) -> str:
+        return self.manager.current_mod_name
+
+    def update_mod_name(self, name: str) -> None:
+        self.manager.current_mod_name = name
