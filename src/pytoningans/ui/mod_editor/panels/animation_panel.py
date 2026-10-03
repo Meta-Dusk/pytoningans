@@ -1,4 +1,5 @@
-from dataclasses import replace
+import copy
+
 from typing import Optional
 
 from PySide6.QtWidgets import (
@@ -315,32 +316,36 @@ class AnimationSubsystem:
         self._preview_timer.setInterval(1000 // max(1, self.fps_spin.value()))
 
     def _on_copy(self) -> None:
-        state = self.state_combo.currentData()
-        if state:
-            self._copied_meta = replace(self.controller.get_meta(state))
-            self.paste_btn.setEnabled(True)
+        state: Optional[PetState] = self.state_combo.currentData()
+        if state is None: return
+        
+        self._copied_meta = copy.deepcopy(self.controller.get_meta(state))
+        self.paste_btn.setEnabled(True)
 
     def _on_paste(self) -> None:
-        state = self.state_combo.currentData()
-        if state and self._copied_meta:
-            self.controller.update_meta(state, replace(self._copied_meta))
-            self._refresh_state_dropdown()
-            self._on_state_changed()
-            self._restart_preview()
+        state: Optional[PetState] = self.state_combo.currentData()
+        if state is None or self._copied_meta is None: return
+        
+        self.controller.update_meta(state, copy.deepcopy(self._copied_meta))
+        self._refresh_state_dropdown()
+        self._on_state_changed()
+        self._restart_preview()
 
     def _on_swap(self) -> None:
         state_a, state_b = self.state_combo.currentData(), self.swap_combo.currentData()
-        if state_a and state_b and state_a != state_b:
-            meta_a, meta_b = self.controller.get_meta(state_a), self.controller.get_meta(state_b)
-            self.controller.update_meta(state_a, meta_b)
-            self.controller.update_meta(state_b, meta_a)
-            self._refresh_state_dropdown()
-            self._on_state_changed()
-            self._restart_preview()
+        if state_a or state_b or state_a == state_b: return
+            
+        meta_a: AnimationMeta = copy.deepcopy(self.controller.get_meta(state_a))
+        meta_b: AnimationMeta = copy.deepcopy(self.controller.get_meta(state_b))
+        self.controller.update_meta(state_a, meta_b)
+        self.controller.update_meta(state_b, meta_a)
+        self._refresh_state_dropdown()
+        self._on_state_changed()
+        self._restart_preview()
 
     def _update_preview(self) -> None:
-        state = self.state_combo.currentData()
-        if not state: return
+        state: Optional[PetState] = self.state_combo.currentData()
+        if state is None: return
         self._preview_frame += 1
         
         if self.preview_label.show_crop:
@@ -381,7 +386,7 @@ class AnimationSubsystem:
     def _on_bake_clicked(self) -> None:
         self.bake_btn.setEnabled(False)
         
-        reply = QMessageBox.question(
+        reply: QMessageBox.StandardButton = QMessageBox.question(
             self.state_panel, "Bake Sprite Sheet",
             "This will permanently crop the physical sprite_sheet.png "
             "file and reset your offsets to 0.\n\nAre you sure?",
@@ -408,10 +413,10 @@ class AnimationSubsystem:
         self.bake_btn.setEnabled(True)
     
     def _on_apply_all_clicked(self) -> None:
-        state = self.state_combo.currentData()
-        if not state: return
+        state: Optional[PetState] = self.state_combo.currentData()
+        if state is None: return
         
-        reply = QMessageBox.question(
+        reply: QMessageBox.StandardButton = QMessageBox.question(
             self.state_panel, "Apply Crop to All",
             "This will overwrite the Width, Height, Offset X, and Offset Y of "
             "EVERY state with the current state's values.\n\nContinue?",

@@ -73,27 +73,29 @@ class AnimationSystem:
         frame: Optional[QPixmap] = self.pet.mod_manager.get_frame(self.pet.state, self.current_frame)
         if frame is None: return
 
-        # EXTRACT PHYSICS + HANDLE MIRRORING
+        # Extract Physics and Handle Mirroring
         raw_anchor, current_hitbox = self.pet.mod_manager.get_frame_physics(self.pet.state, self.current_frame)
         ax, ay = raw_anchor.x(), raw_anchor.y()
         
         if self.pet.facing_left:
-            # Mirror the anchor and hitbox horizontally if the sprite is flipped
-            ax = frame.width() - ax
-            flipped_hitbox_x = frame.width() - (current_hitbox.x() + current_hitbox.width())
+            ax: int = frame.width() - ax
+            flipped_hitbox_x: int = frame.width() - (current_hitbox.x() + current_hitbox.width())
             current_hitbox.moveLeft(flipped_hitbox_x)
 
-        # APPLY ANCHOR SHIFT
+        # Calculate New Position (Do not move yet)
+        new_x: int = self.pet.x()
+        new_y: int = self.pet.y()
+        
         if self._last_anchor is not None:
             dx: int = ax - self._last_anchor.x()
             dy: int = ay - self._last_anchor.y()
-            if dx != 0 or dy != 0:
-                self.pet.move(self.pet.x() - dx, self.pet.y() - dy)
+            new_x -= dx
+            new_y -= dy
 
         self._last_anchor = QPoint(ax, ay)
-        self.pet.current_hitbox = current_hitbox  # Save to the window so physics can read it
+        self.pet.current_hitbox = current_hitbox 
         
-        # APPLY ROTATIONS + CACHE
+        # Apply Rotations and Cache
         raw_angle: int = int(round(self.pet.rotation / 5.0) * 5.0)
         normalized_angle: int = raw_angle % 360
         
@@ -119,4 +121,12 @@ class AnimationSystem:
             frame = self._shared_transform_cache[cache_key]
 
         self.pet.sprite_label.setPixmap(frame)
-        if self.pet.size() != frame.size(): self.pet.resize(frame.size())
+        
+        # Tell the OS to update the position and dimensions in one single instruction
+        current_geom: object = self.pet.geometry().getRect()
+        target_geom = (new_x, new_y, frame.width(), frame.height())
+        
+        if current_geom != target_geom:
+            self.pet.setGeometry(*target_geom)
+        
+        self.pet.sprite_label.setPixmap(frame)

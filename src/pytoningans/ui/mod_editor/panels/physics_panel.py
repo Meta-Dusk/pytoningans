@@ -252,11 +252,22 @@ class PhysicsPanel(QWidget):
 
     def _save_to_override(self) -> None:
         state: PetState = self.state_combo.currentData()
-        frame_idx: str = str(self.frame_spin.value())
         meta: Optional[AnimationMeta] = self.controller.manager.animations.get(state)
         
         if meta is None: return
-        meta.frame_overrides[frame_idx] = {
+        
+        # Calculate the exact frame mapping exactly like the engine does
+        tick_index = self.frame_spin.value()
+        total_play_frames = max(1, (meta.end_frame - meta.start_frame) + 1)
+        
+        mapped_index = tick_index % total_play_frames if meta.loop else min(tick_index, total_play_frames - 1)
+        if meta.reverse:
+            mapped_index = (total_play_frames - 1) - mapped_index
+            
+        frame_key = str(mapped_index)
+
+        # Save the physics data to the correctly mapped key
+        meta.frame_overrides[frame_key] = {
             "anchor_x": self.ax_spin.value(),
             "anchor_y": self.ay_spin.value(),
             "hitbox_x": self.hx_spin.value(),
