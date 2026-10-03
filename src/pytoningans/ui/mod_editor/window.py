@@ -1,10 +1,11 @@
 from pathlib import Path
+from typing import Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QScrollArea, QFrame,
     QMessageBox, QLabel, QLineEdit, QFileDialog
 )
-from PySide6.QtCore import QRect, Qt, Signal, QUrl
+from PySide6.QtCore import QRect, Qt, Signal, QUrl, QTimer
 from PySide6.QtGui import QGuiApplication, QResizeEvent, QDesktopServices, QScreen
 
 from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION
@@ -14,6 +15,7 @@ from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.panels.dialogue_panel import DialoguePanel
 from pytoningans.ui.mod_editor.panels.behavior_panel import BehaviorStatsPanel, BehaviorScriptPanel
 from pytoningans.ui.mod_editor.panels.animation_panel import AnimationSubsystem
+from pytoningans.ui.mod_editor.panels.physics_panel import PhysicsPanel
 from pytoningans.utils.assets import get_main_icon
 
 class ModEditorWindow(QWidget):
@@ -25,18 +27,30 @@ class ModEditorWindow(QWidget):
             windowIcon=get_main_icon()
         )
         self.controller = ModEditorController(mod_manager)
+        self._current_loaded_mod: Optional[str] = None
         
         self._setup_ui()
         self._connect_signals()
         
-        # Hydrate the Mod Dropdown to kick off the load cycle
+        # Silently hydrate the combo box to prevent premature load events
+        self.mod_combo.blockSignals(True)
         for folder, name in self.controller.get_mod_list().items():
             self.mod_combo.addItem(name, userData=folder)
-            
-        if self.mod_combo.count() > 0:
-            self._on_mod_changed(self.mod_combo.currentData())
+        self.mod_combo.blockSignals(False)
+        
+        # Wait for the ModManagerHub to finish passing the target index, 
+        # then guarantee the mod is loaded exactly once.
+        QTimer.singleShot(0, self._check_initial_load)
             
         self._center_window()
+    
+    def _check_initial_load(self) -> None:
+        """
+        Fallback loader if the Hub opens the window to the first item (index 0),
+        which doesn't trigger an index change.
+        """
+        if self._current_loaded_mod is None and self.mod_combo.count() > 0:
+            self._on_mod_changed(self.mod_combo.currentData())
 
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
@@ -67,8 +81,12 @@ class ModEditorWindow(QWidget):
         self.behavior_stats = BehaviorStatsPanel(self.controller)
         self.behavior_script = BehaviorScriptPanel(self.controller)
         self.anim_sys = AnimationSubsystem(self.controller, self.sheet_info_label)
+        self.physics_panel = PhysicsPanel(self.controller)
         
-        self.panels = [self.dialogue_panel, self.behavior_stats, self.behavior_script, self.anim_sys]
+        self.panels = [
+            self.dialogue_panel, self.behavior_stats, self.behavior_script, self.anim_sys,
+            self.physics_panel
+        ]
 
         # Scroll Areas
         split_layout = QHBoxLayout()
@@ -123,6 +141,7 @@ class ModEditorWindow(QWidget):
         self.left_layout.addWidget(self.anim_sys.debug_panel)
         
         self.right_layout.addWidget(self.anim_sys.state_panel)
+        self.right_layout.addWidget(self.physics_panel)
         self.right_layout.addWidget(self.behavior_script)
         self.right_layout.addWidget(self.dialogue_panel)
         
@@ -173,6 +192,12 @@ class ModEditorWindow(QWidget):
 
     def _on_mod_changed(self, mod_folder: str) -> None:
         if not mod_folder: return
+        
+        # Block duplicate load events caused by UI initialization triggers
+        if getattr(self, "_current_loaded_mod", None) == mod_folder:
+            return
+        
+        self._current_loaded_mod = mod_folder
             
         if self.controller.load_mod(mod_folder):
             current_v: int = self.controller.get_config_version()
@@ -235,6 +260,7 @@ class ModEditorWindow(QWidget):
         )
         
         if reply == QMessageBox.StandardButton.Yes:
+            self._current_loaded_mod = None
             # Re-triggering this method flushes the engine's memory cache,
             # reads the disk files again, and forces every panel to update its UI.
             self._on_mod_changed(mod_folder)
@@ -277,5 +303,6 @@ class ModEditorWindow(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             self.controller.replace_sprite_sheet(mod_folder, file_path)
+            self._current_loaded_mod = None
             self._on_mod_changed(mod_folder) # Force full reload to refresh the live preview panels
             QMessageBox.information(self, "Success", "Sprite sheet updated successfully!")

@@ -18,11 +18,11 @@ class DialoguePanel(QWidget):
         self._connect_signals()
 
     def _build_ui(self) -> None:
-        """Constructs the UI specific to Dialogue & Speech."""
+        """Constructs the UI specific to Dialogue and Speech."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         
-        self.section = CollapsibleSection("Dialogue & Speech")
+        self.section = CollapsibleSection("Dialogue and Speech")
         sec_layout = QVBoxLayout()
         
         # --- Plain Dialogue UI ---

@@ -3,7 +3,7 @@ from typing import Any
 
 from pytoningans.core.constants import PetState, BehaviorType, AnimationMeta
 
-CURRENT_CONFIG_VERSION = 6
+CURRENT_CONFIG_VERSION = 7
 
 @dataclass
 class BehaviorConfig:

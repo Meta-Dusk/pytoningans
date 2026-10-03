@@ -85,7 +85,7 @@ class ModCreationDialog(QDialog):
         layout.addLayout(img_layout)
         
         # Image Preview Box
-        self.preview_label = QLabel("Drag & Drop PNG here\nor use the button above")
+        self.preview_label = QLabel("Drag and Drop PNG here\nor use the button above")
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_label.setStyleSheet("border: 2px dashed #888; color: #888; border-radius: 5px;")
         self.preview_label.setMinimumHeight(180)

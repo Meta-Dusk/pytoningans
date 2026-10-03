@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 
 from typing import TYPE_CHECKING, Optional
-from PySide6.QtCore import QPoint
+from PySide6.QtCore import QPoint, QRect
 from PySide6.QtGui import QScreen
 
 from pytoningans.core.constants import PetState
@@ -17,7 +17,7 @@ class PhysicsSystem:
         self.gravity: float = 0.8
         self.move_speed: float = 2.0
 
-    def update(self, dt: int, centers: dict[PetWindow, QPoint] | None = None) -> None:
+    def update(self, dt: int, centers: Optional[dict[PetWindow, QPoint]] = None) -> None:
         """Processes physics calculations based on elapsed time."""
         if self.pet is None: return
         if not self.pet.locks.physics:
@@ -40,19 +40,26 @@ class PhysicsSystem:
         self._tick_soft_collision(current_move_speed, centers)
         self._tick_movement(current_move_speed)
 
-    def _tick_soft_collision(self, current_move_speed: float, centers: dict[PetWindow, QPoint] | None = None) -> None:
+    def _tick_soft_collision(
+        self, current_move_speed: float, centers: Optional[dict[PetWindow, QPoint]]= None
+    ) -> None:
         """Gently repels overlapping pets to prevent dense clustering."""
         if (
             self.pet is None or
             self.pet.mod_manager is None or
             self.pet.pet_manager is None
-        ): return
+        ):
+            return
         if self.pet.state in (PetState.DRAG, PetState.MOVING):
             return
 
-        my_center = centers.get(self.pet) if centers else self.pet.geometry().center()
+        hitbox: QRect = self.pet.current_hitbox
+        # Use the hitbox center instead of the window geometry center
+        my_center: Optional[QPoint] = centers.get(self.pet) if centers else self.pet.pos() + hitbox.center()
         repel_x, repel_y = 0.0, 0.0
-        min_dist: float = self.pet.width() * 0.6
+        
+        # Base the minimum distance on the physical hitbox width
+        min_dist: float = hitbox.width() * 0.6
         
         for other in self.pet.pet_manager.active_pets:
             if other is self.pet or other.is_dead: continue
@@ -80,8 +87,10 @@ class PhysicsSystem:
             self.pet is None or
             self.pet.mod_manager is None or
             self.pet.anim_sys is None
-        ): return
+        ):
+            return
         if self.pet.state is not PetState.MOVING or self.pet._target_pos is None: return
+        
         curr_x, curr_y = self.pet.x(), self.pet.y()
         target_x: int = self.pet._target_pos.x()
         target_y: int = self.pet._target_pos.y() if self.pet.mod_manager.can_fly else curr_y
@@ -113,16 +122,21 @@ class PhysicsSystem:
             self.pet is None or
             self.pet.mod_manager is None or
             self.pet.anim_sys is None
-        ): return
+        ):
+            return
         if self.pet.mod_manager.can_fly and not self.pet.is_dead: return
-        pet_bottom: int = self.pet.geometry().bottom()
+        
+        hitbox = self.pet.current_hitbox
+        hitbox_bottom_offset = hitbox.y() + hitbox.height()
+        pet_bottom: int = self.pet.y() + hitbox_bottom_offset
         
         if pet_bottom < ground_y or self.pet.velocity_y < 0:
             self.pet.velocity_y += current_gravity
             new_y = int(self.pet.y() + self.pet.velocity_y)
             
-            if new_y + self.pet.height() > ground_y:
-                new_y = ground_y - self.pet.height() + 1
+            # Snap to the ground if the next frame's velocity pushes the hitbox through the floor
+            if new_y + hitbox_bottom_offset > ground_y:
+                new_y = ground_y - hitbox_bottom_offset + 1
                 self.pet.velocity_y = 0
                 if self.pet.state is PetState.JUMPING and not self.pet.is_dead:
                     self.pet.anim_sys.set_state(PetState.IDLE)

@@ -49,7 +49,7 @@ class AnimationSubsystem:
         self.grid_panel = QWidget()
         layout = QVBoxLayout(self.grid_panel)
         layout.setContentsMargins(0,0,0,0)
-        section = CollapsibleSection("Grid & Extraction Settings")
+        section = CollapsibleSection("Grid and Extraction Settings")
         form = QFormLayout()
         
         self.cols_spin = create_spinbox(1, 100)

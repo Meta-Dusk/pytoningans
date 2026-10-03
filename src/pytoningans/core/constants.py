@@ -45,10 +45,21 @@ class AnimationMeta:
     offset_y: int = 0
     fps: int = 10
     
-    # Resolved once on load_mod() to avoid division on every tick
+    # Engine runtime cache
+    base_h: int = 0
     computed_w: int = 0
     computed_h: int = 0
-    base_h: int = 0
+    
+    # Physics and Alignment
+    anchor_x: int = 0
+    anchor_y: int = 0
+    hitbox_x: int = 0
+    hitbox_y: int = 0
+    hitbox_w: int = 0
+    hitbox_h: int = 0
+    
+    frame_overrides: dict[str, dict[str, int]] = field(default_factory=dict)
+    """Dictionary mapping string frame indices (for JSON) to override data dicts"""
 
 @dataclass(frozen=True)
 class ModConfig:

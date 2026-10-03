@@ -4,7 +4,7 @@ import random
 from typing import Optional, TYPE_CHECKING, cast
 
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMenu, QGraphicsColorizeEffect
-from PySide6.QtCore import Qt, QPoint
+from PySide6.QtCore import Qt, QPoint, QRect
 from PySide6.QtGui import QMouseEvent, QContextMenuEvent, QColor, QMoveEvent
 
 from pytoningans.core.constants import WINDOW_CFG, AnimationMeta, PetState, SystemLocks
@@ -45,6 +45,8 @@ class PetWindow(QWidget):
         self.velocity_y: float = 0.0
         self._target_pos: Optional[QPoint] = None
         self._drag_offset: Optional[QPoint] = None
+        
+        self.current_hitbox: QRect = QRect()
 
         # --- Initialization ---
         self._setup_ui(start_x, start_y)
@@ -84,7 +86,8 @@ class PetWindow(QWidget):
         flags: Qt.WindowType = (
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Tool)
+            Qt.WindowType.Tool
+        )
         self.setWindowFlags(flags)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.resize(WINDOW_CFG.default_width, WINDOW_CFG.default_height)
