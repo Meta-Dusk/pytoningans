@@ -6,7 +6,8 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit,
     QSpinBox, QPushButton, QFileDialog, QMessageBox, QWidget
 )
-from PySide6.QtCore import Qt
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QPixmap
+from PySide6.QtCore import QUrl, Qt
 
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
@@ -23,7 +24,8 @@ class ModCreationDialog(QDialog):
 
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
-        self.resize(450, 320)
+        self.resize(500, 550)
+        self.setAcceptDrops(True)
         
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -82,6 +84,13 @@ class ModCreationDialog(QDialog):
         img_layout.addWidget(self.img_label, stretch=1)
         layout.addLayout(img_layout)
         
+        # Image Preview Box
+        self.preview_label = QLabel("Drag & Drop PNG here\nor use the button above")
+        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview_label.setStyleSheet("border: 2px dashed #888; color: #888; border-radius: 5px;")
+        self.preview_label.setMinimumHeight(180)
+        layout.addWidget(self.preview_label)
+        
         layout.addStretch()
         
         btn_layout = QHBoxLayout()
@@ -110,13 +119,40 @@ class ModCreationDialog(QDialog):
         layout.addStretch() 
         return widget
 
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        if event.mimeData().hasUrls():
+            url: QUrl = event.mimeData().urls()[0]
+            if url.isLocalFile() and url.toLocalFile().lower().endswith(".png"):
+                event.acceptProposedAction()
+                return
+        event.ignore()
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        url: QUrl = event.mimeData().urls()[0]
+        self._set_image(Path(url.toLocalFile()))
+        event.acceptProposedAction()
+
     def _select_image(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select Sprite Sheet", "", "Images (*.png)"
         )
-        if file_path:
-            self.selected_image_path = Path(file_path)
-            self.img_label.setText(self.selected_image_path.name)
+        if file_path: self._set_image(Path(file_path))
+
+    def _set_image(self, path: Path) -> None:
+        self.selected_image_path = path
+        self.img_label.setText(path.name)
+        
+        pixmap = QPixmap(str(path))
+        if pixmap.isNull(): return
+        
+        # Scale the preview so it fits nicely inside the label bounds
+        scaled_pixmap = pixmap.scaled(
+            450, 180, 
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        )
+        self.preview_label.setPixmap(scaled_pixmap)
+        self.preview_label.setStyleSheet("border: 2px solid #555; border-radius: 5px;")
 
     def _create_mod(self) -> None:
         folder_name: str = self.folder_input.text().strip()

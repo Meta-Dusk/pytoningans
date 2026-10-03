@@ -1,8 +1,8 @@
 from pathlib import Path
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, 
-    QScrollArea, QFrame, QMessageBox, QLabel, QLineEdit
+    QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QScrollArea, QFrame,
+    QMessageBox, QLabel, QLineEdit, QFileDialog
 )
 from PySide6.QtCore import QRect, Qt, Signal, QUrl
 from PySide6.QtGui import QGuiApplication, QResizeEvent, QDesktopServices, QScreen
@@ -109,6 +109,13 @@ class ModEditorWindow(QWidget):
         name_layout.addWidget(self.name_input)
         self.left_layout.addLayout(name_layout)
         
+        # Replace Sprite Sheet Button
+        sheet_layout = QHBoxLayout()
+        self.change_sheet_btn = QPushButton("Replace Sprite Sheet")
+        sheet_layout.addWidget(self.change_sheet_btn)
+        sheet_layout.addStretch()
+        self.left_layout.addLayout(sheet_layout)
+        
         # Mount the Domain Panels
         self.left_layout.addWidget(self.anim_sys.preview_panel)
         self.left_layout.addWidget(self.anim_sys.grid_panel)
@@ -157,6 +164,7 @@ class ModEditorWindow(QWidget):
         self.save_btn.clicked.connect(self._save_changes)
         self.reload_btn.clicked.connect(self._on_reload_clicked)
         self.open_folder_btn.clicked.connect(self._on_open_folder_clicked)
+        self.change_sheet_btn.clicked.connect(self._on_change_sheet_clicked)
     
     def _on_combo_index_changed(self, index: int) -> None:
         if index < 0: return
@@ -219,7 +227,7 @@ class ModEditorWindow(QWidget):
         mod_folder: str = self.mod_combo.currentData()
         if not mod_folder: return
         
-        reply = QMessageBox.question(
+        reply: QMessageBox.StandardButton = QMessageBox.question(
             self, "Discard Changes",
             "This will wipe all unsaved tweaks (including cropping boundaries)"
             " and reload the last saved config.json.\n\nAre you sure?",
@@ -251,5 +259,23 @@ class ModEditorWindow(QWidget):
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(target_dir.resolve())))
     
     def _on_name_changed(self, text: str) -> None:
-        if text.strip():
-            self.controller.update_mod_name(text.strip())
+        if not text.strip(): return
+        self.controller.update_mod_name(text.strip())
+    
+    def _on_change_sheet_clicked(self) -> None:
+        mod_folder: str = self.mod_combo.currentData()
+        if not mod_folder: return
+        
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select New Sprite Sheet", "", "Images (*.png)"
+        )
+        if not file_path: return
+        
+        reply: QMessageBox.StandardButton = QMessageBox.question(
+            self, "Confirm Replacement", 
+            "This will overwrite the current sprite_sheet.png for this mod. Continue?"
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.controller.replace_sprite_sheet(mod_folder, file_path)
+            self._on_mod_changed(mod_folder) # Force full reload to refresh the live preview panels
+            QMessageBox.information(self, "Success", "Sprite sheet updated successfully!")

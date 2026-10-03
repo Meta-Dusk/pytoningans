@@ -1,3 +1,5 @@
+import shutil
+
 from typing import Tuple, Any, Optional
 from PySide6.QtCore import QRect
 from PySide6.QtGui import QPixmap
@@ -147,3 +149,8 @@ class ModEditorController:
     
     def get_config_version(self) -> int:
         return self.manager.config_version
+    
+    def replace_sprite_sheet(self, mod_folder: str, new_image_path: str) -> None:
+        target_path = self.manager.mods_dir / mod_folder / "sprite_sheet.png"
+        shutil.copy(new_image_path, target_path)
+        self.manager.clear_shared_cache()
