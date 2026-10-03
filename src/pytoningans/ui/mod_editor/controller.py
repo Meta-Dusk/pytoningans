@@ -144,3 +144,6 @@ class ModEditorController:
 
     def update_mod_name(self, name: str) -> None:
         self.manager.current_mod_name = name
+    
+    def get_config_version(self) -> int:
+        return self.manager.config_version

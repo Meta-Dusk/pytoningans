@@ -68,9 +68,8 @@ macos.permissions =
 # mode of using nuitka. accepts standalone or onefile. default = onefile
 mode = standalone
 
-# to not include console = --windows-console-mode=disable
 # specify any extra nuitka arguments
-extra_args = --quiet --noinclude-qt-translations --include-data-dir=assets=assets --windows-company-name="MetaDusk Inc." --windows-product-name="PyToNingans" --windows-file-version=0.6.2.0 --windows-product-version=0.6.2.0 --windows-console-mode=disable --output-filename="PyToNingans.exe"
+extra_args = --quiet --noinclude-qt-translations --include-data-dir=assets=assets --windows-company-name="MetaDusk Inc." --windows-product-name="PyToNingans" --windows-file-version=0.6.3.0 --windows-product-version=0.6.3.0 --output-filename="PyToNingans.exe" --windows-console-mode=disable
 
 [buildozer]
 

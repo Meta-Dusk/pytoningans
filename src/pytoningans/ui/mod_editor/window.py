@@ -92,6 +92,13 @@ class ModEditorWindow(QWidget):
         mod_layout.addWidget(QLabel("Target Mod:"))
         self.mod_combo = QComboBox()
         mod_layout.addWidget(self.mod_combo)
+        
+        # Version indicator
+        self.version_label = QLabel("v?")
+        self.version_label.setStyleSheet("color: gray; font-style: italic;")
+        mod_layout.addWidget(self.version_label)
+        mod_layout.addStretch() # Push everything to the left
+        
         self.left_layout.addLayout(mod_layout)
         
         # Display Name Editor
@@ -160,11 +167,18 @@ class ModEditorWindow(QWidget):
         if not mod_folder: return
             
         if self.controller.load_mod(mod_folder):
-            if self.controller.manager.config_version < CURRENT_CONFIG_VERSION:
+            current_v: int = self.controller.get_config_version()
+            self.version_label.setText(f"v{current_v}")
+            
+            if current_v < CURRENT_CONFIG_VERSION:
+                # Add a visual warning color for outdated mods
+                self.version_label.setStyleSheet("color: #d97706; font-weight: bold;")
                 QMessageBox.warning(
                     self, "Legacy Mod",
                     f"Saving will upgrade config to v{CURRENT_CONFIG_VERSION}."
                 )
+            else:
+                self.version_label.setStyleSheet("color: gray; font-style: italic;")
             
             # Fill the Display Name box without triggering an edit event
             self.name_input.blockSignals(True)
@@ -182,10 +196,14 @@ class ModEditorWindow(QWidget):
         
         self.controller.save_mod(mod_folder)
         
-        # Update the editor's combo box to reflect the new display name
-        current_idx = self.mod_combo.currentIndex()
-        new_name = self.controller.get_mod_name()
+        # Update the editor's combo box and version label
+        current_idx: int = self.mod_combo.currentIndex()
+        new_name: str = self.controller.get_mod_name()
         self.mod_combo.setItemText(current_idx, new_name)
+        
+        new_v: int = self.controller.get_config_version()
+        self.version_label.setText(f"v{new_v}")
+        self.version_label.setStyleSheet("color: gray; font-style: italic;")
         
         self.mods_updated.emit()
         QMessageBox.information(self, "Success", f"Saved configuration for {mod_folder}!")

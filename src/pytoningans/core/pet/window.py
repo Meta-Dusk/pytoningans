@@ -60,7 +60,7 @@ class PetWindow(QWidget):
 
     @property
     def is_interactable(self) -> bool:
-        return self.state not in (PetState.DRAG, PetState.INTERACT) or not self.is_dead
+        return self.state not in (PetState.DRAG, PetState.INTERACT) and not self.is_dead
     
     @property
     def target_pos(self) -> Optional[QPoint]:

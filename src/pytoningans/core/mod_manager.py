@@ -10,8 +10,9 @@ from PySide6.QtCore import QRect, Qt
 
 from pytoningans.core.constants import PetState, AnimationMeta, BehaviorType
 from pytoningans.core.api import BasePetBehavior
-
-CURRENT_CONFIG_VERSION = 6
+from pytoningans.core.config_schema import (
+    ModConfig, BehaviorConfig, DialogueConfig, CURRENT_CONFIG_VERSION
+)
 
 type CacheKey = Tuple[str, int, int, int, int]
 
@@ -93,87 +94,57 @@ class ModManager:
         if not sprite_path.exists():
             return False
 
-        # AUTO-SCAFFOLD
+        # AUTO-SCAFFOLD USING SCHEMA
         if not config_path.exists():
-            self.current_mod_name = mod_folder_name
-            self.global_columns = 4
-            self.global_rows = len(PetState)
-            self.can_fly = False
-            self.config_version = CURRENT_CONFIG_VERSION
+            new_config = ModConfig(name=mod_folder_name)
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(new_config.to_dict(), f, indent=4)
+
+        # Unconditionally load into memory
+        with open(config_path, "r", encoding="utf-8") as f:
+            data: dict[str, Any] = json.load(f)
             
-            self.can_fly = False
-            self.max_health = 100
-            self.attack_damage = 10
-            self.attack_range = 50
-            self.jump_height = 15
-            
-            self.animations = {
-                state: AnimationMeta(row=i, start_frame=0, end_frame=3)
-                for i, state in enumerate(PetState)
-            }
-            
-            self.plain_dialogue = ["Just hanging out.", "Lovely weather.", "Need a break?"]
-            self.window_triggers = [
-                {
-                    "title_matches": ["secret_diary.txt", "diary - notepad", "diary"], 
-                    "text": "Are you writing about me?", 
-                    "duration": 4000, 
-                    "chance": 0.5
-                },
-                {
-                    "title_matches": ["visual studio code", "vscode", "code.exe"], 
-                    "text": "Writing bugs or features today?", 
-                    "duration": 4000, 
-                    "chance": 0.1
-                }
-            ]
-            self.save_mod_config(mod_folder_name, self.current_mod_name)
-        else:
-            with open(config_path, "r", encoding="utf-8") as f:
-                data: dict[str, Any] = json.load(f)
+        self.current_mod_name = data.get("name", mod_folder_name)
+        self.global_columns = data.get("columns", 1)
+        self.global_rows = data.get("rows", 1)
+        self.config_version = data.get("version", 1)
+        
+        behavior_data: dict[str, Any] = data.get("behavior", {})
+        self.can_fly = behavior_data.get("can_fly", False)
+        
+        self.max_health = behavior_data.get("max_health", 100)
+        self.attack_damage = behavior_data.get("attack_damage", 10)
+        self.attack_range = behavior_data.get("attack_range", 50)
+        self.jump_height = behavior_data.get("jump_height", 15)
+        
+        raw_type = behavior_data.get("type", "neutral")
+        try:
+            self.behavior_type = BehaviorType(raw_type)
+        except ValueError:
+            self.behavior_type = BehaviorType.NEUTRAL
+        
+        self.animations.clear()
+        anim_data = data.get("animations", {})
+        
+        for state in PetState:
+            if state.value in anim_data:
+                raw_meta = anim_data[state.value]
                 
-            self.current_mod_name = data.get("name", mod_folder_name)
-            self.global_columns = data.get("columns", 1)
-            self.global_rows = data.get("rows", 1)
-            self.config_version = data.get("version", 1)
-            
-            behavior_data: dict[str, Any] = data.get("behavior", {})
-            self.can_fly = behavior_data.get("can_fly", False)
-            
-            self.max_health = behavior_data.get("max_health", 100)
-            self.attack_damage = behavior_data.get("attack_damage", 10)
-            self.attack_range = behavior_data.get("attack_range", 50)
-            self.jump_height = behavior_data.get("jump_height", 15)
-            
-            raw_type = behavior_data.get("type", "neutral")
-            try:
-                self.behavior_type = BehaviorType(raw_type)
-            except ValueError:
-                self.behavior_type = BehaviorType.NEUTRAL
-            
-            self.animations.clear()
-            anim_data = data.get("animations", {})
-            
-            for state in PetState:
-                if state.value in anim_data:
-                    raw_meta = anim_data[state.value]
+                if "frames" in raw_meta:
+                    raw_meta["start_frame"] = 0
+                    raw_meta["end_frame"] = max(0, raw_meta.pop("frames") - 1)
                     
-                    if "frames" in raw_meta:
-                        raw_meta["start_frame"] = 0
-                        raw_meta["end_frame"] = max(0, raw_meta.pop("frames") - 1)
-                        
-                    self.animations[state] = AnimationMeta(**raw_meta)
-                else:
-                    self.animations[state] = AnimationMeta(row=0, start_frame=0, end_frame=0)
-            
-            dialogue_data = data.get("dialogue", {})
-            self.plain_dialogue = dialogue_data.get("plain_dialogue", ["..."])
-            self.window_triggers = dialogue_data.get("window_triggers", [])
+                self.animations[state] = AnimationMeta(**raw_meta)
+            else:
+                self.animations[state] = AnimationMeta(row=0, start_frame=0, end_frame=0)
+        
+        dialogue_data = data.get("dialogue", {})
+        self.plain_dialogue = dialogue_data.get("plain_dialogue", ["..."])
+        self.window_triggers = dialogue_data.get("window_triggers", [])
         
         self.custom_behavior = None
         self._compile_behavior_mod(mod_folder_name, mod_path)
 
-        # Only read the file from disk if it hasn't been cached yet
         if mod_folder_name not in ModManager._shared_sheets:
             with open(sprite_path, "rb") as f:
                 sheet = QPixmap()
@@ -207,30 +178,28 @@ class ModManager:
         mod_path: Path = self.mods_dir / mod_folder_name
         config_path: Path = mod_path / "config.json"
         
-        data: dict[str, Any] = {
-            "version": CURRENT_CONFIG_VERSION,
-            "name": name,
-            "columns": self.global_columns,
-            "rows": self.global_rows,
-            "behavior": {
-                "type": BehaviorType(self.behavior_type).value,
-                "can_fly": self.can_fly,
-                "max_health": self.max_health,
-                "attack_damage": self.attack_damage,
-                "attack_range": self.attack_range,
-                "jump_height": self.jump_height
-            },
-            "animations": {
-                state.value: asdict(meta) for state, meta in self.animations.items()
-            },
-            "dialogue": {
-                "plain_dialogue": self.plain_dialogue,
-                "window_triggers": self.window_triggers
-            }
-        }
+        config = ModConfig(
+            name=name,
+            version=CURRENT_CONFIG_VERSION,
+            columns=self.global_columns,
+            rows=self.global_rows,
+            behavior=BehaviorConfig(
+                type=self.behavior_type.value,
+                can_fly=self.can_fly,
+                max_health=self.max_health,
+                attack_damage=self.attack_damage,
+                attack_range=self.attack_range,
+                jump_height=self.jump_height
+            ),
+            animations={state.value: meta for state, meta in self.animations.items()},
+            dialogue=DialogueConfig(
+                plain_dialogue=self.plain_dialogue,
+                window_triggers=self.window_triggers
+            )
+        )
         
         with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
+            json.dump(config.to_dict(), f, indent=4)
 
     def get_frame(self, state: PetState, tick_index: int) -> Optional[QPixmap]:
         if not self._global_sheet: return None

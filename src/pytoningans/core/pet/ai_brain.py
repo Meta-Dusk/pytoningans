@@ -78,7 +78,9 @@ class AISystem:
             self.pet.mod_manager is None or
             self.pet.anim_sys is None
             
-        ): return
+        ):
+            return
+        
         if not self.pet.mod_manager.can_fly and random.random() < 0.15:
             self.pet.jump()
             return
@@ -103,6 +105,7 @@ class AISystem:
     def _on_ai_decision_tick(self) -> bool:
         """Returns True if the AI decision should end."""
         if self.pet is None or self.pet.mod_manager is None: return False
+        
         behavior: Optional[BasePetBehavior] = self.pet.mod_manager.custom_behavior
         if behavior is None: return False
         try:
@@ -119,7 +122,8 @@ class AISystem:
             self.pet is None or
             self.pet.mod_manager is None or
             self.pet.pet_manager is None
-        ): return
+        ):
+            return
         # Only HOSTILE pets initiate attacks
         if self.pet.mod_manager.behavior_type is not BehaviorType.HOSTILE:
             return
@@ -131,8 +135,8 @@ class AISystem:
 
         for other_pet in self.pet.pet_manager.active_pets:
             if (
-                other_pet is self.pet or not
-                other_pet.is_interactable or
+                other_pet is self.pet or
+                not other_pet.is_interactable or
                 other_pet is None or
                 other_pet.mod_manager is None or
                 other_pet.pet_manager is None
@@ -220,9 +224,10 @@ class AISystem:
         for other_pet in self.pet.pet_manager.active_pets:
             if (
                 other_pet.ai_sys is None or
-                other_pet is self.pet or not
-                other_pet.is_interactable
-            ): continue
+                other_pet is self.pet or
+                not other_pet.is_interactable
+            ):
+                continue
 
             other_center = centers.get(other_pet) if centers else other_pet.geometry().center()
             if other_center is None or my_center is None: continue
@@ -246,7 +251,8 @@ class AISystem:
             self.pet is None or
             self.pet.mod_manager is None or
             self.pet.mod_manager.custom_behavior is None
-        ): return False
+        ):
+            return False
         try:
             pet_api: IPet = cast(IPet, self.pet)
             other_pet_api: IPet = cast(IPet, other_pet)
@@ -268,7 +274,8 @@ class AISystem:
             self.pet is None or
             self.pet.mod_manager is None or
             self.pet.pet_manager is None
-        ): return False
+        ):
+            return False
         
         # Prevent overlapping dialogues
         if self.pet.bubble is not None and self.pet.bubble.isVisible():

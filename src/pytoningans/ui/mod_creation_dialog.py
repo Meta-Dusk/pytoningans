@@ -1,6 +1,6 @@
 import json, shutil, re
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit,
@@ -10,6 +10,8 @@ from PySide6.QtCore import Qt
 
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
+from pytoningans.core.config_schema import ModConfig
+from pytoningans.core.constants import PetState, AnimationMeta
 
 class ModCreationDialog(QDialog):
     def __init__(self, mods_dir: str | Path, parent: Optional[QWidget] = None) -> None:
@@ -43,9 +45,11 @@ class ModCreationDialog(QDialog):
         
         self.cols_spin = QSpinBox()
         self.cols_spin.setRange(1, 100)
+        self.cols_spin.setValue(4)
         
         self.rows_spin = QSpinBox()
         self.rows_spin.setRange(1, 100)
+        self.rows_spin.setValue(len(PetState))
         
         form.addRow(self._create_info_label(
             "Internal Folder Name:", 
@@ -139,20 +143,37 @@ class ModCreationDialog(QDialog):
             target_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy(self.selected_image_path, target_dir / "sprite_sheet.png")
             
-            config_data: dict[str, Any] = {
-                "version": 3,
-                "name": display_name,
-                "columns": self.cols_spin.value(),
-                "rows": self.rows_spin.value(),
-                "behavior": {"can_fly": False},
-                "animations": {}
-            }
+            # Read user-selected grid dimensions
+            cols = self.cols_spin.value()
+            rows = self.rows_spin.value()
             
-            with open(target_dir / "config.json", "w", encoding="utf-8") as f:
-                json.dump(config_data, f, indent=4)
-                
+            self._generate_default_config(display_name, target_dir / "config.json", cols=cols, rows=rows)
             self.new_mod_folder = folder_name
             self.accept()
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to create mod: {str(e)}")
+    
+    def _generate_default_config(
+        self, display_name: str, config_path: Path,
+        *, cols: int = 4, rows: int = len(PetState)
+    ) -> None:
+        # Scale default animations to respect the chosen row/column dimensions
+        animations = {
+            state.value: AnimationMeta(
+                row=min(i, max(0, rows - 1)),
+                start_frame=0,
+                end_frame=max(0, cols - 1)
+            )
+            for i, state in enumerate(PetState)
+        }
+
+        new_config = ModConfig(
+            name=display_name,
+            columns=cols,
+            rows=rows,
+            animations=animations
+        )
+        
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(new_config.to_dict(), f, indent=4)
