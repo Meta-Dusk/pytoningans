@@ -4,10 +4,12 @@ import random
 from typing import Optional, TYPE_CHECKING, cast
 
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMenu, QGraphicsColorizeEffect
-from PySide6.QtCore import Qt, QPoint
-from PySide6.QtGui import QMouseEvent, QContextMenuEvent, QColor, QMoveEvent
+from PySide6.QtCore import (
+    Qt, QPoint, QRect, QPropertyAnimation, QVariantAnimation, QEasingCurve
+)
+from PySide6.QtGui import QCloseEvent, QMouseEvent, QContextMenuEvent, QColor, QMoveEvent
 
-from pytoningans.core.constants import WINDOW_CFG, AnimationMeta, PetState, SystemLocks
+from pytoningans.core.constants import WINDOW_CFG, AnimationMeta, DeathAnimation, PetState, SystemLocks
 from pytoningans.core.pet.animation import AnimationSystem
 from pytoningans.core.pet.physics import PhysicsSystem
 from pytoningans.core.pet.ai_brain import AISystem
@@ -45,6 +47,9 @@ class PetWindow(QWidget):
         self.velocity_y: float = 0.0
         self._target_pos: Optional[QPoint] = None
         self._drag_offset: Optional[QPoint] = None
+        
+        self.current_hitbox: QRect = QRect()
+        self.current_attack_hitbox: QRect = QRect()
 
         # --- Initialization ---
         self._setup_ui(start_x, start_y)
@@ -55,12 +60,14 @@ class PetWindow(QWidget):
         self.bubble: Optional[SpeechBubble] = None
         self.locks: SystemLocks = SystemLocks()
         self.revive_time_left: int = 0
+        self._fade_anim: Optional[QPropertyAnimation] = None
+        self._rot_anim: Optional[QVariantAnimation] = None
         
         self._init_systems()
 
     @property
     def is_interactable(self) -> bool:
-        return self.state not in (PetState.DRAG, PetState.INTERACT) or not self.is_dead
+        return self.state not in (PetState.DRAG, PetState.INTERACT) and not self.is_dead
     
     @property
     def target_pos(self) -> Optional[QPoint]:
@@ -79,12 +86,14 @@ class PetWindow(QWidget):
         self.anim_sys = AnimationSystem(self)
         self.physics_sys = PhysicsSystem(self)
         self.ai_sys = AISystem(self)
+        self.anim_sys.attack_frame_hit.connect(self.ai_sys.process_combat)
     
     def _setup_ui(self, x: int, y: int) -> None:
         flags: Qt.WindowType = (
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Tool)
+            Qt.WindowType.Tool
+        )
         self.setWindowFlags(flags)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.resize(WINDOW_CFG.default_width, WINDOW_CFG.default_height)
@@ -130,7 +139,7 @@ class PetWindow(QWidget):
             if self.physics_sys: self.physics_sys.update(dt, centers)
             return
             
-        if self.locks.ai and self.ai_sys: self.ai_sys.update(dt, centers)
+        if self.locks.ai and self.ai_sys: self.ai_sys.update(dt)
         if self.locks.physics and self.physics_sys: self.physics_sys.update(dt, centers)
         if self.locks.animation and self.anim_sys: self.anim_sys.update(dt)
     
@@ -158,24 +167,71 @@ class PetWindow(QWidget):
         # TODO: Add Modding API hook here
 
     def die(self) -> None:
-        if self.is_dead: return
+        if self.is_dead or self.mod_manager is None: return
         self.current_health = 0
         self.is_dead = True
         self.rotation = 0.0
         if self.anim_sys: self.anim_sys.set_state(PetState.DYING)
         self._target_pos = None
         
+        death_type: DeathAnimation = self.mod_manager.death_animation
+        target_rot = 0.0
+        
+        match death_type:
+            case DeathAnimation.ROTATE_LEFT:
+                target_rot = -90.0
+            case DeathAnimation.ROTATE_RIGHT:
+                target_rot = 90.0
+            case DeathAnimation.ROTATE_LEFT_OR_RIGHT:
+                target_rot = -90.0 if random.random() > 0.5 else 90.0
+                
+        if target_rot != 0.0:
+            self._rot_anim = QVariantAnimation(self)
+            self._rot_anim.setDuration(600)
+            self._rot_anim.setStartValue(self.rotation)
+            self._rot_anim.setEndValue(target_rot)
+            self._rot_anim.setEasingCurve(QEasingCurve.Type.OutBounce)
+            
+            def _on_rot_change(val: float):
+                self.rotation = val
+                if self.anim_sys: self.anim_sys._update_frame() # Instant redraw
+                
+            self._rot_anim.valueChanged.connect(_on_rot_change)
+            self._rot_anim.start()
+        
         # --- MODDERS API HOOK ---
         self._on_die()
+        
+        # Fade out and automatic cleanup check
+        if self.mod_manager.auto_close_on_death:
+            # Animate the windowOpacity property from 1.0 (opaque) to 0.0 (transparent)
+            self._fade_anim = QPropertyAnimation(self, b"windowOpacity")
+            self._fade_anim.setDuration(3000)
+            self._fade_anim.setStartValue(1.0)
+            self._fade_anim.setEndValue(0.0)
+            
+            # Connect the end of the animation to the window's close slot
+            self._fade_anim.finished.connect(self.close)
+            self._fade_anim.start()
 
     def revive(self) -> None:
-        if self.mod_manager is None: return
-        if not self.is_dead: return
+        if self.mod_manager is None or not self.is_dead: return
         
         self.current_health = self.mod_manager.max_health
         self.is_dead = False
         
-        anim_meta: AnimationMeta | None = self.mod_manager.animations.get(PetState.REVIVING)
+        if self._fade_anim is not None:
+            self._fade_anim.stop()
+            self._fade_anim = None
+        
+        if self._rot_anim is not None:
+            self._rot_anim.stop()
+            self._rot_anim = None
+        
+        self.setWindowOpacity(1.0)
+        self.rotation = 0.0
+        
+        anim_meta: Optional[AnimationMeta] = self.mod_manager.animations.get(PetState.REVIVING)
         
         if anim_meta:
             # Calculate: total_frames * ms_per_frame
@@ -249,11 +305,27 @@ class PetWindow(QWidget):
             menu.addAction("Kill Pet", self.die)
         else:
             menu.addAction("Revive Pet", self.revive)
+        
+        if self.is_dead:
+            if (self._fade_anim is not None and
+                self._fade_anim.state() == QPropertyAnimation.State.Running):
+                self._fade_anim.pause()
+            if (self._rot_anim is not None and
+                self._rot_anim.state() == QPropertyAnimation.State.Running):
+                self._rot_anim.pause()
             
         menu.exec(event.globalPos())
         
         # Unfreeze after the user clicks away or selects an option
         self.is_paused = False
+        if not self.is_dead: return
+        if (self._fade_anim is not None and
+            self._fade_anim.state() == QPropertyAnimation.State.Paused):
+            self._fade_anim.resume()
+            
+        if (self._rot_anim is not None and
+            self._rot_anim.state() == QVariantAnimation.State.Paused):
+            self._rot_anim.resume()
     
     # --- Other Events ---
     def close_pet(self) -> None:
@@ -291,3 +363,12 @@ class PetWindow(QWidget):
         if self.anim_sys: self.anim_sys.set_state(PetState.IDLE)
         self._target_pos = None
         # TODO: Add Modding API hook here
+    
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Fires automatically right before the Qt window is destroyed."""
+        # Safely remove this pet from the physics/AI loop
+        if self.pet_manager and self in self.pet_manager.active_pets:
+            self.pet_manager.active_pets.remove(self)
+            
+        # Let Qt proceed with actually destroying the C++ window
+        super().closeEvent(event)

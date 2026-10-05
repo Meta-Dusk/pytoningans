@@ -78,6 +78,20 @@ QLabel#TitleBarText {
     font-weight: bold; 
 }
 
+QPushButton#TitleBarBtn { 
+    background: transparent; 
+    border: none; 
+    color: #666666; 
+    border-radius: 0px; 
+    padding: 0px; 
+    font-size: 14px; 
+    font-family: 'Pixel Code', monospace;
+}
+
+QPushButton#TitleBarBtn:hover { 
+    color: black; 
+}
+
 QPushButton#TitleBarCloseBtn { 
     background: transparent; 
     border: none; 
@@ -215,7 +229,21 @@ QWidget#CustomTitleBar {
 QLabel#TitleBarText {
     color: #f3f3f3;
     font-weight: bold; }
-    
+
+QPushButton#TitleBarBtn { 
+    background: transparent; 
+    border: none; 
+    color: #aaaaaa; 
+    border-radius: 0px; 
+    padding: 0px; 
+    font-size: 14px; 
+    font-family: 'Pixel Code', monospace;
+}
+
+QPushButton#TitleBarBtn:hover { 
+    color: white; 
+}
+
 QPushButton#TitleBarCloseBtn { 
     background: transparent; 
     border: none; 

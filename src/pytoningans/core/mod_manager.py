@@ -3,15 +3,17 @@ import importlib.util
 from pathlib import Path
 
 from typing import List, Optional, Tuple, Any
-from dataclasses import asdict
 
 from PySide6.QtGui import QPixmap, QPainter
-from PySide6.QtCore import QRect, Qt
+from PySide6.QtCore import QRect, Qt, QPoint
 
-from pytoningans.core.constants import PetState, AnimationMeta, BehaviorType
+from pytoningans.core.constants import (
+    PetState, AnimationMeta, BehaviorType, AttackType, DeathAnimation
+)
 from pytoningans.core.api import BasePetBehavior
-
-CURRENT_CONFIG_VERSION = 6
+from pytoningans.core.config_schema import (
+    ModConfig, BehaviorConfig, DialogueConfig, CURRENT_CONFIG_VERSION
+)
 
 type CacheKey = Tuple[str, int, int, int, int]
 
@@ -42,6 +44,8 @@ class ModManager:
         self.attack_range: int = 50
         self.jump_height: int = 150
         self.behavior_type: BehaviorType = BehaviorType.NEUTRAL
+        self.attack_type: AttackType = AttackType.SINGLE
+        self.max_targets: int = 1
         
         self.animations: dict[PetState, AnimationMeta] = {}
         self._global_sheet: Optional[QPixmap] = None
@@ -49,6 +53,9 @@ class ModManager:
         
         self.plain_dialogue: List[str] = []
         self.window_triggers: List[dict[str, Any]] = []
+        
+        self.death_animation: DeathAnimation = DeathAnimation.SPRITE
+        self.auto_close_on_death: bool = False
         
         # Inject the mods folder into Python's runtime path
         abs_mods_dir: str = str(self.mods_dir.resolve())
@@ -93,87 +100,73 @@ class ModManager:
         if not sprite_path.exists():
             return False
 
-        # AUTO-SCAFFOLD
+        # AUTO-SCAFFOLD USING SCHEMA
         if not config_path.exists():
-            self.current_mod_name = mod_folder_name
-            self.global_columns = 4
-            self.global_rows = len(PetState)
-            self.can_fly = False
-            self.config_version = CURRENT_CONFIG_VERSION
+            new_config = ModConfig(name=mod_folder_name)
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(new_config.to_dict(), f, indent=4)
+
+        # Unconditionally load into memory
+        with open(config_path, "r", encoding="utf-8") as f:
+            data: dict[str, Any] = json.load(f)
             
-            self.can_fly = False
-            self.max_health = 100
-            self.attack_damage = 10
-            self.attack_range = 50
-            self.jump_height = 15
-            
-            self.animations = {
-                state: AnimationMeta(row=i, start_frame=0, end_frame=3)
-                for i, state in enumerate(PetState)
-            }
-            
-            self.plain_dialogue = ["Just hanging out.", "Lovely weather.", "Need a break?"]
-            self.window_triggers = [
-                {
-                    "title_matches": ["secret_diary.txt", "diary - notepad", "diary"], 
-                    "text": "Are you writing about me?", 
-                    "duration": 4000, 
-                    "chance": 0.5
-                },
-                {
-                    "title_matches": ["visual studio code", "vscode", "code.exe"], 
-                    "text": "Writing bugs or features today?", 
-                    "duration": 4000, 
-                    "chance": 0.1
-                }
-            ]
-            self.save_mod_config(mod_folder_name, self.current_mod_name)
-        else:
-            with open(config_path, "r", encoding="utf-8") as f:
-                data: dict[str, Any] = json.load(f)
+        self.current_mod_name = data.get("name", mod_folder_name)
+        self.global_columns = data.get("columns", 1)
+        self.global_rows = data.get("rows", 1)
+        self.config_version = data.get("version", 1)
+        
+        behavior_data: dict[str, Any] = data.get("behavior", {})
+        self.can_fly = behavior_data.get("can_fly", False)
+        
+        self.max_health = behavior_data.get("max_health", 100)
+        self.attack_damage = behavior_data.get("attack_damage", 10)
+        self.attack_range = behavior_data.get("attack_range", 50)
+        self.jump_height = behavior_data.get("jump_height", 15)
+        
+        raw_behavior_type = behavior_data.get("type", "neutral")
+        try:
+            self.behavior_type = BehaviorType(raw_behavior_type)
+        except ValueError:
+            self.behavior_type = BehaviorType.NEUTRAL
+        
+        raw_attack_type = behavior_data.get("attack_type", "single")
+        try:
+            self.attack_type = AttackType(raw_attack_type)
+        except ValueError:
+            self.attack_type = AttackType.SINGLE
+        
+        self.max_targets = behavior_data.get("max_targets", 1)
+        
+        raw_death_anim = behavior_data.get("death_animation", "sprite")
+        try:
+            self.death_animation = DeathAnimation(raw_death_anim)
+        except ValueError:
+            self.death_animation = DeathAnimation.SPRITE
+        
+        self.auto_close_on_death = behavior_data.get("auto_close_on_death", False)
+        
+        self.animations.clear()
+        anim_data = data.get("animations", {})
+        
+        for state in PetState:
+            if state.value in anim_data:
+                raw_meta = anim_data[state.value]
                 
-            self.current_mod_name = data.get("name", mod_folder_name)
-            self.global_columns = data.get("columns", 1)
-            self.global_rows = data.get("rows", 1)
-            self.config_version = data.get("version", 1)
-            
-            behavior_data: dict[str, Any] = data.get("behavior", {})
-            self.can_fly = behavior_data.get("can_fly", False)
-            
-            self.max_health = behavior_data.get("max_health", 100)
-            self.attack_damage = behavior_data.get("attack_damage", 10)
-            self.attack_range = behavior_data.get("attack_range", 50)
-            self.jump_height = behavior_data.get("jump_height", 15)
-            
-            raw_type = behavior_data.get("type", "neutral")
-            try:
-                self.behavior_type = BehaviorType(raw_type)
-            except ValueError:
-                self.behavior_type = BehaviorType.NEUTRAL
-            
-            self.animations.clear()
-            anim_data = data.get("animations", {})
-            
-            for state in PetState:
-                if state.value in anim_data:
-                    raw_meta = anim_data[state.value]
+                if "frames" in raw_meta:
+                    raw_meta["start_frame"] = 0
+                    raw_meta["end_frame"] = max(0, raw_meta.pop("frames") - 1)
                     
-                    if "frames" in raw_meta:
-                        raw_meta["start_frame"] = 0
-                        raw_meta["end_frame"] = max(0, raw_meta.pop("frames") - 1)
-                        
-                    self.animations[state] = AnimationMeta(**raw_meta)
-                else:
-                    self.animations[state] = AnimationMeta(row=0, start_frame=0, end_frame=0)
-            
-            dialogue_data = data.get("dialogue", {})
-            self.plain_dialogue = dialogue_data.get("plain_dialogue", ["..."])
-            self.window_triggers = dialogue_data.get("window_triggers", [])
+                self.animations[state] = AnimationMeta(**raw_meta)
+            else:
+                self.animations[state] = AnimationMeta(row=0, start_frame=0, end_frame=0)
+        
+        dialogue_data = data.get("dialogue", {})
+        self.plain_dialogue = dialogue_data.get("plain_dialogue", ["..."])
+        self.window_triggers = dialogue_data.get("window_triggers", [])
         
         self.custom_behavior = None
         self._compile_behavior_mod(mod_folder_name, mod_path)
 
-        # Only read the file from disk if it hasn't been cached yet
         if mod_folder_name not in ModManager._shared_sheets:
             with open(sprite_path, "rb") as f:
                 sheet = QPixmap()
@@ -207,30 +200,32 @@ class ModManager:
         mod_path: Path = self.mods_dir / mod_folder_name
         config_path: Path = mod_path / "config.json"
         
-        data: dict[str, Any] = {
-            "version": CURRENT_CONFIG_VERSION,
-            "name": name,
-            "columns": self.global_columns,
-            "rows": self.global_rows,
-            "behavior": {
-                "type": BehaviorType(self.behavior_type).value,
-                "can_fly": self.can_fly,
-                "max_health": self.max_health,
-                "attack_damage": self.attack_damage,
-                "attack_range": self.attack_range,
-                "jump_height": self.jump_height
-            },
-            "animations": {
-                state.value: asdict(meta) for state, meta in self.animations.items()
-            },
-            "dialogue": {
-                "plain_dialogue": self.plain_dialogue,
-                "window_triggers": self.window_triggers
-            }
-        }
+        config = ModConfig(
+            name=name,
+            version=CURRENT_CONFIG_VERSION,
+            columns=self.global_columns,
+            rows=self.global_rows,
+            behavior=BehaviorConfig(
+                type=BehaviorType(self.behavior_type).value,
+                can_fly=self.can_fly,
+                max_health=self.max_health,
+                attack_damage=self.attack_damage,
+                attack_range=self.attack_range,
+                jump_height=self.jump_height,
+                attack_type=self.attack_type,
+                max_targets=self.max_targets,
+                death_animation=self.death_animation,
+                auto_close_on_death=self.auto_close_on_death,
+            ),
+            animations={state.value: meta for state, meta in self.animations.items()},
+            dialogue=DialogueConfig(
+                plain_dialogue=self.plain_dialogue,
+                window_triggers=self.window_triggers
+            )
+        )
         
         with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
+            json.dump(config.to_dict(), f, indent=4)
 
     def get_frame(self, state: PetState, tick_index: int) -> Optional[QPixmap]:
         if not self._global_sheet: return None
@@ -347,3 +342,41 @@ class ModManager:
             meta.base_h = base_h
             meta.computed_w = meta.override_width if meta.override_width > 0 else base_w
             meta.computed_h = meta.override_height if meta.override_height > 0 else base_h
+    
+    def get_frame_physics(self, state: PetState, tick_index: int) -> tuple[QPoint, QRect]:
+        """Returns the (Anchor Point, Hitbox Rect) for the current frame."""
+        anim_meta: Optional[AnimationMeta] = self.animations.get(state)
+        
+        # Fallback defaults if state doesn't exist
+        if not anim_meta:
+            return QPoint(0, 0), QRect(0, 0, 50, 50)
+            
+        total_play_frames: int = max(1, (anim_meta.end_frame - anim_meta.start_frame) + 1)
+        
+        # Calculate exactly which relative frame index we are playing
+        mapped_index: int = tick_index % total_play_frames if anim_meta.loop else min(tick_index, total_play_frames - 1)
+        if anim_meta.reverse:
+            mapped_index = (total_play_frames - 1) - mapped_index
+            
+        # Start with the state's baseline physics
+        ax, ay = anim_meta.anchor_x, anim_meta.anchor_y
+        hx, hy = anim_meta.hitbox_x, anim_meta.hitbox_y
+        hw, hh = anim_meta.hitbox_w, anim_meta.hitbox_h
+        
+        # Apply per-frame overrides if the user edited this specific frame
+        frame_key: str = str(mapped_index)
+        if frame_key in anim_meta.frame_overrides:
+            override = anim_meta.frame_overrides[frame_key]
+            ax = override.get("anchor_x", ax)
+            ay = override.get("anchor_y", ay)
+            hx = override.get("hitbox_x", hx)
+            hy = override.get("hitbox_y", hy)
+            hw = override.get("hitbox_w", hw)
+            hh = override.get("hitbox_h", hh)
+            
+        # If hitbox width/height are 0 (unconfigured), default to the full image cell
+        if hw == 0 or hh == 0:
+            hw = anim_meta.computed_w
+            hh = anim_meta.computed_h
+            
+        return QPoint(ax, ay), QRect(hx, hy, hw, hh)

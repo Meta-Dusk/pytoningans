@@ -1,15 +1,18 @@
 import json, shutil, re
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit,
     QSpinBox, QPushButton, QFileDialog, QMessageBox, QWidget
 )
-from PySide6.QtCore import Qt
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QPixmap
+from PySide6.QtCore import QUrl, Qt
 
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
+from pytoningans.core.config_schema import ModConfig
+from pytoningans.core.constants import PetState, AnimationMeta
 
 class ModCreationDialog(QDialog):
     def __init__(self, mods_dir: str | Path, parent: Optional[QWidget] = None) -> None:
@@ -21,7 +24,8 @@ class ModCreationDialog(QDialog):
 
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
-        self.resize(450, 320)
+        self.resize(500, 550)
+        self.setAcceptDrops(True)
         
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -43,9 +47,11 @@ class ModCreationDialog(QDialog):
         
         self.cols_spin = QSpinBox()
         self.cols_spin.setRange(1, 100)
+        self.cols_spin.setValue(4)
         
         self.rows_spin = QSpinBox()
         self.rows_spin.setRange(1, 100)
+        self.rows_spin.setValue(len(PetState))
         
         form.addRow(self._create_info_label(
             "Internal Folder Name:", 
@@ -78,6 +84,13 @@ class ModCreationDialog(QDialog):
         img_layout.addWidget(self.img_label, stretch=1)
         layout.addLayout(img_layout)
         
+        # Image Preview Box
+        self.preview_label = QLabel("Drag and Drop PNG here\nor use the button above")
+        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview_label.setStyleSheet("border: 2px dashed #888; color: #888; border-radius: 5px;")
+        self.preview_label.setMinimumHeight(180)
+        layout.addWidget(self.preview_label)
+        
         layout.addStretch()
         
         btn_layout = QHBoxLayout()
@@ -106,13 +119,40 @@ class ModCreationDialog(QDialog):
         layout.addStretch() 
         return widget
 
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        if event.mimeData().hasUrls():
+            url: QUrl = event.mimeData().urls()[0]
+            if url.isLocalFile() and url.toLocalFile().lower().endswith(".png"):
+                event.acceptProposedAction()
+                return
+        event.ignore()
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        url: QUrl = event.mimeData().urls()[0]
+        self._set_image(Path(url.toLocalFile()))
+        event.acceptProposedAction()
+
     def _select_image(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select Sprite Sheet", "", "Images (*.png)"
         )
-        if file_path:
-            self.selected_image_path = Path(file_path)
-            self.img_label.setText(self.selected_image_path.name)
+        if file_path: self._set_image(Path(file_path))
+
+    def _set_image(self, path: Path) -> None:
+        self.selected_image_path = path
+        self.img_label.setText(path.name)
+        
+        pixmap = QPixmap(str(path))
+        if pixmap.isNull(): return
+        
+        # Scale the preview so it fits nicely inside the label bounds
+        scaled_pixmap = pixmap.scaled(
+            450, 180, 
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        )
+        self.preview_label.setPixmap(scaled_pixmap)
+        self.preview_label.setStyleSheet("border: 2px solid #555; border-radius: 5px;")
 
     def _create_mod(self) -> None:
         folder_name: str = self.folder_input.text().strip()
@@ -139,20 +179,37 @@ class ModCreationDialog(QDialog):
             target_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy(self.selected_image_path, target_dir / "sprite_sheet.png")
             
-            config_data: dict[str, Any] = {
-                "version": 3,
-                "name": display_name,
-                "columns": self.cols_spin.value(),
-                "rows": self.rows_spin.value(),
-                "behavior": {"can_fly": False},
-                "animations": {}
-            }
+            # Read user-selected grid dimensions
+            cols = self.cols_spin.value()
+            rows = self.rows_spin.value()
             
-            with open(target_dir / "config.json", "w", encoding="utf-8") as f:
-                json.dump(config_data, f, indent=4)
-                
+            self._generate_default_config(display_name, target_dir / "config.json", cols=cols, rows=rows)
             self.new_mod_folder = folder_name
             self.accept()
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to create mod: {str(e)}")
+    
+    def _generate_default_config(
+        self, display_name: str, config_path: Path,
+        *, cols: int = 4, rows: int = len(PetState)
+    ) -> None:
+        # Scale default animations to respect the chosen row/column dimensions
+        animations = {
+            state.value: AnimationMeta(
+                row=min(i, max(0, rows - 1)),
+                start_frame=0,
+                end_frame=max(0, cols - 1)
+            )
+            for i, state in enumerate(PetState)
+        }
+
+        new_config = ModConfig(
+            name=display_name,
+            columns=cols,
+            rows=rows,
+            animations=animations
+        )
+        
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(new_config.to_dict(), f, indent=4)

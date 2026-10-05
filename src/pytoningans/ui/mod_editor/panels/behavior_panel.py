@@ -1,11 +1,12 @@
-import os, subprocess
+import subprocess
+
 from typing import Any
 from pathlib import Path
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QComboBox, QCheckBox, QPushButton, QFormLayout
+    QWidget, QVBoxLayout, QComboBox, QCheckBox, QPushButton, QFormLayout, QSpacerItem
 )
-from pytoningans.core.constants import BehaviorType
+from pytoningans.core.constants import BehaviorType, AttackType, DeathAnimation
 from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.components import CollapsibleSection, create_spinbox, create_info_label
 
@@ -29,6 +30,10 @@ class BehaviorStatsPanel(QWidget):
         self.atk_range_spin = create_spinbox(0, 2000)
         self.jump_height_spin = create_spinbox(0, 100)
         
+        self.atk_type_combo = QComboBox()
+        for atk_type in AttackType:
+            self.atk_type_combo.addItem(atk_type.value.capitalize(), userData=atk_type)
+        
         self.behavior_type_combo = QComboBox()
         for b_type in BehaviorType:
             self.behavior_type_combo.addItem(b_type.value.capitalize(), userData=b_type)
@@ -38,6 +43,7 @@ class BehaviorStatsPanel(QWidget):
         form.addRow(create_info_label("Max Health:", "Total health points."), self.max_health_spin)
         form.addRow(create_info_label("Attack Damage:", "Damage dealt per hit."), self.atk_dmg_spin)
         form.addRow(create_info_label("Attack Range (px):", "Maximum distance to strike."), self.atk_range_spin)
+        form.addRow(create_info_label("Attack Type:", "How many pets can be damaged."), self.atk_type_combo)
         form.addRow(create_info_label("Jump Height:", "Initial vertical velocity."), self.jump_height_spin)
         
         self.section.content_layout.addLayout(form)
@@ -57,7 +63,8 @@ class BehaviorStatsPanel(QWidget):
             "max_health": self.max_health_spin.value(),
             "attack_damage": self.atk_dmg_spin.value(),
             "attack_range": self.atk_range_spin.value(),
-            "jump_height": self.jump_height_spin.value()
+            "jump_height": self.jump_height_spin.value(),
+            "attack_type": self.atk_type_combo.currentData(),
         }
         self.controller.update_behavior_stats(stats)
 
@@ -72,6 +79,10 @@ class BehaviorStatsPanel(QWidget):
         
         current_type = stats.get("type", BehaviorType.NEUTRAL)
         self.behavior_type_combo.setCurrentIndex(self.behavior_type_combo.findData(current_type))
+        
+        atk_type = stats.get("attack_type", AttackType.SINGLE)
+        self.atk_type_combo.setCurrentIndex(self.atk_type_combo.findData(atk_type))
+        
         self._is_updating_ui = False
 
 class BehaviorScriptPanel(QWidget):
@@ -91,9 +102,22 @@ class BehaviorScriptPanel(QWidget):
         self.edit_btn = QPushButton("Open in VS Code")
         self.delete_btn = QPushButton("Delete Script")
         
+        self.death_anim_combo = QComboBox()
+        self.death_anim_combo.addItem("Sprite Sheet (Default)", DeathAnimation.SPRITE)
+        self.death_anim_combo.addItem("Rotate Left 90°", DeathAnimation.ROTATE_LEFT)
+        self.death_anim_combo.addItem("Rotate Right 90°", DeathAnimation.ROTATE_RIGHT)
+        self.death_anim_combo.addItem("Rotate 90° or -90°", DeathAnimation.ROTATE_LEFT_OR_RIGHT)
+        
+        self.auto_close_check = QCheckBox("Fade Out and Close on Death")
+        
         form.addWidget(self.add_btn)
         form.addWidget(self.edit_btn)
         form.addWidget(self.delete_btn)
+        form.addItem(QSpacerItem(0, 16))
+        
+        form.addRow("Death Animation:", self.death_anim_combo)
+        form.addRow(self.auto_close_check)
+        
         self.section.content_layout.addLayout(form)
         layout.addWidget(self.section)
 
@@ -101,18 +125,25 @@ class BehaviorScriptPanel(QWidget):
         self.add_btn.clicked.connect(self._open_script)
         self.edit_btn.clicked.connect(self._open_script)
         self.delete_btn.clicked.connect(self._delete_script)
+        self.death_anim_combo.currentIndexChanged.connect(self._on_death_anim_changed)
+        self.auto_close_check.stateChanged.connect(self._on_auto_close_changed)
 
     def _get_script_path(self) -> Path:
         return self.controller.manager.current_mod_path / "behavior.py"
 
     def load_data(self) -> None:
-        exists = self._get_script_path().exists()
+        exists: bool = self._get_script_path().exists()
         self.add_btn.setEnabled(not exists)
         self.edit_btn.setEnabled(exists)
         self.delete_btn.setEnabled(exists)
+        
+        idx: int = self.death_anim_combo.findData(self.controller.manager.death_animation)
+        if idx >= 0: self.death_anim_combo.setCurrentIndex(idx)
+            
+        self.auto_close_check.setChecked(self.controller.manager.auto_close_on_death)
 
     def _open_script(self) -> None:
-        path = self._get_script_path()
+        path: Path = self._get_script_path()
         if not path.exists():
             boilerplate = (
                 "from api import BasePetBehavior, IPet, Pos2D\n\n"
@@ -133,7 +164,13 @@ class BehaviorScriptPanel(QWidget):
             os.startfile(path)
 
     def _delete_script(self) -> None:
-        path = self._get_script_path()
-        if path.exists():
-            path.unlink()
-            self.load_data()
+        path: Path = self._get_script_path()
+        if not path.exists(): return
+        path.unlink()
+        self.load_data()
+    
+    def _on_death_anim_changed(self) -> None:
+        self.controller.manager.death_animation = self.death_anim_combo.currentData()
+
+    def _on_auto_close_changed(self, state: int) -> None:
+        self.controller.manager.auto_close_on_death = bool(state)

@@ -1,4 +1,5 @@
-from dataclasses import replace
+import copy
+
 from typing import Optional
 
 from PySide6.QtWidgets import (
@@ -49,7 +50,7 @@ class AnimationSubsystem:
         self.grid_panel = QWidget()
         layout = QVBoxLayout(self.grid_panel)
         layout.setContentsMargins(0,0,0,0)
-        section = CollapsibleSection("Grid & Extraction Settings")
+        section = CollapsibleSection("Grid and Extraction Settings")
         form = QFormLayout()
         
         self.cols_spin = create_spinbox(1, 100)
@@ -88,8 +89,10 @@ class AnimationSubsystem:
         sec_layout = QVBoxLayout()
         
         self.borders_check = QCheckBox("Show Sprite Borders (Blue)")
+        self.range_check = QCheckBox("Show Attack Range (Red Circle)")
         
         sec_layout.addWidget(self.borders_check)
+        sec_layout.addWidget(self.range_check)
         section.content_layout.addLayout(sec_layout)
         layout.addWidget(section)
 
@@ -235,11 +238,15 @@ class AnimationSubsystem:
         self.restart_btn.clicked.connect(self._restart_preview)
         
         self.borders_check.stateChanged.connect(self._on_borders_toggled)
+        self.range_check.stateChanged.connect(self._on_range_toggled)
         self.crop_check.stateChanged.connect(self._on_crop_toggled)
         
-        for widget in (self.row_spin, self.start_spin, self.end_spin, self.width_spin, 
-                       self.height_spin, self.offset_x_spin, self.offset_y_spin, self.fps_spin):
+        for widget in (
+            self.row_spin, self.start_spin, self.end_spin, self.width_spin,
+            self.height_spin, self.offset_x_spin, self.offset_y_spin, self.fps_spin
+        ):
             widget.valueChanged.connect(self._on_meta_edited)
+            
         self.loop_check.stateChanged.connect(self._on_meta_edited)
         self.reverse_check.stateChanged.connect(self._on_meta_edited)
         self.preview_label.crop_updated.connect(self._on_crop_dragged)
@@ -315,33 +322,43 @@ class AnimationSubsystem:
         self._preview_timer.setInterval(1000 // max(1, self.fps_spin.value()))
 
     def _on_copy(self) -> None:
-        state = self.state_combo.currentData()
-        if state:
-            self._copied_meta = replace(self.controller.get_meta(state))
-            self.paste_btn.setEnabled(True)
+        state: Optional[PetState] = self.state_combo.currentData()
+        if state is None: return
+        
+        self._copied_meta = copy.deepcopy(self.controller.get_meta(state))
+        self.paste_btn.setEnabled(True)
 
     def _on_paste(self) -> None:
-        state = self.state_combo.currentData()
-        if state and self._copied_meta:
-            self.controller.update_meta(state, replace(self._copied_meta))
-            self._refresh_state_dropdown()
-            self._on_state_changed()
-            self._restart_preview()
+        state: Optional[PetState] = self.state_combo.currentData()
+        if state is None or self._copied_meta is None: return
+        
+        self.controller.update_meta(state, copy.deepcopy(self._copied_meta))
+        self._refresh_state_dropdown()
+        self._on_state_changed()
+        self._restart_preview()
 
     def _on_swap(self) -> None:
         state_a, state_b = self.state_combo.currentData(), self.swap_combo.currentData()
-        if state_a and state_b and state_a != state_b:
-            meta_a, meta_b = self.controller.get_meta(state_a), self.controller.get_meta(state_b)
-            self.controller.update_meta(state_a, meta_b)
-            self.controller.update_meta(state_b, meta_a)
-            self._refresh_state_dropdown()
-            self._on_state_changed()
-            self._restart_preview()
+        if state_a or state_b or state_a == state_b: return
+            
+        meta_a: AnimationMeta = copy.deepcopy(self.controller.get_meta(state_a))
+        meta_b: AnimationMeta = copy.deepcopy(self.controller.get_meta(state_b))
+        self.controller.update_meta(state_a, meta_b)
+        self.controller.update_meta(state_b, meta_a)
+        self._refresh_state_dropdown()
+        self._on_state_changed()
+        self._restart_preview()
 
     def _update_preview(self) -> None:
-        state = self.state_combo.currentData()
-        if not state: return
+        state: Optional[PetState] = self.state_combo.currentData()
+        if state is None: return
         self._preview_frame += 1
+        
+        # Fetch the exact anchor for the current frame
+        anchor, hitbox = self.controller.manager.get_frame_physics(state, self._preview_frame)
+        self.preview_label.current_anchor = anchor
+        self.preview_label.current_hitbox = hitbox
+        self.preview_label.attack_range = self.controller.manager.attack_range
         
         if self.preview_label.show_crop:
             frame, crop_rect = self.controller.get_raw_preview(state, self._preview_frame)
@@ -381,7 +398,7 @@ class AnimationSubsystem:
     def _on_bake_clicked(self) -> None:
         self.bake_btn.setEnabled(False)
         
-        reply = QMessageBox.question(
+        reply: QMessageBox.StandardButton = QMessageBox.question(
             self.state_panel, "Bake Sprite Sheet",
             "This will permanently crop the physical sprite_sheet.png "
             "file and reset your offsets to 0.\n\nAre you sure?",
@@ -408,10 +425,10 @@ class AnimationSubsystem:
         self.bake_btn.setEnabled(True)
     
     def _on_apply_all_clicked(self) -> None:
-        state = self.state_combo.currentData()
-        if not state: return
+        state: Optional[PetState] = self.state_combo.currentData()
+        if state is None: return
         
-        reply = QMessageBox.question(
+        reply: QMessageBox.StandardButton = QMessageBox.question(
             self.state_panel, "Apply Crop to All",
             "This will overwrite the Width, Height, Offset X, and Offset Y of "
             "EVERY state with the current state's values.\n\nContinue?",
@@ -425,3 +442,7 @@ class AnimationSubsystem:
                 "Success", 
                 "Crop settings successfully applied to all animation states!"
             )
+    
+    def _on_range_toggled(self, checked: bool) -> None:
+        self.preview_label.show_attack_range = checked
+        self.preview_label.update()

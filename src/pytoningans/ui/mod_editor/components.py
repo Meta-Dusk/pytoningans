@@ -12,7 +12,7 @@ def create_info_label(text: str, tooltip_text: str) -> QWidget:
     layout.setContentsMargins(0, 0, 0, 0)
     layout.addWidget(QLabel(text))
     layout.addWidget(ToolTipLabel(text="[?]", tooltip_text=tooltip_text))
-    layout.addStretch() 
+    layout.addStretch()
     return widget
 
 def create_info_widget(widget: QWidget, tooltip_text: str) -> QWidget:
@@ -21,7 +21,7 @@ def create_info_widget(widget: QWidget, tooltip_text: str) -> QWidget:
     layout.setContentsMargins(0, 0, 0, 0)
     layout.addWidget(widget)
     layout.addWidget(ToolTipLabel(text="[?]", tooltip_text=tooltip_text))
-    layout.addStretch() 
+    layout.addStretch()
     return combined_widget
 
 def create_spinbox(min_val: int, max_val: int) -> QSpinBox:
@@ -46,6 +46,12 @@ class PreviewLabel(QLabel):
         self._drag_edge: str = ""
         self._drag_start_pos: QPoint = QPoint()
         self._original_rect: QRect = QRect()
+        
+        # Attack Range Debug
+        self.show_attack_range: bool = False
+        self.current_anchor: QPoint = QPoint(0, 0)
+        self.attack_range: int = 0
+        self.current_hitbox: QRect = QRect()
 
     def paintEvent(self, event: QPaintEvent) -> None:
         super().paintEvent(event)
@@ -95,6 +101,23 @@ class PreviewLabel(QLabel):
                 offset_x + self.crop_rect.x() + cw, offset_y + self.crop_rect.y(),
                 px_w - self.crop_rect.x() - cw, ch
             )
+        
+        if self.show_attack_range and self.attack_range > 0 and self.pixmap():
+            # Calculate the offset to center the drawing over the pixmap
+            pixmap_rect: QRect = self.pixmap().rect()
+            pixmap_rect.moveCenter(self.rect().center())
+            
+            # Map the center of the hitbox to the UI scale
+            hx: int = pixmap_rect.x() + self.current_hitbox.center().x()
+            hy: int = pixmap_rect.y() + self.current_hitbox.center().y()
+            
+            # Draw a semi-transparent dashed red circle
+            pen = QPen(QColor(255, 50, 50, 180), 2, Qt.PenStyle.DashLine)
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawEllipse(QPoint(hx, hy), self.attack_range, self.attack_range)
+            
+        painter.end()
 
     # --- Interactive Mouse Controls ---
     def _get_pixmap_offset(self) -> tuple[int, int]:
