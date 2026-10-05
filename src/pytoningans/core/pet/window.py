@@ -4,7 +4,9 @@ import random
 from typing import Optional, TYPE_CHECKING, cast
 
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMenu, QGraphicsColorizeEffect
-from PySide6.QtCore import Qt, QPoint, QRect, QPropertyAnimation
+from PySide6.QtCore import (
+    Qt, QPoint, QRect, QPropertyAnimation, QVariantAnimation, QEasingCurve
+)
 from PySide6.QtGui import QCloseEvent, QMouseEvent, QContextMenuEvent, QColor, QMoveEvent
 
 from pytoningans.core.constants import WINDOW_CFG, AnimationMeta, DeathAnimation, PetState, SystemLocks
@@ -59,6 +61,7 @@ class PetWindow(QWidget):
         self.locks: SystemLocks = SystemLocks()
         self.revive_time_left: int = 0
         self._fade_anim: Optional[QPropertyAnimation] = None
+        self._rot_anim: Optional[QVariantAnimation] = None
         
         self._init_systems()
 
@@ -172,13 +175,29 @@ class PetWindow(QWidget):
         self._target_pos = None
         
         death_type: DeathAnimation = self.mod_manager.death_animation
+        target_rot = 0.0
+        
         match death_type:
             case DeathAnimation.ROTATE_LEFT:
-                self.rotation = 270.0
+                target_rot = -90.0
             case DeathAnimation.ROTATE_RIGHT:
-                self.rotation = 90.0
+                target_rot = 90.0
             case DeathAnimation.ROTATE_LEFT_OR_RIGHT:
-                self.rotation = 270.0 if random.random() > 0.5 else 90.0
+                target_rot = -90.0 if random.random() > 0.5 else 90.0
+                
+        if target_rot != 0.0:
+            self._rot_anim = QVariantAnimation(self)
+            self._rot_anim.setDuration(600)
+            self._rot_anim.setStartValue(self.rotation)
+            self._rot_anim.setEndValue(target_rot)
+            self._rot_anim.setEasingCurve(QEasingCurve.Type.OutBounce)
+            
+            def _on_rot_change(val: float):
+                self.rotation = val
+                if self.anim_sys: self.anim_sys._update_frame() # Instant redraw
+                
+            self._rot_anim.valueChanged.connect(_on_rot_change)
+            self._rot_anim.start()
         
         # --- MODDERS API HOOK ---
         self._on_die()
@@ -204,6 +223,10 @@ class PetWindow(QWidget):
         if self._fade_anim is not None:
             self._fade_anim.stop()
             self._fade_anim = None
+        
+        if self._rot_anim is not None:
+            self._rot_anim.stop()
+            self._rot_anim = None
         
         self.setWindowOpacity(1.0)
         self.rotation = 0.0
@@ -283,19 +306,26 @@ class PetWindow(QWidget):
         else:
             menu.addAction("Revive Pet", self.revive)
         
-        if self.is_dead and self._fade_anim is not None:
-            self._fade_anim.pause()
+        if self.is_dead:
+            if (self._fade_anim is not None and
+                self._fade_anim.state() == QPropertyAnimation.State.Running):
+                self._fade_anim.pause()
+            if (self._rot_anim is not None and
+                self._rot_anim.state() == QPropertyAnimation.State.Running):
+                self._rot_anim.pause()
             
         menu.exec(event.globalPos())
         
         # Unfreeze after the user clicks away or selects an option
         self.is_paused = False
-        if (
-            self.is_dead and
-            self._fade_anim is not None and
-            self._fade_anim.state() == QPropertyAnimation.State.Paused
-        ):
+        if not self.is_dead: return
+        if (self._fade_anim is not None and
+            self._fade_anim.state() == QPropertyAnimation.State.Paused):
             self._fade_anim.resume()
+            
+        if (self._rot_anim is not None and
+            self._rot_anim.state() == QVariantAnimation.State.Paused):
+            self._rot_anim.resume()
     
     # --- Other Events ---
     def close_pet(self) -> None:

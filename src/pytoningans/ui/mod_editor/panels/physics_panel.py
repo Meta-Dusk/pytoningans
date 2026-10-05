@@ -143,18 +143,13 @@ class PhysicsCanvas(QWidget):
 
         if self._dragging_anchor:
             self.anchor = QPoint(new_x, new_y)
-            self.physics_changed.emit(self.anchor, self.hitbox)
-            self.update()
-        
         elif self._dragging_attack:
             self.atk_hitbox.moveTo(new_x - self._drag_offset.x(), new_y - self._drag_offset.y())
-            self.physics_changed.emit(self.anchor, self.hitbox, self.atk_hitbox)
-            self.update()
-            
         elif self._dragging_hitbox:
             self.hitbox.moveTo(new_x - self._drag_offset.x(), new_y - self._drag_offset.y())
-            self.physics_changed.emit(self.anchor, self.hitbox)
-            self.update()
+            
+        self.physics_changed.emit(self.anchor, self.hitbox, self.atk_hitbox)
+        self.update()
 
     def mouseReleaseEvent(self, _: QMouseEvent) -> None:
         self._dragging_anchor = False
