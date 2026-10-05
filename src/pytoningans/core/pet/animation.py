@@ -23,6 +23,7 @@ class AnimationSystem(QObject):
         cls._shared_transform_cache.clear()
         
     def __init__(self, pet: Optional[PetWindow] = None) -> None:
+        super().__init__(pet)
         self.pet: Optional[PetWindow] = pet
         self.current_frame: int = 0
         self.time_since_last_frame: int = 0
@@ -92,9 +93,14 @@ class AnimationSystem(QObject):
         atk_rect: QRect = QRect(0, 0, 0, 0)
         is_attack: bool = False
         if frame_key in meta.frame_overrides:
-            ov: dict[str, Any] = meta.frame_overrides[frame_key]
-            is_attack = ov.get("is_attack_frame", False)
-            atk_rect = QRect(ov.get("atk_x", 0), ov.get("atk_y", 0), ov.get("atk_w", 0), ov.get("atk_h", 0))
+            overrides: dict[str, Any] = meta.frame_overrides[frame_key]
+            is_attack = overrides.get("is_attack_frame", False)
+            atk_rect = QRect(
+                overrides.get("attack_x", 0),
+                overrides.get("attack_y", 0),
+                overrides.get("attack_w", 0),
+                overrides.get("attack_h", 0)
+            )
         
         if self.pet.facing_left:
             ax: int = frame.width() - ax

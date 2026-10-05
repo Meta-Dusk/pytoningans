@@ -12,7 +12,7 @@ def create_info_label(text: str, tooltip_text: str) -> QWidget:
     layout.setContentsMargins(0, 0, 0, 0)
     layout.addWidget(QLabel(text))
     layout.addWidget(ToolTipLabel(text="[?]", tooltip_text=tooltip_text))
-    layout.addStretch() 
+    layout.addStretch()
     return widget
 
 def create_info_widget(widget: QWidget, tooltip_text: str) -> QWidget:
@@ -21,7 +21,7 @@ def create_info_widget(widget: QWidget, tooltip_text: str) -> QWidget:
     layout.setContentsMargins(0, 0, 0, 0)
     layout.addWidget(widget)
     layout.addWidget(ToolTipLabel(text="[?]", tooltip_text=tooltip_text))
-    layout.addStretch() 
+    layout.addStretch()
     return combined_widget
 
 def create_spinbox(min_val: int, max_val: int) -> QSpinBox:

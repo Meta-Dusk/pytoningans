@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QPushButton, QMessageBox, QCheckBox, QSpacerItem
 )
 from PySide6.QtGui import (
-    QPaintEvent, QPainter, QColor, QMouseEvent, QPixmap, QGuiApplication, QPen
+    QPaintEvent, QPainter, QColor, QMouseEvent, QPixmap, QPen
 )
 from PySide6.QtCore import Qt, QPoint, QRect, Signal
 
@@ -28,7 +28,7 @@ class PhysicsCanvas(QWidget):
         self.frame_pixmap: QPixmap = QPixmap()
         self.anchor: QPoint = QPoint(0, 0)
         self.hitbox: QRect = QRect(0, 0, 0, 0)
-        self.attack_hitbox: QRect = QRect(0, 0, 0, 0)
+        self.atk_hitbox: QRect = QRect(0, 0, 0, 0)
         
         self._dragging_anchor: bool = False
         self._dragging_hitbox: bool = False
@@ -40,12 +40,12 @@ class PhysicsCanvas(QWidget):
 
     def update_data(
         self, pixmap: QPixmap, anchor: QPoint,
-        hitbox: QRect, attack_hitbox: QRect
+        hitbox: QRect, atk_hitbox: QRect
     ) -> None:
         self.frame_pixmap = pixmap
         self.anchor = anchor
         self.hitbox = hitbox
-        self.attack_hitbox = attack_hitbox
+        self.atk_hitbox = atk_hitbox
         self.setMinimumSize(
             max(300, self.frame_pixmap.width() * self.zoom),
             max(300, self.frame_pixmap.height() * self.zoom)
@@ -54,16 +54,18 @@ class PhysicsCanvas(QWidget):
     
     def paintEvent(self, _: QPaintEvent) -> None:
         painter = QPainter(self)
-        color_scheme: Qt.ColorScheme = QGuiApplication.styleHints().colorScheme()
-        bg_color: QColor = (
-            QColor("#2b2b2b")
-            if color_scheme == Qt.ColorScheme.Dark else
-            QColor("#ebebeb")
-        )
-        painter.fillRect(self.rect(), bg_color)
+        
+        # Fill Background
+        painter.fillRect(self.rect(), self.palette().base().color())
+        
+        # Draw border around the canvas bounds
+        painter.setPen(self.palette().shadow().color())
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        # Subtract 1 from width/height so the border renders entirely inside the widget
+        painter.drawRect(0, 0, self.width() - 1, self.height() - 1)
         
         if self.frame_pixmap.isNull():
-            painter.setPen(Qt.GlobalColor.white)
+            painter.setPen(self.palette().text().color())
             painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "No Frame Loaded")
             return
 
@@ -82,10 +84,10 @@ class PhysicsCanvas(QWidget):
         painter.drawRect(scaled_hitbox)
         
         # Draw Attack Hitbox (Orange)
-        if not self.attack_hitbox.isNull() and self.attack_hitbox.width() > 0:
+        if not self.atk_hitbox.isNull() and self.atk_hitbox.width() > 0:
             scaled_attack = QRect(
-                self.attack_hitbox.x() * self.zoom, self.attack_hitbox.y() * self.zoom,
-                self.attack_hitbox.width() * self.zoom, self.attack_hitbox.height() * self.zoom
+                self.atk_hitbox.x() * self.zoom, self.atk_hitbox.y() * self.zoom,
+                self.atk_hitbox.width() * self.zoom, self.atk_hitbox.height() * self.zoom
             )
             painter.setPen(QColor("#ffa500"))
             painter.setBrush(QColor(255, 165, 0, 80))
@@ -124,9 +126,9 @@ class PhysicsCanvas(QWidget):
             self._dragging_anchor = True
             
         # Prioritize dragging attack box if overlapping
-        elif self.attack_hitbox.contains(click_pos):
+        elif self.atk_hitbox.contains(click_pos):
             self._dragging_attack = True
-            self._drag_offset = click_pos - self.attack_hitbox.topLeft()
+            self._drag_offset = click_pos - self.atk_hitbox.topLeft()
             
         # Check if clicking inside the hitbox
         elif self.hitbox.contains(click_pos):
@@ -145,8 +147,8 @@ class PhysicsCanvas(QWidget):
             self.update()
         
         elif self._dragging_attack:
-            self.attack_hitbox.moveTo(new_x - self._drag_offset.x(), new_y - self._drag_offset.y())
-            self.physics_changed.emit(self.anchor, self.hitbox, self.attack_hitbox)
+            self.atk_hitbox.moveTo(new_x - self._drag_offset.x(), new_y - self._drag_offset.y())
+            self.physics_changed.emit(self.anchor, self.hitbox, self.atk_hitbox)
             self.update()
             
         elif self._dragging_hitbox:
@@ -307,7 +309,7 @@ class PhysicsPanel(QWidget):
         is_attack: bool = False
         
         # Default attack values
-        attack_hitbox: QRect = QRect(0, 0, 0, 0)
+        atk_hitbox: QRect = QRect(0, 0, 0, 0)
         
         # Bound the frame spinbox based on the animation meta
         meta: Optional[AnimationMeta] = self.controller.manager.animations.get(state)
@@ -322,9 +324,9 @@ class PhysicsPanel(QWidget):
             
             frame_key: str = str(mapped_index)
             if frame_key in meta.frame_overrides:
-                overrides = meta.frame_overrides[frame_key]
+                overrides: dict[str, Any] = meta.frame_overrides[frame_key]
                 is_attack = overrides.get("is_attack_frame", False)
-                attack_hitbox = QRect(
+                atk_hitbox = QRect(
                     overrides.get("attack_x", 0),
                     overrides.get("attack_y", 0),
                     overrides.get("attack_w", 0),
@@ -346,21 +348,21 @@ class PhysicsPanel(QWidget):
         self.hw_spin.setValue(hitbox.width())
         self.hh_spin.setValue(hitbox.height())
         
-        self.atkx_spin.setValue(attack_hitbox.x())
-        self.atky_spin.setValue(attack_hitbox.y())
-        self.atkw_spin.setValue(attack_hitbox.width())
-        self.atkh_spin.setValue(attack_hitbox.height())
+        self.atkx_spin.setValue(atk_hitbox.x())
+        self.atky_spin.setValue(atk_hitbox.y())
+        self.atkw_spin.setValue(atk_hitbox.width())
+        self.atkh_spin.setValue(atk_hitbox.height())
         
         self.attack_frame_check.blockSignals(True)
         self.attack_frame_check.setChecked(is_attack)
         self.attack_frame_check.blockSignals(False)
         self.canvas.attack_range = self.controller.manager.attack_range
         
-        self.canvas.update_data(pixmap, anchor, hitbox, attack_hitbox)
+        self.canvas.update_data(pixmap, anchor, hitbox, atk_hitbox)
         self._is_loading = False
 
     def _on_canvas_dragged(
-        self, anchor: QPoint, hitbox: QRect, attack_hitbox: QRect
+        self, anchor: QPoint, hitbox: QRect, atk_hitbox: QRect
     ) -> None:
         self._is_loading = True
         self.ax_spin.setValue(anchor.x())
@@ -369,8 +371,8 @@ class PhysicsPanel(QWidget):
         self.hx_spin.setValue(hitbox.x())
         self.hy_spin.setValue(hitbox.y())
         
-        self.atkx_spin.setValue(attack_hitbox.x())
-        self.atky_spin.setValue(attack_hitbox.y())
+        self.atkx_spin.setValue(atk_hitbox.x())
+        self.atky_spin.setValue(atk_hitbox.y())
         self._is_loading = False
         
         self._save_to_override()
@@ -383,11 +385,11 @@ class PhysicsPanel(QWidget):
             self.hx_spin.value(), self.hy_spin.value(),
             self.hw_spin.value(), self.hh_spin.value()
         )
-        attack_hitbox = QRect(
+        atk_hitbox = QRect(
             self.atkx_spin.value(), self.atky_spin.value(),
             self.atkw_spin.value(), self.atkh_spin.value()
         )
-        self.canvas.update_data(self.canvas.frame_pixmap, anchor, hitbox, attack_hitbox)
+        self.canvas.update_data(self.canvas.frame_pixmap, anchor, hitbox, atk_hitbox)
         self._save_to_override()
 
     def _save_to_override(self) -> None:
@@ -397,14 +399,18 @@ class PhysicsPanel(QWidget):
         if meta is None: return
         
         # Calculate the exact frame mapping exactly like the engine does
-        tick_index = self.frame_spin.value()
-        total_play_frames = max(1, (meta.end_frame - meta.start_frame) + 1)
+        tick_index: int = self.frame_spin.value()
+        total_play_frames: int = max(1, (meta.end_frame - meta.start_frame) + 1)
         
-        mapped_index = tick_index % total_play_frames if meta.loop else min(tick_index, total_play_frames - 1)
+        mapped_index: int = (
+            tick_index % total_play_frames
+            if meta.loop else
+            min(tick_index, total_play_frames - 1)
+        )
         if meta.reverse:
             mapped_index = (total_play_frames - 1) - mapped_index
             
-        frame_key = str(mapped_index)
+        frame_key: str = str(mapped_index)
 
         # Save the physics data to the correctly mapped key
         meta.frame_overrides[frame_key] = {
@@ -446,10 +452,10 @@ class PhysicsPanel(QWidget):
             "hw": self.hw_spin.value(),
             "hh": self.hh_spin.value(),
             "atk_frame": self.attack_frame_check.isChecked(),
-            "attack_x": self.atkx_spin.value(),
-            "attack_y": self.atky_spin.value(),
-            "attack_w": self.atkw_spin.value(),
-            "attack_h": self.atkh_spin.value()
+            "atk_x": self.atkx_spin.value(),
+            "atk_y": self.atky_spin.value(),
+            "atk_w": self.atkw_spin.value(),
+            "atk_h": self.atkh_spin.value()
         }
         self.paste_btn.setEnabled(True)
 
@@ -466,10 +472,10 @@ class PhysicsPanel(QWidget):
         self.hw_spin.setValue(self._copied_physics["hw"])
         self.hh_spin.setValue(self._copied_physics["hh"])
         self.attack_frame_check.setChecked(self._copied_physics["atk_frame"])
-        self.atkx_spin.setValue(self._copied_physics["attack_x"])
-        self.atkx_spin.setValue(self._copied_physics["attack_y"])
-        self.atkw_spin.setValue(self._copied_physics["attack_w"])
-        self.atkh_spin.setValue(self._copied_physics["attack_h"])
+        self.atkx_spin.setValue(self._copied_physics["atk_x"])
+        self.atky_spin.setValue(self._copied_physics["atk_y"])
+        self.atkw_spin.setValue(self._copied_physics["atk_w"])
+        self.atkh_spin.setValue(self._copied_physics["atk_h"])
     
     def _on_magic_propagate(self) -> None:
         state: PetState = self.state_combo.currentData()
