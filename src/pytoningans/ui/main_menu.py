@@ -1,6 +1,6 @@
 import random
 
-from typing import List, Optional
+from typing import Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QApplication, QLabel, QComboBox, QFrame,
@@ -54,8 +54,7 @@ class MainMenu(QWidget):
         # Group the amount spinbox and spawn button horizontally
         spawn_action_layout = QHBoxLayout()
         self.amount_spin = QSpinBox()
-        self.amount_spin.setRange(1, 100)
-        self.amount_spin.setValue(1)
+        self.amount_spin.setRange(1, 100); self.amount_spin.setValue(1)
         self.amount_spin.setToolTip("Number of pets to spawn at once")
         
         self.spawn_btn: QPushButton = QPushButton("Spawn Pet")
@@ -80,26 +79,28 @@ class MainMenu(QWidget):
         content_layout.addLayout(stats_layout)
         
         # --- Visual Separator ---
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
+        separator = QFrame(); separator.setFrameShape(QFrame.Shape.HLine)
         separator.setObjectName("MenuSeparator")
         content_layout.addWidget(separator)
         
         # --- Utilities Section ---
-        utils_label = QLabel("Utilities:")
-        utils_label.setObjectName("SectionHeader")
+        utils_label = QLabel("Utilities:"); utils_label.setObjectName("SectionHeader")
         
-        self.close_all_btn: QPushButton = QPushButton("Close All Pets")
+        self.close_all_btn = QPushButton("Close All Pets")
         self.close_all_btn.clicked.connect(self._on_close_all_clicked)
         
-        self.manage_btn: QPushButton = QPushButton("Manage Mods")
+        self.close_all_dead_btn = QPushButton("Close All Dead Pets")
+        self.close_all_dead_btn.clicked.connect(self._on_close_all_dead_clicked)
+        
+        self.manage_btn = QPushButton("Manage Mods")
         self.manage_btn.clicked.connect(self._open_hub)
 
-        self.theme_btn: QPushButton = QPushButton("Switch to Light Mode")
+        self.theme_btn = QPushButton("Switch to Light Mode")
         self.theme_btn.clicked.connect(self._toggle_theme)
         
         content_layout.addWidget(utils_label)
         content_layout.addWidget(self.close_all_btn)
+        content_layout.addWidget(self.close_all_dead_btn)
         content_layout.addWidget(self.manage_btn)
         content_layout.addWidget(self.theme_btn)
         content_layout.addStretch()
@@ -141,6 +142,11 @@ class MainMenu(QWidget):
         # We iterate over a list copy `list(self.manager.active_pets)` because 
         # _close_pet() removes the pet from the original list during iteration
         for pet in list(self.manager.active_pets):
+            pet.close_pet()
+    
+    def _on_close_all_dead_clicked(self) -> None:
+        for pet in list(self.manager.active_pets):
+            if not pet.is_dead: continue
             pet.close_pet()
 
     def _toggle_theme(self) -> None:
