@@ -7,7 +7,9 @@ from typing import List, Optional, Tuple, Any
 from PySide6.QtGui import QPixmap, QPainter
 from PySide6.QtCore import QRect, Qt, QPoint
 
-from pytoningans.core.constants import PetState, AnimationMeta, BehaviorType
+from pytoningans.core.constants import (
+    PetState, AnimationMeta, BehaviorType, AttackType
+)
 from pytoningans.core.api import BasePetBehavior
 from pytoningans.core.config_schema import (
     ModConfig, BehaviorConfig, DialogueConfig, CURRENT_CONFIG_VERSION
@@ -42,6 +44,8 @@ class ModManager:
         self.attack_range: int = 50
         self.jump_height: int = 150
         self.behavior_type: BehaviorType = BehaviorType.NEUTRAL
+        self.attack_type: AttackType = AttackType.SINGLE
+        self.max_targets: int = 1
         
         self.animations: dict[PetState, AnimationMeta] = {}
         self._global_sheet: Optional[QPixmap] = None
@@ -116,11 +120,19 @@ class ModManager:
         self.attack_range = behavior_data.get("attack_range", 50)
         self.jump_height = behavior_data.get("jump_height", 15)
         
-        raw_type = behavior_data.get("type", "neutral")
+        raw_behavior_type = behavior_data.get("type", "neutral")
         try:
-            self.behavior_type = BehaviorType(raw_type)
+            self.behavior_type = BehaviorType(raw_behavior_type)
         except ValueError:
             self.behavior_type = BehaviorType.NEUTRAL
+        
+        raw_attack_type = behavior_data.get("attack_type", "single")
+        try:
+            self.attack_type = AttackType(raw_attack_type)
+        except ValueError:
+            self.attack_type = AttackType.SINGLE
+        
+        self.max_targets = behavior_data.get("max_targets", 1)
         
         self.animations.clear()
         anim_data = data.get("animations", {})
@@ -188,7 +200,9 @@ class ModManager:
                 max_health=self.max_health,
                 attack_damage=self.attack_damage,
                 attack_range=self.attack_range,
-                jump_height=self.jump_height
+                jump_height=self.jump_height,
+                attack_type=self.attack_type,
+                max_targets=self.max_targets
             ),
             animations={state.value: meta for state, meta in self.animations.items()},
             dialogue=DialogueConfig(

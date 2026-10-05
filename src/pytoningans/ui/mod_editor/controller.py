@@ -1,4 +1,5 @@
 import shutil
+from pathlib import Path
 
 from typing import Tuple, Any, Optional
 from PySide6.QtCore import QRect
@@ -42,25 +43,18 @@ class ModEditorController:
         return self.manager.get_frame(state, frame_index)
         
     def has_mapped_row(self, state: PetState) -> Tuple[bool, int]:
-        meta = self.manager.animations.get(state)
+        meta: Optional[AnimationMeta] = self.manager.animations.get(state)
         return (True, meta.row) if meta else (False, 0)
     
     def get_sheet_info(self) -> Tuple[int, int, int, int]:
         """Returns (sheet_width, sheet_height, base_tile_width, base_tile_height)."""
-        sheet = self.manager._global_sheet
-        if not sheet:
-            return 0, 0, 0, 0
+        sheet: Optional[QPixmap] = self.manager._global_sheet
+        if sheet is None: return 0, 0, 0, 0
             
         sw, sh = sheet.width(), sheet.height()
-        cols = max(1, self.manager.global_columns)
-        rows = max(1, self.manager.global_rows)
+        cols: int = max(1, self.manager.global_columns)
+        rows: int = max(1, self.manager.global_rows)
         return sw, sh, sw // cols, sh // rows
-    
-    def get_behavior(self) -> bool:
-        return self.manager.can_fly
-
-    def update_behavior(self, can_fly: bool) -> None:
-        self.manager.can_fly = can_fly
     
     def get_behavior_stats(self) -> dict[str, Any]:
         return {
@@ -69,7 +63,8 @@ class ModEditorController:
             "max_health": self.manager.max_health,
             "attack_damage": self.manager.attack_damage,
             "attack_range": self.manager.attack_range,
-            "jump_height": self.manager.jump_height
+            "jump_height": self.manager.jump_height,
+            "attack_type": self.manager.attack_type,
         }
 
     def update_behavior_stats(self, stats: dict[str, Any]) -> None:
@@ -79,6 +74,7 @@ class ModEditorController:
         self.manager.attack_damage = stats.get("attack_damage", self.manager.attack_damage)
         self.manager.attack_range = stats.get("attack_range", self.manager.attack_range)
         self.manager.jump_height = stats.get("jump_height", self.manager.jump_height)
+        self.manager.attack_type = stats.get("attack_type", self.manager.attack_type)
     
     def get_raw_preview(self, state: PetState, frame_index: int) -> Tuple[Optional[QPixmap], QRect]:
         """Returns the uncropped base tile and the QRect representing the custom crop area."""
@@ -102,8 +98,8 @@ class ModEditorController:
         base_w: int = sheet.width() // cols
         base_h: int = sheet.height() // rows
         
-        raw_rect = QRect(actual_sheet_index * base_w, meta.row * base_h, base_w, base_h)
-        raw_tile = sheet.copy(raw_rect)
+        raw_rect: QRect = QRect(actual_sheet_index * base_w, meta.row * base_h, base_w, base_h)
+        raw_tile: QPixmap = sheet.copy(raw_rect)
         
         # Calculate the target crop area boundaries
         final_w: int = meta.override_width if meta.override_width > 0 else base_w
@@ -117,9 +113,9 @@ class ModEditorController:
         display_h: int = max(base_h, final_h * 2)
         
         raw_rect = QRect(origin_x, origin_y, display_w, display_h)
-        raw_tile: QPixmap = sheet.copy(raw_rect)
+        raw_tile = sheet.copy(raw_rect)
         
-        crop_rect = QRect(meta.offset_x, meta.offset_y, final_w, final_h)
+        crop_rect: QRect = QRect(meta.offset_x, meta.offset_y, final_w, final_h)
         
         return raw_tile, crop_rect
     
@@ -129,7 +125,7 @@ class ModEditorController:
     def apply_crop_to_all(self, source_state: PetState) -> None:
         """Copies the crop offsets and dimensions of the source state to all other states."""
         source_meta: Optional[AnimationMeta] = self.manager.animations.get(source_state)
-        if not source_meta: return
+        if source_meta is None: return
         
         for state, meta in self.manager.animations.items():
             if state != source_state:
@@ -151,6 +147,6 @@ class ModEditorController:
         return self.manager.config_version
     
     def replace_sprite_sheet(self, mod_folder: str, new_image_path: str) -> None:
-        target_path = self.manager.mods_dir / mod_folder / "sprite_sheet.png"
+        target_path: Path = self.manager.mods_dir / mod_folder / "sprite_sheet.png"
         shutil.copy(new_image_path, target_path)
         self.manager.clear_shared_cache()

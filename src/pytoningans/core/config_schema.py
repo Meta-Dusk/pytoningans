@@ -1,9 +1,9 @@
 from dataclasses import dataclass, field, asdict
 from typing import Any
 
-from pytoningans.core.constants import PetState, BehaviorType, AnimationMeta
+from pytoningans.core.constants import PetState, BehaviorType, AnimationMeta, AttackType
 
-CURRENT_CONFIG_VERSION = 7
+CURRENT_CONFIG_VERSION = 8
 
 @dataclass
 class BehaviorConfig:
@@ -13,6 +13,10 @@ class BehaviorConfig:
     attack_damage: int = 10
     attack_range: int = 50
     jump_height: int = 15
+    attack_type: str = AttackType.SINGLE.value
+    
+    max_targets: int = 1
+    """Used if `attack_type` is \"multi\""""
 
 @dataclass
 class DialogueConfig:

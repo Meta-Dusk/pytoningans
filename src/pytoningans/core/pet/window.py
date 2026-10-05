@@ -47,6 +47,7 @@ class PetWindow(QWidget):
         self._drag_offset: Optional[QPoint] = None
         
         self.current_hitbox: QRect = QRect()
+        self.current_attack_hitbox: QRect = QRect()
 
         # --- Initialization ---
         self._setup_ui(start_x, start_y)
@@ -81,6 +82,7 @@ class PetWindow(QWidget):
         self.anim_sys = AnimationSystem(self)
         self.physics_sys = PhysicsSystem(self)
         self.ai_sys = AISystem(self)
+        self.anim_sys.attack_frame_hit.connect(self.ai_sys.process_combat)
     
     def _setup_ui(self, x: int, y: int) -> None:
         flags: Qt.WindowType = (
@@ -133,7 +135,7 @@ class PetWindow(QWidget):
             if self.physics_sys: self.physics_sys.update(dt, centers)
             return
             
-        if self.locks.ai and self.ai_sys: self.ai_sys.update(dt, centers)
+        if self.locks.ai and self.ai_sys: self.ai_sys.update(dt)
         if self.locks.physics and self.physics_sys: self.physics_sys.update(dt, centers)
         if self.locks.animation and self.anim_sys: self.anim_sys.update(dt)
     

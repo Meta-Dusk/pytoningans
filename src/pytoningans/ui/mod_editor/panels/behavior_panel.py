@@ -1,11 +1,11 @@
-import os, subprocess
+import subprocess
 from typing import Any
 from pathlib import Path
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QComboBox, QCheckBox, QPushButton, QFormLayout
 )
-from pytoningans.core.constants import BehaviorType
+from pytoningans.core.constants import BehaviorType, AttackType
 from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.components import CollapsibleSection, create_spinbox, create_info_label
 
@@ -29,6 +29,10 @@ class BehaviorStatsPanel(QWidget):
         self.atk_range_spin = create_spinbox(0, 2000)
         self.jump_height_spin = create_spinbox(0, 100)
         
+        self.atk_type_combo = QComboBox()
+        for atk_type in AttackType:
+            self.atk_type_combo.addItem(atk_type.value.capitalize(), userData=atk_type)
+        
         self.behavior_type_combo = QComboBox()
         for b_type in BehaviorType:
             self.behavior_type_combo.addItem(b_type.value.capitalize(), userData=b_type)
@@ -38,6 +42,7 @@ class BehaviorStatsPanel(QWidget):
         form.addRow(create_info_label("Max Health:", "Total health points."), self.max_health_spin)
         form.addRow(create_info_label("Attack Damage:", "Damage dealt per hit."), self.atk_dmg_spin)
         form.addRow(create_info_label("Attack Range (px):", "Maximum distance to strike."), self.atk_range_spin)
+        form.addRow(create_info_label("Attack Type:", "How many pets can be damaged."), self.atk_type_combo)
         form.addRow(create_info_label("Jump Height:", "Initial vertical velocity."), self.jump_height_spin)
         
         self.section.content_layout.addLayout(form)
@@ -57,7 +62,8 @@ class BehaviorStatsPanel(QWidget):
             "max_health": self.max_health_spin.value(),
             "attack_damage": self.atk_dmg_spin.value(),
             "attack_range": self.atk_range_spin.value(),
-            "jump_height": self.jump_height_spin.value()
+            "jump_height": self.jump_height_spin.value(),
+            "attack_type": self.atk_type_combo.currentData(),
         }
         self.controller.update_behavior_stats(stats)
 
@@ -72,6 +78,10 @@ class BehaviorStatsPanel(QWidget):
         
         current_type = stats.get("type", BehaviorType.NEUTRAL)
         self.behavior_type_combo.setCurrentIndex(self.behavior_type_combo.findData(current_type))
+        
+        atk_type = stats.get("attack_type", AttackType.SINGLE)
+        self.atk_type_combo.setCurrentIndex(self.atk_type_combo.findData(atk_type))
+        
         self._is_updating_ui = False
 
 class BehaviorScriptPanel(QWidget):

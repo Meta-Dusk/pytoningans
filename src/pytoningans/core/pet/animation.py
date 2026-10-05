@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional, Tuple
 from PySide6.QtGui import QTransform, QPixmap
-from PySide6.QtCore import Qt, QPoint, QRect
+from PySide6.QtCore import Qt, QPoint, QObject, Signal, QRect
 
 from pytoningans.core.constants import AnimationMeta, PetState
 
@@ -11,7 +11,9 @@ if TYPE_CHECKING:
 
 type PetTransforms = Tuple[int, bool, int]
 
-class AnimationSystem:
+class AnimationSystem(QObject):
+    attack_frame_hit = Signal()
+    
     # Class-level cache shared by EVERY pet instance
     _shared_transform_cache: dict[PetTransforms, QPixmap] = {}
 
@@ -77,10 +79,34 @@ class AnimationSystem:
         raw_anchor, current_hitbox = self.pet.mod_manager.get_frame_physics(self.pet.state, self.current_frame)
         ax, ay = raw_anchor.x(), raw_anchor.y()
         
+        # Extract attack hitbox from the current frame override
+        mapped_index: int = (
+            self.current_frame % total_play_frames
+            if meta.loop else
+            min(self.current_frame, total_play_frames - 1)
+        )
+        if meta.reverse: mapped_index = (total_play_frames - 1) - mapped_index
+        frame_key: str = str(mapped_index)
+        
+        # Check if this specific frame is tagged as an attack frame
+        atk_rect: QRect = QRect(0, 0, 0, 0)
+        is_attack: bool = False
+        if frame_key in meta.frame_overrides:
+            ov: dict[str, Any] = meta.frame_overrides[frame_key]
+            is_attack = ov.get("is_attack_frame", False)
+            atk_rect = QRect(ov.get("atk_x", 0), ov.get("atk_y", 0), ov.get("atk_w", 0), ov.get("atk_h", 0))
+        
         if self.pet.facing_left:
             ax: int = frame.width() - ax
+            
             flipped_hitbox_x: int = frame.width() - (current_hitbox.x() + current_hitbox.width())
             current_hitbox.moveLeft(flipped_hitbox_x)
+            
+            if atk_rect.width() > 0:
+                flipped_atk_x = frame.width() - (atk_rect.x() + atk_rect.width())
+                atk_rect.moveLeft(flipped_atk_x)
+        
+        self.pet.current_attack_hitbox = atk_rect
 
         # Calculate New Position (Do not move yet)
         new_x: int = self.pet.x()
@@ -124,9 +150,11 @@ class AnimationSystem:
         
         # Tell the OS to update the position and dimensions in one single instruction
         current_geom: object = self.pet.geometry().getRect()
-        target_geom = (new_x, new_y, frame.width(), frame.height())
+        target_geom: Tuple[int, int, int, int] = (new_x, new_y, frame.width(), frame.height())
         
         if current_geom != target_geom:
             self.pet.setGeometry(*target_geom)
         
         self.pet.sprite_label.setPixmap(frame)
+        
+        if is_attack: self.attack_frame_hit.emit()

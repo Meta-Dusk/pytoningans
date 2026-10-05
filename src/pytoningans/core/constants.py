@@ -1,5 +1,12 @@
 from dataclasses import dataclass, field
 from enum import StrEnum, unique
+from typing import Any
+
+@unique
+class AttackType(StrEnum):
+    SINGLE = "single"
+    AOE = "aoe"
+    MULTI = "multi"
 
 @unique
 class PetState(StrEnum):
@@ -58,7 +65,7 @@ class AnimationMeta:
     hitbox_w: int = 0
     hitbox_h: int = 0
     
-    frame_overrides: dict[str, dict[str, int]] = field(default_factory=dict)
+    frame_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
     """Dictionary mapping string frame indices (for JSON) to override data dicts"""
 
 @dataclass(frozen=True)

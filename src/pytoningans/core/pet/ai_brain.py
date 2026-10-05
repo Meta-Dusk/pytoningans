@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, cast, Optional, List
 from PySide6.QtCore import QPoint, QRect
 from PySide6.QtGui import QScreen
 
-from pytoningans.core.constants import PetState, BehaviorType
+from pytoningans.core.constants import PetState, BehaviorType, AttackType
 from pytoningans.core.api import BasePetBehavior, IPet
 from pytoningans.core.pet.speech_bubble import SpeechBubble
 
@@ -26,7 +26,7 @@ class AISystem:
         self.attack_time_left: int = 0
         self.attack_cooldown: int = 0
     
-    def update(self, dt: int, centers: Optional[dict[PetWindow, QPoint]] = None) -> None:
+    def update(self, dt: int) -> None:
         """Processes AI logic based on elapsed time.
 
         Args:
@@ -60,7 +60,7 @@ class AISystem:
             self._ai_decision_tick()
             
         # Priority 1: Check for enemies in range
-        self.check_combat(centers)
+        self.check_combat()
         
         # Priority 2: Check for neutral interactions if not already attacking
         if self.pet.state is not PetState.ATTACK:
@@ -117,21 +117,21 @@ class AISystem:
             
         return False
     
-    def check_combat(self, centers: Optional[dict[PetWindow, QPoint]] = None) -> None:
+    def check_combat(self) -> None:
         if (
             self.pet is None or
             self.pet.mod_manager is None or
             self.pet.pet_manager is None
         ):
             return
-        # Only HOSTILE pets initiate attacks
+        
         if self.pet.mod_manager.behavior_type is not BehaviorType.HOSTILE:
             return
         
-        if self.attack_cooldown > 0 or not self.pet.is_interactable: 
+        if self.attack_cooldown > 0 or not self.pet.is_interactable:
             return
 
-        my_center = centers.get(self.pet) if centers else self.pet.geometry().center()
+        my_center: QPoint = self.pet.pos() + self.pet.current_hitbox.center()
 
         for other_pet in self.pet.pet_manager.active_pets:
             if (
@@ -148,8 +148,7 @@ class AISystem:
             if other_pet.mod_manager.current_mod_name == self.pet.mod_manager.current_mod_name:
                 continue
             
-            other_center = centers.get(other_pet) if centers else other_pet.geometry().center()
-            if other_center is None or my_center is None: continue
+            other_center: QPoint = other_pet.pos() + other_pet.current_hitbox.center()
             distance: float = self._get_distance(my_center, other_center)
 
             # Evaluate against the mod's specific attack range
@@ -160,7 +159,7 @@ class AISystem:
 
             # --- DEFAULT COMBAT LOGIC ---
             if not override_default:
-                self._default_combat_logic(my_center, other_pet, other_center)
+                self._default_combat_logic(my_center, other_center)
                     
             break # Only initiate one attack per tick
 
@@ -168,13 +167,15 @@ class AISystem:
         return math.hypot(my_center.x() - other_center.x(), my_center.y() - other_center.y())
 
     def _default_combat_logic(
-        self, my_center: QPoint, other_pet: PetWindow, other_center: QPoint
+        self, my_center: QPoint, other_center: QPoint
     ) -> None:
         if (
             self.pet is None or
             self.pet.mod_manager is None or
             self.pet.anim_sys is None
-        ): return
+        ):
+            return
+        
         dx: int = other_center.x() - my_center.x()
         dy: int = other_center.y() - my_center.y()
                 
@@ -182,8 +183,6 @@ class AISystem:
                 
         if self.pet.mod_manager.can_fly:
             self.pet.rotation = math.degrees(math.atan2(dy, abs(dx) if dx != 0 else 0.1))
-                
-        other_pet.take_damage(self.pet.mod_manager.attack_damage)
                 
         # Start attack animation (lasts 800ms) with a 2-second cooldown
         self.pet._target_pos = None
@@ -211,7 +210,8 @@ class AISystem:
             self.pet.mod_manager is None or
             self.pet.mod_manager.behavior_type is BehaviorType.PASSIVE or
             self.pet.pet_manager is None
-        ): return
+        ):
+            return
         
         if self.interaction_cooldown > 0:
             self.interaction_cooldown -= 1
@@ -219,7 +219,7 @@ class AISystem:
 
         if not self.pet.is_interactable: return
 
-        my_center = centers.get(self.pet) if centers else self.pet.geometry().center()
+        my_center: Optional[QPoint] = centers.get(self.pet) if centers else self.pet.geometry().center()
 
         for other_pet in self.pet.pet_manager.active_pets:
             if (
@@ -229,7 +229,7 @@ class AISystem:
             ):
                 continue
 
-            other_center = centers.get(other_pet) if centers else other_pet.geometry().center()
+            other_center: Optional[QPoint] = centers.get(other_pet) if centers else other_pet.geometry().center()
             if other_center is None or my_center is None: continue
             distance: float = self._get_distance(my_center, other_center)
 
@@ -317,3 +317,50 @@ class AISystem:
         self.pet._target_pos = None
         self.pet.bubble.update_position()
         self.pet.raise_()
+    
+    def process_combat(self) -> None:
+        """Evaluates targets in range and applies damage based on attack type."""
+        if (
+            self.pet is None or
+            self.pet.pet_manager is None or
+            self.pet.mod_manager is None or
+            self.pet.is_dead or
+            self.pet.current_attack_hitbox.isEmpty()
+        ):
+            return
+
+        # Translate local attack hitbox to exact desktop screen coordinates
+        global_attack_rect: QRect = self.pet.current_attack_hitbox.translated(self.pet.pos())
+        targets: list[tuple[float, PetWindow]] = []
+        
+        for other in self.pet.pet_manager.active_pets:
+            if other is self.pet or other.is_dead: continue
+                
+            other_global_hitbox: QRect = other.current_hitbox.translated(other.pos())
+            
+            # AABB Collision Check
+            if global_attack_rect.intersects(other_global_hitbox):
+                my_center: QPoint = global_attack_rect.center()
+                other_center: QPoint = other_global_hitbox.center()
+                dist: float = math.hypot(my_center.x() - other_center.x(), my_center.y() - other_center.y())
+                targets.append((dist, other))
+
+        if not targets: return
+
+        targets.sort(key=lambda t: t[0])
+        valid_targets: list[PetWindow] = []
+        attack_type: AttackType = self.pet.mod_manager.attack_type
+        
+        match attack_type:
+            case AttackType.SINGLE:
+                valid_targets.append(targets[0][1])  # Only the closest
+            case AttackType.AOE:
+                valid_targets: list[PetWindow] = [t[1] for t in targets]  # Everyone in range
+            case AttackType.MULTI:
+                max_t: int = self.pet.mod_manager.max_targets
+                valid_targets = [t[1] for t in targets[:max_t]]  # Up to max_targets
+
+        # Apply damage
+        damage: int = self.pet.mod_manager.attack_damage
+        for target in valid_targets:
+            target.take_damage(damage)

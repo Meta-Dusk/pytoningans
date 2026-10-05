@@ -89,8 +89,10 @@ class AnimationSubsystem:
         sec_layout = QVBoxLayout()
         
         self.borders_check = QCheckBox("Show Sprite Borders (Blue)")
+        self.range_check = QCheckBox("Show Attack Range (Red Circle)")
         
         sec_layout.addWidget(self.borders_check)
+        sec_layout.addWidget(self.range_check)
         section.content_layout.addLayout(sec_layout)
         layout.addWidget(section)
 
@@ -236,11 +238,15 @@ class AnimationSubsystem:
         self.restart_btn.clicked.connect(self._restart_preview)
         
         self.borders_check.stateChanged.connect(self._on_borders_toggled)
+        self.range_check.stateChanged.connect(self._on_range_toggled)
         self.crop_check.stateChanged.connect(self._on_crop_toggled)
         
-        for widget in (self.row_spin, self.start_spin, self.end_spin, self.width_spin, 
-                       self.height_spin, self.offset_x_spin, self.offset_y_spin, self.fps_spin):
+        for widget in (
+            self.row_spin, self.start_spin, self.end_spin, self.width_spin,
+            self.height_spin, self.offset_x_spin, self.offset_y_spin, self.fps_spin
+        ):
             widget.valueChanged.connect(self._on_meta_edited)
+            
         self.loop_check.stateChanged.connect(self._on_meta_edited)
         self.reverse_check.stateChanged.connect(self._on_meta_edited)
         self.preview_label.crop_updated.connect(self._on_crop_dragged)
@@ -348,6 +354,12 @@ class AnimationSubsystem:
         if state is None: return
         self._preview_frame += 1
         
+        # Fetch the exact anchor for the current frame
+        anchor, hitbox = self.controller.manager.get_frame_physics(state, self._preview_frame)
+        self.preview_label.current_anchor = anchor
+        self.preview_label.current_hitbox = hitbox
+        self.preview_label.attack_range = self.controller.manager.attack_range
+        
         if self.preview_label.show_crop:
             frame, crop_rect = self.controller.get_raw_preview(state, self._preview_frame)
             self.preview_label.crop_rect = crop_rect
@@ -430,3 +442,7 @@ class AnimationSubsystem:
                 "Success", 
                 "Crop settings successfully applied to all animation states!"
             )
+    
+    def _on_range_toggled(self, checked: bool) -> None:
+        self.preview_label.show_attack_range = checked
+        self.preview_label.update()

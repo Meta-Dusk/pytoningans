@@ -108,8 +108,7 @@ class PhysicsSystem:
             step_y = int(curr_y + (dy / dist) * current_move_speed) if self.pet.mod_manager.can_fly else curr_y
             
             # Only flip the sprite if the pet is actually moving a noticeable distance horizontally
-            if abs(dx) > 1.0:
-                self.pet.facing_left = (dx < 0)
+            if abs(dx) > 1: self.pet.facing_left = (dx < 0)
             
             if self.pet.mod_manager.can_fly and dist > 5.0:
                 self.pet.rotation = math.degrees(math.atan2(dy, abs(dx) if dx != 0 else 0.1))
