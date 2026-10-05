@@ -8,7 +8,7 @@ from PySide6.QtGui import QPixmap, QPainter
 from PySide6.QtCore import QRect, Qt, QPoint
 
 from pytoningans.core.constants import (
-    PetState, AnimationMeta, BehaviorType, AttackType
+    PetState, AnimationMeta, BehaviorType, AttackType, DeathAnimation
 )
 from pytoningans.core.api import BasePetBehavior
 from pytoningans.core.config_schema import (
@@ -53,6 +53,9 @@ class ModManager:
         
         self.plain_dialogue: List[str] = []
         self.window_triggers: List[dict[str, Any]] = []
+        
+        self.death_animation: DeathAnimation = DeathAnimation.SPRITE
+        self.auto_close_on_death: bool = False
         
         # Inject the mods folder into Python's runtime path
         abs_mods_dir: str = str(self.mods_dir.resolve())
@@ -134,6 +137,14 @@ class ModManager:
         
         self.max_targets = behavior_data.get("max_targets", 1)
         
+        raw_death_anim = behavior_data.get("death_animation", "sprite")
+        try:
+            self.death_animation = DeathAnimation(raw_death_anim)
+        except ValueError:
+            self.death_animation = DeathAnimation.SPRITE
+        
+        self.auto_close_on_death = behavior_data.get("auto_close_on_death", False)
+        
         self.animations.clear()
         anim_data = data.get("animations", {})
         
@@ -202,7 +213,9 @@ class ModManager:
                 attack_range=self.attack_range,
                 jump_height=self.jump_height,
                 attack_type=self.attack_type,
-                max_targets=self.max_targets
+                max_targets=self.max_targets,
+                death_animation=self.death_animation,
+                auto_close_on_death=self.auto_close_on_death,
             ),
             animations={state.value: meta for state, meta in self.animations.items()},
             dialogue=DialogueConfig(

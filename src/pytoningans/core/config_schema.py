@@ -1,9 +1,11 @@
 from dataclasses import dataclass, field, asdict
 from typing import Any
 
-from pytoningans.core.constants import PetState, BehaviorType, AnimationMeta, AttackType
+from pytoningans.core.constants import (
+    PetState, BehaviorType, AnimationMeta, AttackType, DeathAnimation
+)
 
-CURRENT_CONFIG_VERSION = 8
+CURRENT_CONFIG_VERSION = 9
 
 @dataclass
 class BehaviorConfig:
@@ -17,6 +19,9 @@ class BehaviorConfig:
     
     max_targets: int = 1
     """Used if `attack_type` is \"multi\""""
+    
+    death_animation: DeathAnimation = DeathAnimation.SPRITE
+    auto_close_on_death: bool = False
 
 @dataclass
 class DialogueConfig:

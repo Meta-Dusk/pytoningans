@@ -3,6 +3,13 @@ from enum import StrEnum, unique
 from typing import Any
 
 @unique
+class DeathAnimation(StrEnum):
+    SPRITE = "sprite"
+    ROTATE_LEFT = "rotate_left"
+    ROTATE_RIGHT = "rotate_right"
+    ROTATE_LEFT_OR_RIGHT = "rotate_left_or_right"
+
+@unique
 class AttackType(StrEnum):
     SINGLE = "single"
     AOE = "aoe"

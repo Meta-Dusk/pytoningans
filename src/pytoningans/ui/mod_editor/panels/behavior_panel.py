@@ -1,11 +1,12 @@
 import subprocess
+
 from typing import Any
 from pathlib import Path
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QComboBox, QCheckBox, QPushButton, QFormLayout
+    QWidget, QVBoxLayout, QComboBox, QCheckBox, QPushButton, QFormLayout, QSpacerItem
 )
-from pytoningans.core.constants import BehaviorType, AttackType
+from pytoningans.core.constants import BehaviorType, AttackType, DeathAnimation
 from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.components import CollapsibleSection, create_spinbox, create_info_label
 
@@ -101,9 +102,22 @@ class BehaviorScriptPanel(QWidget):
         self.edit_btn = QPushButton("Open in VS Code")
         self.delete_btn = QPushButton("Delete Script")
         
+        self.death_anim_combo = QComboBox()
+        self.death_anim_combo.addItem("Sprite Sheet (Default)", DeathAnimation.SPRITE)
+        self.death_anim_combo.addItem("Rotate Left 90°", DeathAnimation.ROTATE_LEFT)
+        self.death_anim_combo.addItem("Rotate Right 90°", DeathAnimation.ROTATE_RIGHT)
+        self.death_anim_combo.addItem("Rotate 90° or -90°", DeathAnimation.ROTATE_LEFT_OR_RIGHT)
+        
+        self.auto_close_check = QCheckBox("Fade Out and Close on Death")
+        
         form.addWidget(self.add_btn)
         form.addWidget(self.edit_btn)
         form.addWidget(self.delete_btn)
+        form.addItem(QSpacerItem(0, 16))
+        
+        form.addRow("Death Animation:", self.death_anim_combo)
+        form.addRow(self.auto_close_check)
+        
         self.section.content_layout.addLayout(form)
         layout.addWidget(self.section)
 
@@ -111,18 +125,25 @@ class BehaviorScriptPanel(QWidget):
         self.add_btn.clicked.connect(self._open_script)
         self.edit_btn.clicked.connect(self._open_script)
         self.delete_btn.clicked.connect(self._delete_script)
+        self.death_anim_combo.currentIndexChanged.connect(self._on_death_anim_changed)
+        self.auto_close_check.stateChanged.connect(self._on_auto_close_changed)
 
     def _get_script_path(self) -> Path:
         return self.controller.manager.current_mod_path / "behavior.py"
 
     def load_data(self) -> None:
-        exists = self._get_script_path().exists()
+        exists: bool = self._get_script_path().exists()
         self.add_btn.setEnabled(not exists)
         self.edit_btn.setEnabled(exists)
         self.delete_btn.setEnabled(exists)
+        
+        idx: int = self.death_anim_combo.findData(self.controller.manager.death_animation)
+        if idx >= 0: self.death_anim_combo.setCurrentIndex(idx)
+            
+        self.auto_close_check.setChecked(self.controller.manager.auto_close_on_death)
 
     def _open_script(self) -> None:
-        path = self._get_script_path()
+        path: Path = self._get_script_path()
         if not path.exists():
             boilerplate = (
                 "from api import BasePetBehavior, IPet, Pos2D\n\n"
@@ -143,7 +164,13 @@ class BehaviorScriptPanel(QWidget):
             os.startfile(path)
 
     def _delete_script(self) -> None:
-        path = self._get_script_path()
-        if path.exists():
-            path.unlink()
-            self.load_data()
+        path: Path = self._get_script_path()
+        if not path.exists(): return
+        path.unlink()
+        self.load_data()
+    
+    def _on_death_anim_changed(self) -> None:
+        self.controller.manager.death_animation = self.death_anim_combo.currentData()
+
+    def _on_auto_close_changed(self, state: int) -> None:
+        self.controller.manager.auto_close_on_death = bool(state)
