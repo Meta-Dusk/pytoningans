@@ -72,12 +72,19 @@ class AISystem:
             self.pet.jump()
             return
         
-        geom = self.pet.world.scene.sceneRect()
+        geom: QRectF = self.pet.world.scene.sceneRect()
 
         if random.random() < 0.60:
-            dest_x = random.uniform(geom.left() + 50, geom.right() - self.pet.width() - 50)
+            dest_x: float = random.uniform(
+                geom.left() + 50,
+                geom.right() - self.pet.boundingRect().width() - 50
+            )
+            dest_y: float = 0.0
             if self.pet.mod_manager.can_fly:
-                dest_y = random.uniform(geom.top() + 50, geom.bottom() - self.pet.height() - 50)
+                dest_y = random.uniform(
+                    geom.top() + 50,
+                    geom.bottom() - self.pet.boundingRect().height() - 50
+                )
             else:
                 dest_y = self.pet.y()
 
@@ -283,7 +290,7 @@ class AISystem:
         self.pet.bubble.speak(text, duration_ms)
         self.pet.anim_sys.set_state(PetState.IDLE)
         self.pet._target_pos = None
-        self.pet.raise_()
+        self.pet.toFront()
     
     def process_combat(self) -> None:
         if (

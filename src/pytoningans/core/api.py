@@ -6,6 +6,8 @@ from typing import Protocol, Optional, List
 from enum import StrEnum, unique
 from dataclasses import dataclass
 
+# TODO: Update API soon
+
 @dataclass
 class Pos2D:
     x: int

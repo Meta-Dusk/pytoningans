@@ -5,7 +5,7 @@ from typing import Optional, TYPE_CHECKING, cast
 
 from PySide6.QtWidgets import QMenu, QGraphicsColorizeEffect, QGraphicsPixmapItem
 from PySide6.QtCore import (
-    QRectF, Qt, QPoint, QRect, QVariantAnimation, QEasingCurve, QPointF
+    QRectF, Qt, QRect, QVariantAnimation, QEasingCurve, QPointF
 )
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QGraphicsSceneContextMenuEvent
@@ -28,12 +28,12 @@ class PetWindow(QGraphicsPixmapItem):
         self, start_x: int, start_y: int,
         mod_manager: Optional[ModManager] = None,
         pet_manager: Optional[PetManager] = None,
-        world: Optional['WorldOverlay'] = None
+        world: Optional[WorldOverlay] = None
     ) -> None:
         super().__init__()
         self.mod_manager: Optional[ModManager] = mod_manager
         self.pet_manager: Optional[PetManager] = pet_manager
-        self.world: Optional['WorldOverlay'] = world
+        self.world: Optional[WorldOverlay] = world
         
         # --- Shared Entity Data ---
         self.state: PetState = PetState.IDLE
@@ -85,20 +85,9 @@ class PetWindow(QGraphicsPixmapItem):
         else:
             self._target_pos = QPointF(pos.x, pos.y)
             
-    # --- QWidget Compatibility Shims for AI & Physics ---
-    def geometry(self) -> QRect:
-        return self.sceneBoundingRect().toRect()
-        
-    def width(self) -> int:
-        return int(self.boundingRect().width())
-        
-    def height(self) -> int:
-        return int(self.boundingRect().height())
-        
-    def screen(self):
-        return self.world.target_screen if self.world else None
-        
-    def raise_(self) -> None:
+    def toFront(self) -> None:
+        """Temporary solution for sending objects to the front."""
+        # TODO: Make sure to either cap or normalize z-values
         self.setZValue(self.zValue() + 0.1)
     
     def _init_systems(self) -> None:
@@ -112,7 +101,7 @@ class PetWindow(QGraphicsPixmapItem):
         
         # Apply the colorize effect directly to the item
         self.tint_effect = QGraphicsColorizeEffect()
-        self.tint_effect.setColor(QColor(255, 0, 0)) # Pure Red
+        self.tint_effect.setColor(QColor(255, 0, 0)) #? Pure Red
         self.tint_effect.setEnabled(False)
         self.setGraphicsEffect(self.tint_effect)
     
@@ -175,7 +164,7 @@ class PetWindow(QGraphicsPixmapItem):
         self._target_pos = None
         
         death_type: DeathAnimation = self.mod_manager.death_animation
-        target_rot = 0.0
+        target_rot: float = 0.0
         
         match death_type:
             case DeathAnimation.ROTATE_LEFT:
@@ -232,7 +221,7 @@ class PetWindow(QGraphicsPixmapItem):
         
         anim_meta: Optional[AnimationMeta] = self.mod_manager.animations.get(PetState.REVIVING)
         
-        if anim_meta:
+        if anim_meta is not None:
             total_frames: int = (anim_meta.end_frame - anim_meta.start_frame) + 1
             ms_per_frame: int = 1000 // max(1, anim_meta.fps)
             
@@ -249,7 +238,7 @@ class PetWindow(QGraphicsPixmapItem):
     def _on_die(self) -> None:
         if self.mod_manager is None: return
         if self.mod_manager.custom_behavior:
-            pet_api = cast(IPet, self)
+            pet_api: IPet = cast(IPet, self)
             self.mod_manager.custom_behavior.on_death(pet_api)
     
     def _on_revive(self) -> None:
@@ -276,8 +265,9 @@ class PetWindow(QGraphicsPixmapItem):
         # Constrain the pet within the world's scene boundaries
         if self.world is not None:
             bounds: QRectF = self.world.scene.sceneRect()
-            new_x = max(bounds.left(), min(new_x, bounds.right() - self.width()))
-            new_y = max(bounds.top(), min(new_y, bounds.bottom() - self.height()))
+            pet: QRectF = self.boundingRect()
+            new_x = max(bounds.left(), min(new_x, bounds.right() - pet.width()))
+            new_y = max(bounds.top(), min(new_y, bounds.bottom() - pet.height()))
         
         self.setPos(new_x, new_y)
         if self.bubble: self.bubble.update_position()
@@ -334,8 +324,8 @@ class PetWindow(QGraphicsPixmapItem):
         if self.pet_manager:
             self.pet_manager.remove_pet(self)
             
-        if self.bubble:
-            self.bubble.deleteLater()
+        if self.bubble is not None and self.scene():
+            self.scene().removeItem(self.bubble)
         
         if self.anim_sys: self.anim_sys.pet = None
         if self.physics_sys: self.physics_sys.pet = None

@@ -1,23 +1,21 @@
 import ctypes, gc
 from ctypes import wintypes
-from typing import List, cast, Optional
+from typing import cast, Optional
 
-from PySide6.QtCore import (
-    QTimer, QElapsedTimer, QRunnable, QThreadPool, QObject, Signal, QPoint, Qt,
-    QPointF
-)
+from PySide6.QtCore import QTimer, QElapsedTimer, QRunnable, QThreadPool, QObject, Signal
 from PySide6.QtGui import QPixmapCache, QGuiApplication, QScreen
-from PySide6.QtWidgets import QMainWindow, QGraphicsView, QGraphicsScene
 
+from pytoningans.core.world import WorldOverlay
 from pytoningans.core.pet.window import PetWindow
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.api import IPet
 from pytoningans.core.pet.animation import AnimationSystem
+from pytoningans.core.structure import TravelPortal
 
 HTTRANSPARENT = -1
 HTCLIENT = 1
 
-def fetch_visible_windows_worker() -> List[str]:
+def fetch_visible_windows_worker() -> list[str]:
     """Background worker function querying visible window titles safely."""
     user32 = ctypes.windll.user32
     
@@ -36,7 +34,7 @@ def fetch_visible_windows_worker() -> List[str]:
     user32.IsWindowVisible.argtypes = [wintypes.HWND]
     user32.IsWindowVisible.restype = wintypes.BOOL
 
-    titles: List[str] = []
+    titles: list[str] = []
 
     def foreach_window(hwnd, lParam):
         if user32.IsWindowVisible(hwnd):
@@ -69,70 +67,15 @@ class VisionWorker(QRunnable):
         self.signals.finished.emit(titles)
 
 
-class WorldOverlay(QMainWindow):
-    """The transparent, fullscreen monitor overlay that acts as a 'World'."""
-    def __init__(self, screen: QScreen, manager: 'PetManager') -> None:
-        super().__init__()
-        self.manager = manager
-        self.target_screen = screen
-        self.active_pets: List[PetWindow] = []
-        
-        flags = (
-            Qt.WindowType.FramelessWindowHint | 
-            Qt.WindowType.WindowStaysOnTopHint | 
-            Qt.WindowType.Tool
-        )
-        self.setWindowFlags(flags)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        
-        self.scene = QGraphicsScene(self)
-        
-        screen_geom = self.target_screen.availableGeometry()
-        self.scene.setSceneRect(0, 0, screen_geom.width(), screen_geom.height())
-        
-        self.view = QGraphicsView(self.scene, self)
-        self.view.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        self.view.setStyleSheet("background: transparent; border: none;")
-        self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        
-        self.setCentralWidget(self.view)
-        self.setGeometry(screen_geom)
-        
-    def nativeEvent(self, eventType, message):
-        msg = wintypes.MSG.from_address(message.__int__())
-        if msg.message == 0x0084: # WM_NCHITTEST
-            x = ctypes.c_short(msg.lParam & 0xFFFF).value
-            y = ctypes.c_short((msg.lParam >> 16) & 0xFFFF).value
-            
-            local_pos = self.view.mapFromGlobal(QPoint(x, y))
-            scene_pos = self.view.mapToScene(local_pos)
-            
-            if self.scene.itemAt(scene_pos, self.view.transform()):
-                return True, HTCLIENT
-                
-            return True, HTTRANSPARENT
-            
-        return super().nativeEvent(eventType, message)
-
-    def update_systems(self, dt: int) -> None:
-        centers: dict[PetWindow, QPointF] = {
-            pet: pet.sceneBoundingRect().center() for pet in self.active_pets
-        }
-        
-        for pet in list(self.active_pets):
-            pet.update_systems(dt, centers)
-
-
 class PetManager:
     """The central nervous system managing active worlds and global loops."""
     def __init__(self, mod_manager: ModManager) -> None:
         self.mod_manager: ModManager = mod_manager
         
-        self.active_worlds: List[WorldOverlay] = []
-        self.active_pets: List[PetWindow] = [] # Retained for UI tracking compatibility
+        self.active_worlds: list[WorldOverlay] = []
+        self.active_pets: list[PetWindow] = []
         
-        self.active_window_titles: List[str] = []
+        self.active_window_titles: list[str] = []
         self.vision_accumulator: int = 0
         self._vision_in_progress: bool = False
         self._vision_worker: Optional[VisionWorker] = None
@@ -148,19 +91,24 @@ class PetManager:
 
     def _init_primary_world(self) -> None:
         """Sets up the default primary monitor world on launch."""
-        primary_screen = QGuiApplication.primaryScreen()
-        if primary_screen:
-            world = WorldOverlay(primary_screen, self)
-            world.showFullScreen()
-            self.active_worlds.append(world)
+        primary_screen: QScreen = QGuiApplication.primaryScreen()
+        if not primary_screen: return
+        
+        world = WorldOverlay(primary_screen, self)
+        world.showFullScreen()
+        self.active_worlds.append(world)
+        
+        portal = TravelPortal(200.0, 500.0, world, world)
+        world.scene.addItem(portal)
+        world.active_structures.append(portal)
 
-    def _on_vision_ready(self, titles: List[str]) -> None:
+    def _on_vision_ready(self, titles: list[str]) -> None:
         self.active_window_titles = titles
         self._vision_in_progress = False
 
     def _global_tick(self) -> None:
         """The heartbeat of the entire application across all worlds."""
-        dt = self.clock.restart()
+        dt: int = self.clock.restart()
         
         self.vision_accumulator += dt
         if self.vision_accumulator >= 3000:
@@ -179,7 +127,7 @@ class PetManager:
         pet_mod.load_mod(mod_folder)
         
         # Default to spawning in the primary world for now
-        target_world = self.active_worlds[0] if self.active_worlds else None
+        target_world: Optional[WorldOverlay] = self.active_worlds[0] if self.active_worlds else None
         if not target_world: return
         
         # Pass the world instance to the PetWindow

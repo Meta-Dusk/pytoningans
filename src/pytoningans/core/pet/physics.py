@@ -66,7 +66,9 @@ class PhysicsSystem:
         for other in self.pet.pet_manager.active_pets:
             if other is self.pet or other.is_dead: continue
             
-            other_center = centers.get(other) if centers else other.geometry().center()
+            other_center: Optional[QPointF] = (
+                centers.get(other) if centers else other.sceneBoundingRect().center()
+            )
             if other_center is None or my_center is None: continue
             dx: float = my_center.x() - other_center.x()
             dy: float = my_center.y() - other_center.y()
