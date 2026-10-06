@@ -3,13 +3,14 @@ from __future__ import annotations
 import random
 from typing import Optional, TYPE_CHECKING, cast
 
-from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QMenu, QGraphicsColorizeEffect
+from PySide6.QtWidgets import QMenu, QGraphicsColorizeEffect, QGraphicsPixmapItem
 from PySide6.QtCore import (
-    Qt, QPoint, QRect, QPropertyAnimation, QVariantAnimation, QEasingCurve
+    QRectF, Qt, QPoint, QRect, QVariantAnimation, QEasingCurve, QPointF
 )
-from PySide6.QtGui import QCloseEvent, QMouseEvent, QContextMenuEvent, QColor, QMoveEvent
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QGraphicsSceneContextMenuEvent
 
-from pytoningans.core.constants import WINDOW_CFG, AnimationMeta, DeathAnimation, PetState, SystemLocks
+from pytoningans.core.constants import AnimationMeta, DeathAnimation, PetState, SystemLocks
 from pytoningans.core.pet.animation import AnimationSystem
 from pytoningans.core.pet.physics import PhysicsSystem
 from pytoningans.core.pet.ai_brain import AISystem
@@ -18,25 +19,26 @@ from pytoningans.core.api import IPet
 
 if TYPE_CHECKING:
     from pytoningans.core.mod_manager import ModManager
-    from pytoningans.core.pet_manager import PetManager
+    from pytoningans.core.pet_manager import PetManager, WorldOverlay
     from pytoningans.core.api import Pos2D
 
-class PetWindow(QWidget):
-    """The core Entity holding shared state and routing OS events."""
+class PetWindow(QGraphicsPixmapItem):
+    """The core Entity holding shared state and routing Scene events."""
     def __init__(
         self, start_x: int, start_y: int,
         mod_manager: Optional[ModManager] = None,
-        pet_manager: Optional[PetManager] = None
+        pet_manager: Optional[PetManager] = None,
+        world: Optional['WorldOverlay'] = None
     ) -> None:
         super().__init__()
-        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.mod_manager: Optional[ModManager] = mod_manager
         self.pet_manager: Optional[PetManager] = pet_manager
+        self.world: Optional['WorldOverlay'] = world
         
         # --- Shared Entity Data ---
         self.state: PetState = PetState.IDLE
         self.facing_left: bool = False
-        self.rotation: float = 0.0
+        self.sprite_rotation: float = 0.0
         self.is_dead: bool = False
         self.is_paused: bool = False
         if self.mod_manager:
@@ -45,8 +47,9 @@ class PetWindow(QWidget):
         self.damage_tint_time_left: int = 0
         
         self.velocity_y: float = 0.0
-        self._target_pos: Optional[QPoint] = None
-        self._drag_offset: Optional[QPoint] = None
+        self._target_pos: Optional[QPointF] = None
+        self._drag_start_pos: Optional[QPointF] = None
+        self._mouse_down_pos: Optional[QPointF] = None
         
         self.current_hitbox: QRect = QRect()
         self.current_attack_hitbox: QRect = QRect()
@@ -60,7 +63,7 @@ class PetWindow(QWidget):
         self.bubble: Optional[SpeechBubble] = None
         self.locks: SystemLocks = SystemLocks()
         self.revive_time_left: int = 0
-        self._fade_anim: Optional[QPropertyAnimation] = None
+        self._fade_anim: Optional[QVariantAnimation] = None
         self._rot_anim: Optional[QVariantAnimation] = None
         
         self._init_systems()
@@ -70,17 +73,33 @@ class PetWindow(QWidget):
         return self.state not in (PetState.DRAG, PetState.INTERACT) and not self.is_dead
     
     @property
-    def target_pos(self) -> Optional[QPoint]:
+    def target_pos(self) -> Optional[QPointF]:
         """The engine reads this as a standard QPoint."""
         return self._target_pos
 
     @target_pos.setter
     def target_pos(self, pos: Optional[Pos2D]) -> None:
-        """Intercepts the modder's Pos2D and converts it to a QPoint."""
+        """Intercepts the modder's Pos2D and converts it to a QPointF."""
         if pos is None:
             self._target_pos = None
         else:
-            self._target_pos = QPoint(pos.x, pos.y)
+            self._target_pos = QPointF(pos.x, pos.y)
+            
+    # --- QWidget Compatibility Shims for AI & Physics ---
+    def geometry(self) -> QRect:
+        return self.sceneBoundingRect().toRect()
+        
+    def width(self) -> int:
+        return int(self.boundingRect().width())
+        
+    def height(self) -> int:
+        return int(self.boundingRect().height())
+        
+    def screen(self):
+        return self.world.target_screen if self.world else None
+        
+    def raise_(self) -> None:
+        self.setZValue(self.zValue() + 0.1)
     
     def _init_systems(self) -> None:
         self.anim_sys = AnimationSystem(self)
@@ -89,32 +108,16 @@ class PetWindow(QWidget):
         self.anim_sys.attack_frame_hit.connect(self.ai_sys.process_combat)
     
     def _setup_ui(self, x: int, y: int) -> None:
-        flags: Qt.WindowType = (
-            Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Tool
-        )
-        self.setWindowFlags(flags)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.resize(WINDOW_CFG.default_width, WINDOW_CFG.default_height)
-        self.move(x, y)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        self.sprite_label = QLabel(WINDOW_CFG.placeholder_text, self)
-        self.sprite_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.sprite_label.setStyleSheet(WINDOW_CFG.placeholder_style)
+        self.setPos(x, y)
         
-        # Apply the colorize effect
-        self.tint_effect = QGraphicsColorizeEffect(self)
+        # Apply the colorize effect directly to the item
+        self.tint_effect = QGraphicsColorizeEffect()
         self.tint_effect.setColor(QColor(255, 0, 0)) # Pure Red
         self.tint_effect.setEnabled(False)
-        self.sprite_label.setGraphicsEffect(self.tint_effect)
-        
-        layout.addWidget(self.sprite_label)
+        self.setGraphicsEffect(self.tint_effect)
     
-    def update_systems(self, dt: int, centers: Optional[dict[PetWindow, QPoint]] = None) -> None:
-        """Called every frame by the PetManager's global tick."""
+    def update_systems(self, dt: int, centers: Optional[dict[PetWindow, QPointF]] = None) -> None:
+        """Called every frame by the WorldOverlay's loop."""
         if self.is_paused: return
 
         if self.bubble: self.bubble.tick(dt)
@@ -145,14 +148,12 @@ class PetWindow(QWidget):
     
     # --- Core Actions ---
     def take_damage(self, amount: int) -> None:
-        """Applies damage, flashes red, and kills the pet if health <= 0."""
         if self.is_dead: return
         self.current_health -= amount
         
         self.damage_tint_time_left = 300
         self.tint_effect.setEnabled(True)
         self.tint_effect.setStrength(0.85)
-        # TODO: Add Modding API hook here
         
         if self.current_health <= 0:
             self.die()
@@ -164,13 +165,12 @@ class PetWindow(QWidget):
         
         self.velocity_y = -self.mod_manager.jump_height
         if self.anim_sys: self.anim_sys.set_state(PetState.JUMPING)
-        # TODO: Add Modding API hook here
 
     def die(self) -> None:
         if self.is_dead or self.mod_manager is None: return
         self.current_health = 0
         self.is_dead = True
-        self.rotation = 0.0
+        self.sprite_rotation = 0.0
         if self.anim_sys: self.anim_sys.set_state(PetState.DYING)
         self._target_pos = None
         
@@ -186,15 +186,15 @@ class PetWindow(QWidget):
                 target_rot = -90.0 if random.random() > 0.5 else 90.0
                 
         if target_rot != 0.0:
-            self._rot_anim = QVariantAnimation(self)
+            self._rot_anim = QVariantAnimation(self.world)
             self._rot_anim.setDuration(600)
-            self._rot_anim.setStartValue(self.rotation)
+            self._rot_anim.setStartValue(self.sprite_rotation)
             self._rot_anim.setEndValue(target_rot)
             self._rot_anim.setEasingCurve(QEasingCurve.Type.OutBounce)
             
             def _on_rot_change(val: float):
-                self.rotation = val
-                if self.anim_sys: self.anim_sys._update_frame() # Instant redraw
+                self.sprite_rotation = val
+                if self.anim_sys: self.anim_sys._update_frame() 
                 
             self._rot_anim.valueChanged.connect(_on_rot_change)
             self._rot_anim.start()
@@ -202,16 +202,15 @@ class PetWindow(QWidget):
         # --- MODDERS API HOOK ---
         self._on_die()
         
-        # Fade out and automatic cleanup check
         if self.mod_manager.auto_close_on_death:
-            # Animate the windowOpacity property from 1.0 (opaque) to 0.0 (transparent)
-            self._fade_anim = QPropertyAnimation(self, b"windowOpacity")
+            # QVariantAnimation handles opacity since Graphics Items aren't QObjects
+            self._fade_anim = QVariantAnimation(self.world)
             self._fade_anim.setDuration(3000)
             self._fade_anim.setStartValue(1.0)
             self._fade_anim.setEndValue(0.0)
             
-            # Connect the end of the animation to the window's close slot
-            self._fade_anim.finished.connect(self.close)
+            self._fade_anim.valueChanged.connect(self.setOpacity)
+            self._fade_anim.finished.connect(self.close_pet)
             self._fade_anim.start()
 
     def revive(self) -> None:
@@ -228,20 +227,18 @@ class PetWindow(QWidget):
             self._rot_anim.stop()
             self._rot_anim = None
         
-        self.setWindowOpacity(1.0)
-        self.rotation = 0.0
+        self.setOpacity(1.0)
+        self.sprite_rotation = 0.0
         
         anim_meta: Optional[AnimationMeta] = self.mod_manager.animations.get(PetState.REVIVING)
         
         if anim_meta:
-            # Calculate: total_frames * ms_per_frame
             total_frames: int = (anim_meta.end_frame - anim_meta.start_frame) + 1
             ms_per_frame: int = 1000 // max(1, anim_meta.fps)
             
             self.revive_time_left = total_frames * ms_per_frame
             if self.anim_sys: self.anim_sys.set_state(PetState.REVIVING)
             
-            # Lock systems so the pet doesn't slide or attack while standing up
             self.locks.ai = False
             self.locks.physics = False
         else:
@@ -250,52 +247,58 @@ class PetWindow(QWidget):
 
     # --- Modding API Hooks ---
     def _on_die(self) -> None:
-        """Modding API hook."""
         if self.mod_manager is None: return
         if self.mod_manager.custom_behavior:
             pet_api = cast(IPet, self)
             self.mod_manager.custom_behavior.on_death(pet_api)
     
     def _on_revive(self) -> None:
-        """Modding API hook."""
         if self.mod_manager is None: return
         if self.mod_manager.custom_behavior:
             pet_api: IPet = cast(IPet, self)
             self.mod_manager.custom_behavior.on_revive(pet_api)
     
-    # --- OS Events ---
-    def mousePressEvent(self, event: QMouseEvent) -> None:
+    # --- Graphics Scene Events ---
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             if not self.is_dead and self.anim_sys:
                 self.anim_sys.set_state(PetState.DRAG)
             self.locks.physics = False
             event.accept()
 
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_offset is not None:
-            self.move(event.globalPosition().toPoint() - self._drag_offset)
-            event.accept()
+    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        # Calculate the exact distance moved since the last hardware tick
+        delta: QPointF = event.scenePos() - event.lastScenePos()
+        
+        new_x: float = self.x() + delta.x()
+        new_y: float = self.y() + delta.y()
+        
+        # Constrain the pet within the world's scene boundaries
+        if self.world is not None:
+            bounds: QRectF = self.world.scene.sceneRect()
+            new_x = max(bounds.left(), min(new_x, bounds.right() - self.width()))
+            new_y = max(bounds.top(), min(new_y, bounds.bottom() - self.height()))
+        
+        self.setPos(new_x, new_y)
+        if self.bubble: self.bubble.update_position()
+        event.accept()
 
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
-            self._drag_offset = None
             if not self.is_dead and self.anim_sys:
                 self.anim_sys.set_state(PetState.IDLE)
             self.locks.physics = True
             event.accept()
 
-    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
-        """Triggered automatically on right-click."""
+    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         self._target_pos = None
-        self.rotation = 0.0
+        self.sprite_rotation = 0.0
         if not self.is_dead and self.anim_sys:
             self.anim_sys.set_state(PetState.CLICKED)
         
-        # Freeze the systems while the menu is open
         self.is_paused = True 
         
-        menu = QMenu(self)
+        menu = QMenu(self.world.view) if self.world else QMenu()
         menu.addAction("Close Pet", self.close_pet)
         menu.addSeparator()
         
@@ -308,19 +311,18 @@ class PetWindow(QWidget):
         
         if self.is_dead:
             if (self._fade_anim is not None and
-                self._fade_anim.state() == QPropertyAnimation.State.Running):
+                self._fade_anim.state() == QVariantAnimation.State.Running):
                 self._fade_anim.pause()
             if (self._rot_anim is not None and
-                self._rot_anim.state() == QPropertyAnimation.State.Running):
+                self._rot_anim.state() == QVariantAnimation.State.Running):
                 self._rot_anim.pause()
             
-        menu.exec(event.globalPos())
+        menu.exec(event.screenPos())
         
-        # Unfreeze after the user clicks away or selects an option
         self.is_paused = False
         if not self.is_dead: return
         if (self._fade_anim is not None and
-            self._fade_anim.state() == QPropertyAnimation.State.Paused):
+            self._fade_anim.state() == QVariantAnimation.State.Paused):
             self._fade_anim.resume()
             
         if (self._rot_anim is not None and
@@ -329,7 +331,6 @@ class PetWindow(QWidget):
     
     # --- Other Events ---
     def close_pet(self) -> None:
-        """Safely unregisters the window before destroying it."""
         if self.pet_manager:
             self.pet_manager.remove_pet(self)
             
@@ -342,15 +343,9 @@ class PetWindow(QWidget):
         
         self.mod_manager = None
         self.pet_manager = None
-        
-        self.deleteLater()
-    
-    def moveEvent(self, event: QMoveEvent) -> None:
-        super().moveEvent(event)
-        if self.bubble: self.bubble.update_position()
+        self.world = None
     
     def force_talk(self) -> None:
-        """Forces the pet to say a random plain dialogue line."""
         if self.mod_manager is None: return
         if self.is_dead or not self.mod_manager.plain_dialogue: return
         
@@ -362,13 +357,3 @@ class PetWindow(QWidget):
             
         if self.anim_sys: self.anim_sys.set_state(PetState.IDLE)
         self._target_pos = None
-        # TODO: Add Modding API hook here
-    
-    def closeEvent(self, event: QCloseEvent) -> None:
-        """Fires automatically right before the Qt window is destroyed."""
-        # Safely remove this pet from the physics/AI loop
-        if self.pet_manager and self in self.pet_manager.active_pets:
-            self.pet_manager.active_pets.remove(self)
-            
-        # Let Qt proceed with actually destroying the C++ window
-        super().closeEvent(event)

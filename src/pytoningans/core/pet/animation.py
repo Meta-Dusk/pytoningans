@@ -23,16 +23,11 @@ class AnimationSystem(QObject):
         cls._shared_transform_cache.clear()
         
     def __init__(self, pet: Optional[PetWindow] = None) -> None:
-        super().__init__(pet)
+        super().__init__()
         self.pet: Optional[PetWindow] = pet
         self.current_frame: int = 0
         self.time_since_last_frame: int = 0
         self._last_anchor: Optional[QPoint] = None
-        
-        # Clear the placeholder text
-        if self.pet:
-            self.pet.sprite_label.setStyleSheet("")
-            self.pet.sprite_label.setText("")
         
         self._update_frame()
 
@@ -99,8 +94,8 @@ class AnimationSystem(QObject):
                 overrides.get("attack_w", 0), overrides.get("attack_h", 0)
             )
 
-        # Unified Transform Mapping
-        raw_angle: int = int(round(self.pet.rotation / 5.0) * 5.0)
+        # Unified Transform Mapping using the renamed sprite_rotation
+        raw_angle: int = int(round(self.pet.sprite_rotation / 5.0) * 5.0)
         
         transform = QTransform()
         if self.pet.facing_left: transform.scale(-1, 1)
@@ -130,12 +125,12 @@ class AnimationSystem(QObject):
         self.pet.current_attack_hitbox = atk_rect
         self.pet.current_hitbox = current_hitbox
 
-        # Calculate New Window Position
-        new_x: int = self.pet.x()
-        new_y: int = self.pet.y()
+        # Calculate New Item Position (Returns float in QGraphicsItem)
+        new_x: float = self.pet.x()
+        new_y: float = self.pet.y()
         
         if self._last_anchor is not None:
-            # Shift the window perfectly based on how the anchor moved
+            # Shift the item perfectly based on how the anchor moved
             dx: int = final_ax - self._last_anchor.x()
             dy: int = final_ay - self._last_anchor.y()
             new_x -= dx
@@ -155,11 +150,8 @@ class AnimationSystem(QObject):
                 )
             frame = self._shared_transform_cache[cache_key]
 
-        # Apply Geometry
-        current_geom: object = self.pet.geometry().getRect()
-        target_geom: Tuple[int, int, int, int] = (new_x, new_y, frame.width(), frame.height())
-        
-        if current_geom != target_geom: self.pet.setGeometry(*target_geom)
-        self.pet.sprite_label.setPixmap(frame)
+        # Apply Position and Pixmap to the Item
+        self.pet.setPos(new_x, new_y)
+        self.pet.setPixmap(frame)
         
         if is_attack: self.attack_frame_hit.emit()
