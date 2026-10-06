@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout
-from PySide6.QtCore import QRect, Qt
+from PySide6.QtCore import QRect, QSize, Qt
 
 if TYPE_CHECKING:
     from pytoningans.core.pet.window import PetWindow
@@ -50,8 +50,13 @@ class SpeechBubble(QWidget):
 
     def update_position(self) -> None:
         if not self.isVisible(): return
-        # Anchor the bubble centered above the pet's head
+        
+        # Use sizeHint() to get the required geometry before it renders
+        target_size: QSize = self.sizeHint() 
         pet_geom: QRect = self.pet.geometry()
-        x: int = pet_geom.center().x() - (self.width() // 2)
-        y: int = pet_geom.top() - self.height() - 10
+        
+        x: int = pet_geom.center().x() - (target_size.width() // 2)
+        y: int = pet_geom.top() - target_size.height() - 10
+        
+        self.resize(target_size) # Force the new size
         self.move(x, y)
