@@ -55,7 +55,6 @@ class SpeechBubble(QGraphicsItem):
         self.time_left = duration_ms
 
     def boundingRect(self) -> QRectF:
-        if not self.isVisible(): return QRectF()
         text_rect: QRectF = self.text_item.boundingRect()
         
         padding: int = 10
@@ -94,11 +93,7 @@ class SpeechBubble(QGraphicsItem):
     def tick(self, dt: int) -> None:
         if self.time_left <= 0: return
         self.time_left -= dt
-        if self.time_left <= 0:
-            self.hide()
-            #? QGraphicsItems don't have deleteLater(), so we remove it from the scene
-            if self.scene(): self.scene().removeItem(self)
-            self.entity.bubble = None
+        if self.time_left <= 0: self.hide()
 
     def update_position(self) -> None:
         if not self.isVisible(): return

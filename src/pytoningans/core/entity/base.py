@@ -364,8 +364,6 @@ class Entity(BaseEntity):
             and self in self.entity_manager.active_entities
         ):
             self.entity_manager.remove_entity(self)
-        if self.bubble is not None:
-            self.bubble.scene().removeItem(self.bubble)
         if self.ai_sys is not None:
             self.ai_sys.entity = None
         super().destroy()

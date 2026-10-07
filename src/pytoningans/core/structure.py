@@ -39,23 +39,24 @@ class TravelPortal(BaseStructure):
             if entity.is_dead or entity.state is EntityState.DRAG:
                 continue
             if portal_rect.intersects(entity.sceneBoundingRect()):
-                self.teleport_pet(entity)
+                self.teleport_entity(entity)
                 
-    def teleport_pet(self, pet: Entity) -> None:
+    def teleport_entity(self, entity: Entity) -> None:
         if (
             self.linked_portal is None or
             self.world is None
         ):
             return
         
-        self.world.active_entities.remove(pet)
-        self.world.scene.removeItem(pet)
+        self.world.active_entities.remove(entity)
+        self.world.scene.removeItem(entity)
         
-        pet.world = self.target_world
-        self.target_world.scene.addItem(pet)
-        self.target_world.active_entities.append(pet)
+        entity.world = self.target_world
+        self.target_world.scene.addItem(entity)
+        self.target_world.active_entities.append(entity)
         
-        pet_w = pet.width()
+        pet_w: int = entity.width()
+        spawn_x: float
         
         # Dynamically calculate exit based on the linked portal's CURRENT position
         if self.exit_offset_x > 0:
@@ -65,11 +66,11 @@ class TravelPortal(BaseStructure):
             # Spit out safely to the left
             spawn_x = self.linked_portal.x() - pet_w - 10
             
-        spawn_y = self.linked_portal.y() + self.exit_offset_y
+        spawn_y: float = self.linked_portal.y() + self.exit_offset_y
         
-        pet.setPos(spawn_x, spawn_y)
-        pet.velocity_y = 0.0 # Reset velocity so they don't carry momentum through the portal
+        entity.setPos(spawn_x, spawn_y)
+        entity.velocity_y = 0.0 # Reset velocity so they don't carry momentum through the portal
         
-        if pet.anim_sys:
-            pet.anim_sys.set_state(EntityState.IDLE)
-        pet.target_pos = None
+        if entity.anim_sys is not None:
+            entity.anim_sys.set_state(EntityState.IDLE)
+        entity.target_pos = None

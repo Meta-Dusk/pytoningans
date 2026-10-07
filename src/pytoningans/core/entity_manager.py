@@ -7,7 +7,10 @@ from PySide6.QtGui import QPixmapCache, QGuiApplication, QScreen
 
 from pytoningans.core.world import WorldOverlay
 from pytoningans.core.mod_manager import ModManager
-from pytoningans.core.api import IEntity, IStructure, BaseStructureBehavior, BaseEntityBehavior
+from pytoningans.core.api import (
+    IEntity, IStructure, BaseStructureBehavior, BaseEntityBehavior,
+    BaseBehavior
+)
 from pytoningans.core.entity.base import BaseEntity, Entity, BaseStructure
 from pytoningans.core.entity.animation import AnimationSystem
 from pytoningans.core.structure import TravelPortal
@@ -153,20 +156,20 @@ class EntityManager:
 
     def spawn_entity(self, x: float, y: float, mod_folder: str) -> None:
         """Dynamically spawns a living Pet or a static Structure based on mod config."""
-        entity_mod = ModManager(self.mod_manager.mods_dir)
-        entity_mod.load_mod(mod_folder)
+        mod_manager = ModManager(self.mod_manager.mods_dir)
+        mod_manager.load_mod(mod_folder)
         
-        target_world = self.active_worlds[0] if self.active_worlds else None
+        target_world: Optional[WorldOverlay] = self.active_worlds[0] if self.active_worlds else None
         if not target_world: return
         
         # Route instantiation based on the declared entity type
-        if entity_mod.entity_type == EntityType.STRUCTURE.value:
-            entity = BaseStructure(x, y, entity_mod, target_world)
+        if mod_manager.entity_type == EntityType.STRUCTURE.value:
+            entity = BaseStructure(x, y, mod_manager, target_world)
             target_world.scene.addItem(entity)
             target_world.active_structures.append(entity)
             self.active_structures.append(entity)
         else:
-            entity = Entity(x, y, entity_mod, target_world, self)
+            entity = Entity(x, y, mod_manager, target_world, self)
             target_world.scene.addItem(entity)
             target_world.active_entities.append(entity)
             self.active_entities.append(entity)
@@ -176,7 +179,7 @@ class EntityManager:
     def _on_spawn(self, entity: BaseEntity) -> None:
         if entity.mod_manager is None: return
         
-        behavior: Optional[BaseEntityBehavior | BaseStructureBehavior] = entity.mod_manager.custom_behavior
+        behavior: Optional[BaseBehavior] = entity.mod_manager.custom_behavior
         if behavior is None: return
         
         if isinstance(entity, Entity) and isinstance(behavior, BaseEntityBehavior):
