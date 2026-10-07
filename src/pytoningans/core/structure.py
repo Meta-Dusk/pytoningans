@@ -30,10 +30,14 @@ class BaseStructure(QGraphicsPixmapItem):
 
 
 class TravelPortal(BaseStructure):
-    """A prototype structure that teleports pets to another monitor."""
+    """A portal structure that teleports pets to designated coordinates in another monitor."""
     def __init__(self, x: float, y: float, world: WorldOverlay, target_world: WorldOverlay) -> None:
         super().__init__(x, y, world)
         self.target_world = target_world
+        
+        # Default exit coordinates (can be overridden by the world generator)
+        self.exit_x: float = 50.0
+        self.exit_y: float = 50.0
         
         # Placeholder graphic: A purple vertical portal
         pix = QPixmap(60, 120)
@@ -41,7 +45,6 @@ class TravelPortal(BaseStructure):
         self.setPixmap(pix)
         
     def update_systems(self, dt: int) -> None:
-        # Hit-test against all pets in the current world
         portal_rect: QRectF = self.sceneBoundingRect()
         
         for pet in list(self.world.active_pets):
@@ -62,7 +65,5 @@ class TravelPortal(BaseStructure):
         self.target_world.scene.addItem(pet)
         self.target_world.active_pets.append(pet)
         
-        # Drop them from the top-center of the new monitor
-        new_x: float = self.target_world.scene.sceneRect().width() / 2
-        new_y: float = 50.0
-        pet.setPos(new_x, new_y)
+        # Drop them at the corresponding exit portal's location
+        pet.setPos(self.exit_x, self.exit_y)

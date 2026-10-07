@@ -3,6 +3,11 @@ from enum import StrEnum, unique
 from typing import Any
 
 @unique
+class EntityType(StrEnum):
+    PET = "pet"
+    STRUCTURE = "structure"
+
+@unique
 class DeathAnimation(StrEnum):
     SPRITE = "sprite"
     ROTATE_LEFT = "rotate_left"

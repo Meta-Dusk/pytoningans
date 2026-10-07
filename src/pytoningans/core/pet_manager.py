@@ -1,8 +1,8 @@
 import ctypes, gc
 from ctypes import wintypes
-from typing import cast, Optional
+from typing import List, cast, Optional
 
-from PySide6.QtCore import QTimer, QElapsedTimer, QRunnable, QThreadPool, QObject, Signal
+from PySide6.QtCore import QRectF, QTimer, QElapsedTimer, QRunnable, QThreadPool, QObject, Signal
 from PySide6.QtGui import QPixmapCache, QGuiApplication, QScreen
 
 from pytoningans.core.world import WorldOverlay
@@ -84,23 +84,48 @@ class PetManager:
         self.timer = QTimer()
         self.timer.timeout.connect(self._global_tick)
         
-        self._init_primary_world()
+        self._init_worlds()
         
-        self.timer.start(16) 
+        self.timer.start(16)
         self.clock.start()
 
-    def _init_primary_world(self) -> None:
-        """Sets up the default primary monitor world on launch."""
-        primary_screen: QScreen = QGuiApplication.primaryScreen()
-        if not primary_screen: return
+    def _init_worlds(self) -> None:
+        """Sets up a WorldOverlay for every connected monitor and links them with portals."""
+        screens: List[QScreen] = QGuiApplication.screens()
         
-        world = WorldOverlay(primary_screen, self)
-        world.showFullScreen()
-        self.active_worlds.append(world)
-        
-        portal = TravelPortal(200.0, 500.0, world, world)
-        world.scene.addItem(portal)
-        world.active_structures.append(portal)
+        # Generate an overlay for every monitor
+        for screen in screens:
+            world = WorldOverlay(screen, self)
+            world.showFullScreen()
+            self.active_worlds.append(world)
+            
+        # Link adjacent monitors with two-way Travel Portals
+        for i in range(len(self.active_worlds) - 1):
+            world_a: WorldOverlay = self.active_worlds[i]
+            world_b: WorldOverlay = self.active_worlds[i + 1]
+            
+            wa_rect: QRectF = world_a.scene.sceneRect()
+            wb_rect: QRectF = world_b.scene.sceneRect()
+            
+            # Floor level approximation (120 is portal height)
+            ground_y_a: float = wa_rect.bottom() - 120
+            ground_y_b: float = wb_rect.bottom() - 120
+            
+            # Portal A -> B (Placed on the right edge of Monitor A)
+            portal_a = TravelPortal(wa_rect.right() - 80, ground_y_a, world_a, world_b)
+            portal_a.exit_x = 100.0  # Exit on the left side of B
+            portal_a.exit_y = ground_y_b
+            
+            world_a.scene.addItem(portal_a)
+            world_a.active_structures.append(portal_a)
+            
+            # Portal B -> A (Placed on the left edge of Monitor B)
+            portal_b = TravelPortal(20, ground_y_b, world_b, world_a)
+            portal_b.exit_x = wa_rect.right() - 160.0  # Exit on the right side of A (in front of portal)
+            portal_b.exit_y = ground_y_a
+            
+            world_b.scene.addItem(portal_b)
+            world_b.active_structures.append(portal_b)
 
     def _on_vision_ready(self, titles: list[str]) -> None:
         self.active_window_titles = titles
