@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt
 
 from pytoningans.core.constants import APP_CFG
 from pytoningans.core.mod_manager import ModManager
-from pytoningans.core.pet_manager import PetManager
+from pytoningans.core.entity_manager import EntityManager
 from pytoningans.ui.main_menu import MainMenu
 from pytoningans.ui.tray_menu import AppTray
 from pytoningans.ui.theme import DARK_THEME
@@ -51,7 +51,7 @@ def main() -> None:
         mod_manager.load_mod(list(available_mods.keys())[0])
         
     # Initialize UI
-    pet_manager: PetManager = PetManager(mod_manager)
+    pet_manager: EntityManager = EntityManager(mod_manager)
     menu: MainMenu = MainMenu(pet_manager)
     menu.show()
     

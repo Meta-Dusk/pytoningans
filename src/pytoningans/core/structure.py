@@ -1,69 +1,75 @@
-from typing import TYPE_CHECKING
-
-from PySide6.QtWidgets import QGraphicsPixmapItem
-from PySide6.QtCore import QRectF
+from typing import TYPE_CHECKING, Optional
+from PySide6.QtCore import QPointF, QRectF
 from PySide6.QtGui import QPixmap, QColor
 
-from pytoningans.core.constants import PetState
+from pytoningans.core.entity.base import BaseEntity, BaseStructure
+from pytoningans.core.constants import EntityState
 
 if TYPE_CHECKING:
     from pytoningans.core.world import WorldOverlay
-    from pytoningans.core.pet.window import PetWindow
-
-class BaseStructure(QGraphicsPixmapItem):
-    """Base class for all static or animated game objects (Buildings, Portals, Props)."""
-    def __init__(self, x: float, y: float, world: WorldOverlay) -> None:
-        super().__init__()
-        self.world = world
-        self.setPos(x, y)
-        self.hitbox = QRectF()
-        
-    def update_systems(self, dt: int) -> None:
-        """Override this to add physics, animations, or collision logic."""
-        pass
-
-    def destroy(self) -> None:
-        if self in self.world.active_structures:
-            self.world.active_structures.remove(self)
-        if self.scene():
-            self.scene().removeItem(self)
-
+    from pytoningans.core.entity.base import Entity
 
 class TravelPortal(BaseStructure):
-    """A portal structure that teleports pets to designated coordinates in another monitor."""
+    """Engine-level portal used for the automatic multi-monitor linking."""
     def __init__(self, x: float, y: float, world: WorldOverlay, target_world: WorldOverlay) -> None:
-        super().__init__(x, y, world)
+        super().__init__(x, y, None, world) 
         self.target_world = target_world
         
-        # Default exit coordinates (can be overridden by the world generator)
-        self.exit_x: float = 50.0
-        self.exit_y: float = 50.0
+        # Now holds a direct reference to the destination portal
+        self.linked_portal: Optional[TravelPortal] = None 
         
-        # Placeholder graphic: A purple vertical portal
+        # Positive means spit out to the right, negative means to the left
+        self.exit_offset_x: float = 80.0 
+        self.exit_offset_y: float = 0.0
+        
         pix = QPixmap(60, 120)
         pix.fill(QColor(138, 43, 226, 200)) 
         self.setPixmap(pix)
         
-    def update_systems(self, dt: int) -> None:
-        portal_rect: QRectF = self.sceneBoundingRect()
+    def update_systems(self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None) -> None:
+        super().update_systems(dt, centers)
+        if (
+            self.linked_portal is None or
+            self.world is None
+        ):
+            return
         
-        for pet in list(self.world.active_pets):
-            # Exclude dead or currently dragged pets from teleporting
-            if pet.is_dead or pet.state is PetState.DRAG:
+        portal_rect: QRectF = self.sceneBoundingRect()
+        for entity in list(self.world.active_entities):
+            if entity.is_dead or entity.state is EntityState.DRAG:
                 continue
+            if portal_rect.intersects(entity.sceneBoundingRect()):
+                self.teleport_pet(entity)
                 
-            if portal_rect.intersects(pet.sceneBoundingRect()):
-                self.teleport_pet(pet)
-                
-    def teleport_pet(self, pet: PetWindow) -> None:
-        # Detach from current world
-        self.world.active_pets.remove(pet)
+    def teleport_pet(self, pet: Entity) -> None:
+        if (
+            self.linked_portal is None or
+            self.world is None
+        ):
+            return
+        
+        self.world.active_entities.remove(pet)
         self.world.scene.removeItem(pet)
         
-        # Attach to target world
         pet.world = self.target_world
         self.target_world.scene.addItem(pet)
-        self.target_world.active_pets.append(pet)
+        self.target_world.active_entities.append(pet)
         
-        # Drop them at the corresponding exit portal's location
-        pet.setPos(self.exit_x, self.exit_y)
+        pet_w = pet.width()
+        
+        # Dynamically calculate exit based on the linked portal's CURRENT position
+        if self.exit_offset_x > 0:
+            # Spit out safely to the right
+            spawn_x = self.linked_portal.x() + self.linked_portal.width() + 10
+        else:
+            # Spit out safely to the left
+            spawn_x = self.linked_portal.x() - pet_w - 10
+            
+        spawn_y = self.linked_portal.y() + self.exit_offset_y
+        
+        pet.setPos(spawn_x, spawn_y)
+        pet.velocity_y = 0.0 # Reset velocity so they don't carry momentum through the portal
+        
+        if pet.anim_sys:
+            pet.anim_sys.set_state(EntityState.IDLE)
+        pet.target_pos = None

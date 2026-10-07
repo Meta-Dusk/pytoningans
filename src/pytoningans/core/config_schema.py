@@ -2,7 +2,7 @@ from dataclasses import dataclass, field, asdict
 from typing import Any
 
 from pytoningans.core.constants import (
-    PetState, BehaviorType, AnimationMeta, AttackType, DeathAnimation
+    EntityState, BehaviorType, AnimationMeta, AttackType, DeathAnimation, EntityType
 )
 
 CURRENT_CONFIG_VERSION = 9
@@ -46,14 +46,15 @@ class DialogueConfig:
 @dataclass
 class ModConfig:
     name: str
+    entity_type: str = EntityType.PET.value
     version: int = CURRENT_CONFIG_VERSION
     columns: int = 4
-    rows: int = len(PetState)
+    rows: int = len(EntityState)
     behavior: BehaviorConfig = field(default_factory=BehaviorConfig)
     animations: dict[str, AnimationMeta] = field(
         default_factory=lambda: {
             state.value: AnimationMeta(row=i, start_frame=0, end_frame=3) 
-            for i, state in enumerate(PetState)
+            for i, state in enumerate(EntityState)
         }
     )
     dialogue: DialogueConfig = field(default_factory=DialogueConfig)

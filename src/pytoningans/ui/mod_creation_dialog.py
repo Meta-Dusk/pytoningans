@@ -12,7 +12,7 @@ from PySide6.QtCore import QUrl, Qt
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
 from pytoningans.core.config_schema import ModConfig
-from pytoningans.core.constants import PetState, AnimationMeta
+from pytoningans.core.constants import EntityState, AnimationMeta
 
 class ModCreationDialog(QDialog):
     def __init__(self, mods_dir: str | Path, parent: Optional[QWidget] = None) -> None:
@@ -51,7 +51,7 @@ class ModCreationDialog(QDialog):
         
         self.rows_spin = QSpinBox()
         self.rows_spin.setRange(1, 100)
-        self.rows_spin.setValue(len(PetState))
+        self.rows_spin.setValue(len(EntityState))
         
         form.addRow(self._create_info_label(
             "Internal Folder Name:", 
@@ -192,7 +192,7 @@ class ModCreationDialog(QDialog):
     
     def _generate_default_config(
         self, display_name: str, config_path: Path,
-        *, cols: int = 4, rows: int = len(PetState)
+        *, cols: int = 4, rows: int = len(EntityState)
     ) -> None:
         # Scale default animations to respect the chosen row/column dimensions
         animations = {
@@ -201,7 +201,7 @@ class ModCreationDialog(QDialog):
                 start_frame=0,
                 end_frame=max(0, cols - 1)
             )
-            for i, state in enumerate(PetState)
+            for i, state in enumerate(EntityState)
         }
 
         new_config = ModConfig(

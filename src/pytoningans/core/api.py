@@ -2,7 +2,7 @@
 PyToNingans Modding API Reference
 Open the 'mods' folder as a workspace in VS Code for full autocompletion.
 """
-from typing import Protocol, Optional, List
+from typing import Protocol, Optional, Any
 from enum import StrEnum, unique
 from dataclasses import dataclass
 
@@ -35,17 +35,17 @@ class BehaviorType(StrEnum):
 
 class IPetManager(Protocol):
     """Provides access to the global pet ecosystem."""
-    active_pets: List['IPet']
+    active_pets: list['IEntity']
     
     def spawn_pet(self, x: int, y: int, mod_folder: str) -> None:
         """Spawns a new pet at the target coordinates using the specified mod."""
         ...
 
-    def remove_pet(self, pet: 'IPet') -> None:
+    def remove_pet(self, pet: 'IEntity') -> None:
         """Despawns and removes a pet from the screen."""
         ...
 
-class IPet(Protocol):
+class IEntity(Protocol):
     """
     The primary interface for manipulating a pet inside `behavior.py`.
     """
@@ -90,39 +90,59 @@ class IPet(Protocol):
         """Returns the current pixel height of the pet's sprite."""
         ...
 
-class BasePetBehavior:
+class BaseEntityBehavior:
     """
     Inherit from this class in your behavior.py to define custom AI.
     """
-    def on_spawn(self, pet: IPet) -> None:
+    def on_spawn(self, entity: IEntity) -> None:
         """Triggered exactly once when the pet is spawned."""
         pass
 
-    def on_decision_tick(self, pet: IPet) -> bool:
+    def on_decision_tick(self, entity: IEntity) -> bool:
         """
         Triggered every 2.5 seconds. 
         Return True to block the default wandering AI.
         """
         return False
 
-    def on_interact(self, pet: IPet, other_pet: IPet) -> bool:
+    def on_interact(self, entity: IEntity, other_entity: IEntity) -> bool:
         """
         Triggered when touching another interactable pet.
         Return True to block the default facing/pausing interaction.
         """
         return False
 
-    def on_death(self, pet: IPet) -> None:
+    def on_death(self, entity: IEntity) -> None:
         """Triggered instantly when the pet's health reaches 0."""
         pass
     
-    def on_revive(self, pet: IPet) -> None:
+    def on_revive(self, entity: IEntity) -> None:
         """Triggered when a pet who was once dead, is no longer."""
         pass
     
-    def on_attack(self, pet: IPet, target: IPet) -> bool:
+    def on_attack(self, entity: IEntity, target: IEntity) -> bool:
         """
         Triggered when a target enters attack range.
         Return True to block the default damage and attack animation.
         """
         return False
+
+class IStructure(Protocol):
+    mod_manager: Any
+    world: Any
+    def setPos(self, x: float, y: float) -> None: ...
+    def x(self) -> float: ...
+    def y(self) -> float: ...
+    def destroy(self) -> None: ...
+    def sceneBoundingRect(self) -> Any: ...
+
+
+class BaseStructureBehavior:
+    """Base class for all modded structures."""
+    def on_spawn(self, structure: IStructure) -> None:
+        pass
+        
+    def on_update(self, structure: IStructure, dt: int) -> None:
+        pass
+
+type BaseBehavior = BaseEntityBehavior | BaseStructureBehavior

@@ -10,7 +10,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtCore import Qt, QPoint, QRect, Signal
 
-from pytoningans.core.constants import AnimationMeta, PetState
+from pytoningans.core.constants import AnimationMeta, EntityState
 from pytoningans.ui.mod_editor.components import CollapsibleSection, create_info_label
 
 if TYPE_CHECKING:
@@ -184,7 +184,7 @@ class PhysicsPanel(QWidget):
         # Top Controls
         top_layout = QHBoxLayout()
         self.state_combo = QComboBox()
-        for state in PetState:
+        for state in EntityState:
             self.state_combo.addItem(state.value.capitalize(), userData=state)
             
         self.frame_spin = QSpinBox(); self.frame_spin.setPrefix("Frame: ")
@@ -299,7 +299,7 @@ class PhysicsPanel(QWidget):
         if not self.controller.manager.current_mod_folder: return
         self._is_loading = True
         
-        state: PetState = self.state_combo.currentData()
+        state: EntityState = self.state_combo.currentData()
         frame_idx: int = self.frame_spin.value()
         is_attack: bool = False
         
@@ -388,7 +388,7 @@ class PhysicsPanel(QWidget):
         self._save_to_override()
 
     def _save_to_override(self) -> None:
-        state: PetState = self.state_combo.currentData()
+        state: EntityState = self.state_combo.currentData()
         meta: Optional[AnimationMeta] = self.controller.manager.animations.get(state)
         
         if meta is None: return
@@ -424,7 +424,7 @@ class PhysicsPanel(QWidget):
 
     def _apply_to_base(self) -> None:
         """Saves current physics as the baseline for the entire animation state."""
-        state: PetState = self.state_combo.currentData()
+        state: EntityState = self.state_combo.currentData()
         meta: Optional[AnimationMeta] = self.controller.manager.animations.get(state)
         if meta is None: return
         
@@ -473,7 +473,7 @@ class PhysicsPanel(QWidget):
         self.atkh_spin.setValue(self._copied_physics["atk_h"])
     
     def _on_magic_propagate(self) -> None:
-        state: PetState = self.state_combo.currentData()
+        state: EntityState = self.state_combo.currentData()
         meta: Optional[AnimationMeta] = self.controller.manager.animations.get(state)
         if not meta: return
         

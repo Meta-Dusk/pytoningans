@@ -1,21 +1,22 @@
-import json, sys
+import json, sys, inspect
 import importlib.util
 from pathlib import Path
 
-from typing import List, Optional, Tuple, Any
+from typing import Optional, Any
 
 from PySide6.QtGui import QPixmap, QPainter
 from PySide6.QtCore import QRect, Qt, QPoint
 
 from pytoningans.core.constants import (
-    PetState, AnimationMeta, BehaviorType, AttackType, DeathAnimation
+    EntityState, AnimationMeta, BehaviorType, AttackType, DeathAnimation,
+    EntityType
 )
-from pytoningans.core.api import BasePetBehavior
+from pytoningans.core.api import BaseEntityBehavior, BaseStructureBehavior, BaseBehavior
 from pytoningans.core.config_schema import (
     ModConfig, BehaviorConfig, DialogueConfig, CURRENT_CONFIG_VERSION
 )
 
-type CacheKey = Tuple[str, int, int, int, int]
+type CacheKey = tuple[str, int, int, int, int]
 
 class ModManager:
     _shared_frame_cache: dict[CacheKey, QPixmap] = {}
@@ -47,12 +48,13 @@ class ModManager:
         self.attack_type: AttackType = AttackType.SINGLE
         self.max_targets: int = 1
         
-        self.animations: dict[PetState, AnimationMeta] = {}
+        self.animations: dict[EntityState, AnimationMeta] = {}
         self._global_sheet: Optional[QPixmap] = None
-        self.custom_behavior: Optional[BasePetBehavior] = None
+        self.config: Optional[ModConfig] = None
+        self.custom_behavior: Optional[BaseBehavior] = None
         
-        self.plain_dialogue: List[str] = []
-        self.window_triggers: List[dict[str, Any]] = []
+        self.plain_dialogue: list[str] = []
+        self.window_triggers: list[dict[str, Any]] = []
         
         self.death_animation: DeathAnimation = DeathAnimation.SPRITE
         self.auto_close_on_death: bool = False
@@ -66,6 +68,11 @@ class ModManager:
     def current_mod_path(self) -> Path:
         """Returns the full Path to the currently loaded mod's directory."""
         return self.mods_dir / self.current_mod_folder
+    
+    @property
+    def entity_type(self) -> str:
+        """Returns the entity type, defaulting to 'pet' for backward compatibility."""
+        return self.config.entity_type if self.config else EntityType.PET.value
     
     def get_available_mods(self) -> dict[str, str]:
         """Returns a dict mapping internal folder names to human-readable display names."""
@@ -109,7 +116,17 @@ class ModManager:
         # Unconditionally load into memory
         with open(config_path, "r", encoding="utf-8") as f:
             data: dict[str, Any] = json.load(f)
-            
+        
+        # Instantiate the config to store the entity type
+        self.config = ModConfig(
+            name=data.get("name", mod_folder_name),
+            entity_type=data.get("entity_type", EntityType.PET.value),
+            version=data.get("version", CURRENT_CONFIG_VERSION),
+            columns=data.get("columns", 1),
+            rows=data.get("rows", 1)
+        )
+        
+        # Extract into flat variables    
         self.current_mod_name = data.get("name", mod_folder_name)
         self.global_columns = data.get("columns", 1)
         self.global_rows = data.get("rows", 1)
@@ -148,7 +165,7 @@ class ModManager:
         self.animations.clear()
         anim_data = data.get("animations", {})
         
-        for state in PetState:
+        for state in EntityState:
             if state.value in anim_data:
                 raw_meta = anim_data[state.value]
                 
@@ -191,8 +208,19 @@ class ModManager:
             
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            if hasattr(module, "Behavior"):
-                self.custom_behavior = module.Behavior()
+            
+            # Dynamically determine the expected parent class
+            expected_base = (
+                BaseStructureBehavior 
+                if self.entity_type == EntityType.STRUCTURE.value 
+                else BaseEntityBehavior
+            )
+            
+            # Search the module for any class inheriting the expected base
+            for name, obj in inspect.getmembers(module, inspect.isclass):
+                if issubclass(obj, expected_base) and obj is not expected_base:
+                    self.custom_behavior = obj()
+                    break
         except Exception as e:
             print(f"Failed to load behavior.py for {mod_folder_name}: {e}")
 
@@ -202,6 +230,7 @@ class ModManager:
         
         config = ModConfig(
             name=name,
+            entity_type=self.entity_type,
             version=CURRENT_CONFIG_VERSION,
             columns=self.global_columns,
             rows=self.global_rows,
@@ -224,10 +253,12 @@ class ModManager:
             )
         )
         
+        self.config = config
+        
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config.to_dict(), f, indent=4)
 
-    def get_frame(self, state: PetState, tick_index: int) -> Optional[QPixmap]:
+    def get_frame(self, state: EntityState, tick_index: int) -> Optional[QPixmap]:
         if not self._global_sheet: return None
         anim_meta: Optional[AnimationMeta] = self.animations.get(state)
         if not anim_meta: return None
@@ -290,14 +321,14 @@ class ModManager:
         new_sheet.fill(Qt.GlobalColor.transparent)
         painter = QPainter(new_sheet)
 
-        painted_cells = set()
+        painted_cells: set[tuple[int, int]] = set()
 
         for _, meta in self.animations.items():
             w: int = meta.override_width if meta.override_width > 0 else base_w
             h: int = meta.override_height if meta.override_height > 0 else base_h
 
             for sheet_idx in range(meta.start_frame, meta.end_frame + 1):
-                cell_key: Tuple[int, int] = (meta.row, sheet_idx)
+                cell_key: tuple[int, int] = (meta.row, sheet_idx)
                 if cell_key in painted_cells: 
                     continue
 
@@ -343,7 +374,7 @@ class ModManager:
             meta.computed_w = meta.override_width if meta.override_width > 0 else base_w
             meta.computed_h = meta.override_height if meta.override_height > 0 else base_h
     
-    def get_frame_physics(self, state: PetState, tick_index: int) -> tuple[QPoint, QRect]:
+    def get_frame_physics(self, state: EntityState, tick_index: int) -> tuple[QPoint, QRect]:
         """Returns the (Anchor Point, Hitbox Rect) for the current frame."""
         anim_meta: Optional[AnimationMeta] = self.animations.get(state)
         

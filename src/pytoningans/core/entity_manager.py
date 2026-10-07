@@ -6,11 +6,12 @@ from PySide6.QtCore import QRectF, QTimer, QElapsedTimer, QRunnable, QThreadPool
 from PySide6.QtGui import QPixmapCache, QGuiApplication, QScreen
 
 from pytoningans.core.world import WorldOverlay
-from pytoningans.core.pet.window import PetWindow
 from pytoningans.core.mod_manager import ModManager
-from pytoningans.core.api import IPet
-from pytoningans.core.pet.animation import AnimationSystem
+from pytoningans.core.api import IEntity, IStructure, BaseStructureBehavior, BaseEntityBehavior
+from pytoningans.core.entity.base import BaseEntity, Entity, BaseStructure
+from pytoningans.core.entity.animation import AnimationSystem
 from pytoningans.core.structure import TravelPortal
+from pytoningans.core.constants import EntityType
 
 HTTRANSPARENT = -1
 HTCLIENT = 1
@@ -67,13 +68,14 @@ class VisionWorker(QRunnable):
         self.signals.finished.emit(titles)
 
 
-class PetManager:
+class EntityManager:
     """The central nervous system managing active worlds and global loops."""
     def __init__(self, mod_manager: ModManager) -> None:
         self.mod_manager: ModManager = mod_manager
         
         self.active_worlds: list[WorldOverlay] = []
-        self.active_pets: list[PetWindow] = []
+        self.active_entities: list[Entity] = []
+        self.active_structures: list[BaseStructure] = []
         
         self.active_window_titles: list[str] = []
         self.vision_accumulator: int = 0
@@ -90,7 +92,7 @@ class PetManager:
         self.clock.start()
 
     def _init_worlds(self) -> None:
-        """Sets up a WorldOverlay for every connected monitor and links them with portals."""
+        """Sets up a `WorldOverlay` for every connected monitor and links them with portals."""
         screens: List[QScreen] = QGuiApplication.screens()
         
         # Generate an overlay for every monitor
@@ -111,21 +113,23 @@ class PetManager:
             ground_y_a: float = wa_rect.bottom() - 120
             ground_y_b: float = wb_rect.bottom() - 120
             
-            # Portal A -> B (Placed on the right edge of Monitor A)
             portal_a = TravelPortal(wa_rect.right() - 80, ground_y_a, world_a, world_b)
-            portal_a.exit_x = 100.0  # Exit on the left side of B
-            portal_a.exit_y = ground_y_b
+            portal_a.exit_offset_x = 80.0  # Tells portal_b to spit out to the right
             
             world_a.scene.addItem(portal_a)
             world_a.active_structures.append(portal_a)
+            self.active_structures.append(portal_a)
             
-            # Portal B -> A (Placed on the left edge of Monitor B)
             portal_b = TravelPortal(20, ground_y_b, world_b, world_a)
-            portal_b.exit_x = wa_rect.right() - 160.0  # Exit on the right side of A (in front of portal)
-            portal_b.exit_y = ground_y_a
+            portal_b.exit_offset_x = -80.0 # Tells portal_a to spit out to the left
             
             world_b.scene.addItem(portal_b)
             world_b.active_structures.append(portal_b)
+            self.active_structures.append(portal_b)
+            
+            # Form the two-way dynamic link
+            portal_a.linked_portal = portal_b
+            portal_b.linked_portal = portal_a
 
     def _on_vision_ready(self, titles: list[str]) -> None:
         self.active_window_titles = titles
@@ -147,44 +151,62 @@ class PetManager:
         for world in self.active_worlds:
             world.update_systems(dt)
 
-    def spawn_pet(self, x: int, y: int, mod_folder: str) -> None:
-        pet_mod = ModManager(self.mod_manager.mods_dir)
-        pet_mod.load_mod(mod_folder)
+    def spawn_entity(self, x: float, y: float, mod_folder: str) -> None:
+        """Dynamically spawns a living Pet or a static Structure based on mod config."""
+        entity_mod = ModManager(self.mod_manager.mods_dir)
+        entity_mod.load_mod(mod_folder)
         
-        # Default to spawning in the primary world for now
-        target_world: Optional[WorldOverlay] = self.active_worlds[0] if self.active_worlds else None
+        target_world = self.active_worlds[0] if self.active_worlds else None
         if not target_world: return
         
-        # Pass the world instance to the PetWindow
-        pet: PetWindow = PetWindow(x, y, pet_mod, self, target_world)
-        
-        # Mount the pet into the QGraphicsScene
-        target_world.scene.addItem(pet)
-        
-        target_world.active_pets.append(pet)
-        self.active_pets.append(pet)
-        self._on_spawn(pet)
-
-    def _on_spawn(self, pet: PetWindow) -> None:
-        """Modding API hook."""
-        pet_api: IPet = cast(IPet, pet)
-        if pet.mod_manager is None: return
-        if pet.mod_manager.custom_behavior:
-            pet.mod_manager.custom_behavior.on_spawn(pet_api)
-    
-    def remove_pet(self, pet: PetWindow) -> None:
-        """Unregisters the pet from memory and the scene when closed."""
-        if pet in self.active_pets:
-            self.active_pets.remove(pet)
+        # Route instantiation based on the declared entity type
+        if entity_mod.entity_type == EntityType.STRUCTURE.value:
+            entity = BaseStructure(x, y, entity_mod, target_world)
+            target_world.scene.addItem(entity)
+            target_world.active_structures.append(entity)
+            self.active_structures.append(entity)
+        else:
+            entity = Entity(x, y, entity_mod, target_world, self)
+            target_world.scene.addItem(entity)
+            target_world.active_entities.append(entity)
+            self.active_entities.append(entity)
             
+        self._on_spawn(entity)
+
+    def _on_spawn(self, entity: BaseEntity) -> None:
+        if entity.mod_manager is None: return
+        
+        behavior: Optional[BaseEntityBehavior | BaseStructureBehavior] = entity.mod_manager.custom_behavior
+        if behavior is None: return
+        
+        if isinstance(entity, Entity) and isinstance(behavior, BaseEntityBehavior):
+            entity_api: IEntity = cast(IEntity, entity)
+            behavior.on_spawn(entity_api)
+            
+        elif isinstance(entity, BaseStructure) and isinstance(behavior, BaseStructureBehavior):
+            struct_api: IStructure = cast(IStructure, entity)
+            behavior.on_spawn(struct_api)
+    
+    def remove_entity(self, entity: BaseEntity) -> None:
+        # Remove from global tracking safely
+        if isinstance(entity, Entity) and entity in self.active_entities:
+            self.active_entities.remove(entity)
+        elif isinstance(entity, BaseStructure) and entity in self.active_structures:
+            self.active_structures.remove(entity)
+            
+        # Remove from the specific world it inhabits
         for world in self.active_worlds:
-            if pet in world.active_pets:
-                world.active_pets.remove(pet)
-                world.scene.removeItem(pet)
+            if entity in world.active_entities:
+                world.active_entities.remove(cast(Entity, entity))
+                world.scene.removeItem(entity)
+                break
+            elif entity in world.active_structures:
+                world.active_structures.remove(cast(BaseStructure, entity))
+                world.scene.removeItem(entity)
                 break
         
-        # Free up memory when the screen is completely empty
-        if not self.active_pets:
+        # Memory cleanup only if NO entities exist at all
+        if not self.active_entities and not self.active_structures:
             AnimationSystem.clear_shared_cache()
             ModManager.clear_shared_cache()
             QPixmapCache.clear()

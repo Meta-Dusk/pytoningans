@@ -21,7 +21,7 @@ class AttackType(StrEnum):
     MULTI = "multi"
 
 @unique
-class PetState(StrEnum):
+class EntityState(StrEnum):
     DRAG = "drag"
     IDLE = "idle"
     CLICKED = "clicked"
@@ -82,10 +82,10 @@ class AnimationMeta:
 
 @dataclass(frozen=True)
 class ModConfig:
-    animations: dict[PetState, AnimationMeta] = field(default_factory=lambda: {
-        PetState.IDLE: AnimationMeta(row=0, start_frame=0, end_frame=3),
-        PetState.DRAG: AnimationMeta(row=1, start_frame=0, end_frame=3),
-        PetState.INTERACT: AnimationMeta(row=2, start_frame=0, end_frame=3),
+    animations: dict[EntityState, AnimationMeta] = field(default_factory=lambda: {
+        EntityState.IDLE: AnimationMeta(row=0, start_frame=0, end_frame=3),
+        EntityState.DRAG: AnimationMeta(row=1, start_frame=0, end_frame=3),
+        EntityState.INTERACT: AnimationMeta(row=2, start_frame=0, end_frame=3),
     })
 
 @dataclass(frozen=True)

@@ -6,7 +6,7 @@ from PySide6.QtCore import QRect
 from PySide6.QtGui import QPixmap
 
 from pytoningans.core.mod_manager import ModManager
-from pytoningans.core.constants import PetState, AnimationMeta
+from pytoningans.core.constants import EntityState, AnimationMeta
 
 class ModEditorController:
     """Handles data bridging between the UI and the ModManager."""
@@ -31,18 +31,18 @@ class ModEditorController:
         self.manager._resolve_dimensions() # Recalculate base tile sizes
         self.manager.clear_shared_cache()  # Flush old grid cuts
 
-    def get_meta(self, state: PetState) -> AnimationMeta:
+    def get_meta(self, state: EntityState) -> AnimationMeta:
         return self.manager.animations.get(state, AnimationMeta(row=0, start_frame=0, end_frame=1))
 
-    def update_meta(self, state: PetState, meta: AnimationMeta) -> None:
+    def update_meta(self, state: EntityState, meta: AnimationMeta) -> None:
         self.manager.animations[state] = meta
         self.manager._resolve_dimensions()
         self.manager.clear_shared_cache()
 
-    def get_frame(self, state: PetState, frame_index: int):
+    def get_frame(self, state: EntityState, frame_index: int):
         return self.manager.get_frame(state, frame_index)
         
-    def has_mapped_row(self, state: PetState) -> Tuple[bool, int]:
+    def has_mapped_row(self, state: EntityState) -> Tuple[bool, int]:
         meta: Optional[AnimationMeta] = self.manager.animations.get(state)
         return (True, meta.row) if meta else (False, 0)
     
@@ -76,7 +76,7 @@ class ModEditorController:
         self.manager.jump_height = stats.get("jump_height", self.manager.jump_height)
         self.manager.attack_type = stats.get("attack_type", self.manager.attack_type)
     
-    def get_raw_preview(self, state: PetState, frame_index: int) -> Tuple[Optional[QPixmap], QRect]:
+    def get_raw_preview(self, state: EntityState, frame_index: int) -> Tuple[Optional[QPixmap], QRect]:
         """Returns the uncropped base tile and the QRect representing the custom crop area."""
         sheet: Optional[QPixmap] = self.manager._global_sheet
         if not sheet: return None, QRect()
@@ -122,7 +122,7 @@ class ModEditorController:
     def bake_sprite_sheet(self) -> bool:
         return self.manager.bake_sprite_sheet()
     
-    def apply_crop_to_all(self, source_state: PetState) -> None:
+    def apply_crop_to_all(self, source_state: EntityState) -> None:
         """Copies the crop offsets and dimensions of the source state to all other states."""
         source_meta: Optional[AnimationMeta] = self.manager.animations.get(source_state)
         if source_meta is None: return

@@ -9,19 +9,19 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QCoreApplication, QRect, Qt, QTimer
 from PySide6.QtGui import QGuiApplication, QScreen
 
-from pytoningans.core.pet_manager import PetManager
+from pytoningans.core.entity_manager import EntityManager
 from pytoningans.ui.mod_manager_hub import ModManagerHub
 from pytoningans.ui.theme import LIGHT_THEME, DARK_THEME
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.utils.assets import get_main_icon
 
 class MainMenu(QWidget):
-    def __init__(self, manager: PetManager) -> None:
+    def __init__(self, manager: EntityManager) -> None:
         super().__init__(
             windowTitle="Control Panel",
             windowIcon=get_main_icon()
         )
-        self.manager: PetManager = manager
+        self.manager: EntityManager = manager
         self.hub_window: Optional[ModManagerHub] = None
         self._is_dark_mode: bool = True
         self._setup_ui()
@@ -113,8 +113,8 @@ class MainMenu(QWidget):
     
     def _update_stats(self) -> None:
         """Polls the PetManager to update the UI counters."""
-        total_active: int = len(self.manager.active_pets)
-        total_dead: int = sum(1 for p in self.manager.active_pets if p.is_dead)
+        total_active: int = len(self.manager.active_entities)
+        total_dead: int = sum(1 for p in self.manager.active_entities if p.is_dead)
         
         self.active_count_label.setText(f"Active Pets: {total_active}")
         self.dead_count_label.setText(f"Dead Pets: {total_dead}")
@@ -136,18 +136,16 @@ class MainMenu(QWidget):
                 random_x = random.randint(300, 1500)
                 random_y = random.randint(200, 800)
                 
-            self.manager.spawn_pet(random_x, random_y, selected_mod)
+            self.manager.spawn_entity(random_x, random_y, selected_mod)
 
     def _on_close_all_clicked(self) -> None:
-        # We iterate over a list copy `list(self.manager.active_pets)` because 
-        # _close_pet() removes the pet from the original list during iteration
-        for pet in list(self.manager.active_pets):
-            pet.close_pet()
+        for entity in list(self.manager.active_entities):
+            entity.destroy()
     
     def _on_close_all_dead_clicked(self) -> None:
-        for pet in list(self.manager.active_pets):
-            if not pet.is_dead: continue
-            pet.close_pet()
+        for entity in list(self.manager.active_entities):
+            if not entity.is_dead: continue
+            entity.destroy()
 
     def _toggle_theme(self) -> None:
         self._is_dark_mode = not self._is_dark_mode

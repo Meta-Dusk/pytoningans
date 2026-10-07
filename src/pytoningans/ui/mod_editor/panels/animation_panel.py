@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QTimer, QRect
 
-from pytoningans.core.constants import PetState, AnimationMeta
+from pytoningans.core.constants import EntityState, AnimationMeta
 from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.components import (
     CollapsibleSection, PreviewLabel, create_info_label, create_spinbox, create_info_widget
@@ -127,7 +127,7 @@ class AnimationSubsystem:
             )
         )
         self.swap_combo = QComboBox()
-        for state in PetState:
+        for state in EntityState:
             self.swap_combo.addItem(state.value.capitalize(), userData=state)
         self.swap_btn = QPushButton("Swap")
         swap_layout.addWidget(self.swap_combo)
@@ -265,7 +265,7 @@ class AnimationSubsystem:
         self.state_combo.blockSignals(True)
         self.state_combo.clear()
         target_idx = 0
-        for i, state in enumerate(PetState):
+        for i, state in enumerate(EntityState):
             exists, row = self.controller.has_mapped_row(state)
             self.state_combo.addItem(
                 f"{state.value.capitalize()} [{'Row ' + str(row) if exists else 'Missing'}]",
@@ -322,14 +322,14 @@ class AnimationSubsystem:
         self._preview_timer.setInterval(1000 // max(1, self.fps_spin.value()))
 
     def _on_copy(self) -> None:
-        state: Optional[PetState] = self.state_combo.currentData()
+        state: Optional[EntityState] = self.state_combo.currentData()
         if state is None: return
         
         self._copied_meta = copy.deepcopy(self.controller.get_meta(state))
         self.paste_btn.setEnabled(True)
 
     def _on_paste(self) -> None:
-        state: Optional[PetState] = self.state_combo.currentData()
+        state: Optional[EntityState] = self.state_combo.currentData()
         if state is None or self._copied_meta is None: return
         
         self.controller.update_meta(state, copy.deepcopy(self._copied_meta))
@@ -350,7 +350,7 @@ class AnimationSubsystem:
         self._restart_preview()
 
     def _update_preview(self) -> None:
-        state: Optional[PetState] = self.state_combo.currentData()
+        state: Optional[EntityState] = self.state_combo.currentData()
         if state is None: return
         self._preview_frame += 1
         
@@ -425,7 +425,7 @@ class AnimationSubsystem:
         self.bake_btn.setEnabled(True)
     
     def _on_apply_all_clicked(self) -> None:
-        state: Optional[PetState] = self.state_combo.currentData()
+        state: Optional[EntityState] = self.state_combo.currentData()
         if state is None: return
         
         reply: QMessageBox.StandardButton = QMessageBox.question(

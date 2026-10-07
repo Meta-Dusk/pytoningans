@@ -8,22 +8,21 @@ from PySide6.QtGui import QScreen
 from PySide6.QtWidgets import QMainWindow, QGraphicsView, QGraphicsScene
 
 if TYPE_CHECKING:
-    from pytoningans.core.pet_manager import PetManager
-    from pytoningans.core.pet.window import PetWindow
-    from pytoningans.core.structure import BaseStructure
+    from pytoningans.core.entity_manager import EntityManager
+    from pytoningans.core.entity.base import Entity, BaseStructure, BaseEntity
 
 HTTRANSPARENT = -1
 HTCLIENT = 1
 
 class WorldOverlay(QMainWindow):
-    """The transparent, fullscreen monitor overlay that acts as a 'World'."""
-    def __init__(self, screen: QScreen, manager: PetManager) -> None:
+    """The transparent, fullscreen monitor overlay that acts as a **World**."""
+    def __init__(self, screen: QScreen, manager: EntityManager) -> None:
         super().__init__()
         self.manager = manager
         self.target_screen = screen
         
         # The World now manages multiple entity types natively
-        self.active_pets: list[PetWindow] = []
+        self.active_entities: list[Entity] = []
         self.active_structures: list[BaseStructure] = []
         
         flags: Qt.WindowType = (
@@ -69,9 +68,9 @@ class WorldOverlay(QMainWindow):
         for struct in list(self.active_structures):
             struct.update_systems(dt)
             
-        # Tick mobile pets
-        centers: dict[PetWindow, QPointF] = {
-            pet: pet.sceneBoundingRect().center() for pet in self.active_pets
+        # Tick mobile entities
+        centers: dict[BaseEntity, QPointF] = {
+            entity: entity.sceneBoundingRect().center() for entity in self.active_entities
         }
-        for pet in list(self.active_pets):
-            pet.update_systems(dt, centers)
+        for entity in list(self.active_entities):
+            entity.update_systems(dt, centers)

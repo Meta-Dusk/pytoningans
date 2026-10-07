@@ -7,12 +7,12 @@ from PySide6.QtGui import QPainterPath, QPainter, QColor, QPen, QBrush, QFont
 from PySide6.QtCore import QRectF, Qt
 
 if TYPE_CHECKING:
-    from pytoningans.core.pet.window import PetWindow
+    from pytoningans.core.entity.base import Entity
 
 class SpeechBubble(QGraphicsItem):
-    def __init__(self, parent_pet: PetWindow) -> None:
-        super().__init__(parent_pet)
-        self.pet = parent_pet
+    def __init__(self, parent_entity: Entity) -> None:
+        super().__init__(parent_entity)
+        self.entity = parent_entity
         
         #? The text is a child item so it automatically moves with the bubble
         self.text_item = QGraphicsTextItem(self)
@@ -98,12 +98,12 @@ class SpeechBubble(QGraphicsItem):
             self.hide()
             #? QGraphicsItems don't have deleteLater(), so we remove it from the scene
             if self.scene(): self.scene().removeItem(self)
-            self.pet.bubble = None
+            self.entity.bubble = None
 
     def update_position(self) -> None:
         if not self.isVisible(): return
         
-        pet_width: float = self.pet.boundingRect().width()
+        pet_width: float = self.entity.boundingRect().width()
         
         # Place the bubble's local (0,0) point (the tip of the tail) 
         # exactly at the top-center of the pet's sprite

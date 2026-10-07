@@ -1,30 +1,30 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 from PySide6.QtGui import QTransform, QPixmap
 from PySide6.QtCore import Qt, QPoint, QObject, Signal, QRect
 
-from pytoningans.core.constants import AnimationMeta, PetState
+from pytoningans.core.constants import AnimationMeta, EntityState
 
 if TYPE_CHECKING:
-    from pytoningans.core.pet.window import PetWindow
+    from pytoningans.core.entity.base import BaseEntity
 
-type PetTransforms = Tuple[int, bool, int]
+type EntityTransforms = tuple[int, bool, int]
 
 class AnimationSystem(QObject):
     attack_frame_hit = Signal()
     
     # Class-level cache shared by EVERY pet instance
-    _shared_transform_cache: dict[PetTransforms, QPixmap] = {}
+    _shared_transform_cache: dict[EntityTransforms, QPixmap] = {}
 
     @classmethod
     def clear_shared_cache(cls) -> None:
         """Flushes the C++ image buffers from memory."""
         cls._shared_transform_cache.clear()
         
-    def __init__(self, pet: Optional[PetWindow] = None) -> None:
+    def __init__(self, entity: Optional[BaseEntity] = None) -> None:
         super().__init__()
-        self.pet: Optional[PetWindow] = pet
+        self.entity: Optional[BaseEntity] = entity
         self.current_frame: int = 0
         self.time_since_last_frame: int = 0
         self._last_anchor: Optional[QPoint] = None
@@ -35,10 +35,10 @@ class AnimationSystem(QObject):
         self.time_since_last_frame += dt
         
         meta: Optional[AnimationMeta]
-        if self.pet is None or self.pet.mod_manager is None:
+        if self.entity is None or self.entity.mod_manager is None:
             meta = None
         else:
-            meta = self.pet.mod_manager.animations.get(self.pet.state)
+            meta = self.entity.mod_manager.animations.get(self.entity.state)
         if not meta: return
         
         frame_duration: int = 1000 // max(1, meta.fps)
@@ -48,17 +48,17 @@ class AnimationSystem(QObject):
             self.time_since_last_frame -= frame_duration 
             self._update_frame()
 
-    def set_state(self, new_state: PetState) -> None:
-        if self.pet is None: return
-        if self.pet.state is new_state: return
-        self.pet.state = new_state
+    def set_state(self, new_state: EntityState) -> None:
+        if self.entity is None: return
+        if self.entity.state is new_state: return
+        self.entity.state = new_state
         self.current_frame = 0
         self.time_since_last_frame = 0
         self._update_frame()
 
     def _update_frame(self) -> None:
-        if self.pet is None or self.pet.mod_manager is None: return
-        meta: Optional[AnimationMeta] = self.pet.mod_manager.animations.get(self.pet.state)
+        if self.entity is None or self.entity.mod_manager is None: return
+        meta: Optional[AnimationMeta] = self.entity.mod_manager.animations.get(self.entity.state)
         if not meta: return
         
         total_play_frames: int = max(1, (meta.end_frame - meta.start_frame) + 1)
@@ -68,11 +68,11 @@ class AnimationSystem(QObject):
         else:
             self.current_frame = min(self.current_frame + 1, total_play_frames - 1)
 
-        frame: Optional[QPixmap] = self.pet.mod_manager.get_frame(self.pet.state, self.current_frame)
+        frame: Optional[QPixmap] = self.entity.mod_manager.get_frame(self.entity.state, self.current_frame)
         if frame is None: return
 
         # Physics Extraction
-        raw_anchor, current_hitbox = self.pet.mod_manager.get_frame_physics(self.pet.state, self.current_frame)
+        raw_anchor, current_hitbox = self.entity.mod_manager.get_frame_physics(self.entity.state, self.current_frame)
         ax, ay = raw_anchor.x(), raw_anchor.y()
         
         # Attack Hitbox Extraction
@@ -95,10 +95,10 @@ class AnimationSystem(QObject):
             )
 
         # Unified Transform Mapping using the renamed sprite_rotation
-        raw_angle: int = int(round(self.pet.sprite_rotation / 5.0) * 5.0)
+        raw_angle: int = int(round(self.entity.sprite_rotation / 5.0) * 5.0)
         
         transform = QTransform()
-        if self.pet.facing_left: transform.scale(-1, 1)
+        if self.entity.facing_left: transform.scale(-1, 1)
             
         current_anchor_pt: QPoint = transform.map(QPoint(ax, ay))
         if raw_angle != 0:
@@ -122,12 +122,12 @@ class AnimationSystem(QObject):
             mapped_atk.translate(-mapped_rect.x(), -mapped_rect.y())
             atk_rect = mapped_atk
             
-        self.pet.current_attack_hitbox = atk_rect
-        self.pet.current_hitbox = current_hitbox
+        self.entity.current_attack_hitbox = atk_rect
+        self.entity.current_hitbox = current_hitbox
 
         # Calculate New Item Position (Returns float in QGraphicsItem)
-        new_x: float = self.pet.x()
-        new_y: float = self.pet.y()
+        new_x: float = self.entity.x()
+        new_y: float = self.entity.y()
         
         if self._last_anchor is not None:
             # Shift the item perfectly based on how the anchor moved
@@ -139,8 +139,8 @@ class AnimationSystem(QObject):
         self._last_anchor = QPoint(final_ax, final_ay)
 
         # Apply Transform and Cache
-        if self.pet.facing_left or raw_angle != 0:
-            cache_key: Tuple[int, bool, int] = (frame.cacheKey(), self.pet.facing_left, raw_angle)
+        if self.entity.facing_left or raw_angle != 0:
+            cache_key: tuple[int, bool, int] = (frame.cacheKey(), self.entity.facing_left, raw_angle)
             if cache_key not in self._shared_transform_cache:
                 if len(self._shared_transform_cache) > 500:
                     self._shared_transform_cache.clear()
@@ -151,7 +151,7 @@ class AnimationSystem(QObject):
             frame = self._shared_transform_cache[cache_key]
 
         # Apply Position and Pixmap to the Item
-        self.pet.setPos(new_x, new_y)
-        self.pet.setPixmap(frame)
+        self.entity.setPos(new_x, new_y)
+        self.entity.setPixmap(frame)
         
         if is_attack: self.attack_frame_hit.emit()
