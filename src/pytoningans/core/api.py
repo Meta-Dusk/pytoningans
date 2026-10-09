@@ -100,20 +100,25 @@ class ITeleportationComponent(Protocol):
 class IBaseEntity(Protocol):
     mod_manager: Any
     world: Any
-    state: Any | str
     facing_left: bool
     sprite_rotation: float
     velocity_y: float
     components: dict[str, Any]
 
+    @property
+    def state(self) -> str: ...
+    @state.setter
+    def state(self, value: Any) -> None: ...
+
     def x(self) -> float: ...
     def y(self) -> float: ...
-    def setPos(self, x: float, y: float) -> None: ...
+    def setPos(self, *args: Any) -> None: ...
     def move(self, x: float, y: float) -> None: ...
     def width(self) -> int: ...
     def height(self) -> int: ...
     def toFront(self) -> None: ...
     def destroy(self) -> None: ...
+    def sceneBoundingRect(self) -> Any: ...
 
     # Component API
     def add_component(self, component: Any) -> Any: ...
@@ -123,7 +128,6 @@ class IBaseEntity(Protocol):
 
 @runtime_checkable
 class IEntity(IBaseEntity, Protocol):
-    state: EntityState
     is_dead: bool
     current_health: int
     target_pos: Optional[Pos2D]
@@ -138,14 +142,12 @@ class IEntity(IBaseEntity, Protocol):
 
 @runtime_checkable
 class IStructure(IBaseEntity, Protocol):
-    state: StructureState
-
     def attach_teleportation(
         self,
         target_world: Optional[Any] = None,
         exit_offset_x: float = 80.0,
         exit_offset_y: float = 0.0
-    ) -> ITeleportationComponent: ...
+    ) -> Any: ...
 
 # --- Behaviors ---
 

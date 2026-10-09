@@ -100,7 +100,7 @@ class PhysicsSystem:
             return
             
         target_pos: Optional[QPointF] = getattr(self.entity, '_target_pos', None)
-        if self.entity.state is not EntityState.MOVING or target_pos is None: return
+        if self.entity.state != EntityState.MOVING or target_pos is None: return
         
         curr_x, curr_y = self.entity.x(), self.entity.y()
         target_x: float = float(target_pos.x())
@@ -152,11 +152,11 @@ class PhysicsSystem:
             if new_y + hitbox_bottom_offset > ground_y:
                 new_y = ground_y - hitbox_bottom_offset
                 self.entity.velocity_y = 0
-                if self.entity.state is EntityState.JUMPING and not is_dead:
+                if self.entity.state == EntityState.JUMPING and not is_dead:
                     self.entity.anim_sys.set_state(EntityState.IDLE)
                     
             self.entity.setPos(self.entity.x(), new_y)
         else:
             self.entity.velocity_y = 0
-            if self.entity.state is EntityState.JUMPING and not is_dead:
+            if self.entity.state == EntityState.JUMPING and not is_dead:
                 self.entity.anim_sys.set_state(EntityState.IDLE)

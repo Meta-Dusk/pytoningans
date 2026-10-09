@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from PySide6.QtGui import QTransform, QPixmap
 from PySide6.QtCore import Qt, QPoint, QObject, Signal, QRect
 
-from pytoningans.core.constants import AnimationMeta, EntityState
+from pytoningans.core.constants import AnimationMeta
 
 if TYPE_CHECKING:
     from pytoningans.core.entity.base_entity import BaseEntity
@@ -47,10 +47,12 @@ class AnimationSystem(QObject):
             self.time_since_last_frame -= frame_duration 
             self._update_frame()
 
-    def set_state(self, new_state: EntityState) -> None:
+    def set_state(self, new_state: Any) -> None:
         if self.entity is None: return
-        if self.entity.state is new_state: return
-        self.entity.state = new_state
+        val_str = new_state.value if hasattr(new_state, "value") else str(new_state)
+        if self.entity.state == val_str: return
+        
+        self.entity._state = val_str
         self.current_frame = 0
         self.time_since_last_frame = 0
         self._update_frame()

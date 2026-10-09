@@ -221,7 +221,7 @@ class ModEditorWindow(QWidget):
             self.name_input.setText(self.controller.get_mod_name())
             self.name_input.blockSignals(False)
             
-            if self.controller.manager.entity_type == EntityType.STRUCTURE.value:
+            if self.controller.manager.entity_type == EntityType.STRUCTURE:
                 self.dialogue_panel.hide()
                 self.behavior_script.hide()
                 self.behavior_stats.hide()

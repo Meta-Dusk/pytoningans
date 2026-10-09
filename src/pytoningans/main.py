@@ -51,7 +51,11 @@ def main() -> None:
     if available_mods:
         # Prefer loading a pet mod on launch if available; fallback to the first entry
         initial_mod: str = next(
-            (folder for folder, (_, ent_type) in available_mods.items() if ent_type == EntityType.PET.value),
+            (
+                folder for folder,
+                (_, entity_type) in available_mods.items()
+                if entity_type == EntityType.PET.value
+            ),
             next(iter(available_mods))
         )
         mod_manager.load_mod(initial_mod)

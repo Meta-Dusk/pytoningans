@@ -1,29 +1,27 @@
 from __future__ import annotations
 import random
-from typing import Optional, TYPE_CHECKING, cast
+from typing import Optional, TYPE_CHECKING, cast, Any
 
 from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsColorizeEffect, QMenu
 from PySide6.QtCore import QPointF, QRect, QRectF, QVariantAnimation, QEasingCurve, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QGraphicsSceneContextMenuEvent
 
-from pytoningans.core.components.base_component import BaseComponent
 from pytoningans.core.constants import AnimationMeta, EntityState, SystemLocks, DeathAnimation
 from pytoningans.core.entity.animation import AnimationSystem
 from pytoningans.core.entity.physics import PhysicsSystem
 from pytoningans.core.entity.ai_brain import AISystem
 from pytoningans.core.entity.speech_bubble import SpeechBubble
 from pytoningans.core.api import (
-    IEntity, Pos2D, BaseEntityBehavior, BaseStructureBehavior,
-    BaseBehavior, IStructure
+    IEntity, Pos2D, BaseEntityBehavior, BaseBehavior, BaseStructureBehavior, IStructure
 )
-from pytoningans.core.world import WorldOverlay
 
 if TYPE_CHECKING:
     from pytoningans.core.mod_manager import ModManager
     from pytoningans.core.world import WorldOverlay
     from pytoningans.core.entity_manager import EntityManager
     from pytoningans.core.components.base_component import BaseComponent
+    from pytoningans.core.components.teleportation import TeleportationComponent
 
 
 class BaseEntity(QGraphicsPixmapItem):
@@ -37,7 +35,7 @@ class BaseEntity(QGraphicsPixmapItem):
         self.mod_manager = mod_manager
         self.world = world
         
-        self.state: EntityState = EntityState.IDLE
+        self._state: str = EntityState.IDLE
         self.facing_left: bool = False
         self.sprite_rotation: float = 0.0
         self.is_paused: bool = False
@@ -53,6 +51,23 @@ class BaseEntity(QGraphicsPixmapItem):
         self.physics_sys: Optional[PhysicsSystem] = PhysicsSystem(self)
         
         self._setup_ui(start_x, start_y)
+    
+    @property
+    def state(self) -> str:
+        return self._state
+
+    @state.setter
+    def state(self, value: Any) -> None:
+        val_str = value.value if hasattr(value, "value") else str(value)
+        if getattr(self, "_state", None) == val_str:
+            return
+        self._state = val_str
+        if self.anim_sys is not None:
+            self.anim_sys.set_state(val_str)
+    
+    def move(self, x: float, y: float) -> None:
+        """Convenience method matching the protocol definition."""
+        self.setPos(x, y)
 
     def _setup_ui(self, x: float, y: float) -> None:
         self.setPos(x, y)
@@ -215,6 +230,14 @@ class Entity(BaseEntity):
             
         if self.locks.ai and self.ai_sys: self.ai_sys.update(dt)
         super().update_systems(dt, centers)
+        
+        if self.mod_manager and self.mod_manager.custom_behavior:
+            behavior: BaseBehavior = self.mod_manager.custom_behavior
+            if isinstance(behavior, BaseEntityBehavior):
+                try:
+                    behavior.on_update(cast(IEntity, self), dt)
+                except Exception as e:
+                    print(f"Custom Entity on_update Error: {e}")
 
     def on_moved(self) -> None:
         if self.bubble: self.bubble.update_position()
@@ -405,7 +428,7 @@ class BaseStructure(BaseEntity):
     def __init__(
         self, start_x: float, start_y: float,
         mod_manager: Optional[ModManager], world: Optional[WorldOverlay]
-    ):
+    ) -> None:
         super().__init__(start_x, start_y, mod_manager, world)
         
         #? Structures usually ignore gravity by default unless specified
@@ -414,26 +437,24 @@ class BaseStructure(BaseEntity):
     def update_systems(self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None) -> None:
         super().update_systems(dt, centers)
         
-        if (
-            self.mod_manager is None
-            or self.mod_manager.custom_behavior is None
-        ):
+        if self.mod_manager is None or self.mod_manager.custom_behavior is None:
             return
         
         behavior: BaseBehavior = self.mod_manager.custom_behavior
-        if not isinstance(behavior, BaseStructureBehavior): return
-        
-        struct_api: IStructure = cast(IStructure, self)
-        behavior.on_update(struct_api, dt)
+        if isinstance(behavior, BaseStructureBehavior):
+            try:
+                behavior.on_update(cast(IStructure, self), dt)
+            except Exception as e:
+                print(f"Custom Structure on_update Error: {e}")
     
     def attach_teleportation(
         self,
         target_world: Optional[WorldOverlay] = None,
         exit_offset_x: float = 80.0,
         exit_offset_y: float = 0.0
-    ):
+    ) -> TeleportationComponent:
         from pytoningans.core.components.teleportation import TeleportationComponent
-        tw: Optional[WorldOverlay] = target_world or self.world
-        comp = TeleportationComponent(self, tw, exit_offset_x, exit_offset_y)
+        _target_world: Optional[WorldOverlay] = target_world or self.world
+        comp = TeleportationComponent(self, _target_world, exit_offset_x, exit_offset_y)
         self.add_component(comp)
         return comp

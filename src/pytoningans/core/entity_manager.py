@@ -105,34 +105,34 @@ class EntityManager:
             self.active_worlds.append(world)
             
         # Link adjacent monitors with two-way Travel Portals
-        for i in range(len(self.active_worlds) - 1):
-            world_a: WorldOverlay = self.active_worlds[i]
-            world_b: WorldOverlay = self.active_worlds[i + 1]
+        # for i in range(len(self.active_worlds) - 1):
+        #     world_a: WorldOverlay = self.active_worlds[i]
+        #     world_b: WorldOverlay = self.active_worlds[i + 1]
             
-            wa_rect: QRectF = world_a.scene.sceneRect()
-            wb_rect: QRectF = world_b.scene.sceneRect()
+        #     wa_rect: QRectF = world_a.scene.sceneRect()
+        #     wb_rect: QRectF = world_b.scene.sceneRect()
             
-            # Floor level approximation (120 is portal height)
-            ground_y_a: float = wa_rect.bottom() - 120
-            ground_y_b: float = wb_rect.bottom() - 120
+        #     # Floor level approximation (120 is portal height)
+        #     ground_y_a: float = wa_rect.bottom() - 120
+        #     ground_y_b: float = wb_rect.bottom() - 120
             
-            portal_a = TravelPortal(wa_rect.right() - 80, ground_y_a, world_a, world_b)
-            portal_a.exit_offset_x = 80.0  # Tells portal_b to spit out to the right
+        #     portal_a = TravelPortal(wa_rect.right() - 80, ground_y_a, world_a, world_b)
+        #     portal_a.exit_offset_x = 80.0  # Tells portal_b to spit out to the right
             
-            world_a.scene.addItem(portal_a)
-            world_a.active_structures.append(portal_a)
-            self.active_structures.append(portal_a)
+        #     world_a.scene.addItem(portal_a)
+        #     world_a.active_structures.append(portal_a)
+        #     self.active_structures.append(portal_a)
             
-            portal_b = TravelPortal(20, ground_y_b, world_b, world_a)
-            portal_b.exit_offset_x = -80.0 # Tells portal_a to spit out to the left
+        #     portal_b = TravelPortal(20, ground_y_b, world_b, world_a)
+        #     portal_b.exit_offset_x = -80.0 # Tells portal_a to spit out to the left
             
-            world_b.scene.addItem(portal_b)
-            world_b.active_structures.append(portal_b)
-            self.active_structures.append(portal_b)
+        #     world_b.scene.addItem(portal_b)
+        #     world_b.active_structures.append(portal_b)
+        #     self.active_structures.append(portal_b)
             
-            # Form the two-way dynamic link
-            portal_a.linked_portal = portal_b
-            portal_b.linked_portal = portal_a
+        #     # Form the two-way dynamic link
+        #     portal_a.linked_portal = portal_b
+        #     portal_b.linked_portal = portal_a
 
     def _on_vision_ready(self, titles: list[str]) -> None:
         self.active_window_titles = titles
@@ -154,24 +154,31 @@ class EntityManager:
         for world in self.active_worlds:
             world.update_systems(dt)
 
-    def spawn_entity(self, x: float, y: float, mod_folder: str) -> None:
+    def spawn_entity(
+        self, x: float, y: float, mod_folder: str, 
+        target_world: Optional[WorldOverlay] = None
+    ) -> None:
         """Dynamically spawns a living Pet or a static Structure based on mod config."""
         mod_manager = ModManager(self.mod_manager.mods_dir)
         mod_manager.load_mod(mod_folder)
         
-        target_world: Optional[WorldOverlay] = self.active_worlds[0] if self.active_worlds else None
-        if not target_world: return
+        # Fallback to the first world if no specific world is provided
+        world: Optional[WorldOverlay] = (
+            target_world or (self.active_worlds[0] if self.active_worlds else None)
+        )
+        if not world: return
         
         # Route instantiation based on the declared entity type
+        entity: BaseStructure | Entity
         if mod_manager.entity_type == EntityType.STRUCTURE.value:
-            entity = BaseStructure(x, y, mod_manager, target_world)
-            target_world.scene.addItem(entity)
-            target_world.active_structures.append(entity)
+            entity = BaseStructure(x, y, mod_manager, world)
+            world.scene.addItem(entity)
+            world.active_structures.append(entity)
             self.active_structures.append(entity)
         else:
-            entity = Entity(x, y, mod_manager, target_world, self)
-            target_world.scene.addItem(entity)
-            target_world.active_entities.append(entity)
+            entity = Entity(x, y, mod_manager, world, self)
+            world.scene.addItem(entity)
+            world.active_entities.append(entity)
             self.active_entities.append(entity)
             
         self._on_spawn(entity)
@@ -182,13 +189,14 @@ class EntityManager:
         behavior: Optional[BaseBehavior] = entity.mod_manager.custom_behavior
         if behavior is None: return
         
-        if isinstance(entity, Entity) and isinstance(behavior, BaseEntityBehavior):
-            entity_api: IEntity = cast(IEntity, entity)
-            behavior.on_spawn(entity_api)
-            
-        elif isinstance(entity, BaseStructure) and isinstance(behavior, BaseStructureBehavior):
-            struct_api: IStructure = cast(IStructure, entity)
-            behavior.on_spawn(struct_api)
+        try:
+            if isinstance(entity, Entity) and isinstance(behavior, BaseEntityBehavior):
+                behavior.on_spawn(cast(IEntity, entity))
+                
+            elif isinstance(entity, BaseStructure) and isinstance(behavior, BaseStructureBehavior):
+                behavior.on_spawn(cast(IStructure, entity))
+        except Exception as e:
+            print(f"Custom Behavior on_spawn Error ({entity.mod_manager.current_mod_folder}): {e}")
     
     def remove_entity(self, entity: BaseEntity) -> None:
         # Remove from global tracking safely

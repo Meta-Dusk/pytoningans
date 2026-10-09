@@ -29,13 +29,13 @@ class AISystem:
         if self.interaction_cooldown > 0: self.interaction_cooldown -= dt
         if self.attack_cooldown > 0: self.attack_cooldown -= dt
         
-        if self.entity.state is EntityState.INTERACT:
+        if self.entity.state == EntityState.INTERACT:
             self.interact_time_left -= dt
             if self.interact_time_left <= 0:
                 self.entity.anim_sys.set_state(EntityState.IDLE)
             return
             
-        if self.entity.state is EntityState.ATTACK:
+        if self.entity.state == EntityState.ATTACK:
             self.attack_time_left -= dt
             if self.attack_time_left <= 0:
                 self.entity.anim_sys.set_state(EntityState.IDLE)
@@ -48,7 +48,7 @@ class AISystem:
             
         self.check_combat()
         
-        if self.entity.state is not EntityState.ATTACK:
+        if self.entity.state != EntityState.ATTACK:
             self.check_interactions()
     
     def _ai_decision_tick(self) -> None:

@@ -5,11 +5,12 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QApplication, QLabel, QComboBox, QFrame,
     QSpinBox, QHBoxLayout
 )
-from PySide6.QtCore import QCoreApplication, QRect, Qt, QTimer
+from PySide6.QtCore import QCoreApplication, QRectF, Qt, QTimer
 from PySide6.QtGui import QGuiApplication, QScreen
 
 from pytoningans.core.entity_manager import EntityManager
 from pytoningans.core.constants import EntityType
+from pytoningans.core.world import WorldOverlay
 from pytoningans.ui.mod_manager_hub import ModManagerHub
 from pytoningans.ui.theme import LIGHT_THEME, DARK_THEME
 from pytoningans.ui.title_bar import CustomTitleBar
@@ -28,7 +29,7 @@ class MainMenu(QWidget):
 
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.resize(320, 360)
+        self.resize(320, 390)
         
         main_layout: QVBoxLayout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -47,7 +48,7 @@ class MainMenu(QWidget):
         spawn_label.setObjectName("SectionHeader")
         content_layout.addWidget(spawn_label)
 
-        # Filter Category Row
+        # Category Filter Row
         filter_layout = QHBoxLayout()
         filter_layout.addWidget(QLabel("Category:"))
         self.category_combo = QComboBox()
@@ -57,6 +58,15 @@ class MainMenu(QWidget):
         self.category_combo.currentIndexChanged.connect(self._refresh_spawn_list)
         filter_layout.addWidget(self.category_combo, stretch=1)
         content_layout.addLayout(filter_layout)
+
+        # Monitor Selection Row (Shown only if multiple monitors exist)
+        self.monitor_layout = QHBoxLayout()
+        self.monitor_label = QLabel("Monitor:")
+        self.monitor_combo = QComboBox()
+        self.monitor_layout.addWidget(self.monitor_label)
+        self.monitor_layout.addWidget(self.monitor_combo, stretch=1)
+        content_layout.addLayout(self.monitor_layout)
+        self._populate_monitors()
         
         # Target Mod Dropdown
         self.mod_combo = QComboBox()
@@ -123,16 +133,37 @@ class MainMenu(QWidget):
         self.stats_timer.timeout.connect(self._update_stats)
         self.stats_timer.start(500)
 
+    def _populate_monitors(self) -> None:
+        """Populates the monitor combo box if more than one screen is active."""
+        self.monitor_combo.clear()
+        worlds: list[WorldOverlay] = self.manager.active_worlds
+        
+        if len(worlds) <= 1:
+            self.monitor_label.hide()
+            self.monitor_combo.hide()
+            return
+            
+        self.monitor_label.show()
+        self.monitor_combo.show()
+
+        primary_screen: Optional[QScreen] = QGuiApplication.primaryScreen()
+        
+        for i, world in enumerate(worlds):
+            is_primary = (world.target_screen == primary_screen)
+            label = f"Monitor {i + 1} ({'Primary' if is_primary else 'Secondary'})"
+            self.monitor_combo.addItem(label, userData=world)
+            
+        self.monitor_combo.addItem("Random Monitor", userData="random")
+
     def _refresh_spawn_list(self) -> None:
         """Filters the spawn dropdown based on the active category filter."""
         self.mod_combo.clear()
         selected_category: str = self.category_combo.currentData()
         
-        mods = self.manager.mod_manager.get_available_mods_with_type()
+        mods: dict[str, tuple[str, str]] = self.manager.mod_manager.get_available_mods_with_type()
         for folder, (name, entity_type) in mods.items():
-            if selected_category != "all" and entity_type != selected_category: continue
-            badge: str = "[Struct]" if entity_type == EntityType.STRUCTURE.value else "[Pet]"
-            self.mod_combo.addItem(f"{badge} {name}", userData=folder)
+            if selected_category == "all" or entity_type == selected_category:
+                self.mod_combo.addItem(f"[{entity_type.capitalize()}] {name}", userData=folder)
 
     def _update_stats(self) -> None:
         total_pets: int = len(self.manager.active_entities)
@@ -144,23 +175,27 @@ class MainMenu(QWidget):
 
     def _on_spawn_clicked(self) -> None:
         selected_mod: str = self.mod_combo.currentData()
-        if not selected_mod: return
+        if not selected_mod or not self.manager.active_worlds:
+            return
             
-        screen: QScreen = QGuiApplication.primaryScreen()
-        geom: Optional[QRect] = screen.availableGeometry() if screen else None
-        
+        selected_target = self.monitor_combo.currentData() if self.monitor_combo.isVisible() else None
         amount: int = self.amount_spin.value()
+
         for _ in range(amount):
-            random_x: int
-            random_y: int
-            if geom:
-                random_x = random.randint(geom.left() + 50, geom.right() - 150)
-                random_y = random.randint(geom.top() + 50, geom.bottom() - 150)
+            # Resolve target WorldOverlay
+            if selected_target == "random":
+                target_world: WorldOverlay = random.choice(self.manager.active_worlds)
+            elif isinstance(selected_target, WorldOverlay):
+                target_world = selected_target
             else:
-                random_x = random.randint(300, 1500)
-                random_y = random.randint(200, 800)
+                target_world = self.manager.active_worlds[0]
                 
-            self.manager.spawn_entity(random_x, random_y, selected_mod)
+            # Compute position inside the target world's scene boundaries
+            scene_rect: QRectF = target_world.scene.sceneRect()
+            random_x = random.uniform(scene_rect.left() + 50, scene_rect.right() - 150)
+            random_y = random.uniform(scene_rect.top() + 50, scene_rect.bottom() - 150)
+                
+            self.manager.spawn_entity(random_x, random_y, selected_mod, target_world=target_world)
 
     def _on_close_all_clicked(self) -> None:
         for entity in list(self.manager.active_entities):
@@ -170,7 +205,8 @@ class MainMenu(QWidget):
 
     def _on_close_all_dead_clicked(self) -> None:
         for entity in list(self.manager.active_entities):
-            if entity.is_dead: entity.destroy()
+            if entity.is_dead:
+                entity.destroy()
 
     def _toggle_theme(self) -> None:
         self._is_dark_mode = not self._is_dark_mode

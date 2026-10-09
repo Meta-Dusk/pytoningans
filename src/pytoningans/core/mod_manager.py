@@ -2,7 +2,7 @@ import json, sys, inspect
 import importlib.util
 from pathlib import Path
 
-from typing import Optional, Any
+from typing import Optional, Any, cast
 
 from PySide6.QtGui import QPixmap, QPainter
 from PySide6.QtCore import QRect, Qt, QPoint
@@ -223,23 +223,24 @@ class ModManager:
         behavior_path: Path = mod_path / "behavior.py"
         if not behavior_path.exists(): return
         try:
-            spec = importlib.util.spec_from_file_location("mod_behavior", str(behavior_path))
+            # Guarantee that 'import api' inside any mod's behavior.py resolves
+            # directly to the engine's core API module in memory
+            import pytoningans.core.api as core_api
+            sys.modules["api"] = core_api
+
+            spec = importlib.util.spec_from_file_location(f"mod_behavior_{mod_folder_name}", str(behavior_path))
             if spec is None or spec.loader is None: return
             
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             
-            # Dynamically determine the expected parent class
-            expected_base = (
-                BaseStructureBehavior 
-                if self.entity_type == EntityType.STRUCTURE.value 
-                else BaseEntityBehavior
-            )
+            is_structure: bool = (self.entity_type == EntityType.STRUCTURE.value)
+            target_base_name: str = "BaseStructureBehavior" if is_structure else "BaseEntityBehavior"
             
-            # Search the module for any class inheriting the expected base
-            for name, obj in inspect.getmembers(module, inspect.isclass):
-                if issubclass(obj, expected_base) and obj is not expected_base:
-                    self.custom_behavior = obj()
+            for _, obj in inspect.getmembers(module, inspect.isclass):
+                mro_names: list[str] = [base.__name__ for base in inspect.getmro(obj)]
+                if target_base_name in mro_names and obj.__name__ != target_base_name:
+                    self.custom_behavior = cast(BaseBehavior, obj())
                     break
         except Exception as e:
             print(f"Failed to load behavior.py for {mod_folder_name}: {e}")

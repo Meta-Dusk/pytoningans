@@ -92,7 +92,7 @@ class ModManagerHub(QWidget):
         self.mod_list.clear()
         mods: dict[str, tuple[str, str]] = self.mod_manager.get_available_mods_with_type()
         for folder, (name, entity_type) in mods.items():
-            item = QListWidgetItem(f"[{entity_type}] {name} ({folder})")
+            item = QListWidgetItem(f"[{entity_type.capitalize()}] {name} ({folder})")
             item.setData(Qt.ItemDataRole.UserRole, folder)
             self.mod_list.addItem(item)
 

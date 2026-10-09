@@ -1,65 +1,12 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
-from PySide6.QtCore import QRectF
 from PySide6.QtGui import QPixmap, QColor
 
 from pytoningans.core.entity.base_entity import BaseStructure
-from pytoningans.core.constants import EntityState
 
 if TYPE_CHECKING:
     from pytoningans.core.world import WorldOverlay
-    from pytoningans.core.entity.base_entity import Entity
     from pytoningans.core.mod_manager import ModManager
-
-class TeleportationComponent:
-    """Reusable logic for handling collision and teleportation between worlds."""
-    def __init__(self, owner: BaseStructure, target_world: WorldOverlay) -> None:
-        self.owner: BaseStructure = owner
-        self.target_world: WorldOverlay = target_world
-        self.linked_portal: Optional[BaseStructure] = None
-        
-        # Positive: spit out to the right; Negative: spit out to the left
-        self.exit_offset_x: float = 80.0
-        self.exit_offset_y: float = 0.0
-
-    def update(self) -> None:
-        if self.linked_portal is None or self.owner.world is None:
-            return
-            
-        portal_rect: QRectF = self.owner.sceneBoundingRect()
-        for entity in list(self.owner.world.active_entities):
-            if entity.is_dead or entity.state is EntityState.DRAG:
-                continue
-            if portal_rect.intersects(entity.sceneBoundingRect()):
-                self.teleport_entity(entity)
-
-    def teleport_entity(self, entity: Entity) -> None:
-        if self.linked_portal is None or self.owner.world is None:
-            return
-
-        if entity in self.owner.world.active_entities:
-            self.owner.world.active_entities.remove(entity)
-        self.owner.world.scene.removeItem(entity)
-
-        entity.world = self.target_world
-        self.target_world.scene.addItem(entity)
-        self.target_world.active_entities.append(entity)
-
-        pet_w: int = entity.width()
-        spawn_x: float
-        if self.exit_offset_x > 0:
-            spawn_x = self.linked_portal.x() + self.linked_portal.width() + 10
-        else:
-            spawn_x = self.linked_portal.x() - pet_w - 10
-
-        spawn_y: float = self.linked_portal.y() + self.exit_offset_y
-
-        entity.setPos(spawn_x, spawn_y)
-        entity.velocity_y = 0.0
-
-        if entity.anim_sys is not None:
-            entity.anim_sys.set_state(EntityState.IDLE)
-        entity.target_pos = None
 
 
 class TravelPortal(BaseStructure):

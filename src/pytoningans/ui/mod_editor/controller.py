@@ -6,7 +6,7 @@ from PySide6.QtCore import QRect
 from PySide6.QtGui import QPixmap
 
 from pytoningans.core.mod_manager import ModManager
-from pytoningans.core.constants import EntityState, AnimationMeta
+from pytoningans.core.constants import AnimationMeta
 
 class ModEditorController:
     """Handles data bridging between the UI and the ModManager."""
