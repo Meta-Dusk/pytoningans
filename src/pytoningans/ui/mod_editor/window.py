@@ -9,6 +9,7 @@ from PySide6.QtCore import QRect, Qt, Signal, QUrl, QTimer
 from PySide6.QtGui import QGuiApplication, QResizeEvent, QDesktopServices, QScreen
 
 from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION
+from pytoningans.core.constants import EntityType
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.ui.mod_editor.controller import ModEditorController
@@ -16,6 +17,7 @@ from pytoningans.ui.mod_editor.panels.dialogue_panel import DialoguePanel
 from pytoningans.ui.mod_editor.panels.behavior_panel import BehaviorStatsPanel, BehaviorScriptPanel
 from pytoningans.ui.mod_editor.panels.animation_panel import AnimationSubsystem
 from pytoningans.ui.mod_editor.panels.physics_panel import PhysicsPanel
+from pytoningans.ui.mod_editor.panels.base_panel import BasePanel
 from pytoningans.utils.assets import get_main_icon
 
 class ModEditorWindow(QWidget):
@@ -83,7 +85,7 @@ class ModEditorWindow(QWidget):
         self.anim_sys = AnimationSubsystem(self.controller, self.sheet_info_label)
         self.physics_panel = PhysicsPanel(self.controller)
         
-        self.panels = [
+        self.panels: list[BasePanel] = [
             self.dialogue_panel, self.behavior_stats, self.behavior_script, self.anim_sys,
             self.physics_panel
         ]
@@ -200,10 +202,10 @@ class ModEditorWindow(QWidget):
         self._current_loaded_mod = mod_folder
             
         if self.controller.load_mod(mod_folder):
-            current_v: int = self.controller.get_config_version()
-            self.version_label.setText(f"v{current_v}")
+            current_version: int = self.controller.get_config_version()
+            self.version_label.setText(f"v{current_version}")
             
-            if current_v < CURRENT_CONFIG_VERSION:
+            if current_version < CURRENT_CONFIG_VERSION:
                 # Add a visual warning color for outdated mods
                 self.version_label.setStyleSheet("color: #d97706; font-weight: bold;")
                 QMessageBox.warning(
@@ -217,8 +219,18 @@ class ModEditorWindow(QWidget):
             self.name_input.blockSignals(True)
             self.name_input.setText(self.controller.get_mod_name())
             self.name_input.blockSignals(False)
+            
+            if self.controller.manager.entity_type == EntityType.STRUCTURE.value:
+                self.dialogue_panel.hide()
+                self.behavior_script.hide()
+                self.behavior_stats.hide()
+            else:
+                self.dialogue_panel.show()
+                self.behavior_script.show()
+                self.behavior_stats.show()
                 
             for panel in self.panels:
+                if not panel.isVisible(): continue
                 panel.load_data()
         else:
             QMessageBox.warning(self, "Load Error", f"Could not load {mod_folder}.")

@@ -2,12 +2,12 @@ from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import QPointF, QRectF
 from PySide6.QtGui import QPixmap, QColor
 
-from pytoningans.core.entity.base import BaseEntity, BaseStructure
+from pytoningans.core.entity.base_entity import BaseEntity, BaseStructure
 from pytoningans.core.constants import EntityState
 
 if TYPE_CHECKING:
     from pytoningans.core.world import WorldOverlay
-    from pytoningans.core.entity.base import Entity
+    from pytoningans.core.entity.base_entity import Entity
 
 class TravelPortal(BaseStructure):
     """Engine-level portal used for the automatic multi-monitor linking."""

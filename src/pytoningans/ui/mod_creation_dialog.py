@@ -4,7 +4,7 @@ from typing import Optional
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit,
-    QSpinBox, QPushButton, QFileDialog, QMessageBox, QWidget
+    QSpinBox, QPushButton, QFileDialog, QMessageBox, QWidget, QComboBox
 )
 from PySide6.QtGui import QDragEnterEvent, QDropEvent, QPixmap
 from PySide6.QtCore import QUrl, Qt
@@ -12,7 +12,7 @@ from PySide6.QtCore import QUrl, Qt
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
 from pytoningans.core.config_schema import ModConfig
-from pytoningans.core.constants import EntityState, AnimationMeta
+from pytoningans.core.constants import EntityState, AnimationMeta, EntityType
 
 class ModCreationDialog(QDialog):
     def __init__(self, mods_dir: str | Path, parent: Optional[QWidget] = None) -> None:
@@ -46,12 +46,14 @@ class ModCreationDialog(QDialog):
         self.name_input.setPlaceholderText("e.g. My Cool Pet")
         
         self.cols_spin = QSpinBox()
-        self.cols_spin.setRange(1, 100)
-        self.cols_spin.setValue(4)
+        self.cols_spin.setRange(1, 100); self.cols_spin.setValue(4)
         
         self.rows_spin = QSpinBox()
-        self.rows_spin.setRange(1, 100)
-        self.rows_spin.setValue(len(EntityState))
+        self.rows_spin.setRange(1, 100); self.rows_spin.setValue(len(EntityState))
+        
+        self.type_combo = QComboBox()
+        self.type_combo.addItem("Living Pet", userData=EntityType.PET)
+        self.type_combo.addItem("Static/Animated Structure", userData=EntityType.STRUCTURE)
         
         form.addRow(self._create_info_label(
             "Internal Folder Name:", 
@@ -72,6 +74,8 @@ class ModCreationDialog(QDialog):
             "Authoring Rows:", 
             "How many rows the sprite sheet is divided into evenly (used to calculate base tile height)."
         ), self.rows_spin)
+        
+        form.addRow("Entity Type:", self.type_combo)
         
         layout.addLayout(form)
         
@@ -203,9 +207,12 @@ class ModCreationDialog(QDialog):
             )
             for i, state in enumerate(EntityState)
         }
+        selected_entity_type = self.type_combo.currentData()
+        entity_type: str = getattr(selected_entity_type, "value", str(selected_entity_type))
 
         new_config = ModConfig(
             name=display_name,
+            entity_type=entity_type,
             columns=cols,
             rows=rows,
             animations=animations

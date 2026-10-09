@@ -13,27 +13,31 @@ from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.components import (
     CollapsibleSection, PreviewLabel, create_info_label, create_spinbox, create_info_widget
 )
+from .base_panel import BasePanel
 
-class AnimationSubsystem:
+class AnimationSubsystem(BasePanel):
     """Manages all animation-related UI panels, timers, and state bridging."""
     def __init__(self, controller: ModEditorController, dynamic_info_label: QLabel) -> None:
-        self.controller = controller
-        self.info_label = dynamic_info_label
-        self._is_updating_ui = False
+        super().__init__(controller)
+        self.info_label: QLabel = dynamic_info_label
+        self._is_updating_ui: bool = False
         self._copied_meta: Optional[AnimationMeta] = None
-        self._preview_frame = 0
+        self._preview_frame: int = 0
         
-        self._preview_timer = QTimer()
+        self._preview_timer: QTimer = QTimer()
         self._preview_timer.timeout.connect(self._update_preview)
         self._preview_timer.setInterval(100)
         
+        self._setup_ui()
+        self._connect_signals()
+        
+        self._preview_timer.start()
+    
+    def _setup_ui(self) -> None:
         self._build_grid_panel()
         self._build_preview_panel()
         self._build_debug_panel()
         self._build_state_panel()
-        self._connect_signals()
-        
-        self._preview_timer.start()
 
     def load_data(self) -> None:
         self._is_updating_ui = True

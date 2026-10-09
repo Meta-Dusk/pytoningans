@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt, QPoint, QRect, Signal
 
 from pytoningans.core.constants import AnimationMeta, EntityState
 from pytoningans.ui.mod_editor.components import CollapsibleSection, create_info_label
+from .base_panel import BasePanel
 
 if TYPE_CHECKING:
     from pytoningans.ui.mod_editor.controller import ModEditorController
@@ -166,10 +167,9 @@ class PhysicsCanvas(QWidget):
         self.update()
 
 
-class PhysicsPanel(QWidget):
+class PhysicsPanel(BasePanel):
     def __init__(self, controller: ModEditorController) -> None:
-        super().__init__()
-        self.controller: ModEditorController = controller
+        super().__init__(controller)
         self._is_loading: bool = False
         self._copied_physics: dict[str, Any] = {}
         self._setup_ui()

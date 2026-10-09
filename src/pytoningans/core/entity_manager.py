@@ -11,7 +11,7 @@ from pytoningans.core.api import (
     IEntity, IStructure, BaseStructureBehavior, BaseEntityBehavior,
     BaseBehavior
 )
-from pytoningans.core.entity.base import BaseEntity, Entity, BaseStructure
+from pytoningans.core.entity.base_entity import BaseEntity, Entity, BaseStructure
 from pytoningans.core.entity.animation import AnimationSystem
 from pytoningans.core.structure import TravelPortal
 from pytoningans.core.constants import EntityType

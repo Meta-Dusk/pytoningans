@@ -6,12 +6,11 @@ from typing import TYPE_CHECKING, cast, Optional, List
 from PySide6.QtCore import QPointF, QRectF
 
 from pytoningans.core.constants import EntityState, BehaviorType, AttackType
-from pytoningans.core.api import BaseEntityBehavior, IEntity
+from pytoningans.core.api import BaseEntityBehavior, IEntity, BaseBehavior
 from pytoningans.core.entity.speech_bubble import SpeechBubble
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.base import Entity
-    from pytoningans.core.entity_manager import EntityManager
+    from pytoningans.core.entity.base_entity import Entity
 
 class AISystem:
     def __init__(self, entity: Optional[Entity] = None) -> None:
@@ -98,8 +97,8 @@ class AISystem:
     def _on_ai_decision_tick(self) -> bool:
         if self.entity is None or self.entity.mod_manager is None: return False
         
-        behavior: Optional[BaseEntityBehavior] = self.entity.mod_manager.custom_behavior
-        if behavior is None: return False
+        behavior: Optional[BaseBehavior] = self.entity.mod_manager.custom_behavior
+        if behavior is None or not isinstance(behavior, BaseEntityBehavior): return False
         try:
             pet_api: IEntity = cast(IEntity, self.entity)
             if behavior.on_decision_tick(pet_api): return True
@@ -176,12 +175,18 @@ class AISystem:
         self.entity.anim_sys.set_state(EntityState.ATTACK)
 
     def _on_combat_check(self, other_pet: Entity) -> bool:
-        if self.entity is None or self.entity.mod_manager is None: return False
-        if not self.entity.mod_manager.custom_behavior: return False
+        if (
+            self.entity is None or
+            self.entity.mod_manager is None or
+            self.entity.mod_manager.custom_behavior is None
+        ):
+            return False
+        behavior: BaseBehavior = self.entity.mod_manager.custom_behavior
+        if not isinstance(behavior, BaseEntityBehavior): return False
         try:
             entity_api: IEntity = cast(IEntity, self.entity)
             other_entity_api: IEntity = cast(IEntity, other_pet)
-            return self.entity.mod_manager.custom_behavior.on_attack(entity_api, other_entity_api)
+            return behavior.on_attack(entity_api, other_entity_api)
         except Exception as e:
             print(f"Custom AI Error (Attack): {e}")
         return False
@@ -235,10 +240,12 @@ class AISystem:
             self.entity.mod_manager.custom_behavior is None
         ):
             return False
+        behavior: BaseBehavior = self.entity.mod_manager.custom_behavior
+        if not isinstance(behavior, BaseEntityBehavior): return False
         try:
             entity_api: IEntity = cast(IEntity, self.entity)
             other_entity_api: IEntity = cast(IEntity, other_pet)
-            return self.entity.mod_manager.custom_behavior.on_interact(entity_api, other_entity_api)
+            return behavior.on_interact(entity_api, other_entity_api)
         except Exception as e:
             print(f"Custom AI Error (Interact): {e}")
         return False

@@ -8,7 +8,8 @@ from PySide6.QtCore import QRect, QPointF
 from pytoningans.core.constants import EntityState
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.base import BaseEntity
+    from pytoningans.core.entity.base_entity import BaseEntity
+    from pytoningans.core.entity.base_entity import BaseStructure, Entity
 
 class PhysicsSystem:
     def __init__(self, entity: Optional[BaseEntity] = None) -> None:
@@ -63,7 +64,7 @@ class PhysicsSystem:
         min_dist: float = hitbox.width() * 0.6
         
         # Combine both lists so pets and structures can repel each other
-        all_entities: list[BaseEntity] = self.entity.world.active_entities + self.entity.world.active_structures
+        all_entities: list[BaseStructure | Entity] = self.entity.world.active_entities + self.entity.world.active_structures
         
         for other in all_entities:
             is_other_dead: bool = getattr(other, 'is_dead', False)

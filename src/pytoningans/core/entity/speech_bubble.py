@@ -7,7 +7,7 @@ from PySide6.QtGui import QPainterPath, QPainter, QColor, QPen, QBrush, QFont
 from PySide6.QtCore import QRectF, Qt
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.base import Entity
+    from pytoningans.core.entity.base_entity import Entity
 
 class SpeechBubble(QGraphicsItem):
     def __init__(self, parent_entity: Entity) -> None:

@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt, QPoint, QObject, Signal, QRect
 from pytoningans.core.constants import AnimationMeta, EntityState
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.base import BaseEntity
+    from pytoningans.core.entity.base_entity import BaseEntity
 
 type EntityTransforms = tuple[int, bool, int]
 

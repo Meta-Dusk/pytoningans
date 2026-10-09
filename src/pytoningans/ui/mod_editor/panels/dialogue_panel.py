@@ -7,11 +7,11 @@ from PySide6.QtCore import Qt
 from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.components import CollapsibleSection
 from pytoningans.ui.mod_editor.dialogs import TriggerDialog
+from .base_panel import BasePanel
 
-class DialoguePanel(QWidget):
+class DialoguePanel(BasePanel):
     def __init__(self, controller: ModEditorController) -> None:
-        super().__init__()
-        self.controller = controller
+        super().__init__(controller)
         self._is_updating_ui = False
         
         self._build_ui()

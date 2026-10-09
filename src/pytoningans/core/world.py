@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QMainWindow, QGraphicsView, QGraphicsScene
 
 if TYPE_CHECKING:
     from pytoningans.core.entity_manager import EntityManager
-    from pytoningans.core.entity.base import Entity, BaseStructure, BaseEntity
+    from pytoningans.core.entity.base_entity import Entity, BaseStructure, BaseEntity
 
 HTTRANSPARENT = -1
 HTCLIENT = 1

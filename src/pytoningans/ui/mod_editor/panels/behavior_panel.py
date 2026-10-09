@@ -9,11 +9,11 @@ from PySide6.QtWidgets import (
 from pytoningans.core.constants import BehaviorType, AttackType, DeathAnimation
 from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.components import CollapsibleSection, create_spinbox, create_info_label
+from .base_panel import BasePanel
 
-class BehaviorStatsPanel(QWidget):
+class BehaviorStatsPanel(BasePanel):
     def __init__(self, controller: ModEditorController) -> None:
-        super().__init__()
-        self.controller = controller
+        super().__init__(controller)
         self._is_updating_ui = False
         self._build_ui()
         self._connect_signals()
@@ -85,10 +85,9 @@ class BehaviorStatsPanel(QWidget):
         
         self._is_updating_ui = False
 
-class BehaviorScriptPanel(QWidget):
+class BehaviorScriptPanel(BasePanel):
     def __init__(self, controller: ModEditorController) -> None:
-        super().__init__()
-        self.controller = controller
+        super().__init__(controller)
         self._build_ui()
         self._connect_signals()
 
