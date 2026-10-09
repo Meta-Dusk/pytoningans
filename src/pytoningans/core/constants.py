@@ -22,16 +22,22 @@ class AttackType(StrEnum):
 
 @unique
 class EntityState(StrEnum):
-    DRAG = "drag"
     IDLE = "idle"
+    DRAG = "drag"
     CLICKED = "clicked"
     INTERACT = "interact"
     MOVING = "moving"
     JUMPING = "jumping"
-    DYING = "dying"
     CLIMBING = "climbing"
+    DYING = "dying"
     REVIVING = "reviving"
     ATTACK = "attack"
+
+@unique
+class StructureState(StrEnum):
+    IDLE = "idle"
+    ACTIVE = "active"
+    OPEN = "open"
 
 @unique
 class BehaviorType(StrEnum):

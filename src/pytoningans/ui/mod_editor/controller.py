@@ -39,7 +39,7 @@ class ModEditorController:
         self.manager._resolve_dimensions()
         self.manager.clear_shared_cache()
 
-    def get_frame(self, state: EntityState, frame_index: int):
+    def get_frame(self, state: str, frame_index: int) -> Optional[QPixmap]:
         return self.manager.get_frame(state, frame_index)
         
     def has_mapped_row(self, state: str) -> Tuple[bool, int]:
@@ -76,7 +76,7 @@ class ModEditorController:
         self.manager.jump_height = stats.get("jump_height", self.manager.jump_height)
         self.manager.attack_type = stats.get("attack_type", self.manager.attack_type)
     
-    def get_raw_preview(self, state: EntityState, frame_index: int) -> Tuple[Optional[QPixmap], QRect]:
+    def get_raw_preview(self, state: str, frame_index: int) -> Tuple[Optional[QPixmap], QRect]:
         """Returns the uncropped base tile and the QRect representing the custom crop area."""
         sheet: Optional[QPixmap] = self.manager._global_sheet
         if not sheet: return None, QRect()
@@ -98,17 +98,13 @@ class ModEditorController:
         base_w: int = sheet.width() // cols
         base_h: int = sheet.height() // rows
         
-        raw_rect: QRect = QRect(actual_sheet_index * base_w, meta.row * base_h, base_w, base_h)
-        raw_tile: QPixmap = sheet.copy(raw_rect)
-        
-        # Calculate the target crop area boundaries
+        # Pad the extracted background so you don't lose the ability to expand the crop box
         final_w: int = meta.override_width if meta.override_width > 0 else base_w
         final_h: int = meta.override_height if meta.override_height > 0 else base_h
         
         origin_x: int = actual_sheet_index * final_w
         origin_y: int = meta.row * base_h
         
-        # Pad the extracted background so you don't lose the ability to expand the crop box
         display_w: int = max(base_w, final_w * 2)
         display_h: int = max(base_h, final_h * 2)
         
@@ -122,7 +118,7 @@ class ModEditorController:
     def bake_sprite_sheet(self) -> bool:
         return self.manager.bake_sprite_sheet()
     
-    def apply_crop_to_all(self, source_state: EntityState) -> None:
+    def apply_crop_to_all(self, source_state: str) -> None:
         """Copies the crop offsets and dimensions of the source state to all other states."""
         source_meta: Optional[AnimationMeta] = self.manager.animations.get(source_state)
         if source_meta is None: return
@@ -134,8 +130,8 @@ class ModEditorController:
                 meta.offset_x = source_meta.offset_x
                 meta.offset_y = source_meta.offset_y
         
-        self.manager._resolve_dimensions() # Recalculate dimensions for all states
-        self.manager.clear_shared_cache()  # Force the preview to redraw
+        self.manager._resolve_dimensions()
+        self.manager.clear_shared_cache()
     
     def get_mod_name(self) -> str:
         return self.manager.current_mod_name

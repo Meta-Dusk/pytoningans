@@ -230,7 +230,6 @@ class ModEditorWindow(QWidget):
                 self.behavior_stats.show()
                 
             for panel in self.panels:
-                if not panel.isVisible(): continue
                 panel.load_data()
         else:
             QMessageBox.warning(self, "Load Error", f"Could not load {mod_folder}.")

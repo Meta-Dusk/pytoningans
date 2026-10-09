@@ -9,7 +9,7 @@ from PySide6.QtCore import QRect, Qt, QPoint
 
 from pytoningans.core.constants import (
     EntityState, AnimationMeta, BehaviorType, AttackType, DeathAnimation,
-    EntityType
+    EntityType, StructureState
 )
 from pytoningans.core.api import BaseEntityBehavior, BaseStructureBehavior, BaseBehavior
 from pytoningans.core.config_schema import (
@@ -117,10 +117,15 @@ class ModManager:
         with open(config_path, "r", encoding="utf-8") as f:
             data: dict[str, Any] = json.load(f)
         
+        raw_entity_type = data.get("entity_type", EntityType.PET.value)
+        entity_type_str: str = (
+            raw_entity_type.value if hasattr(raw_entity_type, "value") else str(raw_entity_type)
+        )
+        
         # Instantiate the config to store the entity type
         self.config = ModConfig(
             name=data.get("name", mod_folder_name),
-            entity_type=data.get("entity_type", EntityType.PET.value),
+            entity_type=entity_type_str,
             version=data.get("version", CURRENT_CONFIG_VERSION),
             columns=data.get("columns", 1),
             rows=data.get("rows", 1)
@@ -163,13 +168,31 @@ class ModManager:
         self.auto_close_on_death = behavior_data.get("auto_close_on_death", False)
         
         self.animations.clear()
-        anim_data = data.get("animations", {})
+        anim_data: dict[str, Any] = data.get("animations", {})
         
+        # Load all existing animations from config.json first
         for state_key, raw_meta in anim_data.items():
-            if "frames" in raw_meta:
-                raw_meta["start_frame"] = 0
-                raw_meta["end_frame"] = max(0, raw_meta.pop("frames") - 1)
-            self.animations[state_key] = AnimationMeta(**raw_meta)
+            meta_dict: dict[str, Any] = dict(raw_meta)
+            if "frames" in meta_dict:
+                meta_dict["start_frame"] = 0
+                meta_dict["end_frame"] = max(0, meta_dict.pop("frames") - 1)
+            # Remove any unwanted legacy fields before initializing AnimationMeta
+            clean_keys: set[str] = {f.name for f in AnimationMeta.__dataclass_fields__.values()}
+            filtered: dict[str, Any] = {k: v for k, v in meta_dict.items() if k in clean_keys}
+            self.animations[str(state_key)] = AnimationMeta(**filtered)
+            
+        # Ensure standard enum states exist as fallbacks
+        state_enum = StructureState if self.entity_type == EntityType.STRUCTURE.value else EntityState
+        cols: int = max(1, self.global_columns)
+        for state in state_enum:
+            key_str: str = str(state.value)
+            if key_str not in self.animations:
+                self.animations[key_str] = AnimationMeta(
+                    row=0,
+                    start_frame=0,
+                    end_frame=max(0, cols - 1),
+                    loop=True
+                )
         
         dialogue_data = data.get("dialogue", {})
         self.plain_dialogue = dialogue_data.get("plain_dialogue", ["..."])
@@ -240,7 +263,7 @@ class ModManager:
                 death_animation=self.death_animation,
                 auto_close_on_death=self.auto_close_on_death,
             ),
-            animations={state: meta for state, meta in self.animations.items()},
+            animations={str(state): meta for state, meta in self.animations.items()},
             dialogue=DialogueConfig(
                 plain_dialogue=self.plain_dialogue,
                 window_triggers=self.window_triggers

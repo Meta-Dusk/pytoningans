@@ -12,7 +12,9 @@ from PySide6.QtCore import QUrl, Qt
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
 from pytoningans.core.config_schema import ModConfig
-from pytoningans.core.constants import EntityState, AnimationMeta, EntityType
+from pytoningans.core.constants import (
+    EntityState, AnimationMeta, EntityType, StructureState
+)
 
 class ModCreationDialog(QDialog):
     def __init__(self, mods_dir: str | Path, parent: Optional[QWidget] = None) -> None:
@@ -201,24 +203,17 @@ class ModCreationDialog(QDialog):
         selected_entity_type = self.type_combo.currentData()
         entity_type: str = getattr(selected_entity_type, "value", str(selected_entity_type))
         
-        if entity_type == EntityType.STRUCTURE:
-            animations = {
-                "idle": AnimationMeta(
-                    row=0,
-                    start_frame=0,
-                    end_frame=max(0, cols - 1),
-                    loop=True
-                )
-            }
-        else:
-            animations = {
-                state.value: AnimationMeta(
-                    row=min(i, max(0, rows - 1)),
-                    start_frame=0,
-                    end_frame=max(0, cols - 1)
-                )
-                for i, state in enumerate(EntityState)
-            }
+        state_enum = StructureState if entity_type == EntityType.STRUCTURE.value else EntityState
+
+        animations = {
+            state.value: AnimationMeta(
+                row=min(i, max(0, rows - 1)),
+                start_frame=0,
+                end_frame=max(0, cols - 1),
+                loop=True
+            )
+            for i, state in enumerate(state_enum)
+        }
 
         new_config = ModConfig(
             name=display_name,

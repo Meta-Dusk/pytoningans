@@ -10,7 +10,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtCore import Qt, QPoint, QRect, Signal, QPointF
 
-from pytoningans.core.constants import AnimationMeta, EntityType
+from pytoningans.core.constants import AnimationMeta, EntityType, StructureState, EntityState
 from pytoningans.ui.mod_editor.components import CollapsibleSection, create_info_label
 from .base_panel import BasePanel
 
@@ -290,16 +290,20 @@ class PhysicsPanel(BasePanel):
 
     def _sync_states_dropdown(self) -> None:
         """Populates the combo box from the active animations dictionary keys."""
-        current_selection: Optional[str] = self.state_combo.currentData()
+        prev_data = self.state_combo.currentData()
+        current_selection: Optional[str] = str(prev_data) if prev_data else None
+        
         self.state_combo.blockSignals(True)
         self.state_combo.clear()
         
-        states: list[str] = list(self.controller.manager.animations.keys())
-        target_idx: int = 0
+        is_structure: bool = self.controller.manager.entity_type == EntityType.STRUCTURE.value
+        state_enum = StructureState if is_structure else EntityState
         
-        for i, state_key in enumerate(states):
-            self.state_combo.addItem(state_key.capitalize(), userData=state_key)
-            if state_key == current_selection:
+        target_idx: int = 0
+        for i, state in enumerate(state_enum):
+            state_val: str = str(state.value)
+            self.state_combo.addItem(state_val.capitalize(), userData=state_val)
+            if current_selection and state_val == current_selection:
                 target_idx = i
                 
         if self.state_combo.count() > 0:
