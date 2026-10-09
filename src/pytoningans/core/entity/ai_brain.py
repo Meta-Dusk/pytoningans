@@ -1,7 +1,5 @@
 from __future__ import annotations
-
 import random, math
-
 from typing import TYPE_CHECKING, cast, Optional, List
 from PySide6.QtCore import QPointF, QRectF
 

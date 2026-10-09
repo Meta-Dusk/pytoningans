@@ -1,7 +1,5 @@
 from __future__ import annotations
-
 import math
-
 from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import QRect, QPointF
 

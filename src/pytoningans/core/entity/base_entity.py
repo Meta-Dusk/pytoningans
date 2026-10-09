@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import random
 from typing import Optional, TYPE_CHECKING, cast
 
@@ -8,6 +7,7 @@ from PySide6.QtCore import QPointF, QRect, QRectF, QVariantAnimation, QEasingCur
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QGraphicsSceneContextMenuEvent
 
+from pytoningans.core.components.base_component import BaseComponent
 from pytoningans.core.constants import AnimationMeta, EntityState, SystemLocks, DeathAnimation
 from pytoningans.core.entity.animation import AnimationSystem
 from pytoningans.core.entity.physics import PhysicsSystem
@@ -17,11 +17,13 @@ from pytoningans.core.api import (
     IEntity, Pos2D, BaseEntityBehavior, BaseStructureBehavior,
     BaseBehavior, IStructure
 )
+from pytoningans.core.world import WorldOverlay
 
 if TYPE_CHECKING:
     from pytoningans.core.mod_manager import ModManager
     from pytoningans.core.world import WorldOverlay
     from pytoningans.core.entity_manager import EntityManager
+    from pytoningans.core.components.base_component import BaseComponent
 
 
 class BaseEntity(QGraphicsPixmapItem):
@@ -41,6 +43,8 @@ class BaseEntity(QGraphicsPixmapItem):
         self.is_paused: bool = False
         self.velocity_y: float = 0.0
         
+        self.components: dict[str, BaseComponent] = {}
+        
         self.current_hitbox: QRect = QRect()
         self.current_attack_hitbox: QRect = QRect()
         
@@ -56,9 +60,6 @@ class BaseEntity(QGraphicsPixmapItem):
         self.tint_effect.setColor(QColor(255, 0, 0)) 
         self.tint_effect.setEnabled(False)
         self.setGraphicsEffect(self.tint_effect)
-
-    def geometry(self) -> QRect:
-        return self.sceneBoundingRect().toRect()
         
     def width(self) -> int:
         return int(self.boundingRect().width())
@@ -68,6 +69,26 @@ class BaseEntity(QGraphicsPixmapItem):
         
     def toFront(self) -> None:
         self.setZValue(self.zValue() + 0.1)
+    
+    # --- Component Management API ---
+    def add_component(self, component: BaseComponent) -> BaseComponent:
+        component.owner = self
+        self.components[component.name] = component
+        component.on_attach()
+        return component
+
+    def get_component(self, name: str) -> Optional[BaseComponent]:
+        return self.components.get(name)
+
+    def has_component(self, name: str) -> bool:
+        return name in self.components
+
+    def remove_component(self, name: str) -> Optional[BaseComponent]:
+        comp: Optional[BaseComponent] = self.components.pop(name, None)
+        if comp is not None:
+            comp.on_detach()
+            comp.owner = None
+        return comp
 
     def update_systems(
         self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None
@@ -78,8 +99,17 @@ class BaseEntity(QGraphicsPixmapItem):
             self.physics_sys.update(dt, centers)
         if self.locks.animation and self.anim_sys:
             self.anim_sys.update(dt)
+        
+        # Dispatch ticks to all active components
+        for comp in list(self.components.values()):
+            if comp.enabled: comp.update(dt)
 
     def destroy(self) -> None:
+        for comp in list(self.components.values()):
+            comp.on_detach()
+            comp.owner = None
+        self.components.clear()
+        
         if self.scene(): self.scene().removeItem(self)
         self.anim_sys = None
         self.physics_sys = None
@@ -390,8 +420,20 @@ class BaseStructure(BaseEntity):
         ):
             return
         
-        behavior = self.mod_manager.custom_behavior
+        behavior: BaseBehavior = self.mod_manager.custom_behavior
         if not isinstance(behavior, BaseStructureBehavior): return
         
-        struct_api = cast(IStructure, self)
+        struct_api: IStructure = cast(IStructure, self)
         behavior.on_update(struct_api, dt)
+    
+    def attach_teleportation(
+        self,
+        target_world: Optional[WorldOverlay] = None,
+        exit_offset_x: float = 80.0,
+        exit_offset_y: float = 0.0
+    ):
+        from pytoningans.core.components.teleportation import TeleportationComponent
+        tw: Optional[WorldOverlay] = target_world or self.world
+        comp = TeleportationComponent(self, tw, exit_offset_x, exit_offset_y)
+        self.add_component(comp)
+        return comp

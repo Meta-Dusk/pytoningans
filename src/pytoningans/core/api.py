@@ -2,30 +2,43 @@
 PyToNingans Modding API Reference
 Open the 'mods' folder as a workspace in VS Code for full autocompletion.
 """
-from typing import Protocol, Optional, Any
+from __future__ import annotations
+from typing import Protocol, Optional, Any, runtime_checkable
 from enum import StrEnum, unique
 from dataclasses import dataclass
 
-# TODO: Update API soon
+# --- Primitives & Enums ---
 
 @dataclass
 class Pos2D:
-    x: int
-    y: int
+    x: float
+    y: float
+
+@dataclass
+class Rect2D:
+    x: float
+    y: float
+    width: float
+    height: float
 
 @unique
-class PetState(StrEnum):
-    """The current animation and behavioral state of the pet."""
-    DRAG = "drag"
+class EntityState(StrEnum):
     IDLE = "idle"
+    DRAG = "drag"
     CLICKED = "clicked"
     INTERACT = "interact"
     MOVING = "moving"
     JUMPING = "jumping"
-    DYING = "dying"
     CLIMBING = "climbing"
+    DYING = "dying"
     REVIVING = "reviving"
     ATTACK = "attack"
+
+@unique
+class StructureState(StrEnum):
+    IDLE = "idle"
+    ACTIVE = "active"
+    OPEN = "open"
 
 @unique
 class BehaviorType(StrEnum):
@@ -33,116 +46,123 @@ class BehaviorType(StrEnum):
     NEUTRAL = "neutral"
     HOSTILE = "hostile"
 
-class IPetManager(Protocol):
-    """Provides access to the global pet ecosystem."""
-    active_pets: list['IEntity']
-    
-    def spawn_pet(self, x: int, y: int, mod_folder: str) -> None:
-        """Spawns a new pet at the target coordinates using the specified mod."""
-        ...
+@unique
+class AttackType(StrEnum):
+    SINGLE = "single"
+    AOE = "aoe"
+    MULTI = "multi"
 
-    def remove_pet(self, pet: 'IEntity') -> None:
-        """Despawns and removes a pet from the screen."""
-        ...
+@unique
+class DeathAnimation(StrEnum):
+    SPRITE = "sprite"
+    ROTATE_LEFT = "rotate_left"
+    ROTATE_RIGHT = "rotate_right"
+    ROTATE_LEFT_OR_RIGHT = "rotate_left_or_right"
 
-class IEntity(Protocol):
-    """
-    The primary interface for manipulating a pet inside `behavior.py`.
-    """
-    # Properties
-    x: int
-    y: int
-    state: PetState
+# --- Component Protocols & Base ---
+
+@runtime_checkable
+class IComponent(Protocol):
+    name: str
+    enabled: bool
+    owner: Optional[IBaseEntity]
+
+    def on_attach(self) -> None: ...
+    def update(self, dt: int) -> None: ...
+    def on_detach(self) -> None: ...
+
+class BaseComponent:
+    """Base class for writing custom mod components in pure Python."""
+    name: str = "custom"
+
+    def __init__(self, owner: Optional[IBaseEntity] = None) -> None:
+        self.owner: Optional[IBaseEntity] = owner
+        self.enabled: bool = True
+
+    def on_attach(self) -> None: pass
+    def update(self, dt: int) -> None: pass
+    def on_detach(self) -> None: pass
+
+@runtime_checkable
+class ITeleportationComponent(Protocol):
+    name: str
+    enabled: bool
+    target_world: Any
+    linked_portal: Optional[IStructure]
+    exit_offset_x: float
+    exit_offset_y: float
+
+    def teleport_entity(self, entity: IEntity) -> None: ...
+
+# --- Entity & World Protocols ---
+
+@runtime_checkable
+class IBaseEntity(Protocol):
+    mod_manager: Any
+    world: Any
+    state: Any | str
+    facing_left: bool
+    sprite_rotation: float
+    velocity_y: float
+    components: dict[str, Any]
+
+    def x(self) -> float: ...
+    def y(self) -> float: ...
+    def setPos(self, x: float, y: float) -> None: ...
+    def move(self, x: float, y: float) -> None: ...
+    def width(self) -> int: ...
+    def height(self) -> int: ...
+    def toFront(self) -> None: ...
+    def destroy(self) -> None: ...
+
+    # Component API
+    def add_component(self, component: Any) -> Any: ...
+    def get_component(self, name: str) -> Optional[Any]: ...
+    def has_component(self, name: str) -> bool: ...
+    def remove_component(self, name: str) -> Optional[Any]: ...
+
+@runtime_checkable
+class IEntity(IBaseEntity, Protocol):
+    state: EntityState
     is_dead: bool
     current_health: int
     target_pos: Optional[Pos2D]
-    facing_left: bool
     behavior_type: BehaviorType
-    
-    # Access to the global manager
-    pet_manager: IPetManager
-    
-    def jump(self) -> None:
-        """Forces the pet to jump. Ignored if dead or if the pet can fly."""
-        ...
-    
-    def take_damage(self, amount: int) -> None:
-        """Reduces the pet's health by the specified amount and triggers a red flash."""
-        ...
+    entity_manager: Any
 
-    def die(self) -> None:
-        """Immediately kills the pet, stopping AI and playing the death animation."""
-        ...
+    def jump(self) -> None: ...
+    def take_damage(self, amount: int) -> None: ...
+    def die(self) -> None: ...
+    def revive(self) -> None: ...
+    def force_talk(self) -> None: ...
 
-    def revive(self) -> None:
-        """Restores the pet to full health and resumes AI processing."""
-        ...
+@runtime_checkable
+class IStructure(IBaseEntity, Protocol):
+    state: StructureState
 
-    def move(self, x: int, y: int) -> None:
-        """Teleports the pet instantly to the absolute screen coordinates."""
-        ...
-        
-    def width(self) -> int:
-        """Returns the current pixel width of the pet's sprite."""
-        ...
-        
-    def height(self) -> int:
-        """Returns the current pixel height of the pet's sprite."""
-        ...
+    def attach_teleportation(
+        self,
+        target_world: Optional[Any] = None,
+        exit_offset_x: float = 80.0,
+        exit_offset_y: float = 0.0
+    ) -> ITeleportationComponent: ...
+
+# --- Behaviors ---
 
 class BaseEntityBehavior:
-    """
-    Inherit from this class in your behavior.py to define custom AI.
-    """
-    def on_spawn(self, entity: IEntity) -> None:
-        """Triggered exactly once when the pet is spawned."""
-        pass
-
-    def on_decision_tick(self, entity: IEntity) -> bool:
-        """
-        Triggered every 2.5 seconds. 
-        Return True to block the default wandering AI.
-        """
-        return False
-
-    def on_interact(self, entity: IEntity, other_entity: IEntity) -> bool:
-        """
-        Triggered when touching another interactable pet.
-        Return True to block the default facing/pausing interaction.
-        """
-        return False
-
-    def on_death(self, entity: IEntity) -> None:
-        """Triggered instantly when the pet's health reaches 0."""
-        pass
-    
-    def on_revive(self, entity: IEntity) -> None:
-        """Triggered when a pet who was once dead, is no longer."""
-        pass
-    
-    def on_attack(self, entity: IEntity, target: IEntity) -> bool:
-        """
-        Triggered when a target enters attack range.
-        Return True to block the default damage and attack animation.
-        """
-        return False
-
-class IStructure(Protocol):
-    mod_manager: Any
-    world: Any
-    def setPos(self, x: float, y: float) -> None: ...
-    def x(self) -> float: ...
-    def y(self) -> float: ...
-    def destroy(self) -> None: ...
-    def sceneBoundingRect(self) -> Any: ...
-
+    """Inherit from this class in your pet's behavior.py."""
+    def on_spawn(self, entity: IEntity) -> None: pass
+    def on_update(self, entity: IEntity, dt: int) -> None: pass
+    def on_decision_tick(self, entity: IEntity) -> bool: return False
+    def on_interact(self, entity: IEntity, other_entity: IEntity) -> bool: return False
+    def on_death(self, entity: IEntity) -> None: pass
+    def on_revive(self, entity: IEntity) -> None: pass
+    def on_attack(self, entity: IEntity, target: IEntity) -> bool: return False
 
 class BaseStructureBehavior:
-    """Base class for all modded structures."""
-    def on_spawn(self, structure: IStructure) -> None:
-        pass
-        
-    def on_update(self, structure: IStructure, dt: int) -> None:
-        pass
+    """Inherit from this class in your structure's behavior.py."""
+    def on_spawn(self, structure: IStructure) -> None: pass
+    def on_update(self, structure: IStructure, dt: int) -> None: pass
+    def on_interact(self, structure: IStructure, entity: IEntity) -> None: pass
 
 type BaseBehavior = BaseEntityBehavior | BaseStructureBehavior

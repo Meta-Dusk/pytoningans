@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any, Optional
 from PySide6.QtGui import QTransform, QPixmap
 from PySide6.QtCore import Qt, QPoint, QObject, Signal, QRect

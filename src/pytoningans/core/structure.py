@@ -1,8 +1,9 @@
+from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
-from PySide6.QtCore import QPointF, QRectF
+from PySide6.QtCore import QRectF
 from PySide6.QtGui import QPixmap, QColor
 
-from pytoningans.core.entity.base_entity import BaseEntity, BaseStructure
+from pytoningans.core.entity.base_entity import BaseStructure
 from pytoningans.core.constants import EntityState
 
 if TYPE_CHECKING:
@@ -62,19 +63,16 @@ class TeleportationComponent:
 
 
 class TravelPortal(BaseStructure):
-    """
-    Engine-level portal. Uses mod assets if available;
-    falls back to default colored rectangle.
-    """
+    """Engine-level portal used for multi-monitor linking."""
     def __init__(
         self, x: float, y: float, 
         world: WorldOverlay, target_world: WorldOverlay,
         mod_manager: Optional[ModManager] = None
     ) -> None:
         super().__init__(x, y, mod_manager, world)
-        self.teleport_comp = TeleportationComponent(self, target_world)
+        self.teleport_comp = self.attach_teleportation(target_world)
         
-        # Fallback visuals if no mod sheet is loaded
+        # Fallback colored box if no custom sprite sheet is present
         if not mod_manager or not mod_manager._global_sheet:
             pix = QPixmap(60, 120)
             pix.fill(QColor(138, 43, 226, 200))
@@ -103,7 +101,3 @@ class TravelPortal(BaseStructure):
     @exit_offset_y.setter
     def exit_offset_y(self, val: float) -> None:
         self.teleport_comp.exit_offset_y = val
-
-    def update_systems(self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None) -> None:
-        super().update_systems(dt, centers)
-        self.teleport_comp.update()
