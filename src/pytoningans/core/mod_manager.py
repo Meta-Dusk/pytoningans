@@ -48,7 +48,7 @@ class ModManager:
         self.attack_type: AttackType = AttackType.SINGLE
         self.max_targets: int = 1
         
-        self.animations: dict[EntityState, AnimationMeta] = {}
+        self.animations: dict[str, AnimationMeta] = {}
         self._global_sheet: Optional[QPixmap] = None
         self.config: Optional[ModConfig] = None
         self.custom_behavior: Optional[BaseBehavior] = None
@@ -165,17 +165,11 @@ class ModManager:
         self.animations.clear()
         anim_data = data.get("animations", {})
         
-        for state in EntityState:
-            if state.value in anim_data:
-                raw_meta = anim_data[state.value]
-                
-                if "frames" in raw_meta:
-                    raw_meta["start_frame"] = 0
-                    raw_meta["end_frame"] = max(0, raw_meta.pop("frames") - 1)
-                    
-                self.animations[state] = AnimationMeta(**raw_meta)
-            else:
-                self.animations[state] = AnimationMeta(row=0, start_frame=0, end_frame=0)
+        for state_key, raw_meta in anim_data.items():
+            if "frames" in raw_meta:
+                raw_meta["start_frame"] = 0
+                raw_meta["end_frame"] = max(0, raw_meta.pop("frames") - 1)
+            self.animations[state_key] = AnimationMeta(**raw_meta)
         
         dialogue_data = data.get("dialogue", {})
         self.plain_dialogue = dialogue_data.get("plain_dialogue", ["..."])
@@ -246,7 +240,7 @@ class ModManager:
                 death_animation=self.death_animation,
                 auto_close_on_death=self.auto_close_on_death,
             ),
-            animations={state.value: meta for state, meta in self.animations.items()},
+            animations={state: meta for state, meta in self.animations.items()},
             dialogue=DialogueConfig(
                 plain_dialogue=self.plain_dialogue,
                 window_triggers=self.window_triggers
@@ -258,7 +252,7 @@ class ModManager:
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config.to_dict(), f, indent=4)
 
-    def get_frame(self, state: EntityState, tick_index: int) -> Optional[QPixmap]:
+    def get_frame(self, state: str, tick_index: int) -> Optional[QPixmap]:
         if not self._global_sheet: return None
         anim_meta: Optional[AnimationMeta] = self.animations.get(state)
         if not anim_meta: return None
@@ -287,7 +281,7 @@ class ModManager:
         
         if safe_rect.isEmpty(): return None
 
-        # Cache using the Mod Name + X, Y, Width, Height
+        # Cache using the Mod Name + X, Y, Width, Height + State + Frame
         cache_key: CacheKey = (
             self.current_mod_name, 
             safe_rect.x(), safe_rect.y(), safe_rect.width(), safe_rect.height()
@@ -296,7 +290,7 @@ class ModManager:
         if cache_key in ModManager._shared_frame_cache:
             return ModManager._shared_frame_cache[cache_key]
         
-        frame = self._global_sheet.copy(safe_rect)
+        frame: QPixmap = self._global_sheet.copy(safe_rect)
         ModManager._shared_frame_cache[cache_key] = frame
         
         return frame
@@ -374,12 +368,12 @@ class ModManager:
             meta.computed_w = meta.override_width if meta.override_width > 0 else base_w
             meta.computed_h = meta.override_height if meta.override_height > 0 else base_h
     
-    def get_frame_physics(self, state: EntityState, tick_index: int) -> tuple[QPoint, QRect]:
+    def get_frame_physics(self, state: str, tick_index: int) -> tuple[QPoint, QRect]:
         """Returns the (Anchor Point, Hitbox Rect) for the current frame."""
         anim_meta: Optional[AnimationMeta] = self.animations.get(state)
         
         # Fallback defaults if state doesn't exist
-        if not anim_meta:
+        if anim_meta is None:
             return QPoint(0, 0), QRect(0, 0, 50, 50)
             
         total_play_frames: int = max(1, (anim_meta.end_frame - anim_meta.start_frame) + 1)

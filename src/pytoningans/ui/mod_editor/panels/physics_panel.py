@@ -8,9 +8,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import (
     QPaintEvent, QPainter, QColor, QMouseEvent, QPixmap, QPen
 )
-from PySide6.QtCore import Qt, QPoint, QRect, Signal
+from PySide6.QtCore import Qt, QPoint, QRect, Signal, QPointF
 
-from pytoningans.core.constants import AnimationMeta, EntityState
+from pytoningans.core.constants import AnimationMeta, EntityType
 from pytoningans.ui.mod_editor.components import CollapsibleSection, create_info_label
 from .base_panel import BasePanel
 
@@ -55,14 +55,10 @@ class PhysicsCanvas(QWidget):
     
     def paintEvent(self, _: QPaintEvent) -> None:
         painter = QPainter(self)
-        
-        # Fill Background
         painter.fillRect(self.rect(), self.palette().base().color())
         
-        # Draw border around the canvas bounds
         painter.setPen(self.palette().shadow().color())
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        # Subtract 1 from width/height so the border renders entirely inside the widget
         painter.drawRect(0, 0, self.width() - 1, self.height() - 1)
         
         if self.frame_pixmap.isNull():
@@ -70,12 +66,11 @@ class PhysicsCanvas(QWidget):
             painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "No Frame Loaded")
             return
 
-        # Draw scaled sprite
         scaled_w: int = self.frame_pixmap.width() * self.zoom
         scaled_h: int = self.frame_pixmap.height() * self.zoom
         painter.drawPixmap(0, 0, scaled_w, scaled_h, self.frame_pixmap)
 
-        # Draw Hitbox (Red)
+        # Hitbox (Red)
         scaled_hitbox = QRect(
             self.hitbox.x() * self.zoom, self.hitbox.y() * self.zoom,
             self.hitbox.width() * self.zoom, self.hitbox.height() * self.zoom
@@ -84,7 +79,7 @@ class PhysicsCanvas(QWidget):
         painter.setBrush(QColor(255, 0, 0, 60))
         painter.drawRect(scaled_hitbox)
         
-        # Draw Attack Hitbox (Orange)
+        # Attack Hitbox (Orange) - only when enabled
         if not self.atk_hitbox.isNull() and self.atk_hitbox.width() > 0:
             scaled_attack = QRect(
                 self.atk_hitbox.x() * self.zoom, self.atk_hitbox.y() * self.zoom,
@@ -94,16 +89,15 @@ class PhysicsCanvas(QWidget):
             painter.setBrush(QColor(255, 165, 0, 80))
             painter.drawRect(scaled_attack)
 
-        # Draw Anchor (Blue Crosshair)
+        # Anchor (Cyan Crosshair)
         ax: int = self.anchor.x() * self.zoom
         ay: int = self.anchor.y() * self.zoom
         painter.setPen(Qt.GlobalColor.cyan)
         painter.drawLine(ax - 10, ay, ax + 10, ay)
         painter.drawLine(ax, ay - 10, ax, ay + 10)
         
-        # Draw Aggro Range (Dashed Red Circle)
+        # Aggro Range
         if self.show_attack_range and self.attack_range > 0 and not self.hitbox.isEmpty():
-            # The AI measures distance from the center of the physical hitbox
             center_x: float = (self.hitbox.x() + self.hitbox.width() / 2.0) * self.zoom
             center_y: float = (self.hitbox.y() + self.hitbox.height() / 2.0) * self.zoom
             scaled_radius: int = self.attack_range * self.zoom
@@ -111,27 +105,20 @@ class PhysicsCanvas(QWidget):
             pen = QPen(QColor(255, 50, 50, 180), 2, Qt.PenStyle.DashLine)
             painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            from PySide6.QtCore import QPointF
             painter.drawEllipse(QPointF(center_x, center_y), scaled_radius, scaled_radius)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if self.frame_pixmap.isNull(): return
         
-        # Convert screen click to pixel-art coordinates
         click_x: int = event.pos().x() // self.zoom
         click_y: int = event.pos().y() // self.zoom
         click_pos = QPoint(click_x, click_y)
 
-        # Check if clicking near the anchor
         if (abs(click_x - self.anchor.x()) <= 2 and abs(click_y - self.anchor.y()) <= 2):
             self._dragging_anchor = True
-            
-        # Prioritize dragging attack box if overlapping
         elif self.atk_hitbox.contains(click_pos):
             self._dragging_attack = True
             self._drag_offset = click_pos - self.atk_hitbox.topLeft()
-            
-        # Check if clicking inside the hitbox
         elif self.hitbox.contains(click_pos):
             self._dragging_hitbox = True
             self._drag_offset = click_pos - self.hitbox.topLeft()
@@ -184,13 +171,13 @@ class PhysicsPanel(BasePanel):
         # Top Controls
         top_layout = QHBoxLayout()
         self.state_combo = QComboBox()
-        for state in EntityState:
-            self.state_combo.addItem(state.value.capitalize(), userData=state)
             
-        self.frame_spin = QSpinBox(); self.frame_spin.setPrefix("Frame: ")
+        self.frame_spin = QSpinBox()
+        self.frame_spin.setPrefix("Frame: ")
         self.frame_spin.setMinimum(0)
-        self.zoom_spin = QSpinBox();
-        self.zoom_spin.setPrefix("Zoom: "); self.zoom_spin.setSuffix("x")
+        self.zoom_spin = QSpinBox()
+        self.zoom_spin.setPrefix("Zoom: ")
+        self.zoom_spin.setSuffix("x")
         self.zoom_spin.setRange(1, 20)
         
         self.copy_btn = QPushButton("Copy")
@@ -205,7 +192,7 @@ class PhysicsPanel(BasePanel):
         top_layout.addWidget(self.zoom_spin)
         top_layout.addStretch()
 
-        # Canvas and Spinboxes
+        # Canvas and Form Controls
         editor_layout = QHBoxLayout()
         self.canvas = PhysicsCanvas()
         editor_layout.addWidget(self.canvas, stretch=1)
@@ -214,7 +201,7 @@ class PhysicsPanel(BasePanel):
         form_flags: Qt.AlignmentFlag = (
             Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignRight
         )
-        form = QFormLayout(labelAlignment=form_flags, horizontalSpacing=8)
+        self.form = QFormLayout(labelAlignment=form_flags, horizontalSpacing=8)
         self.ax_spin = QSpinBox(); self.ax_spin.setRange(0, 999)
         self.ay_spin = QSpinBox(); self.ay_spin.setRange(0, 999)
         self.hx_spin = QSpinBox(); self.hx_spin.setRange(-999, 999)
@@ -222,40 +209,47 @@ class PhysicsPanel(BasePanel):
         self.hw_spin = QSpinBox(); self.hw_spin.setRange(1, 999)
         self.hh_spin = QSpinBox(); self.hh_spin.setRange(1, 999)
         
-        form.addRow(create_info_label("Anchor", "Animation anchor point."))
-        form.addRow("X:", self.ax_spin)
-        form.addRow("Y:", self.ay_spin)
-        form.addItem(QSpacerItem(0, 16))
+        self.form.addRow(create_info_label("Anchor", "Animation anchor point."))
+        self.form.addRow("X:", self.ax_spin)
+        self.form.addRow("Y:", self.ay_spin)
+        self.form.addItem(QSpacerItem(0, 16))
         
-        form.addRow(create_info_label("Hitbox", "Used for collision detection."))
-        form.addRow("X:", self.hx_spin)
-        form.addRow("Y:", self.hy_spin)
-        form.addRow("Width:", self.hw_spin)
-        form.addRow("Height:", self.hh_spin)
+        self.form.addRow(create_info_label("Hitbox", "Used for collision detection."))
+        self.form.addRow("X:", self.hx_spin)
+        self.form.addRow("Y:", self.hy_spin)
+        self.form.addRow("Width:", self.hw_spin)
+        self.form.addRow("Height:", self.hh_spin)
         
         self.apply_base_btn = QPushButton("Apply to Entire Animation")
-        form.addRow(self.apply_base_btn)
-        form.addItem(QSpacerItem(0, 16))
+        self.form.addRow(self.apply_base_btn)
+        self.form.addItem(QSpacerItem(0, 16))
         
+        # Combat widgets (hidden for structures)
         self.attack_frame_check = QCheckBox("Is Attack Frame")
         self.attack_frame_check.setStyleSheet("color: #ef4444; font-weight: bold;")
-        self.attack_frame_check.setToolTip("If checked, the pet will deal damage on this exact animation frame.")
-        form.addRow(self.attack_frame_check)
+        self.attack_frame_check.setToolTip("If checked, deals damage on this frame.")
         
         self.show_range_check = QCheckBox("Show Aggro Range (Red Circle)")
-        form.addRow(self.show_range_check)
         
         self.atkx_spin = QSpinBox(); self.atkx_spin.setRange(-999, 999)
         self.atky_spin = QSpinBox(); self.atky_spin.setRange(-999, 999)
         self.atkw_spin = QSpinBox(); self.atkw_spin.setRange(0, 999)
         self.atkh_spin = QSpinBox(); self.atkh_spin.setRange(0, 999)
         
-        form.addRow(create_info_label("Attack Hitbox", "Used for dealing damage via collision detection."))
-        form.addRow("X:", self.atkx_spin)
-        form.addRow("Y:", self.atky_spin)
-        form.addRow("Width:", self.atkw_spin)
-        form.addRow("Height:", self.atkh_spin)
-        form.addItem(QSpacerItem(0, 16))
+        self.attack_header = create_info_label("Attack Hitbox", "Used for dealing damage.")
+        self.atk_lbl_x = QLabel("X:")
+        self.atk_lbl_y = QLabel("Y:")
+        self.atk_lbl_w = QLabel("Width:")
+        self.atk_lbl_h = QLabel("Height:")
+
+        self.form.addRow(self.attack_frame_check)
+        self.form.addRow(self.show_range_check)
+        self.form.addRow(self.attack_header)
+        self.form.addRow(self.atk_lbl_x, self.atkx_spin)
+        self.form.addRow(self.atk_lbl_y, self.atky_spin)
+        self.form.addRow(self.atk_lbl_w, self.atkw_spin)
+        self.form.addRow(self.atk_lbl_h, self.atkh_spin)
+        self.form.addItem(QSpacerItem(0, 16))
         
         self.magic_btn = QPushButton("Magic Propagate Hitbox")
         self.magic_btn.setStyleSheet(
@@ -265,17 +259,16 @@ class PhysicsPanel(BasePanel):
             "Applies the current Hitbox's Width and Height to all frames, "
             "keeping them bottom-centered on each frame's Anchor."
         )
-        form.addRow(self.magic_btn)
+        self.form.addRow(self.magic_btn)
 
-        editor_layout.addLayout(form)
+        editor_layout.addLayout(self.form)
         
-        # Mount layouts inside the collapsible section
         section.content_layout.addLayout(top_layout)
         section.content_layout.addLayout(editor_layout)
         layout.addWidget(section)
 
     def _connect_signals(self) -> None:
-        self.state_combo.currentIndexChanged.connect(self.load_data)
+        self.state_combo.currentIndexChanged.connect(self._on_state_combo_changed)
         self.frame_spin.valueChanged.connect(self.load_data)
         self.zoom_spin.valueChanged.connect(self.canvas.set_zoom)
         
@@ -295,25 +288,66 @@ class PhysicsPanel(BasePanel):
         ]:
             spin.valueChanged.connect(self._on_spinbox_changed)
 
+    def _sync_states_dropdown(self) -> None:
+        """Populates the combo box from the active animations dictionary keys."""
+        current_selection: Optional[str] = self.state_combo.currentData()
+        self.state_combo.blockSignals(True)
+        self.state_combo.clear()
+        
+        states: list[str] = list(self.controller.manager.animations.keys())
+        target_idx: int = 0
+        
+        for i, state_key in enumerate(states):
+            self.state_combo.addItem(state_key.capitalize(), userData=state_key)
+            if state_key == current_selection:
+                target_idx = i
+                
+        if self.state_combo.count() > 0:
+            self.state_combo.setCurrentIndex(target_idx)
+            
+        self.state_combo.blockSignals(False)
+
+    def _on_state_combo_changed(self) -> None:
+        self.frame_spin.setValue(0)
+        self.load_data()
+
     def load_data(self) -> None:
         if not self.controller.manager.current_mod_folder: return
         self._is_loading = True
         
-        state: EntityState = self.state_combo.currentData()
+        # Ensure dropdown options match the currently loaded mod states
+        available_keys: list[str] = list(self.controller.manager.animations.keys())
+        combo_keys: list[Any] = [self.state_combo.itemData(i) for i in range(self.state_combo.count())]
+        if combo_keys != available_keys:
+            self._sync_states_dropdown()
+            
+        state: Optional[str] = self.state_combo.currentData()
+        if not state:
+            self._is_loading = False
+            return
+            
+        is_structure: bool = self.controller.manager.entity_type == EntityType.STRUCTURE.value
+        
+        # Toggle combat inputs according to entity type
+        combat_visible = not is_structure
+        self.attack_frame_check.setVisible(combat_visible)
+        self.show_range_check.setVisible(combat_visible)
+        self.attack_header.setVisible(combat_visible)
+        self.atk_lbl_x.setVisible(combat_visible); self.atkx_spin.setVisible(combat_visible)
+        self.atk_lbl_y.setVisible(combat_visible); self.atky_spin.setVisible(combat_visible)
+        self.atk_lbl_w.setVisible(combat_visible); self.atkw_spin.setVisible(combat_visible)
+        self.atk_lbl_h.setVisible(combat_visible); self.atkh_spin.setVisible(combat_visible)
+
         frame_idx: int = self.frame_spin.value()
         is_attack: bool = False
-        
-        # Default attack values
         atk_hitbox: QRect = QRect(0, 0, 0, 0)
         
-        # Bound the frame spinbox based on the animation meta
         meta: Optional[AnimationMeta] = self.controller.manager.animations.get(state)
         if meta is not None:
             total_frames: int = max(1, (meta.end_frame - meta.start_frame) + 1)
             self.frame_spin.setMaximum(total_frames - 1)
             self.frame_spin.setSuffix(f"/{total_frames - 1}")
             
-            # Calculate the mapped index to look up the override dictionary
             mapped_index: int = frame_idx % total_frames if meta.loop else min(frame_idx, total_frames - 1)
             if meta.reverse: mapped_index = (total_frames - 1) - mapped_index
             
@@ -351,9 +385,9 @@ class PhysicsPanel(BasePanel):
         self.attack_frame_check.blockSignals(True)
         self.attack_frame_check.setChecked(is_attack)
         self.attack_frame_check.blockSignals(False)
-        self.canvas.attack_range = self.controller.manager.attack_range
+        self.canvas.attack_range = 0 if is_structure else self.controller.manager.attack_range
         
-        self.canvas.update_data(pixmap, anchor, hitbox, atk_hitbox)
+        self.canvas.update_data(pixmap, anchor, hitbox, QRect() if is_structure else atk_hitbox)
         self._is_loading = False
 
     def _on_canvas_dragged(
@@ -380,7 +414,8 @@ class PhysicsPanel(BasePanel):
             self.hx_spin.value(), self.hy_spin.value(),
             self.hw_spin.value(), self.hh_spin.value()
         )
-        atk_hitbox = QRect(
+        is_structure: bool = self.controller.manager.entity_type == EntityType.STRUCTURE.value
+        atk_hitbox = QRect(0, 0, 0, 0) if is_structure else QRect(
             self.atkx_spin.value(), self.atky_spin.value(),
             self.atkw_spin.value(), self.atkh_spin.value()
         )
@@ -388,12 +423,12 @@ class PhysicsPanel(BasePanel):
         self._save_to_override()
 
     def _save_to_override(self) -> None:
-        state: EntityState = self.state_combo.currentData()
-        meta: Optional[AnimationMeta] = self.controller.manager.animations.get(state)
+        state: Optional[str] = self.state_combo.currentData()
+        if not state: return
         
+        meta: Optional[AnimationMeta] = self.controller.manager.animations.get(state)
         if meta is None: return
         
-        # Calculate the exact frame mapping exactly like the engine does
         tick_index: int = self.frame_spin.value()
         total_play_frames: int = max(1, (meta.end_frame - meta.start_frame) + 1)
         
@@ -407,7 +442,6 @@ class PhysicsPanel(BasePanel):
             
         frame_key: str = str(mapped_index)
 
-        # Save the physics data to the correctly mapped key
         meta.frame_overrides[frame_key] = {
             "anchor_x": self.ax_spin.value(),
             "anchor_y": self.ay_spin.value(),
@@ -423,8 +457,9 @@ class PhysicsPanel(BasePanel):
         }
 
     def _apply_to_base(self) -> None:
-        """Saves current physics as the baseline for the entire animation state."""
-        state: EntityState = self.state_combo.currentData()
+        state: Optional[str] = self.state_combo.currentData()
+        if not state: return
+        
         meta: Optional[AnimationMeta] = self.controller.manager.animations.get(state)
         if meta is None: return
         
@@ -434,11 +469,10 @@ class PhysicsPanel(BasePanel):
         meta.hitbox_y = self.hy_spin.value()
         meta.hitbox_w = self.hw_spin.value()
         meta.hitbox_h = self.hh_spin.value()
-        meta.frame_overrides.clear() # Clear overrides since base is updated
+        meta.frame_overrides.clear()
         self.load_data()
     
     def _on_copy(self) -> None:
-        """Stores the current frame's physics values in memory."""
         self._copied_physics = {
             "ax": self.ax_spin.value(),
             "ay": self.ay_spin.value(),
@@ -455,11 +489,7 @@ class PhysicsPanel(BasePanel):
         self.paste_btn.setEnabled(True)
 
     def _on_paste(self) -> None:
-        """Applies the copied physics values to the current frame."""
         if not self._copied_physics: return
-        
-        # Setting these values automatically triggers _on_spinbox_changed,
-        # which instantly updates the canvas and saves to the engine override.
         self.ax_spin.setValue(self._copied_physics["ax"])
         self.ay_spin.setValue(self._copied_physics["ay"])
         self.hx_spin.setValue(self._copied_physics["hx"])
@@ -473,7 +503,9 @@ class PhysicsPanel(BasePanel):
         self.atkh_spin.setValue(self._copied_physics["atk_h"])
     
     def _on_magic_propagate(self) -> None:
-        state: EntityState = self.state_combo.currentData()
+        state: Optional[str] = self.state_combo.currentData()
+        if not state: return
+        
         meta: Optional[AnimationMeta] = self.controller.manager.animations.get(state)
         if not meta: return
         
@@ -483,12 +515,10 @@ class PhysicsPanel(BasePanel):
         def calc_pos(ax: int, ay: int) -> tuple[int, int]:
             return ax - (target_hw // 2), ay - target_hh
 
-        # Update the base baseline physics
         meta.hitbox_w = target_hw
         meta.hitbox_h = target_hh
         meta.hitbox_x, meta.hitbox_y = calc_pos(meta.anchor_x, meta.anchor_y)
         
-        # Update all custom frame overrides
         for _, override in meta.frame_overrides.items():
             ax: int = override.get("anchor_x", meta.anchor_x)
             ay: int = override.get("anchor_y", meta.anchor_y)
@@ -504,7 +534,7 @@ class PhysicsPanel(BasePanel):
         QMessageBox.information(
             self, "Magic Propagate",
             f"Hitbox ({target_hw}x{target_hh}) propagated to all frames!\n\n"
-            "Each hitbox is now perfectly bottom-centered on its frame's respective anchor."
+            "Each hitbox is now bottom-centered on its frame anchor."
         )
     
     def _on_show_range_toggled(self, state: int) -> None:

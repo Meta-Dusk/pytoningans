@@ -198,17 +198,27 @@ class ModCreationDialog(QDialog):
         self, display_name: str, config_path: Path,
         *, cols: int = 4, rows: int = len(EntityState)
     ) -> None:
-        # Scale default animations to respect the chosen row/column dimensions
-        animations = {
-            state.value: AnimationMeta(
-                row=min(i, max(0, rows - 1)),
-                start_frame=0,
-                end_frame=max(0, cols - 1)
-            )
-            for i, state in enumerate(EntityState)
-        }
         selected_entity_type = self.type_combo.currentData()
         entity_type: str = getattr(selected_entity_type, "value", str(selected_entity_type))
+        
+        if entity_type == EntityType.STRUCTURE:
+            animations = {
+                "idle": AnimationMeta(
+                    row=0,
+                    start_frame=0,
+                    end_frame=max(0, cols - 1),
+                    loop=True
+                )
+            }
+        else:
+            animations = {
+                state.value: AnimationMeta(
+                    row=min(i, max(0, rows - 1)),
+                    start_frame=0,
+                    end_frame=max(0, cols - 1)
+                )
+                for i, state in enumerate(EntityState)
+            }
 
         new_config = ModConfig(
             name=display_name,

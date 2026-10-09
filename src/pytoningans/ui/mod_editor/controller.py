@@ -31,10 +31,10 @@ class ModEditorController:
         self.manager._resolve_dimensions() # Recalculate base tile sizes
         self.manager.clear_shared_cache()  # Flush old grid cuts
 
-    def get_meta(self, state: EntityState) -> AnimationMeta:
+    def get_meta(self, state: str) -> AnimationMeta:
         return self.manager.animations.get(state, AnimationMeta(row=0, start_frame=0, end_frame=1))
 
-    def update_meta(self, state: EntityState, meta: AnimationMeta) -> None:
+    def update_meta(self, state: str, meta: AnimationMeta) -> None:
         self.manager.animations[state] = meta
         self.manager._resolve_dimensions()
         self.manager.clear_shared_cache()
@@ -42,7 +42,7 @@ class ModEditorController:
     def get_frame(self, state: EntityState, frame_index: int):
         return self.manager.get_frame(state, frame_index)
         
-    def has_mapped_row(self, state: EntityState) -> Tuple[bool, int]:
+    def has_mapped_row(self, state: str) -> Tuple[bool, int]:
         meta: Optional[AnimationMeta] = self.manager.animations.get(state)
         return (True, meta.row) if meta else (False, 0)
     

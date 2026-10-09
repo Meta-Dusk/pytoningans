@@ -3,12 +3,12 @@ import copy
 from typing import Optional
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox, 
-    QPushButton, QLabel, QFormLayout, QFrame, QMessageBox
+    QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox, QPushButton,
+    QLabel, QFormLayout, QFrame, QMessageBox, QInputDialog
 )
 from PySide6.QtCore import Qt, QTimer, QRect
 
-from pytoningans.core.constants import EntityState, AnimationMeta
+from pytoningans.core.constants import EntityState, AnimationMeta, EntityType
 from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.components import (
     CollapsibleSection, PreviewLabel, create_info_label, create_spinbox, create_info_widget
@@ -113,11 +113,21 @@ class AnimationSubsystem(BasePanel):
                 "The State of the Pet to edit the values for."
             )
         )
+        
         self.state_combo = QComboBox()
-        h_layout.addWidget(self.state_combo)
+        h_layout.addWidget(self.state_combo, stretch=1)
+        
+        self.add_state_btn = QPushButton("+")
+        self.add_state_btn.setToolTip("Add new animation state")
+        self.del_state_btn = QPushButton("-")
+        self.del_state_btn.setToolTip("Remove current animation state")
+        
         self.copy_btn = QPushButton("Copy")
         self.paste_btn = QPushButton("Paste")
         self.paste_btn.setEnabled(False)
+        
+        h_layout.addWidget(self.add_state_btn)
+        h_layout.addWidget(self.del_state_btn)
         h_layout.addWidget(self.copy_btn)
         h_layout.addWidget(self.paste_btn)
         section.content_layout.addLayout(h_layout)
@@ -236,6 +246,8 @@ class AnimationSubsystem(BasePanel):
         self.rows_spin.valueChanged.connect(self._on_global_edited)
         
         self.state_combo.currentIndexChanged.connect(self._on_state_changed)
+        self.add_state_btn.clicked.connect(self._on_add_state)
+        self.del_state_btn.clicked.connect(self._on_del_state)
         self.copy_btn.clicked.connect(self._on_copy)
         self.paste_btn.clicked.connect(self._on_paste)
         self.swap_btn.clicked.connect(self._on_swap)
@@ -264,20 +276,58 @@ class AnimationSubsystem(BasePanel):
         self.width_spin.setSpecialValueText(f"0 (Auto: {base_w}px)")
         self.height_spin.setSpecialValueText(f"0 (Auto: {base_h}px)")
 
-    def _refresh_state_dropdown(self) -> None:
-        current = self.state_combo.currentData()
+    def _refresh_state_dropdown(self, selected_key: Optional[str] = None) -> None:
+        current_selection = selected_key if selected_key is not None else self.state_combo.currentData()
+        
         self.state_combo.blockSignals(True)
         self.state_combo.clear()
-        target_idx = 0
-        for i, state in enumerate(EntityState):
-            exists, row = self.controller.has_mapped_row(state)
-            self.state_combo.addItem(
-                f"{state.value.capitalize()} [{'Row ' + str(row) if exists else 'Missing'}]",
-                userData=state
-            )
-            if state == current: target_idx = i
-        self.state_combo.setCurrentIndex(target_idx)
+        
+        # Also sync swap_combo if it exists
+        if hasattr(self, "swap_combo"):
+            self.swap_combo.blockSignals(True)
+            self.swap_combo.clear()
+
+        existing_keys: list[str] = list(self.controller.manager.animations.keys())
+        is_structure: bool = self.controller.manager.entity_type == EntityType.STRUCTURE.value
+
+        if is_structure and not existing_keys:
+            existing_keys = ["idle"]
+            self.controller.manager.animations["idle"] = AnimationMeta(row=0, start_frame=0, end_frame=0, loop=True)
+        elif not is_structure:
+            for state in EntityState:
+                val: str = state.value if hasattr(state, "value") else str(state)
+                if val not in existing_keys:
+                    existing_keys.append(val)
+                    self.controller.manager.animations[val] = AnimationMeta(row=0, start_frame=0, end_frame=0, loop=True)
+
+        target_idx: int = 0
+        for i, key in enumerate(existing_keys):
+            exists, row = self.controller.has_mapped_row(key)
+            display_name = f"{key.capitalize()} [{'Row ' + str(row) if exists else 'Unmapped'}]"
+            
+            self.state_combo.addItem(display_name, userData=str(key))
+            if hasattr(self, "swap_combo"):
+                self.swap_combo.addItem(key.capitalize(), userData=str(key))
+                
+            if str(key) == str(current_selection):
+                target_idx = i
+
+        # Update button visibilities for structures
+        if hasattr(self, "add_state_btn"):
+            self.add_state_btn.setVisible(is_structure)
+        if hasattr(self, "del_state_btn"):
+            self.del_state_btn.setVisible(is_structure)
+
+        if self.state_combo.count() > 0:
+            self.state_combo.setCurrentIndex(target_idx)
+
         self.state_combo.blockSignals(False)
+        if hasattr(self, "swap_combo"):
+            self.swap_combo.blockSignals(False)
+
+        # Force Qt to repaint the combo box inside the QScrollArea
+        self.state_combo.update()
+        self.state_combo.repaint()
 
     def _on_global_edited(self, *_) -> None:
         if self._is_updating_ui: return
@@ -286,9 +336,9 @@ class AnimationSubsystem(BasePanel):
         self._update_preview()
 
     def _on_state_changed(self, *_) -> None:
-        state = self.state_combo.currentData()
+        state: str = self.state_combo.currentData()
         if not state: return
-        meta = self.controller.get_meta(state)
+        meta: AnimationMeta = self.controller.get_meta(state)
         
         self._is_updating_ui = True
         self.row_spin.setValue(meta.row)
@@ -307,7 +357,7 @@ class AnimationSubsystem(BasePanel):
 
     def _on_meta_edited(self, *_) -> None:
         if self._is_updating_ui: return
-        state = self.state_combo.currentData()
+        state: str = self.state_combo.currentData()
         if not state: return
         
         new_meta = AnimationMeta(
@@ -450,3 +500,66 @@ class AnimationSubsystem(BasePanel):
     def _on_range_toggled(self, checked: bool) -> None:
         self.preview_label.show_attack_range = checked
         self.preview_label.update()
+    
+    def _on_add_state(self) -> None:
+        state_name, ok = QInputDialog.getText(
+            self.state_panel, "Add Animation State", "Enter new state name (e.g. active, open):"
+        )
+        if not ok or not state_name.strip(): return
+
+        key: str = state_name.strip().lower()
+
+        # Check if it already exists
+        if key in self.controller.manager.animations:
+            idx: int = self.state_combo.findData(key)
+            if idx >= 0:
+                self.state_combo.setCurrentIndex(idx)
+            return
+
+        # Fetch current grid specs to define proper frame bounds
+        cols, _ = self.controller.get_global_grid()
+        new_meta = AnimationMeta(
+            row=0,
+            start_frame=0,
+            end_frame=max(0, cols - 1),
+            loop=True
+        )
+
+        # Put into manager animations dictionary
+        self.controller.manager.animations[key] = new_meta
+        self.controller.manager._resolve_dimensions()
+        self.controller.manager.clear_shared_cache()
+
+        # Refresh dropdown and force index selection
+        self._refresh_state_dropdown(selected_key=key)
+
+        # Explicitly trigger UI reload for the new state
+        self._on_state_changed()
+
+    def _on_del_state(self) -> None:
+        if self.state_combo.count() <= 1:
+            QMessageBox.warning(
+                self.state_panel, "Cannot Remove",
+                "A structure must have at least one animation state."
+            )
+            return
+            
+        key: str = self.state_combo.currentData()
+        if not key: return
+        
+        reply: QMessageBox.StandardButton = QMessageBox.question(
+            self.state_panel, "Delete State",
+            f"Are you sure you want to remove the '{key}' animation state?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.controller.manager.animations.pop(key, None)
+            self.controller.manager._resolve_dimensions()
+            self.controller.manager.clear_shared_cache()
+            
+            # Select the first remaining item
+            remaining: list[str] = list(self.controller.manager.animations.keys())
+            next_key: Optional[str] = remaining[0] if remaining else None
+            
+            self._refresh_state_dropdown(selected_key=next_key)
+            self._on_state_changed()
