@@ -1,5 +1,4 @@
 import random
-
 from typing import Optional
 
 from PySide6.QtWidgets import (
@@ -10,6 +9,7 @@ from PySide6.QtCore import QCoreApplication, QRect, Qt, QTimer
 from PySide6.QtGui import QGuiApplication, QScreen
 
 from pytoningans.core.entity_manager import EntityManager
+from pytoningans.core.constants import EntityType
 from pytoningans.ui.mod_manager_hub import ModManagerHub
 from pytoningans.ui.theme import LIGHT_THEME, DARK_THEME
 from pytoningans.ui.title_bar import CustomTitleBar
@@ -27,9 +27,8 @@ class MainMenu(QWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        # Strip the OS window frame
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.resize(300, 310)
+        self.resize(320, 360)
         
         main_layout: QVBoxLayout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -44,33 +43,43 @@ class MainMenu(QWidget):
         content_layout.setSpacing(10)
         
         # --- Spawning Section ---
-        spawn_label = QLabel("Spawn a Pet:")
+        spawn_label = QLabel("Spawn Objects:")
         spawn_label.setObjectName("SectionHeader")
+        content_layout.addWidget(spawn_label)
+
+        # Filter Category Row
+        filter_layout = QHBoxLayout()
+        filter_layout.addWidget(QLabel("Category:"))
+        self.category_combo = QComboBox()
+        self.category_combo.addItem("All Entities", "all")
+        self.category_combo.addItem("Pets Only", EntityType.PET.value)
+        self.category_combo.addItem("Structures Only", EntityType.STRUCTURE.value)
+        self.category_combo.currentIndexChanged.connect(self._refresh_spawn_list)
+        filter_layout.addWidget(self.category_combo, stretch=1)
+        content_layout.addLayout(filter_layout)
         
+        # Target Mod Dropdown
         self.mod_combo = QComboBox()
-        for folder, name in self.manager.mod_manager.get_available_mods().items():
-            self.mod_combo.addItem(name, userData=folder)
+        content_layout.addWidget(self.mod_combo)
         
-        # Group the amount spinbox and spawn button horizontally
+        # Amount and Spawn Button
         spawn_action_layout = QHBoxLayout()
         self.amount_spin = QSpinBox()
-        self.amount_spin.setRange(1, 100); self.amount_spin.setValue(1)
-        self.amount_spin.setToolTip("Number of pets to spawn at once")
+        self.amount_spin.setRange(1, 100)
+        self.amount_spin.setValue(1)
+        self.amount_spin.setToolTip("Number of items to spawn")
         
-        self.spawn_btn: QPushButton = QPushButton("Spawn Pet")
+        self.spawn_btn: QPushButton = QPushButton("Spawn")
         self.spawn_btn.clicked.connect(self._on_spawn_clicked)
         
         spawn_action_layout.addWidget(self.amount_spin)
         spawn_action_layout.addWidget(self.spawn_btn, stretch=1)
-        
-        content_layout.addWidget(spawn_label)
-        content_layout.addWidget(self.mod_combo)
         content_layout.addLayout(spawn_action_layout)
         
         # --- Live Stats Section ---
         stats_layout = QHBoxLayout()
-        self.active_count_label = QLabel("Active Pets: 0")
-        self.dead_count_label = QLabel("Dead Pets: 0")
+        self.active_count_label = QLabel("Active: 0")
+        self.dead_count_label = QLabel("Dead: 0")
         self.active_count_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
         self.dead_count_label.setStyleSheet("color: #F44336; font-weight: bold;")
         
@@ -78,15 +87,17 @@ class MainMenu(QWidget):
         stats_layout.addWidget(self.dead_count_label)
         content_layout.addLayout(stats_layout)
         
-        # --- Visual Separator ---
-        separator = QFrame(); separator.setFrameShape(QFrame.Shape.HLine)
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
         separator.setObjectName("MenuSeparator")
         content_layout.addWidget(separator)
         
         # --- Utilities Section ---
-        utils_label = QLabel("Utilities:"); utils_label.setObjectName("SectionHeader")
+        utils_label = QLabel("Utilities:")
+        utils_label.setObjectName("SectionHeader")
+        content_layout.addWidget(utils_label)
         
-        self.close_all_btn = QPushButton("Close All Pets")
+        self.close_all_btn = QPushButton("Close All Objects")
         self.close_all_btn.clicked.connect(self._on_close_all_clicked)
         
         self.close_all_dead_btn = QPushButton("Close All Dead Pets")
@@ -98,7 +109,6 @@ class MainMenu(QWidget):
         self.theme_btn = QPushButton("Switch to Light Mode")
         self.theme_btn.clicked.connect(self._toggle_theme)
         
-        content_layout.addWidget(utils_label)
         content_layout.addWidget(self.close_all_btn)
         content_layout.addWidget(self.close_all_dead_btn)
         content_layout.addWidget(self.manage_btn)
@@ -107,18 +117,31 @@ class MainMenu(QWidget):
         
         main_layout.addWidget(content_widget)
         
+        self._refresh_spawn_list()
+        
         self.stats_timer = QTimer(self)
         self.stats_timer.timeout.connect(self._update_stats)
         self.stats_timer.start(500)
-    
+
+    def _refresh_spawn_list(self) -> None:
+        """Filters the spawn dropdown based on the active category filter."""
+        self.mod_combo.clear()
+        selected_category: str = self.category_combo.currentData()
+        
+        mods = self.manager.mod_manager.get_available_mods_with_type()
+        for folder, (name, entity_type) in mods.items():
+            if selected_category != "all" and entity_type != selected_category: continue
+            badge: str = "[Struct]" if entity_type == EntityType.STRUCTURE.value else "[Pet]"
+            self.mod_combo.addItem(f"{badge} {name}", userData=folder)
+
     def _update_stats(self) -> None:
-        """Polls the PetManager to update the UI counters."""
-        total_active: int = len(self.manager.active_entities)
+        total_pets: int = len(self.manager.active_entities)
+        total_structs: int = len(self.manager.active_structures)
         total_dead: int = sum(1 for p in self.manager.active_entities if p.is_dead)
         
-        self.active_count_label.setText(f"Active Pets: {total_active}")
-        self.dead_count_label.setText(f"Dead Pets: {total_dead}")
-    
+        self.active_count_label.setText(f"Pets: {total_pets} | Structs: {total_structs}")
+        self.dead_count_label.setText(f"Dead: {total_dead}")
+
     def _on_spawn_clicked(self) -> None:
         selected_mod: str = self.mod_combo.currentData()
         if not selected_mod: return
@@ -128,8 +151,9 @@ class MainMenu(QWidget):
         
         amount: int = self.amount_spin.value()
         for _ in range(amount):
+            random_x: int
+            random_y: int
             if geom:
-                # Constrain random coordinates to the visible screen area
                 random_x = random.randint(geom.left() + 50, geom.right() - 150)
                 random_y = random.randint(geom.top() + 50, geom.bottom() - 150)
             else:
@@ -141,17 +165,19 @@ class MainMenu(QWidget):
     def _on_close_all_clicked(self) -> None:
         for entity in list(self.manager.active_entities):
             entity.destroy()
-    
+        for struct in list(self.manager.active_structures):
+            struct.destroy()
+
     def _on_close_all_dead_clicked(self) -> None:
         for entity in list(self.manager.active_entities):
-            if not entity.is_dead: continue
-            entity.destroy()
+            if entity.is_dead: entity.destroy()
 
     def _toggle_theme(self) -> None:
         self._is_dark_mode = not self._is_dark_mode
         app: Optional[QCoreApplication] = QApplication.instance()
         
-        if not isinstance(app, QApplication): return
+        if not isinstance(app, QApplication): 
+            return
         if self._is_dark_mode:
             app.setStyleSheet(DARK_THEME)
             self.theme_btn.setText("Switch to Light Mode")
@@ -166,9 +192,3 @@ class MainMenu(QWidget):
             self.hub_window.show()
         else:
             self.hub_window.activateWindow()
-    
-    def _refresh_spawn_list(self) -> None:
-        """Rebuilds the dropdown/list of available pets to spawn."""
-        self.mod_combo.clear()
-        for folder, name in self.manager.mod_manager.get_available_mods().items():
-            self.mod_combo.addItem(name, userData=folder)

@@ -1,10 +1,11 @@
+from pathlib import Path
 import sys, signal, os
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon, QFontDatabase, QFont
 from PySide6.QtCore import Qt
 
-from pytoningans.core.constants import APP_CFG
+from pytoningans.core.constants import APP_CFG, EntityType
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.entity_manager import EntityManager
 from pytoningans.ui.main_menu import MainMenu
@@ -43,12 +44,17 @@ def main() -> None:
         app.setFont(default_font)
     
     # Initialize Mod Manager
-    mods_dir = get_mods_directory()
+    mods_dir: Path = get_mods_directory()
     mod_manager: ModManager = ModManager(mods_dir.as_posix())
     
-    available_mods: dict[str, str] = mod_manager.get_available_mods()
+    available_mods: dict[str, tuple[str, str]] = mod_manager.get_available_mods_with_type()
     if available_mods:
-        mod_manager.load_mod(list(available_mods.keys())[0])
+        # Prefer loading a pet mod on launch if available; fallback to the first entry
+        initial_mod: str = next(
+            (folder for folder, (_, ent_type) in available_mods.items() if ent_type == EntityType.PET.value),
+            next(iter(available_mods))
+        )
+        mod_manager.load_mod(initial_mod)
         
     # Initialize UI
     pet_manager: EntityManager = EntityManager(mod_manager)
