@@ -31,7 +31,7 @@ class ModManagerHub(QWidget):
 
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.resize(450, 300)
+        self.resize(550, 300)
         
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -90,8 +90,9 @@ class ModManagerHub(QWidget):
 
     def _refresh_list(self) -> None:
         self.mod_list.clear()
-        for folder, name in self.mod_manager.get_available_mods().items():
-            item = QListWidgetItem(f"{name} ({folder})")
+        mods: dict[str, tuple[str, str]] = self.mod_manager.get_available_mods_with_type()
+        for folder, (name, entity_type) in mods.items():
+            item = QListWidgetItem(f"[{entity_type}] {name} ({folder})")
             item.setData(Qt.ItemDataRole.UserRole, folder)
             self.mod_list.addItem(item)
 

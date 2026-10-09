@@ -13,8 +13,8 @@ class ModEditorController:
     def __init__(self, mod_manager: ModManager) -> None:
         self.manager: ModManager = mod_manager
 
-    def get_mod_list(self) -> dict[str, str]:
-        return self.manager.get_available_mods()
+    def get_mod_list(self) -> dict[str, Tuple[str, str]]:
+        return self.manager.get_available_mods_with_type()
 
     def load_mod(self, folder: str) -> bool:
         return self.manager.load_mod(folder)
