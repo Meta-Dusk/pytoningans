@@ -16,6 +16,7 @@ from pytoningans.ui.theme import LIGHT_THEME, DARK_THEME
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.utils.assets import get_main_icon
 
+
 class MainMenu(QWidget):
     def __init__(self, manager: EntityManager) -> None:
         super().__init__(
@@ -27,9 +28,15 @@ class MainMenu(QWidget):
         self._is_dark_mode: bool = True
         self._setup_ui()
 
+    def _create_separator(self) -> QFrame:
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setObjectName("MenuSeparator")
+        return sep
+
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.resize(320, 390)
+        self.resize(350, 540)
         
         main_layout: QVBoxLayout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -40,8 +47,8 @@ class MainMenu(QWidget):
         
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(15, 15, 15, 15)
-        content_layout.setSpacing(10)
+        content_layout.setContentsMargins(14, 12, 14, 14)
+        content_layout.setSpacing(8)
         
         # --- Spawning Section ---
         spawn_label = QLabel("Spawn Objects:")
@@ -86,48 +93,143 @@ class MainMenu(QWidget):
         spawn_action_layout.addWidget(self.spawn_btn, stretch=1)
         content_layout.addLayout(spawn_action_layout)
         
-        # --- Live Stats Section ---
-        stats_layout = QHBoxLayout()
-        self.active_count_label = QLabel("Active: 0")
+        content_layout.addWidget(self._create_separator())
+        
+        # --- Live Controls Section (Value Display + Context Actions) ---
+        live_label = QLabel("Live Controls:")
+        live_label.setObjectName("SectionHeader")
+        content_layout.addWidget(live_label)
+
+        # Row 1: Alive Entities
+        alive_frame = QFrame()
+        alive_frame.setObjectName("ActionRow")
+        alive_layout = QHBoxLayout(alive_frame)
+        alive_layout.setContentsMargins(10, 5, 10, 5)
+        alive_layout.setSpacing(6)
+
+        self.alive_count_label = QLabel("Alive: 0")
+        self.alive_count_label.setObjectName("StatAliveLabel")
+        alive_layout.addWidget(self.alive_count_label)
+        alive_layout.addStretch()
+
+        self.kill_alive_btn = QPushButton("Kill All")
+        self.kill_alive_btn.setObjectName("RowBtn")
+        self.kill_alive_btn.setToolTip("Trigger death animation for alive entities")
+        self.kill_alive_btn.clicked.connect(self._on_kill_alive_clicked)
+        alive_layout.addWidget(self.kill_alive_btn)
+
+        self.close_alive_btn = QPushButton("Close All")
+        self.close_alive_btn.setObjectName("RowBtn")
+        self.close_alive_btn.setToolTip("Close all alive entities immediately")
+        self.close_alive_btn.clicked.connect(self._on_close_alive_clicked)
+        alive_layout.addWidget(self.close_alive_btn)
+
+        content_layout.addWidget(alive_frame)
+
+        # Row 2: Dead Entities
+        dead_frame = QFrame()
+        dead_frame.setObjectName("ActionRow")
+        dead_layout = QHBoxLayout(dead_frame)
+        dead_layout.setContentsMargins(10, 5, 10, 5)
+        dead_layout.setSpacing(6)
+
         self.dead_count_label = QLabel("Dead: 0")
-        self.active_count_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
-        self.dead_count_label.setStyleSheet("color: #F44336; font-weight: bold;")
-        
-        stats_layout.addWidget(self.active_count_label)
-        stats_layout.addWidget(self.dead_count_label)
-        content_layout.addLayout(stats_layout)
-        
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setObjectName("MenuSeparator")
-        content_layout.addWidget(separator)
-        
-        # --- Utilities Section ---
-        utils_label = QLabel("Utilities:")
-        utils_label.setObjectName("SectionHeader")
-        content_layout.addWidget(utils_label)
-        
-        self.close_all_btn = QPushButton("Close All Objects")
-        self.close_all_btn.clicked.connect(self._on_close_all_clicked)
-        
-        self.close_all_dead_btn = QPushButton("Close All Dead Pets")
-        self.close_all_dead_btn.clicked.connect(self._on_close_all_dead_clicked)
-        
+        self.dead_count_label.setObjectName("StatDeadLabel")
+        dead_layout.addWidget(self.dead_count_label)
+        dead_layout.addStretch()
+
+        self.revive_dead_btn = QPushButton("Revive All")
+        self.revive_dead_btn.setObjectName("RowBtn")
+        self.revive_dead_btn.setToolTip("Revive all dead entities back to life")
+        self.revive_dead_btn.clicked.connect(self._on_revive_dead_clicked)
+        dead_layout.addWidget(self.revive_dead_btn)
+
+        self.close_dead_btn = QPushButton("Close All")
+        self.close_dead_btn.setObjectName("RowBtn")
+        self.close_dead_btn.setToolTip("Remove all dead entities from the screen")
+        self.close_dead_btn.clicked.connect(self._on_close_dead_clicked)
+        dead_layout.addWidget(self.close_dead_btn)
+
+        content_layout.addWidget(dead_frame)
+
+        # Row 3: Structures
+        struct_frame = QFrame()
+        struct_frame.setObjectName("ActionRow")
+        struct_layout = QHBoxLayout(struct_frame)
+        struct_layout.setContentsMargins(10, 5, 10, 5)
+        struct_layout.setSpacing(6)
+
+        self.struct_count_label = QLabel("Structures: 0")
+        self.struct_count_label.setObjectName("StatStructLabel")
+        struct_layout.addWidget(self.struct_count_label)
+        struct_layout.addStretch()
+
+        self.close_struct_btn = QPushButton("Close All")
+        self.close_struct_btn.setObjectName("RowBtn")
+        self.close_struct_btn.setToolTip("Close all active structures")
+        self.close_struct_btn.clicked.connect(self._on_close_structures_clicked)
+        struct_layout.addWidget(self.close_struct_btn)
+
+        content_layout.addWidget(struct_frame)
+
+        content_layout.addWidget(self._create_separator())
+
+        # --- Global Actions Section ---
+        global_label = QLabel("Global Actions:")
+        global_label.setObjectName("SectionHeader")
+        content_layout.addWidget(global_label)
+
+        global_layout = QHBoxLayout()
+        global_layout.setSpacing(8)
+
+        self.close_all_entities_btn = QPushButton("Close All Entities")
+        self.close_all_entities_btn.setToolTip("Close all entities regardless of alive/dead state")
+        self.close_all_entities_btn.clicked.connect(self._on_close_all_entities_clicked)
+
+        self.close_all_objects_btn = QPushButton("Close All Objects")
+        self.close_all_objects_btn.setToolTip("Close all entities and structures on all screens")
+        self.close_all_objects_btn.clicked.connect(self._on_close_all_objects_clicked)
+
+        global_layout.addWidget(self.close_all_entities_btn)
+        global_layout.addWidget(self.close_all_objects_btn)
+        content_layout.addLayout(global_layout)
+
+        content_layout.addWidget(self._create_separator())
+
+        # --- Mod Management Section ---
+        mod_label = QLabel("Mod Management:")
+        mod_label.setObjectName("SectionHeader")
+        content_layout.addWidget(mod_label)
+
         self.manage_btn = QPushButton("Manage Mods")
+        self.manage_btn.setToolTip("Open the Mod Manager Hub")
         self.manage_btn.clicked.connect(self._open_hub)
+        content_layout.addWidget(self.manage_btn)
+
+        content_layout.addWidget(self._create_separator())
+
+        # --- System Controls Section ---
+        sys_layout = QHBoxLayout()
+        sys_layout.setSpacing(8)
 
         self.theme_btn = QPushButton("Switch to Light Mode")
         self.theme_btn.clicked.connect(self._toggle_theme)
-        
-        content_layout.addWidget(self.close_all_btn)
-        content_layout.addWidget(self.close_all_dead_btn)
-        content_layout.addWidget(self.manage_btn)
-        content_layout.addWidget(self.theme_btn)
+
+        self.shutdown_btn = QPushButton("Shutdown")
+        self.shutdown_btn.setObjectName("DangerBtn")
+        self.shutdown_btn.setToolTip("Completely quit PyToNingans")
+        self.shutdown_btn.clicked.connect(QApplication.quit)
+
+        sys_layout.addWidget(self.theme_btn)
+        sys_layout.addWidget(self.shutdown_btn)
+        content_layout.addLayout(sys_layout)
+
         content_layout.addStretch()
         
         main_layout.addWidget(content_widget)
         
         self._refresh_spawn_list()
+        self._update_stats()
         
         self.stats_timer = QTimer(self)
         self.stats_timer.timeout.connect(self._update_stats)
@@ -167,11 +269,24 @@ class MainMenu(QWidget):
 
     def _update_stats(self) -> None:
         total_pets: int = len(self.manager.active_entities)
+        dead_pets: int = sum(1 for p in self.manager.active_entities if p.is_dead)
+        alive_pets: int = total_pets - dead_pets
         total_structs: int = len(self.manager.active_structures)
-        total_dead: int = sum(1 for p in self.manager.active_entities if p.is_dead)
         
-        self.active_count_label.setText(f"Pets: {total_pets} | Structs: {total_structs}")
-        self.dead_count_label.setText(f"Dead: {total_dead}")
+        self.alive_count_label.setText(f"Alive: {alive_pets}")
+        self.dead_count_label.setText(f"Dead: {dead_pets}")
+        self.struct_count_label.setText(f"Structures: {total_structs}")
+
+        self.kill_alive_btn.setEnabled(alive_pets > 0)
+        self.close_alive_btn.setEnabled(alive_pets > 0)
+
+        self.revive_dead_btn.setEnabled(dead_pets > 0)
+        self.close_dead_btn.setEnabled(dead_pets > 0)
+
+        self.close_struct_btn.setEnabled(total_structs > 0)
+
+        self.close_all_entities_btn.setEnabled(total_pets > 0)
+        self.close_all_objects_btn.setEnabled(total_pets > 0 or total_structs > 0)
 
     def _on_spawn_clicked(self) -> None:
         selected_mod: str = self.mod_combo.currentData()
@@ -197,16 +312,46 @@ class MainMenu(QWidget):
                 
             self.manager.spawn_entity(random_x, random_y, selected_mod, target_world=target_world)
 
-    def _on_close_all_clicked(self) -> None:
+    def _on_kill_alive_clicked(self) -> None:
+        """Triggers the death state/animation for all currently alive entities."""
+        for entity in list(self.manager.active_entities):
+            if not entity.is_dead:
+                entity.die()
+
+    def _on_close_alive_clicked(self) -> None:
+        """Immediately destroys all currently alive entities."""
+        for entity in list(self.manager.active_entities):
+            if not entity.is_dead:
+                entity.destroy()
+
+    def _on_revive_dead_clicked(self) -> None:
+        """Revives all dead entities."""
+        for entity in list(self.manager.active_entities):
+            if entity.is_dead:
+                entity.revive()
+
+    def _on_close_dead_clicked(self) -> None:
+        """Immediately destroys all dead entities."""
+        for entity in list(self.manager.active_entities):
+            if entity.is_dead:
+                entity.destroy()
+
+    def _on_close_structures_clicked(self) -> None:
+        """Destroys all active structures."""
+        for struct in list(self.manager.active_structures):
+            struct.destroy()
+
+    def _on_close_all_entities_clicked(self) -> None:
+        """Destroys all entities regardless of alive/dead state."""
+        for entity in list(self.manager.active_entities):
+            entity.destroy()
+
+    def _on_close_all_objects_clicked(self) -> None:
+        """Destroys all entities and structures across all worlds."""
         for entity in list(self.manager.active_entities):
             entity.destroy()
         for struct in list(self.manager.active_structures):
             struct.destroy()
-
-    def _on_close_all_dead_clicked(self) -> None:
-        for entity in list(self.manager.active_entities):
-            if entity.is_dead:
-                entity.destroy()
 
     def _toggle_theme(self) -> None:
         self._is_dark_mode = not self._is_dark_mode

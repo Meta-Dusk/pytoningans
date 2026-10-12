@@ -149,6 +149,58 @@ QPushButton:disabled {
     font-family: 'Pixel Code', monospace;
     font-size: 14px;
 }
+
+QFrame#ActionRow {
+    background-color: #f2f2f2;
+    border: 1px solid #dcdcdc;
+    border-radius: 6px;
+}
+
+QPushButton#RowBtn {
+    padding: 3px 10px;
+    font-size: 12px;
+}
+
+QLabel#StatAliveLabel {
+    color: #2e7d32;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+QLabel#StatDeadLabel {
+    color: #c62828;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+QLabel#StatStructLabel {
+    color: #1565c0;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+QPushButton#DangerBtn {
+    background-color: #ffffff;
+    border: 1px solid #f5c2c7;
+    color: #c62828;
+    font-weight: 500;
+}
+
+QPushButton#DangerBtn:hover {
+    background-color: #dc3545;
+    border: 1px solid #dc3545;
+    color: #ffffff;
+}
+
+QPushButton#DangerBtn:pressed {
+    background-color: #b02a37;
+}
+
+QPushButton#DangerBtn:disabled {
+    background-color: #f5f5f5;
+    border: 1px solid #e5e5e5;
+    color: #a0a0a0;
+}
 """
 
 DARK_THEME = """
@@ -300,5 +352,57 @@ QPushButton:disabled {
     padding: 8px;
     font-family: 'Pixel Code', monospace;
     font-size: 14px;
+}
+
+QFrame#ActionRow {
+    background-color: #262626;
+    border: 1px solid #363636;
+    border-radius: 6px;
+}
+
+QPushButton#RowBtn {
+    padding: 3px 10px;
+    font-size: 12px;
+}
+
+QLabel#StatAliveLabel {
+    color: #4caf50;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+QLabel#StatDeadLabel {
+    color: #ef5350;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+QLabel#StatStructLabel {
+    color: #42a5f5;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+QPushButton#DangerBtn {
+    background-color: #2d2020;
+    border: 1px solid #4d2d2d;
+    color: #ef5350;
+    font-weight: 500;
+}
+
+QPushButton#DangerBtn:hover {
+    background-color: #e53935;
+    border: 1px solid #e53935;
+    color: #ffffff;
+}
+
+QPushButton#DangerBtn:pressed {
+    background-color: #b71c1c;
+}
+
+QPushButton#DangerBtn:disabled {
+    background-color: #222222;
+    border: 1px solid #2a2a2a;
+    color: #666666;
 }
 """
