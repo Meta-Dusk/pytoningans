@@ -4,7 +4,7 @@ from typing import Optional, TYPE_CHECKING, cast, Any
 
 from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsColorizeEffect, QMenu
 from PySide6.QtCore import QPointF, QRect, QRectF, QVariantAnimation, QEasingCurve, Qt
-from PySide6.QtGui import QColor, QPixmap, QTransform
+from PySide6.QtGui import QAction, QColor, QPixmap, QTransform
 from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QGraphicsSceneContextMenuEvent
 
 from pytoningans.core.constants import AnimationMeta, EntityState, SystemLocks, DeathAnimation, StructureState
@@ -40,6 +40,8 @@ class BaseEntity(QGraphicsPixmapItem):
         self.facing_left: bool = False
         self.sprite_rotation: float = 0.0
         self.is_paused: bool = False
+        self._is_force_idle: bool = False
+        self.is_physics_enabled: bool = True
         self.velocity_y: float = 0.0
         
         self.components: dict[str, BaseComponent] = {}
@@ -67,6 +69,26 @@ class BaseEntity(QGraphicsPixmapItem):
         if self.anim_sys is not None:
             self.anim_sys.set_state(val_str)
         self._on_state_change(old_state, val_str)
+
+    @property
+    def is_force_idle(self) -> bool:
+        return self._is_force_idle
+
+    @is_force_idle.setter
+    def is_force_idle(self, value: bool) -> None:
+        self._is_force_idle = value
+        if not value: return
+        self.velocity_y = 0.0
+        if hasattr(self, "_target_pos"):
+            self._target_pos = None
+        if hasattr(self, "target_pos"):
+            self.target_pos = None
+        if not getattr(self, "is_dead", False) and self.anim_sys:
+            self.anim_sys.set_state(EntityState.IDLE)
+
+    def set_force_idle(self, enabled: bool) -> None:
+        """Toggles force-idle state where the entity plays idle animations but disables AI and gravity."""
+        self.is_force_idle = enabled
 
     def _on_state_change(self, old_state: str, new_state: str) -> None:
         if self.mod_manager is None or self.mod_manager.custom_behavior is None:
@@ -145,7 +167,7 @@ class BaseEntity(QGraphicsPixmapItem):
     ) -> None:
         if self.is_paused: return
         
-        if self.locks.physics and self.physics_sys:
+        if self.locks.physics and not self.is_force_idle and self.physics_sys:
             self.physics_sys.update(dt, centers)
         if self.locks.animation and self.anim_sys:
             self.anim_sys.update(dt)
@@ -192,7 +214,9 @@ class BaseEntity(QGraphicsPixmapItem):
         if event.button() == Qt.MouseButton.LeftButton:
             if self.anim_sys:
                 self.anim_sys.set_state(EntityState.IDLE)
-            self.locks.physics = True
+            self.locks.physics = self.is_physics_enabled
+            if not self.is_physics_enabled:
+                self.velocity_y = 0.0
             event.accept()
             
     def on_moved(self) -> None:
@@ -227,7 +251,11 @@ class Entity(BaseEntity):
 
     @property
     def is_interactable(self) -> bool:
-        return self.state not in (EntityState.DRAG, EntityState.INTERACT) and not self.is_dead
+        return (
+            self.state not in (EntityState.DRAG, EntityState.INTERACT)
+            and not self.is_dead
+            and not self.is_force_idle
+        )
 
     @property
     def target_pos(self) -> Optional[QPointF]:
@@ -251,7 +279,7 @@ class Entity(BaseEntity):
             if self.revive_time_left <= 0:
                 if self.anim_sys: self.anim_sys.set_state(EntityState.IDLE)
                 self.locks.ai = True
-                self.locks.physics = True
+                self.locks.physics = self.is_physics_enabled
                 
         if self.damage_tint_time_left > 0:
             self.damage_tint_time_left -= dt
@@ -265,10 +293,11 @@ class Entity(BaseEntity):
             super().update_systems(dt, centers)
             return
             
-        if self.locks.ai and self.ai_sys: self.ai_sys.update(dt)
+        if not self.is_force_idle and self.locks.ai and self.ai_sys:
+            self.ai_sys.update(dt)
         super().update_systems(dt, centers)
         
-        if self.mod_manager and self.mod_manager.custom_behavior:
+        if not self.is_force_idle and self.mod_manager and self.mod_manager.custom_behavior:
             behavior: BaseBehavior = self.mod_manager.custom_behavior
             if isinstance(behavior, BaseEntityBehavior):
                 try:
@@ -430,12 +459,8 @@ class Entity(BaseEntity):
         self._target_pos = None
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
-        self._target_pos = None
+        self.is_force_idle = True
         self.sprite_rotation = 0.0
-        if not self.is_dead and self.anim_sys:
-            self.anim_sys.set_state(EntityState.CLICKED)
-        
-        self.is_paused = True 
         
         menu = QMenu(self.world.view) if self.world else QMenu()
         menu.addAction("Close Pet", self.destroy)
@@ -456,7 +481,7 @@ class Entity(BaseEntity):
             
         menu.exec(event.screenPos())
         
-        self.is_paused = False
+        self.is_force_idle = False
         if not self.is_dead: return
         if self._fade_anim and self._fade_anim.state() == QVariantAnimation.State.Paused:
             self._fade_anim.resume()
@@ -538,8 +563,20 @@ class BaseStructure(BaseEntity):
     ) -> None:
         super().__init__(start_x, start_y, mod_manager, world)
         
-        #? Structures usually ignore gravity by default unless specified
-        self.locks.physics = False
+        can_fly: bool = mod_manager.can_fly if mod_manager else False
+        self.is_physics_enabled = not can_fly
+        self.locks.physics = self.is_physics_enabled
+
+    def set_physics_enabled(self, enabled: bool) -> None:
+        """Sets whether the structure is affected by gravity."""
+        self.is_physics_enabled = enabled
+        self.locks.physics = enabled
+        if not enabled:
+            self.velocity_y = 0.0
+
+    def toggle_physics(self) -> None:
+        """Toggles whether the structure is affected by gravity."""
+        self.set_physics_enabled(not self.is_physics_enabled)
 
     def toggle_active(self) -> None:
         """Toggles between IDLE and ACTIVE operational states, updating components."""
@@ -563,7 +600,7 @@ class BaseStructure(BaseEntity):
                     target_comp.linked_portal = self
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
-        self.is_paused = True
+        self.is_force_idle = True
         menu = QMenu(self.world.view) if self.world else QMenu()
         
         # Close Structure
@@ -576,13 +613,19 @@ class BaseStructure(BaseEntity):
         # Toggle Active
         status_text = "Deactivate" if self.state == StructureState.ACTIVE.value else "Activate"
         menu.addAction(f"{status_text} Structure", self.toggle_active)
+
+        # Toggle Physics / Gravity
+        physics_action: QAction = menu.addAction("Affected by Gravity")
+        physics_action.setCheckable(True)
+        physics_action.setChecked(self.is_physics_enabled)
+        physics_action.toggled.connect(self.set_physics_enabled)
         
         menu.addSeparator()
         
         # Component-specific actions
-        teleport_comp = self.get_component("teleportation")
+        teleport_comp: Optional[BaseComponent] = self.get_component("teleportation")
         if isinstance(teleport_comp, TeleportationComponent):
-            portal_menu = menu.addMenu("Change Linked Portal")
+            portal_menu: QMenu = menu.addMenu("Change Linked Portal")
             
             # Unlink option
             unlink_action = portal_menu.addAction("None (Unlinked)")
@@ -626,7 +669,7 @@ class BaseStructure(BaseEntity):
             menu.addAction("Add Teleportation Component", lambda: self.attach_teleportation())
             
         menu.exec(event.screenPos())
-        self.is_paused = False
+        self.is_force_idle = False
 
     def update_systems(self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None) -> None:
         super().update_systems(dt, centers)

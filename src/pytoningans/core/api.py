@@ -298,6 +298,13 @@ class IBaseEntity(Protocol):
         """Detaches and returns the component with the given name, or None."""
         ...
 
+    is_force_idle: bool
+    is_physics_enabled: bool
+
+    def set_force_idle(self, enabled: bool) -> None:
+        """Toggles force-idle state where the entity plays idle animations but disables AI and gravity."""
+        ...
+
 
 @runtime_checkable
 class IEntity(IBaseEntity, Protocol):
@@ -342,6 +349,14 @@ class IStructure(IBaseEntity, Protocol):
     """Environmental structure or portal on the desktop."""
     def toggle_active(self) -> None:
         """Toggles the structure between IDLE and ACTIVE operational states."""
+        ...
+
+    def toggle_physics(self) -> None:
+        """Toggles whether the structure is affected by gravity."""
+        ...
+
+    def set_physics_enabled(self, enabled: bool) -> None:
+        """Sets whether the structure is affected by gravity."""
         ...
 
     def attach_teleportation(
