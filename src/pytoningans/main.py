@@ -11,6 +11,7 @@ from pytoningans.core.entity_manager import EntityManager
 from pytoningans.ui.main_menu import MainMenu
 from pytoningans.ui.tray_menu import AppTray
 from pytoningans.ui.theme import DARK_THEME
+from pytoningans.ui.tool_tip import install_global_tooltip_filter
 from pytoningans.utils.paths import get_mods_directory, get_asset_path
 
 def main() -> None:
@@ -21,6 +22,8 @@ def main() -> None:
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     
     app: QApplication = QApplication(sys.argv)
+    install_global_tooltip_filter(app)
+    
     app.setApplicationName(APP_CFG.app_name)
     app.setQuitOnLastWindowClosed(False)
     app.setStyleSheet(DARK_THEME)
