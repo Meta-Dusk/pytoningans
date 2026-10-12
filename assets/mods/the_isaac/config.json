@@ -171,6 +171,11 @@
             "You got them jokes?",
             "I'm one of the biggest chuds"
         ],
+        "death_dialogue": [
+            "Not the maja blanca...",
+            "Isaac is down!",
+            "GG frickin' EZ... for them..."
+        ],
         "window_triggers": [
             {
                 "chance": 0.5,

@@ -170,6 +170,11 @@
             "I'm a bot :P",
             "Try me >:("
         ],
+        "death_dialogue": [
+            "Critical system failure...",
+            "0xDEADBEEF...",
+            "Bot offline..."
+        ],
         "window_triggers": [
             {
                 "chance": 0.5,

@@ -28,6 +28,9 @@ class DialogueConfig:
     plain_dialogue: list[str] = field(
         default_factory=lambda: ["Just hanging out.", "Lovely weather.", "Need a break?"]
     )
+    death_dialogue: list[str] = field(
+        default_factory=lambda: ["Ugh...", "I'll be back...", "Farewell..."]
+    )
     window_triggers: list[dict[str, Any]] = field(default_factory=lambda: [
         {
             "title_matches": ["secret_diary.txt", "diary - notepad", "diary"], 

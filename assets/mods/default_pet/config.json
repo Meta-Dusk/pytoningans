@@ -172,6 +172,12 @@
             "I like baguettes :)",
             "Have you seen Miku anywhere?"
         ],
+        "death_dialogue": [
+            "My baguettes...",
+            "Teto... down...",
+            "Tell Miku I'll be back!",
+            "Ugh... x_x"
+        ],
         "window_triggers": [
             {
                 "chance": 0.1,

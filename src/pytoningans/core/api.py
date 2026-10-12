@@ -183,6 +183,7 @@ class IModInfo(Protocol):
     behavior_type: BehaviorType
     attack_type: AttackType
     plain_dialogue: list[str]
+    death_dialogue: list[str]
     death_animation: DeathAnimation
     auto_close_on_death: bool
 
@@ -339,7 +340,7 @@ class IEntity(IBaseEntity, Protocol):
         """Displays a random line from the mod's plain dialogue pool."""
         ...
 
-    def say(self, text: str, duration_ms: int = 4000) -> None:
+    def say(self, text: str, duration_ms: int = 4000, is_death: bool = False) -> None:
         """Displays a speech bubble with the given text for duration_ms milliseconds."""
         ...
 

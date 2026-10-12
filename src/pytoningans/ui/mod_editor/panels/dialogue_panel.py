@@ -1,11 +1,11 @@
+from typing import Any
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QListWidget, 
-    QInputDialog, QListWidgetItem
+    QVBoxLayout, QHBoxLayout, QPushButton, QListWidget, QInputDialog, QListWidgetItem
 )
 from PySide6.QtCore import Qt
 
 from pytoningans.ui.mod_editor.controller import ModEditorController
-from pytoningans.ui.mod_editor.components import CollapsibleSection
+from pytoningans.ui.mod_editor.components import CollapsibleSection, create_info_label
 from pytoningans.ui.mod_editor.dialogs import TriggerDialog
 from .base_panel import BasePanel
 
@@ -26,6 +26,7 @@ class DialoguePanel(BasePanel):
         sec_layout = QVBoxLayout()
         
         # --- Plain Dialogue UI ---
+        sec_layout.addWidget(create_info_label("Plain Dialogue:", "Dialogues randomly spoken while wandering."))
         self.plain_dialogue_list = QListWidget()
         self.plain_dialogue_list.setMinimumHeight(100)
         sec_layout.addWidget(self.plain_dialogue_list)
@@ -39,8 +40,25 @@ class DialoguePanel(BasePanel):
         plain_btns.addWidget(self.del_plain_btn)
         sec_layout.addLayout(plain_btns)
         
+        # --- Death Dialogue UI ---
+        sec_layout.addSpacing(10)
+        sec_layout.addWidget(create_info_label("Death Dialogue:", "Dialogues spoken when the entity dies or takes fatal damage."))
+        self.death_dialogue_list = QListWidget()
+        self.death_dialogue_list.setMinimumHeight(100)
+        sec_layout.addWidget(self.death_dialogue_list)
+        
+        death_btns = QHBoxLayout()
+        self.add_death_btn = QPushButton("+ Add")
+        self.edit_death_btn = QPushButton("✎ Edit")
+        self.del_death_btn = QPushButton("- Remove")
+        death_btns.addWidget(self.add_death_btn)
+        death_btns.addWidget(self.edit_death_btn)
+        death_btns.addWidget(self.del_death_btn)
+        sec_layout.addLayout(death_btns)
+        
         # --- Window Triggers UI ---
         sec_layout.addSpacing(10)
+        sec_layout.addWidget(create_info_label("Window Triggers:", "Dialogues triggered by matching active window titles."))
         self.window_triggers_list = QListWidget()
         self.window_triggers_list.setMinimumHeight(150)
         sec_layout.addWidget(self.window_triggers_list)
@@ -63,6 +81,10 @@ class DialoguePanel(BasePanel):
         self.edit_plain_btn.clicked.connect(self._on_edit_plain_dialogue)
         self.del_plain_btn.clicked.connect(self._on_remove_plain_dialogue)
         
+        self.add_death_btn.clicked.connect(self._on_add_death_dialogue)
+        self.edit_death_btn.clicked.connect(self._on_edit_death_dialogue)
+        self.del_death_btn.clicked.connect(self._on_remove_death_dialogue)
+        
         self.add_trigger_btn.clicked.connect(self._on_add_window_trigger)
         self.edit_trigger_btn.clicked.connect(self._on_edit_window_trigger)
         self.del_trigger_btn.clicked.connect(self._on_remove_window_trigger)
@@ -76,16 +98,21 @@ class DialoguePanel(BasePanel):
         if hasattr(self.controller.manager, 'plain_dialogue'):
             self.plain_dialogue_list.addItems(self.controller.manager.plain_dialogue)
             
+        # Populate Death Dialogue
+        self.death_dialogue_list.clear()
+        if hasattr(self.controller.manager, 'death_dialogue'):
+            self.death_dialogue_list.addItems(self.controller.manager.death_dialogue)
+            
         # Populate Window Triggers
         self.window_triggers_list.clear()
         if hasattr(self.controller.manager, 'window_triggers'):
             for trigger in self.controller.manager.window_triggers:
-                matches = trigger.get("title_matches", [])
-                text = trigger.get("text", "...")
-                chance = trigger.get("chance", 1.0)
+                matches: list[str] = trigger.get("title_matches", [])
+                text: str = trigger.get("text", "...")
+                chance: float = trigger.get("chance", 1.0)
                 
-                match_str = ", ".join(matches)
-                display_text = f"{text} | {match_str} | {int(chance*100)}%"
+                match_str: str = ", ".join(matches)
+                display_text: str = f"{text} | {match_str} | {int(chance*100)}%"
                 
                 item = QListWidgetItem(display_text)
                 item.setData(Qt.ItemDataRole.UserRole, trigger)
@@ -94,74 +121,23 @@ class DialoguePanel(BasePanel):
         self._is_updating_ui = False
 
     def _on_add_plain_dialogue(self) -> None:
-        """Opens a popup window to type a new dialogue line."""
-        # Using self.plain_dialogue_list as the parent ensures the popup centers correctly
+        """Opens a popup window to type a new plain dialogue line."""
         text, ok = QInputDialog.getText(
             self.plain_dialogue_list, 
             "Add Plain Dialogue", 
             "Enter the dialogue text:"
         )
-        
-        # If the user clicked OK and didn't leave it blank
         if ok and text.strip():
             self.plain_dialogue_list.addItem(text.strip())
             self._save_dialogue_state()
 
     def _on_remove_plain_dialogue(self) -> None:
-        """Removes the currently selected line from the list."""
+        """Removes the currently selected plain dialogue line from the list."""
         current_row: int = self.plain_dialogue_list.currentRow()
         if current_row >= 0:
-            # takeItem removes it from the UI
             self.plain_dialogue_list.takeItem(current_row)
             self._save_dialogue_state()
 
-    def _save_dialogue_state(self) -> None:
-        """Extracts all items from the UI list and updates the engine manager."""
-        if getattr(self, '_is_updating_ui', False): return
-        
-        new_dialogue = []
-        for i in range(self.plain_dialogue_list.count()):
-            new_dialogue.append(self.plain_dialogue_list.item(i).text())
-        
-        if hasattr(self.controller.manager, 'plain_dialogue'):
-            self.controller.manager.plain_dialogue = new_dialogue
-    
-    def _on_add_window_trigger(self) -> None:
-        dialog = TriggerDialog(self.window_triggers_list)
-        if dialog.exec():
-            data = dialog.get_data()
-            if not data["text"] or not data["title_matches"]: return
-            
-            # Format: "Writing bugs? | vscode, code.exe | 50%"
-            match_str = ", ".join(data["title_matches"])
-            display_text = f"{data['text']} | {match_str} | {int(data['chance']*100)}%"
-            
-            item = QListWidgetItem(display_text)
-            # Store the raw dictionary silently inside the UI item
-            item.setData(Qt.ItemDataRole.UserRole, data) 
-            
-            self.window_triggers_list.addItem(item)
-            self._save_trigger_state()
-
-    def _on_remove_window_trigger(self) -> None:
-        current_row = self.window_triggers_list.currentRow()
-        if current_row >= 0:
-            self.window_triggers_list.takeItem(current_row)
-            self._save_trigger_state()
-
-    def _save_trigger_state(self) -> None:
-        if getattr(self, '_is_updating_ui', False): return
-        
-        new_triggers = []
-        for i in range(self.window_triggers_list.count()):
-            item = self.window_triggers_list.item(i)
-            # Extract the raw dictionary back out of the UI item
-            data = item.data(Qt.ItemDataRole.UserRole)
-            if data:
-                new_triggers.append(data)
-                
-        self.controller.manager.window_triggers = new_triggers
-    
     def _on_edit_plain_dialogue(self) -> None:
         current_item = self.plain_dialogue_list.currentItem()
         if not current_item: return
@@ -170,33 +146,109 @@ class DialoguePanel(BasePanel):
             self.plain_dialogue_list, 
             "Edit Plain Dialogue", 
             "Update the dialogue text:",
-            text=current_item.text() # Pre-fill the current text
+            text=current_item.text()
         )
-        
         if ok and text.strip():
             current_item.setText(text.strip())
             self._save_dialogue_state()
 
-    def _on_edit_window_trigger(self) -> None:
-        current_item = self.window_triggers_list.currentItem()
+    def _save_dialogue_state(self) -> None:
+        """Extracts all plain dialogue items and updates the engine manager."""
+        if getattr(self, '_is_updating_ui', False): return
+        new_dialogue: list[str] = [
+            self.plain_dialogue_list.item(i).text() for i in range(self.plain_dialogue_list.count())
+        ]
+        if hasattr(self.controller.manager, 'plain_dialogue'):
+            self.controller.manager.plain_dialogue = new_dialogue
+
+    def _on_add_death_dialogue(self) -> None:
+        """Opens a popup window to type a new death dialogue line."""
+        text, ok = QInputDialog.getText(
+            self.death_dialogue_list,
+            "Add Death Dialogue",
+            "Enter the death dialogue text:"
+        )
+        if ok and text.strip():
+            self.death_dialogue_list.addItem(text.strip())
+            self._save_death_dialogue_state()
+
+    def _on_remove_death_dialogue(self) -> None:
+        """Removes the currently selected death dialogue line from the list."""
+        current_row: int = self.death_dialogue_list.currentRow()
+        if current_row >= 0:
+            self.death_dialogue_list.takeItem(current_row)
+            self._save_death_dialogue_state()
+
+    def _on_edit_death_dialogue(self) -> None:
+        current_item = self.death_dialogue_list.currentItem()
         if not current_item: return
 
-        # Extract the hidden dictionary
+        text, ok = QInputDialog.getText(
+            self.death_dialogue_list,
+            "Edit Death Dialogue",
+            "Update the death dialogue text:",
+            text=current_item.text()
+        )
+        if ok and text.strip():
+            current_item.setText(text.strip())
+            self._save_death_dialogue_state()
+
+    def _save_death_dialogue_state(self) -> None:
+        """Extracts all death dialogue items and updates the engine manager."""
+        if getattr(self, '_is_updating_ui', False): return
+        new_death_dialogue: list[str] = [
+            self.death_dialogue_list.item(i).text() for i in range(self.death_dialogue_list.count())
+        ]
+        if hasattr(self.controller.manager, 'death_dialogue'):
+            self.controller.manager.death_dialogue = new_death_dialogue
+    
+    def _on_add_window_trigger(self) -> None:
+        dialog = TriggerDialog(self.window_triggers_list)
+        if dialog.exec():
+            data: dict[str, Any] = dialog.get_data()
+            if not data["text"] or not data["title_matches"]: return
+            
+            match_str: str = ", ".join(data["title_matches"])
+            display_text: str = f"{data['text']} | {match_str} | {int(data['chance']*100)}%"
+            
+            item = QListWidgetItem(display_text)
+            item.setData(Qt.ItemDataRole.UserRole, data) 
+            self.window_triggers_list.addItem(item)
+            self._save_trigger_state()
+
+    def _on_remove_window_trigger(self) -> None:
+        current_row: int = self.window_triggers_list.currentRow()
+        if current_row >= 0:
+            self.window_triggers_list.takeItem(current_row)
+            self._save_trigger_state()
+
+    def _save_trigger_state(self) -> None:
+        if getattr(self, '_is_updating_ui', False): return
+        new_triggers = []
+        for i in range(self.window_triggers_list.count()):
+            item: QListWidgetItem = self.window_triggers_list.item(i)
+            data = item.data(Qt.ItemDataRole.UserRole)
+            if data:
+                new_triggers.append(data)
+        self.controller.manager.window_triggers = new_triggers
+
+    def _on_edit_window_trigger(self) -> None:
+        current_item: QListWidgetItem = self.window_triggers_list.currentItem()
+        if not current_item: return
+
         current_data = current_item.data(Qt.ItemDataRole.UserRole)
         if not current_data: return
 
         dialog = TriggerDialog(self.window_triggers_list)
-        dialog.set_data(current_data) # Inject the existing data into the UI
+        dialog.set_data(current_data)
         
         if dialog.exec():
-            new_data = dialog.get_data()
+            new_data: dict[str, Any] = dialog.get_data()
             if not new_data["text"] or not new_data["title_matches"]: return
             
-            match_str = ", ".join(new_data["title_matches"])
-            display_text = f"{new_data['text']} | {match_str} | {int(new_data['chance']*100)}%"
+            match_str: str = ", ".join(new_data["title_matches"])
+            display_text: str = f"{new_data['text']} | {match_str} | {int(new_data['chance']*100)}%"
             
-            # Update the UI display string AND the hidden dictionary
             current_item.setText(display_text)
             current_item.setData(Qt.ItemDataRole.UserRole, new_data) 
-            
             self._save_trigger_state()

@@ -322,6 +322,12 @@ class Entity(BaseEntity):
         if self.health_bar is not None:
             self.health_bar.on_damage_taken(actual_damage, self.current_health, old_hp)
 
+        if self.bubble is not None and self.bubble.isVisible():
+            max_hp: int = self.mod_manager.max_health if self.mod_manager else 100
+            ratio: float = min(1.0, max(0.1, actual_damage / max(1, max_hp)))
+            amp: float = 3.0 + (ratio * 6.0)
+            self.bubble.shake(amplitude=amp, duration_ms=250)
+
         from pytoningans.core.settings import SettingsManager
         if self.world is not None and SettingsManager.get().settings.show_damage_numbers:
             head_pos: QPointF = self.pos() + QPointF(self.width() / 2.0, -10.0)
@@ -366,6 +372,17 @@ class Entity(BaseEntity):
 
         if self.health_bar is not None:
             self.health_bar.on_die()
+
+        # Trigger death dialogue, overriding or interrupting any active speech bubble
+        death_lines: list[str] = getattr(self.mod_manager, "death_dialogue", [])
+        if death_lines:
+            death_text: str = random.choice(death_lines)
+            if self.bubble is not None and self.bubble.isVisible():
+                self.bubble.interrupt_with(death_text, duration_ms=3500)
+            else:
+                self.say(death_text, duration_ms=3500, is_death=True)
+        elif self.bubble is not None and self.bubble.isVisible():
+            self.bubble.interrupt_with(None)
         
         death_type: DeathAnimation = self.mod_manager.death_animation
         target_rot: float = 0.0
@@ -395,8 +412,9 @@ class Entity(BaseEntity):
         self._on_die()
         
         if self.mod_manager.auto_close_on_death:
+            fade_duration: int = 3500 if death_lines else 3000
             self._fade_anim = QVariantAnimation(self.world)
-            self._fade_anim.setDuration(3000)
+            self._fade_anim.setDuration(fade_duration)
             self._fade_anim.setStartValue(1.0)
             self._fade_anim.setEndValue(0.0)
             
@@ -412,6 +430,10 @@ class Entity(BaseEntity):
 
         if self.health_bar is not None:
             self.health_bar.on_revive()
+
+        if self.bubble is not None:
+            self.bubble.reset()
+            self.bubble.hide()
         
         if self._fade_anim is not None:
             self._fade_anim.stop()
@@ -439,9 +461,9 @@ class Entity(BaseEntity):
             if self.anim_sys: self.anim_sys.set_state(EntityState.IDLE)
         self._on_revive()
 
-    def say(self, text: str, duration_ms: int = 4000) -> None:
+    def say(self, text: str, duration_ms: int = 4000, is_death: bool = False) -> None:
         """Displays a speech bubble with the given text and notifies custom behavior."""
-        if self.is_dead: return
+        if self.is_dead and not is_death: return
         if self.bubble is None:
             self.bubble = SpeechBubble(self)
             

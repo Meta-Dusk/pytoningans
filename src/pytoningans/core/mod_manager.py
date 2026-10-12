@@ -54,6 +54,7 @@ class ModManager:
         self.custom_behavior: Optional[BaseBehavior] = None
         
         self.plain_dialogue: list[str] = []
+        self.death_dialogue: list[str] = []
         self.window_triggers: list[dict[str, Any]] = []
         
         self.death_animation: DeathAnimation = DeathAnimation.SPRITE
@@ -199,6 +200,7 @@ class ModManager:
         
         dialogue_data = data.get("dialogue", {})
         self.plain_dialogue = dialogue_data.get("plain_dialogue", ["..."])
+        self.death_dialogue = dialogue_data.get("death_dialogue", ["Ugh...", "I'll be back...", "Farewell..."])
         self.window_triggers = dialogue_data.get("window_triggers", [])
         
         self.custom_behavior = None
@@ -270,6 +272,7 @@ class ModManager:
             animations={str(state): meta for state, meta in self.animations.items()},
             dialogue=DialogueConfig(
                 plain_dialogue=self.plain_dialogue,
+                death_dialogue=self.death_dialogue,
                 window_triggers=self.window_triggers
             )
         )
