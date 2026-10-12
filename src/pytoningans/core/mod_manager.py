@@ -63,6 +63,27 @@ class ModManager:
         abs_mods_dir: str = str(self.mods_dir.resolve())
         if abs_mods_dir not in sys.path:
             sys.path.insert(0, abs_mods_dir)
+
+        self._sync_api_file()
+
+    def _sync_api_file(self) -> None:
+        """
+        Synchronizes the standalone api.py file to the root of the mods directory.
+        This provides mod developers with full type hints, docstrings, and IDE intellisense.
+        """
+        try:
+            source_api: Path = Path(__file__).parent / "api.py"
+            if not source_api.exists():
+                return
+            
+            self.mods_dir.mkdir(parents=True, exist_ok=True)
+            target_api: Path = self.mods_dir / "api.py"
+            
+            source_content: str = source_api.read_text(encoding="utf-8")
+            if not target_api.exists() or target_api.read_text(encoding="utf-8") != source_content:
+                target_api.write_text(source_content, encoding="utf-8")
+        except Exception as e:
+            print(f"Warning: Failed to sync api.py to mods directory: {e}")
     
     @property
     def current_mod_path(self) -> Path:

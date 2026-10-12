@@ -4,10 +4,10 @@ from typing import Optional, TYPE_CHECKING, cast, Any
 
 from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsColorizeEffect, QMenu
 from PySide6.QtCore import QPointF, QRect, QRectF, QVariantAnimation, QEasingCurve, Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QPixmap, QTransform
 from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QGraphicsSceneContextMenuEvent
 
-from pytoningans.core.constants import AnimationMeta, EntityState, SystemLocks, DeathAnimation
+from pytoningans.core.constants import AnimationMeta, EntityState, SystemLocks, DeathAnimation, StructureState
 from pytoningans.core.entity.animation import AnimationSystem
 from pytoningans.core.entity.physics import PhysicsSystem
 from pytoningans.core.entity.ai_brain import AISystem
@@ -15,13 +15,13 @@ from pytoningans.core.entity.speech_bubble import SpeechBubble
 from pytoningans.core.api import (
     IEntity, Pos2D, BaseEntityBehavior, BaseBehavior, BaseStructureBehavior, IStructure
 )
+from pytoningans.core.components.base_component import BaseComponent
+from pytoningans.core.components.teleportation import TeleportationComponent
 
 if TYPE_CHECKING:
     from pytoningans.core.mod_manager import ModManager
     from pytoningans.core.world import WorldOverlay
     from pytoningans.core.entity_manager import EntityManager
-    from pytoningans.core.components.base_component import BaseComponent
-    from pytoningans.core.components.teleportation import TeleportationComponent
 
 
 class BaseEntity(QGraphicsPixmapItem):
@@ -61,9 +61,43 @@ class BaseEntity(QGraphicsPixmapItem):
         val_str = value.value if hasattr(value, "value") else str(value)
         if getattr(self, "_state", None) == val_str:
             return
+        old_state: str = self._state
         self._state = val_str
         if self.anim_sys is not None:
             self.anim_sys.set_state(val_str)
+        self._on_state_change(old_state, val_str)
+
+    def _on_state_change(self, old_state: str, new_state: str) -> None:
+        if self.mod_manager is None or self.mod_manager.custom_behavior is None:
+            return
+        behavior: BaseBehavior = self.mod_manager.custom_behavior
+        try:
+            if isinstance(behavior, BaseEntityBehavior):
+                behavior.on_state_change(cast(IEntity, self), old_state, new_state)
+            elif isinstance(behavior, BaseStructureBehavior):
+                behavior.on_state_change(cast(IStructure, self), old_state, new_state)
+        except Exception as e:
+            print(f"Custom Behavior on_state_change Error: {e}")
+
+    def flip(self) -> None:
+        """Toggles horizontal facing direction and horizontally mirrors collision hitboxes."""
+        self.facing_left = not self.facing_left
+        if self.anim_sys is not None:
+            self.anim_sys.refresh_frame()
+        else:
+            pix: QPixmap = self.pixmap()
+            if pix.isNull(): return
+            
+            transform: QTransform = QTransform().scale(-1, 1)
+            self.setPixmap(pix.transformed(transform))
+            if self.current_hitbox.isNull(): return
+            
+            w: int = pix.width()
+            nx: int = w - (self.current_hitbox.x() + self.current_hitbox.width())
+            self.current_hitbox = QRect(
+                nx, self.current_hitbox.y(),
+                self.current_hitbox.width(), self.current_hitbox.height()
+            )
     
     def move(self, x: float, y: float) -> None:
         """Convenience method matching the protocol definition."""
@@ -250,6 +284,8 @@ class Entity(BaseEntity):
         self.tint_effect.setEnabled(True)
         self.tint_effect.setStrength(0.85)
         
+        self._on_damage(amount)
+        
         if self.current_health <= 0:
             self.die()
             
@@ -338,15 +374,21 @@ class Entity(BaseEntity):
             if self.anim_sys: self.anim_sys.set_state(EntityState.IDLE)
         self._on_revive()
 
+    def say(self, text: str, duration_ms: int = 4000) -> None:
+        """Displays a speech bubble with the given text and notifies custom behavior."""
+        if self.is_dead: return
+        if self.bubble is None:
+            self.bubble = SpeechBubble(self)
+            
+        self.bubble.speak(text, duration_ms)
+        self._on_speak(text)
+
     def force_talk(self) -> None:
         if self.mod_manager is None: return
         if self.is_dead or not self.mod_manager.plain_dialogue: return
         
-        if self.bubble is None:
-            self.bubble = SpeechBubble(self)
-            
         text: str = random.choice(self.mod_manager.plain_dialogue)
-        self.bubble.speak(text, 4000)
+        self.say(text, 4000)
             
         if self.anim_sys: self.anim_sys.set_state(EntityState.IDLE)
         self._target_pos = None
@@ -411,6 +453,32 @@ class Entity(BaseEntity):
         pet_api = cast(IEntity, self)
         behavior.on_revive(pet_api)
 
+    def _on_speak(self, text: str) -> None:
+        if (
+            self.mod_manager is None
+            or self.mod_manager.custom_behavior is None
+        ):
+            return
+        behavior: BaseBehavior = self.mod_manager.custom_behavior
+        if not isinstance(behavior, BaseEntityBehavior): return
+        try:
+            behavior.on_speak(cast(IEntity, self), text)
+        except Exception as e:
+            print(f"Custom Entity on_speak Error: {e}")
+
+    def _on_damage(self, amount: int) -> None:
+        if (
+            self.mod_manager is None
+            or self.mod_manager.custom_behavior is None
+        ):
+            return
+        behavior: BaseBehavior = self.mod_manager.custom_behavior
+        if not isinstance(behavior, BaseEntityBehavior): return
+        try:
+            behavior.on_damage(cast(IEntity, self), amount)
+        except Exception as e:
+            print(f"Custom Entity on_damage Error: {e}")
+
     def destroy(self) -> None:
         if (
             self.entity_manager is not None
@@ -433,7 +501,94 @@ class BaseStructure(BaseEntity):
         
         #? Structures usually ignore gravity by default unless specified
         self.locks.physics = False
-    
+
+    def toggle_active(self) -> None:
+        """Toggles between IDLE and ACTIVE operational states, updating components."""
+        new_state = (
+            StructureState.IDLE.value
+            if self.state == StructureState.ACTIVE.value
+            else StructureState.ACTIVE.value
+        )
+        self.state = new_state
+        teleport_comp = self.get_component("teleportation")
+        if isinstance(teleport_comp, TeleportationComponent):
+            teleport_comp.enabled = (new_state == StructureState.ACTIVE.value)
+
+    def _set_linked_portal(self, target: Optional[BaseStructure]) -> None:
+        teleport_comp = self.get_component("teleportation")
+        if isinstance(teleport_comp, TeleportationComponent):
+            teleport_comp.linked_portal = target
+            if target is not None and target.has_component("teleportation"):
+                target_comp = target.get_component("teleportation")
+                if isinstance(target_comp, TeleportationComponent):
+                    target_comp.linked_portal = self
+
+    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
+        self.is_paused = True
+        menu = QMenu(self.world.view) if self.world else QMenu()
+        
+        # Close Structure
+        menu.addAction("Close Structure", self.destroy)
+        menu.addSeparator()
+        
+        # Flip Horizontally
+        menu.addAction("Flip Horizontally", self.flip)
+        
+        # Toggle Active
+        status_text = "Deactivate" if self.state == StructureState.ACTIVE.value else "Activate"
+        menu.addAction(f"{status_text} Structure", self.toggle_active)
+        
+        menu.addSeparator()
+        
+        # Component-specific actions
+        teleport_comp = self.get_component("teleportation")
+        if isinstance(teleport_comp, TeleportationComponent):
+            portal_menu = menu.addMenu("Change Linked Portal")
+            
+            # Unlink option
+            unlink_action = portal_menu.addAction("None (Unlinked)")
+            if teleport_comp.linked_portal is None:
+                unlink_action.setCheckable(True)
+                unlink_action.setChecked(True)
+            unlink_action.triggered.connect(lambda: self._set_linked_portal(None))
+            portal_menu.addSeparator()
+            
+            # Available other structures
+            other_structures: list[BaseStructure] = []
+            if self.world is not None and self.world.manager is not None:
+                for struct in self.world.manager.active_structures:
+                    if struct is not self:
+                        other_structures.append(struct)
+                        
+            if other_structures:
+                for idx, other in enumerate(other_structures):
+                    other_name = (
+                        other.mod_manager.current_mod_name
+                        if other.mod_manager and other.mod_manager.current_mod_name
+                        else (other.mod_manager.current_mod_folder if other.mod_manager else f"Structure #{idx + 1}")
+                    )
+                    world_info = (
+                        f"World {self.world.manager.active_worlds.index(other.world) + 1}"
+                        if self.world is not None and other.world in self.world.manager.active_worlds
+                        else ""
+                    )
+                    label = f"{other_name} ({world_info} @ {int(other.x())}, {int(other.y())})"
+                    action = portal_menu.addAction(label)
+                    action.setCheckable(True)
+                    if teleport_comp.linked_portal is other:
+                        action.setChecked(True)
+                    action.triggered.connect(lambda checked=False, target=other: self._set_linked_portal(target))
+            else:
+                empty_action = portal_menu.addAction("No other structures available")
+                empty_action.setEnabled(False)
+                
+            menu.addAction("Remove Teleportation Component", lambda: self.remove_component("teleportation"))
+        else:
+            menu.addAction("Add Teleportation Component", lambda: self.attach_teleportation())
+            
+        menu.exec(event.screenPos())
+        self.is_paused = False
+
     def update_systems(self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None) -> None:
         super().update_systems(dt, centers)
         
@@ -446,6 +601,16 @@ class BaseStructure(BaseEntity):
                 behavior.on_update(cast(IStructure, self), dt)
             except Exception as e:
                 print(f"Custom Structure on_update Error: {e}")
+                
+            # Check interaction collision with living entities
+            if self.world is not None:
+                struct_rect = self.sceneBoundingRect()
+                for ent in list(self.world.active_entities):
+                    if not ent.is_dead and struct_rect.intersects(ent.sceneBoundingRect()):
+                        try:
+                            behavior.on_interact(cast(IStructure, self), cast(IEntity, ent))
+                        except Exception as e:
+                            print(f"Custom Structure on_interact Error: {e}")
     
     def attach_teleportation(
         self,
@@ -453,8 +618,36 @@ class BaseStructure(BaseEntity):
         exit_offset_x: float = 80.0,
         exit_offset_y: float = 0.0
     ) -> TeleportationComponent:
-        from pytoningans.core.components.teleportation import TeleportationComponent
         _target_world: Optional[WorldOverlay] = target_world or self.world
         comp = TeleportationComponent(self, _target_world, exit_offset_x, exit_offset_y)
         self.add_component(comp)
         return comp
+
+    def destroy(self) -> None:
+        self._on_destroy()
+        
+        # Clean up any other teleport components linking to this structure
+        if self.world is not None and self.world.manager is not None:
+            for other in list(self.world.manager.active_structures):
+                if other is not self:
+                    other_comp = other.get_component("teleportation")
+                    if isinstance(other_comp, TeleportationComponent) and other_comp.linked_portal is self:
+                        other_comp.linked_portal = None
+            self.world.manager.remove_entity(self)
+        elif self.world is not None:
+            if self in self.world.active_structures:
+                self.world.active_structures.remove(self)
+            if self.scene():
+                self.scene().removeItem(self)
+                
+        super().destroy()
+
+    def _on_destroy(self) -> None:
+        if self.mod_manager is None or self.mod_manager.custom_behavior is None:
+            return
+        behavior: BaseBehavior = self.mod_manager.custom_behavior
+        if isinstance(behavior, BaseStructureBehavior):
+            try:
+                behavior.on_destroy(cast(IStructure, self))
+            except Exception as e:
+                print(f"Custom Structure on_destroy Error: {e}")

@@ -28,7 +28,11 @@ class AnimationSystem(QObject):
         self.time_since_last_frame: int = 0
         self._last_anchor: Optional[QPoint] = None
         
-        self._update_frame()
+        self._update_frame(advance=False)
+
+    def refresh_frame(self) -> None:
+        """Re-applies transforms (facing_left, rotation) to the current frame without advancing."""
+        self._update_frame(advance=False)
 
     def update(self, dt: int) -> None:
         self.time_since_last_frame += dt
@@ -45,7 +49,7 @@ class AnimationSystem(QObject):
         if self.time_since_last_frame >= frame_duration:
             # Keep leftover time for perfectly smooth animations
             self.time_since_last_frame -= frame_duration 
-            self._update_frame()
+            self._update_frame(advance=True)
 
     def set_state(self, new_state: Any) -> None:
         if self.entity is None: return
@@ -55,19 +59,25 @@ class AnimationSystem(QObject):
         self.entity._state = val_str
         self.current_frame = 0
         self.time_since_last_frame = 0
-        self._update_frame()
+        self._update_frame(advance=False)
 
-    def _update_frame(self) -> None:
+    def _update_frame(self, advance: bool = True) -> None:
         if self.entity is None or self.entity.mod_manager is None: return
         meta: Optional[AnimationMeta] = self.entity.mod_manager.animations.get(self.entity.state)
         if not meta: return
         
         total_play_frames: int = max(1, (meta.end_frame - meta.start_frame) + 1)
         
-        if meta.loop:
-            self.current_frame = (self.current_frame + 1) % total_play_frames
+        if advance:
+            if meta.loop:
+                self.current_frame = (self.current_frame + 1) % total_play_frames
+            else:
+                self.current_frame = min(self.current_frame + 1, total_play_frames - 1)
         else:
-            self.current_frame = min(self.current_frame + 1, total_play_frames - 1)
+            if meta.loop:
+                self.current_frame = self.current_frame % total_play_frames
+            else:
+                self.current_frame = min(self.current_frame, total_play_frames - 1)
 
         frame: Optional[QPixmap] = self.entity.mod_manager.get_frame(self.entity.state, self.current_frame)
         if frame is None: return
@@ -155,4 +165,4 @@ class AnimationSystem(QObject):
         self.entity.setPos(new_x, new_y)
         self.entity.setPixmap(frame)
         
-        if is_attack: self.attack_frame_hit.emit()
+        if is_attack and advance: self.attack_frame_hit.emit()

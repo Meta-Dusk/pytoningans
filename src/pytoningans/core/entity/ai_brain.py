@@ -5,7 +5,6 @@ from PySide6.QtCore import QPointF, QRectF
 
 from pytoningans.core.constants import EntityState, BehaviorType, AttackType
 from pytoningans.core.api import BaseEntityBehavior, IEntity, BaseBehavior
-from pytoningans.core.entity.speech_bubble import SpeechBubble
 
 if TYPE_CHECKING:
     from pytoningans.core.entity.base_entity import Entity
@@ -290,10 +289,7 @@ class AISystem:
         
     def _trigger_dialogue(self, text: str, duration_ms: int) -> None:
         if self.entity is None or self.entity.anim_sys is None: return
-        if self.entity.bubble is None:
-            self.entity.bubble = SpeechBubble(self.entity)
-            
-        self.entity.bubble.speak(text, duration_ms)
+        self.entity.say(text, duration_ms)
         self.entity.anim_sys.set_state(EntityState.IDLE)
         self.entity._target_pos = None
         self.entity.toFront()

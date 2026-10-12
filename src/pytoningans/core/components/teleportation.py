@@ -26,6 +26,16 @@ class TeleportationComponent(BaseComponent):
         self.exit_offset_x: float = exit_offset_x
         self.exit_offset_y: float = exit_offset_y
 
+    def on_detach(self) -> None:
+        if self.linked_portal is not None:
+            other: BaseStructure = self.linked_portal
+            self.linked_portal = None
+            if not other.has_component("teleportation"): return
+            
+            other_comp: Optional[BaseComponent] = other.get_component("teleportation")
+            if isinstance(other_comp, TeleportationComponent) and other_comp.linked_portal is self.owner:
+                other_comp.linked_portal = None
+
     def update(self, dt: int) -> None:
         if not self.enabled or self.owner is None or self.owner.world is None:
             return

@@ -13,11 +13,10 @@ from pytoningans.core.constants import EntityType
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.ui.mod_editor.controller import ModEditorController
-from pytoningans.ui.mod_editor.panels.dialogue_panel import DialoguePanel
-from pytoningans.ui.mod_editor.panels.behavior_panel import BehaviorStatsPanel, BehaviorScriptPanel
-from pytoningans.ui.mod_editor.panels.animation_panel import AnimationSubsystem
-from pytoningans.ui.mod_editor.panels.physics_panel import PhysicsPanel
-from pytoningans.ui.mod_editor.panels.base_panel import BasePanel
+from pytoningans.ui.mod_editor.panels import (
+    BasePanel, AnimationSubsystem, BehaviorStatsPanel, BehaviorScriptPanel,
+    StructureBehaviorPanel, DialoguePanel, PhysicsPanel
+)
 from pytoningans.utils.assets import get_main_icon
 
 class ModEditorWindow(QWidget):
@@ -83,12 +82,13 @@ class ModEditorWindow(QWidget):
         self.dialogue_panel = DialoguePanel(self.controller)
         self.behavior_stats = BehaviorStatsPanel(self.controller)
         self.behavior_script = BehaviorScriptPanel(self.controller)
+        self.structure_behavior = StructureBehaviorPanel(self.controller)
         self.anim_sys = AnimationSubsystem(self.controller, self.sheet_info_label)
         self.physics_panel = PhysicsPanel(self.controller)
         
         self.panels: list[BasePanel] = [
-            self.dialogue_panel, self.behavior_stats, self.behavior_script, self.anim_sys,
-            self.physics_panel
+            self.dialogue_panel, self.behavior_stats, self.behavior_script,
+            self.structure_behavior, self.anim_sys, self.physics_panel
         ]
 
         # Scroll Areas
@@ -146,7 +146,9 @@ class ModEditorWindow(QWidget):
         self.right_layout.addWidget(self.anim_sys.state_panel)
         self.right_layout.addWidget(self.physics_panel)
         self.right_layout.addWidget(self.behavior_script)
+        self.right_layout.addWidget(self.structure_behavior)
         self.right_layout.addWidget(self.dialogue_panel)
+        self.structure_behavior.hide()
         
         left_scroll.setWidget(left_content)
         right_scroll.setWidget(right_content)
@@ -221,14 +223,19 @@ class ModEditorWindow(QWidget):
             self.name_input.setText(self.controller.get_mod_name())
             self.name_input.blockSignals(False)
             
-            if self.controller.manager.entity_type == EntityType.STRUCTURE:
+            is_structure: bool = self.controller.manager.entity_type in (
+                EntityType.STRUCTURE, EntityType.STRUCTURE.value
+            )
+            if is_structure:
                 self.dialogue_panel.hide()
                 self.behavior_script.hide()
                 self.behavior_stats.hide()
+                self.structure_behavior.show()
             else:
                 self.dialogue_panel.show()
                 self.behavior_script.show()
                 self.behavior_stats.show()
+                self.structure_behavior.hide()
                 
             for panel in self.panels:
                 panel.load_data()
