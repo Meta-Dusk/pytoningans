@@ -37,3 +37,42 @@ def get_mods_directory() -> Path:
     mods_dir.mkdir(parents=True, exist_ok=True)
     
     return mods_dir
+
+_DEFAULT_APP_VERSION: str = "0.7.3"
+_CACHED_APP_VERSION: str | None = None
+
+def get_app_version() -> str:
+    """
+    Extracts the application version string.
+    Dynamically loads from pyproject.toml at the root directory, with fallbacks
+    for packaged builds.
+    """
+    global _CACHED_APP_VERSION
+    if _CACHED_APP_VERSION is not None:
+        return _CACHED_APP_VERSION
+
+    # Attempt to read from pyproject.toml at project root
+    try:
+        pyproject_file: Path = get_base_path() / "pyproject.toml"
+        if pyproject_file.exists():
+            import tomllib
+            data = tomllib.loads(pyproject_file.read_text(encoding="utf-8"))
+            version = data.get("project", {}).get("version")
+            if version:
+                _CACHED_APP_VERSION = str(version)
+                return _CACHED_APP_VERSION
+    except Exception:
+        pass
+
+    # Attempt to resolve via package metadata
+    try:
+        from importlib.metadata import version
+        _CACHED_APP_VERSION = version("pytoningans")
+        return _CACHED_APP_VERSION
+    except Exception:
+        pass
+
+    # Default fallback
+    _CACHED_APP_VERSION = _DEFAULT_APP_VERSION
+    return _CACHED_APP_VERSION
+

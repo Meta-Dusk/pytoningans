@@ -33,7 +33,7 @@ class ModCreationDialog(QDialog):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
-        self.title_bar = CustomTitleBar(self, "Create New Mod")
+        self.title_bar = CustomTitleBar(self, "Create New Mod", can_minimize=False, can_maximize=False)
         main_layout.addWidget(self.title_bar)
         
         content = QWidget()

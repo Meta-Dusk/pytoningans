@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QSpinBox, QHBoxLayout
 )
 from PySide6.QtCore import QCoreApplication, QRectF, Qt, QTimer
-from PySide6.QtGui import QGuiApplication, QScreen
+from PySide6.QtGui import QGuiApplication, QScreen, QResizeEvent
 
 from pytoningans.core.entity_manager import EntityManager
 from pytoningans.core.constants import EntityType
@@ -14,6 +14,7 @@ from pytoningans.core.world import WorldOverlay
 from pytoningans.ui.mod_manager_hub import ModManagerHub
 from pytoningans.ui.theme import LIGHT_THEME, DARK_THEME
 from pytoningans.ui.title_bar import CustomTitleBar
+from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.utils.assets import get_main_icon
 
 
@@ -36,7 +37,8 @@ class MainMenu(QWidget):
 
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.resize(350, 540)
+        self.resize(420, 600)
+        self.setMinimumSize(340, 540)
         
         main_layout: QVBoxLayout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -228,12 +230,22 @@ class MainMenu(QWidget):
         
         main_layout.addWidget(content_widget)
         
+        self.grip = CustomSizeGrip(self)
+        self.grip.setFixedSize(16, 16)
+        
         self._refresh_spawn_list()
         self._update_stats()
         
         self.stats_timer = QTimer(self)
         self.stats_timer.timeout.connect(self._update_stats)
         self.stats_timer.start(500)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self.grip.move(
+            self.width() - self.grip.width(),
+            self.height() - self.grip.height()
+        )
 
     def _populate_monitors(self) -> None:
         """Populates the monitor combo box if more than one screen is active."""

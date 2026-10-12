@@ -97,6 +97,29 @@ def bump_pysidedeploy_spec(new_version: str) -> bool:
     )
     return True
 
+def bump_paths_py(new_version: str) -> bool:
+    target: Path = ROOT_DIR / "src" / "pytoningans" / "utils" / "paths.py"
+    log_info(f"Targeting {target}...")
+    if not target.is_file():
+        log_error(f"File not found: {target}")
+        return False
+
+    content: str = target.read_text(encoding="utf-8")
+    updated, count = re.subn(
+        r'(_DEFAULT_APP_VERSION\s*:\s*str\s*=\s*")[^"]+(")',
+        rf'\g<1>{new_version}\g<2>',
+        content,
+        flags=re.MULTILINE
+    )
+
+    if count == 0:
+        log_warn("Pattern '_DEFAULT_APP_VERSION = \"...\"' not found in paths.py. No changes made.")
+        return False
+
+    target.write_text(updated, encoding="utf-8")
+    log_success(f"Updated paths.py -> {new_version} ({count} occurrence)")
+    return True
+
 def main() -> None:
     if len(sys.argv) != 2:
         print("Usage:   uv run tools/bump_version.py <version>")
@@ -113,6 +136,7 @@ def main() -> None:
         bump_pyproject_toml(target_version),
         bump_installer_iss(target_version),
         bump_pysidedeploy_spec(target_version),
+        bump_paths_py(target_version),
     ]
 
     if all(results):

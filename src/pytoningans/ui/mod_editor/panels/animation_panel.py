@@ -1,10 +1,10 @@
 import copy
 
-from typing import Any, Optional
+from typing import Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox, QPushButton,
-    QLabel, QFormLayout, QFrame, QMessageBox, QInputDialog
+    QLabel, QFormLayout, QFrame, QMessageBox
 )
 from PySide6.QtCore import Qt, QTimer, QRect
 

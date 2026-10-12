@@ -23,15 +23,53 @@ QPushButton:pressed {
     background-color: #e5e5e5;
 }
 
-QComboBox, QSpinBox {
+QComboBox, QSpinBox, QLineEdit {
     background-color: #ffffff;
     border: 1px solid #d1d1d1;
     border-radius: 4px;
     padding: 4px 8px;
 }
 
-QComboBox:hover, QSpinBox:hover {
+QComboBox:hover, QSpinBox:hover, QLineEdit:hover {
     border: 1px solid #0078d4;
+}
+
+QLineEdit:focus {
+    border: 1px solid #0078d4;
+}
+
+QTableWidget {
+    background-color: #ffffff;
+    alternate-background-color: #f7f7f7;
+    border: 1px solid #d1d1d1;
+    border-radius: 4px;
+    gridline-color: #f0f0f0;
+    selection-background-color: #e3f2fd;
+    selection-color: #0d47a1;
+}
+
+QTableWidget::item {
+    padding: 5px 8px;
+    border: none;
+}
+
+QTableWidget::item:selected {
+    background-color: #e3f2fd;
+    color: #0d47a1;
+}
+
+QHeaderView::section {
+    background-color: #f0f0f0;
+    color: #333333;
+    font-weight: bold;
+    padding: 6px 8px;
+    border: none;
+    border-right: 1px solid #dcdcdc;
+    border-bottom: 1px solid #dcdcdc;
+}
+
+QHeaderView::section:hover {
+    background-color: #e5e5e5;
 }
 
 QLabel {
@@ -76,6 +114,13 @@ QWidget#CustomTitleBar {
 QLabel#TitleBarText {
     color: #1e1e1e;
     font-weight: bold; 
+}
+
+QLabel#TitleBarVersion {
+    color: #666666;
+    font-size: 11px;
+    font-weight: normal;
+    padding-left: 2px;
 }
 
 QPushButton#TitleBarBtn { 
@@ -228,15 +273,53 @@ QPushButton:pressed {
     background-color: #1e1e1e;
 }
 
-QComboBox, QSpinBox {
+QComboBox, QSpinBox, QLineEdit {
     background-color: #2d2d2d;
     border: 1px solid #3d3d3d;
     border-radius: 4px;
     padding: 4px 8px;
 }
 
-QComboBox:hover, QSpinBox:hover {
+QComboBox:hover, QSpinBox:hover, QLineEdit:hover {
     border: 1px solid #4a90e2;
+}
+
+QLineEdit:focus {
+    border: 1px solid #4a90e2;
+}
+
+QTableWidget {
+    background-color: #252525;
+    alternate-background-color: #2a2a2a;
+    border: 1px solid #3d3d3d;
+    border-radius: 4px;
+    gridline-color: #333333;
+    selection-background-color: #1e3a5f;
+    selection-color: #ffffff;
+}
+
+QTableWidget::item {
+    padding: 5px 8px;
+    border: none;
+}
+
+QTableWidget::item:selected {
+    background-color: #1e3a5f;
+    color: #ffffff;
+}
+
+QHeaderView::section {
+    background-color: #2d2d2d;
+    color: #e0e0e0;
+    font-weight: bold;
+    padding: 6px 8px;
+    border: none;
+    border-right: 1px solid #3d3d3d;
+    border-bottom: 1px solid #3d3d3d;
+}
+
+QHeaderView::section:hover {
+    background-color: #383838;
 }
 
 QLabel {
@@ -280,7 +363,15 @@ QWidget#CustomTitleBar {
 
 QLabel#TitleBarText {
     color: #f3f3f3;
-    font-weight: bold; }
+    font-weight: bold; 
+}
+
+QLabel#TitleBarVersion {
+    color: #888888;
+    font-size: 11px;
+    font-weight: normal;
+    padding-left: 2px;
+}
 
 QPushButton#TitleBarBtn { 
     background: transparent; 

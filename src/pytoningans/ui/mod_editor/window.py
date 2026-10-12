@@ -35,7 +35,7 @@ class ModEditorWindow(QWidget):
         
         # Silently hydrate the combo box to prevent premature load events
         self.mod_combo.blockSignals(True)
-        mods = self.controller.get_mod_list()
+        mods: dict[str, tuple[str, str]] = self.controller.get_mod_list()
         for folder, (name, entity_type) in mods.items():
             self.mod_combo.addItem(f"[{entity_type}] {name}", userData=folder)
         self.mod_combo.blockSignals(False)
