@@ -38,6 +38,29 @@ QLineEdit:focus {
     border: 1px solid #0078d4;
 }
 
+QCheckBox {
+    color: #1e1e1e;
+    spacing: 8px;
+    font-size: 13px;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #d1d1d1;
+    border-radius: 4px;
+    background-color: #ffffff;
+}
+
+QCheckBox::indicator:hover {
+    border: 1px solid #0078d4;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #0078d4;
+    border: 1px solid #0078d4;
+}
+
 QTableWidget {
     background-color: #ffffff;
     alternate-background-color: #f7f7f7;
@@ -286,6 +309,29 @@ QComboBox:hover, QSpinBox:hover, QLineEdit:hover {
 
 QLineEdit:focus {
     border: 1px solid #4a90e2;
+}
+
+QCheckBox {
+    color: #e0e0e0;
+    spacing: 8px;
+    font-size: 13px;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #4d4d4d;
+    border-radius: 4px;
+    background-color: #252526;
+}
+
+QCheckBox::indicator:hover {
+    border: 1px solid #4a90e2;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #0078d4;
+    border: 1px solid #0078d4;
 }
 
 QTableWidget {

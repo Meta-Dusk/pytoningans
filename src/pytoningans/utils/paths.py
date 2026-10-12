@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import Any, Optional
 from PySide6.QtCore import QStandardPaths
 
 from pytoningans.core.constants import APP_CFG
@@ -38,8 +39,15 @@ def get_mods_directory() -> Path:
     
     return mods_dir
 
-_DEFAULT_APP_VERSION: str = "0.7.3"
-_CACHED_APP_VERSION: str | None = None
+def get_settings_path() -> Path:
+    """Safely resolves Documents/PyToNingans/settings.json."""
+    docs_path = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation))
+    app_dir = docs_path / APP_CFG.app_name
+    app_dir.mkdir(parents=True, exist_ok=True)
+    return app_dir / "settings.json"
+
+_DEFAULT_APP_VERSION: str = "0.7.4"
+_CACHED_APP_VERSION: Optional[str] = None
 
 def get_app_version() -> str:
     """
@@ -56,7 +64,7 @@ def get_app_version() -> str:
         pyproject_file: Path = get_base_path() / "pyproject.toml"
         if pyproject_file.exists():
             import tomllib
-            data = tomllib.loads(pyproject_file.read_text(encoding="utf-8"))
+            data: dict[str, Any] = tomllib.loads(pyproject_file.read_text(encoding="utf-8"))
             version = data.get("project", {}).get("version")
             if version:
                 _CACHED_APP_VERSION = str(version)

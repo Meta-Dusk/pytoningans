@@ -7,6 +7,8 @@ from PySide6.QtCore import QRect, Qt, QPoint, QPointF
 from PySide6.QtGui import QScreen
 from PySide6.QtWidgets import QMainWindow, QGraphicsView, QGraphicsScene
 
+from pytoningans.core.entity.indicators import DamageNumberItem
+
 if TYPE_CHECKING:
     from pytoningans.core.entity_manager import EntityManager
     from pytoningans.core.entity.base_entity import Entity, BaseStructure, BaseEntity
@@ -24,6 +26,7 @@ class WorldOverlay(QMainWindow):
         # The World now manages multiple entity types natively
         self.active_entities: list[Entity] = []
         self.active_structures: list[BaseStructure] = []
+        self.active_damage_numbers: list[DamageNumberItem] = []
         
         flags: Qt.WindowType = (
             Qt.WindowType.FramelessWindowHint | 
@@ -63,6 +66,13 @@ class WorldOverlay(QMainWindow):
             
         return super().nativeEvent(eventType, message)
 
+    def spawn_damage_number(
+        self, amount: int, scene_pos: QPointF, is_heal: bool = False
+    ) -> None:
+        indicator = DamageNumberItem(amount, scene_pos, is_heal)
+        self.scene.addItem(indicator)
+        self.active_damage_numbers.append(indicator)
+
     def update_systems(self, dt: int) -> None:
         # Tick static/interactive structures first
         for struct in list(self.active_structures):
@@ -74,3 +84,11 @@ class WorldOverlay(QMainWindow):
         }
         for entity in list(self.active_entities):
             entity.update_systems(dt, centers)
+
+        # Tick floating combat numbers
+        for num in list(self.active_damage_numbers):
+            if not num.tick(dt): continue
+            if num.scene():
+                self.scene.removeItem(num)
+            if num in self.active_damage_numbers:
+                self.active_damage_numbers.remove(num)

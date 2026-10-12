@@ -12,6 +12,7 @@ from pytoningans.core.entity.animation import AnimationSystem
 from pytoningans.core.entity.physics import PhysicsSystem
 from pytoningans.core.entity.ai_brain import AISystem
 from pytoningans.core.entity.speech_bubble import SpeechBubble
+from pytoningans.core.entity.indicators import HealthBarItem
 from pytoningans.core.api import (
     IEntity, Pos2D, BaseEntityBehavior, BaseBehavior, BaseStructureBehavior, IStructure
 )
@@ -204,7 +205,7 @@ class Entity(BaseEntity):
     def __init__(
         self, start_x: float, start_y: float,
         mod_manager: ModManager, world: WorldOverlay, pet_manager: EntityManager
-    ):
+    ) -> None:
         super().__init__(start_x, start_y, mod_manager, world)
         self.entity_manager = pet_manager
         
@@ -219,6 +220,7 @@ class Entity(BaseEntity):
         
         self.ai_sys: Optional[AISystem] = AISystem(self)
         self.bubble: Optional[SpeechBubble] = None
+        self.health_bar: Optional[HealthBarItem] = HealthBarItem(self)
         
         if self.anim_sys:
             self.anim_sys.attack_frame_hit.connect(self.ai_sys.process_combat)
@@ -242,6 +244,7 @@ class Entity(BaseEntity):
         if self.is_paused: return
         
         if self.bubble: self.bubble.tick(dt)
+        if self.health_bar: self.health_bar.tick(dt)
         
         if self.revive_time_left > 0:
             self.revive_time_left -= dt
@@ -274,20 +277,47 @@ class Entity(BaseEntity):
                     print(f"Custom Entity on_update Error: {e}")
 
     def on_moved(self) -> None:
+        if self.health_bar: self.health_bar.update_position()
         if self.bubble: self.bubble.update_position()
 
     def take_damage(self, amount: int) -> None:
         if self.is_dead: return
-        self.current_health -= amount
+        old_hp: int = self.current_health
+        self.current_health = max(0, self.current_health - amount)
+        actual_damage: int = old_hp - self.current_health
         
         self.damage_tint_time_left = 300
         self.tint_effect.setEnabled(True)
         self.tint_effect.setStrength(0.85)
+
+        if self.health_bar is not None:
+            self.health_bar.on_damage_taken(actual_damage, self.current_health, old_hp)
+
+        from pytoningans.core.settings import SettingsManager
+        if self.world is not None and SettingsManager.get().settings.show_damage_numbers:
+            head_pos: QPointF = self.pos() + QPointF(self.width() / 2.0, -10.0)
+            self.world.spawn_damage_number(actual_damage, head_pos, is_heal=False)
         
         self._on_damage(amount)
         
         if self.current_health <= 0:
             self.die()
+
+    def heal(self, amount: int) -> None:
+        if self.is_dead or amount <= 0: return
+        old_hp: int = self.current_health
+        max_hp: int = self.mod_manager.max_health if self.mod_manager else 100
+        self.current_health = min(max_hp, self.current_health + amount)
+        actual_heal: int = self.current_health - old_hp
+        if actual_heal <= 0: return
+
+        if self.health_bar:
+            self.health_bar.on_heal(actual_heal, self.current_health, old_hp)
+
+        from pytoningans.core.settings import SettingsManager
+        if self.world and SettingsManager.get().settings.show_damage_numbers:
+            head_pos: QPointF = self.pos() + QPointF(self.width() / 2.0, -10.0)
+            self.world.spawn_damage_number(actual_heal, head_pos, is_heal=True)
             
     def jump(self) -> None:
         if self.mod_manager is None: return
@@ -304,6 +334,9 @@ class Entity(BaseEntity):
         self.sprite_rotation = 0.0
         if self.anim_sys: self.anim_sys.set_state(EntityState.DYING)
         self._target_pos = None
+
+        if self.health_bar is not None:
+            self.health_bar.on_die()
         
         death_type: DeathAnimation = self.mod_manager.death_animation
         target_rot: float = 0.0
@@ -347,6 +380,9 @@ class Entity(BaseEntity):
         
         self.current_health = self.mod_manager.max_health
         self.is_dead = False
+
+        if self.health_bar is not None:
+            self.health_bar.on_revive()
         
         if self._fade_anim is not None:
             self._fade_anim.stop()
@@ -480,6 +516,9 @@ class Entity(BaseEntity):
             print(f"Custom Entity on_damage Error: {e}")
 
     def destroy(self) -> None:
+        if self.health_bar is not None:
+            self.health_bar.detach_signals()
+            self.health_bar = None
         if (
             self.entity_manager is not None
             and self in self.entity_manager.active_entities

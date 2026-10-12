@@ -12,6 +12,7 @@ from pytoningans.core.entity_manager import EntityManager
 from pytoningans.core.constants import EntityType
 from pytoningans.core.world import WorldOverlay
 from pytoningans.ui.mod_manager_hub import ModManagerHub
+from pytoningans.ui.combat_settings_dialog import CombatSettingsDialog
 from pytoningans.ui.theme import LIGHT_THEME, DARK_THEME
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_editor.components import CustomSizeGrip
@@ -26,6 +27,7 @@ class MainMenu(QWidget):
         )
         self.manager: EntityManager = manager
         self.hub_window: Optional[ModManagerHub] = None
+        self.combat_settings_dialog: Optional[CombatSettingsDialog] = None
         self._is_dark_mode: bool = True
         self._setup_ui()
 
@@ -198,15 +200,25 @@ class MainMenu(QWidget):
 
         content_layout.addWidget(self._create_separator())
 
-        # --- Mod Management Section ---
-        mod_label = QLabel("Mod Management:")
+        # --- Mod Management & Settings Section ---
+        mod_label = QLabel("Management & Settings:")
         mod_label.setObjectName("SectionHeader")
         content_layout.addWidget(mod_label)
+
+        mgmt_layout = QHBoxLayout()
+        mgmt_layout.setSpacing(8)
 
         self.manage_btn = QPushButton("Manage Mods")
         self.manage_btn.setToolTip("Open the Mod Manager Hub")
         self.manage_btn.clicked.connect(self._open_hub)
-        content_layout.addWidget(self.manage_btn)
+
+        self.combat_settings_btn = QPushButton("Combat Settings")
+        self.combat_settings_btn.setToolTip("Configure damage indicators and health bar display preferences")
+        self.combat_settings_btn.clicked.connect(self._open_combat_settings)
+
+        mgmt_layout.addWidget(self.manage_btn)
+        mgmt_layout.addWidget(self.combat_settings_btn)
+        content_layout.addLayout(mgmt_layout)
 
         content_layout.addWidget(self._create_separator())
 
@@ -385,3 +397,10 @@ class MainMenu(QWidget):
             self.hub_window.show()
         else:
             self.hub_window.activateWindow()
+
+    def _open_combat_settings(self) -> None:
+        if self.combat_settings_dialog is None or not self.combat_settings_dialog.isVisible():
+            self.combat_settings_dialog = CombatSettingsDialog(self)
+            self.combat_settings_dialog.show()
+        else:
+            self.combat_settings_dialog.activateWindow()

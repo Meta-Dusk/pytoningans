@@ -316,6 +316,10 @@ class IEntity(IBaseEntity, Protocol):
         """Inflicts damage on the entity, flashing tint effect and triggering death if depleted."""
         ...
 
+    def heal(self, amount: int) -> None:
+        """Restores health up to max health, updating health indicators and visuals."""
+        ...
+
     def die(self) -> None:
         """Triggers the entity's death sequence and animations."""
         ...
