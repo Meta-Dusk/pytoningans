@@ -122,7 +122,7 @@ class BehaviorScriptPanel(BasePanel):
 
     def _connect_signals(self) -> None:
         self.add_btn.clicked.connect(self._create_script)
-        self.edit_btn.clicked.connect(self._create_script)
+        self.edit_btn.clicked.connect(self._open_script)
         self.delete_btn.clicked.connect(self._delete_script)
         self.death_anim_combo.currentIndexChanged.connect(self._on_death_anim_changed)
         self.auto_close_check.stateChanged.connect(self._on_auto_close_changed)

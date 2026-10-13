@@ -1,8 +1,8 @@
-import ctypes, gc
+import ctypes, gc, random
 from ctypes import wintypes
-from typing import List, cast, Optional
+from typing import cast, Optional
 
-from PySide6.QtCore import QRectF, QTimer, QElapsedTimer, QRunnable, QThreadPool, QObject, Signal
+from PySide6.QtCore import QTimer, QElapsedTimer, QRunnable, QThreadPool, QObject, Signal
 from PySide6.QtGui import QPixmapCache, QGuiApplication, QScreen
 
 from pytoningans.core.world import WorldOverlay
@@ -96,7 +96,7 @@ class EntityManager:
 
     def _init_worlds(self) -> None:
         """Sets up a `WorldOverlay` for every connected monitor and links them with portals."""
-        screens: List[QScreen] = QGuiApplication.screens()
+        screens: list[QScreen] = QGuiApplication.screens()
         
         # Generate an overlay for every monitor
         for screen in screens:
@@ -156,8 +156,9 @@ class EntityManager:
 
     def spawn_entity(
         self, x: float, y: float, mod_folder: str, 
-        target_world: Optional[WorldOverlay] = None
-    ) -> None:
+        target_world: Optional[WorldOverlay] = None,
+        instance_name: Optional[str] = None
+    ) -> Optional[BaseEntity]:
         """Dynamically spawns a living Pet or a static Structure based on mod config."""
         mod_manager = ModManager(self.mod_manager.mods_dir)
         mod_manager.load_mod(mod_folder)
@@ -166,22 +167,52 @@ class EntityManager:
         world: Optional[WorldOverlay] = (
             target_world or (self.active_worlds[0] if self.active_worlds else None)
         )
-        if not world: return
+        if world is None: return None
         
+        # Determine instance name
+        chosen_name: Optional[str] = instance_name
+        if chosen_name is None:
+            mod_display_name: str = mod_manager.current_mod_name or mod_folder
+            if mod_manager.instance_names:
+                all_active: list[BaseStructure | Entity] = self.active_entities + self.active_structures
+                used_names: set[str] = {
+                    e.instance_name for e in all_active
+                    if e.instance_name is not None
+                }
+                avail: list[str] = [n for n in mod_manager.instance_names if n not in used_names]
+                if avail:
+                    chosen_name = random.choice(avail)
+                else:
+                    chosen_name = random.choice(mod_manager.instance_names)
+            else:
+                existing_count: int = sum(
+                    1 for e in (self.active_entities + self.active_structures)
+                    if e.mod_manager and e.mod_manager.current_mod_folder == mod_folder
+                )
+                if existing_count > 0:
+                    chosen_name = f"{mod_display_name} #{existing_count + 1}"
+                else:
+                    chosen_name = mod_display_name
+
         # Route instantiation based on the declared entity type
         entity: BaseStructure | Entity
         if mod_manager.entity_type == EntityType.STRUCTURE.value:
             entity = BaseStructure(x, y, mod_manager, world)
+            if chosen_name:
+                entity.set_instance_name(chosen_name)
             world.scene.addItem(entity)
             world.active_structures.append(entity)
             self.active_structures.append(entity)
         else:
             entity = Entity(x, y, mod_manager, world, self)
+            if chosen_name:
+                entity.set_instance_name(chosen_name)
             world.scene.addItem(entity)
             world.active_entities.append(entity)
             self.active_entities.append(entity)
             
         self._on_spawn(entity)
+        return entity
 
     def _on_spawn(self, entity: BaseEntity) -> None:
         if entity.mod_manager is None: return

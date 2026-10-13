@@ -22,6 +22,7 @@ class BehaviorConfig:
     
     death_animation: DeathAnimation = DeathAnimation.SPRITE
     auto_close_on_death: bool = False
+    instance_names: list[str] = field(default_factory=list)
 
 @dataclass
 class DialogueConfig:

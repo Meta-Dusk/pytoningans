@@ -33,7 +33,7 @@ class SpeechBubble(QGraphicsItem):
         self._full_text: str = ""
         self._char_index: int = 0
         self._char_accumulator: int = 0
-        self._char_delay_ms: int = 35
+        self._char_delay_ms: int = 50
         self.is_typewriting: bool = False
         
         # Interruption / override state

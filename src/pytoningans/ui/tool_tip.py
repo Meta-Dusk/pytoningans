@@ -1,12 +1,12 @@
 from typing import Optional, cast
 
-from PySide6.QtCore import QAbstractItemModel, QEvent, QModelIndex, QPoint, QRect, Qt, QObject, QTimer
+from PySide6.QtCore import QAbstractItemModel, QEvent, QModelIndex, QPoint, QPointF, QRect, Qt, QObject, QTimer
 from PySide6.QtGui import (
     QGuiApplication, QPainter, QPaintEvent, QScreen, QHelpEvent, QMouseEvent
 )
 from PySide6.QtWidgets import (
-    QApplication, QHBoxLayout, QLabel, QStyle, QStyleOption, QWidget,
-    QAbstractItemView, QHeaderView
+    QApplication, QGraphicsItem, QHBoxLayout, QLabel, QStyle, QStyleOption, QWidget,
+    QAbstractItemView, QHeaderView, QGraphicsView
 )
 
 class CustomToolTip(QWidget):
@@ -155,6 +155,32 @@ class CustomToolTipManager(QObject):
                     if tip_data:
                         return str(tip_data)
             return watched.toolTip()
+
+        # Graphics Views (World overlay and scene items)
+        view: Optional[QGraphicsView] = None
+        if isinstance(watched, QGraphicsView):
+            view = watched
+        elif isinstance(watched, QWidget) and isinstance(watched.parent(), QGraphicsView):
+            view = cast(QGraphicsView, watched.parent())
+
+        if view is not None and view.scene() is not None:
+            if isinstance(event, QHelpEvent):
+                global_pos: QPoint = event.globalPos()
+                viewport_pos: QPoint = view.viewport().mapFromGlobal(global_pos)
+            else:
+                viewport_pos = help_pos
+            scene_pos: QPointF = view.mapToScene(viewport_pos)
+            item: Optional[QGraphicsItem] = view.scene().itemAt(scene_pos, view.transform())
+            curr_item: Optional[QGraphicsItem] = item
+            while curr_item is not None:
+                tip: str = curr_item.toolTip()
+                if tip:
+                    return tip
+                display_name = getattr(curr_item, "display_name", None)
+                if display_name:
+                    return str(display_name)
+                curr_item = curr_item.parentItem()
+            return view.toolTip()
 
         # General QWidget
         if isinstance(watched, QWidget):

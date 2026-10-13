@@ -2,10 +2,12 @@ from __future__ import annotations
 import random
 from typing import Optional, TYPE_CHECKING, cast, Any
 
-from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsColorizeEffect, QMenu
+from PySide6.QtWidgets import (
+    QGraphicsPixmapItem, QGraphicsColorizeEffect, QMenu,
+    QGraphicsSceneMouseEvent, QGraphicsSceneContextMenuEvent, QGraphicsSceneHoverEvent
+)
 from PySide6.QtCore import QPointF, QRect, QRectF, QVariantAnimation, QEasingCurve, Qt
 from PySide6.QtGui import QAction, QColor, QPixmap, QTransform
-from PySide6.QtWidgets import QGraphicsSceneMouseEvent, QGraphicsSceneContextMenuEvent
 
 from pytoningans.core.constants import AnimationMeta, EntityState, SystemLocks, DeathAnimation, StructureState
 from pytoningans.core.entity.animation import AnimationSystem
@@ -53,7 +55,80 @@ class BaseEntity(QGraphicsPixmapItem):
         self.anim_sys: Optional[AnimationSystem] = AnimationSystem(self)
         self.physics_sys: Optional[PhysicsSystem] = PhysicsSystem(self)
         
+        self._instance_name: Optional[str] = None
+        self.is_hovered: bool = False
+        self.setAcceptHoverEvents(True)
+        
         self._setup_ui(start_x, start_y)
+        self.update_tooltip()
+
+    @property
+    def instance_name(self) -> Optional[str]:
+        return self._instance_name
+
+    @instance_name.setter
+    def instance_name(self, value: Optional[str]) -> None:
+        self.set_instance_name(value)
+
+    def set_instance_name(self, name: Optional[str]) -> None:
+        """Sets a custom instance name for this entity and updates its tooltip."""
+        self._instance_name = name
+        self.update_tooltip()
+
+    @property
+    def display_name(self) -> str:
+        if self._instance_name:
+            return self._instance_name
+        if self.mod_manager is not None:
+            if self.mod_manager.current_mod_name:
+                return self.mod_manager.current_mod_name
+            if self.mod_manager.current_mod_folder:
+                return self.mod_manager.current_mod_folder
+        return "Entity"
+
+    def update_tooltip(self) -> None:
+        """Updates the item tooltip to match its display name."""
+        self.setToolTip(self.display_name)
+
+    def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent) -> None:
+        self.on_hover_enter()
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event: QGraphicsSceneHoverEvent) -> None:
+        self.on_hover_leave()
+        super().hoverLeaveEvent(event)
+
+    def on_hover_enter(self) -> None:
+        """Hook called when the mouse cursor enters the entity's bounding area."""
+        self.is_hovered = True
+        self._on_hover_enter()
+
+    def on_hover_leave(self) -> None:
+        """Hook called when the mouse cursor leaves the entity's bounding area."""
+        self.is_hovered = False
+        self._on_hover_leave()
+
+    def _on_hover_enter(self) -> None:
+        if self.mod_manager is not None and self.mod_manager.custom_behavior is not None:
+            behavior: BaseBehavior = self.mod_manager.custom_behavior
+            try:
+                if isinstance(behavior, BaseEntityBehavior):
+                    behavior.on_hover_enter(cast(IEntity, self))
+                elif isinstance(behavior, BaseStructureBehavior):
+                    behavior.on_hover_enter(cast(IStructure, self))
+            except Exception as e:
+                print(f"Custom Behavior on_hover_enter Error: {e}")
+
+    def _on_hover_leave(self) -> None:
+        if self.mod_manager is not None and self.mod_manager.custom_behavior is not None:
+            behavior: BaseBehavior = self.mod_manager.custom_behavior
+            try:
+                if isinstance(behavior, BaseEntityBehavior):
+                    behavior.on_hover_leave(cast(IEntity, self))
+                elif isinstance(behavior, BaseStructureBehavior):
+                    behavior.on_hover_leave(cast(IStructure, self))
+            except Exception as e:
+                print(f"Custom Behavior on_hover_leave Error: {e}")
     
     @property
     def state(self) -> str:
@@ -248,6 +323,16 @@ class Entity(BaseEntity):
         
         if self.anim_sys:
             self.anim_sys.attack_frame_hit.connect(self.ai_sys.process_combat)
+
+    def on_hover_enter(self) -> None:
+        super().on_hover_enter()
+        if self.health_bar is not None and not self.is_dead:
+            self.health_bar.set_hovered(True)
+
+    def on_hover_leave(self) -> None:
+        super().on_hover_leave()
+        if self.health_bar is not None:
+            self.health_bar.set_hovered(False)
 
     @property
     def is_interactable(self) -> bool:

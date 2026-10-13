@@ -137,12 +137,33 @@ class HealthBarItem(QGraphicsItem):
         # Auto-hide and fade timers (ms)
         self.visibility_timer: int = 0
         self.fade_time_left: int = 0
+        self.is_hovered: bool = False
 
         from pytoningans.core.settings import SettingsManager
         SettingsManager.get().settings_changed.connect(self.apply_settings)
 
         self.update_position()
         self.apply_settings()
+
+    def set_hovered(self, hovered: bool) -> None:
+        """Shows or fades out the health bar based on mouse cursor hover state."""
+        self.is_hovered = hovered
+        if hovered:
+            if not self.entity.is_dead:
+                self.show()
+                self.setOpacity(1.0)
+                self.fade_time_left = 0
+                self.update()
+        else:
+            from pytoningans.core.settings import SettingsManager, HealthBarMode
+            settings = SettingsManager.get().settings
+            if settings.health_bar_mode == HealthBarMode.ALWAYS.value and not self.entity.is_dead:
+                pass
+            elif self.visibility_timer > 0:
+                pass
+            else:
+                self.fade_time_left = 350
+            self.update()
 
     def detach_signals(self) -> None:
         try:
@@ -211,6 +232,7 @@ class HealthBarItem(QGraphicsItem):
 
     def on_die(self) -> None:
         self.current_hp = 0.0
+        self.hide()
         self.update()
 
     def on_revive(self) -> None:
@@ -248,7 +270,23 @@ class HealthBarItem(QGraphicsItem):
             needs_redraw = True
 
         # Visibility handling
-        if settings.health_bar_mode == HealthBarMode.ON_DAMAGE.value:
+        if self.is_hovered and not self.entity.is_dead:
+            if not self.isVisible():
+                self.show()
+            self.setOpacity(1.0)
+            self.fade_time_left = 0
+            needs_redraw = True
+        elif settings.health_bar_mode == HealthBarMode.ALWAYS.value:
+            if self.entity.is_dead:
+                if self.isVisible():
+                    self.hide()
+            else:
+                if not self.isVisible():
+                    self.show()
+                    self.setOpacity(1.0)
+                    needs_redraw = True
+        else:
+            # ON_DAMAGE and HIDDEN modes
             if self.visibility_timer > 0:
                 self.visibility_timer -= dt
                 if self.visibility_timer <= 0:
@@ -263,18 +301,6 @@ class HealthBarItem(QGraphicsItem):
             else:
                 if self.isVisible():
                     self.hide()
-        elif settings.health_bar_mode == HealthBarMode.ALWAYS.value:
-            if self.entity.is_dead:
-                if self.isVisible():
-                    self.hide()
-            else:
-                if not self.isVisible():
-                    self.show()
-                    self.setOpacity(1.0)
-                    needs_redraw = True
-        elif settings.health_bar_mode == HealthBarMode.HIDDEN.value:
-            if self.isVisible():
-                self.hide()
 
         if needs_redraw:
             self.update()

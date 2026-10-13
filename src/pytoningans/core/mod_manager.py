@@ -59,6 +59,7 @@ class ModManager:
         
         self.death_animation: DeathAnimation = DeathAnimation.SPRITE
         self.auto_close_on_death: bool = False
+        self.instance_names: list[str] = []
         
         # Inject the mods folder into Python's runtime path
         abs_mods_dir: str = str(self.mods_dir.resolve())
@@ -170,6 +171,7 @@ class ModManager:
             self.death_animation = DeathAnimation.SPRITE
         
         self.auto_close_on_death = behavior_data.get("auto_close_on_death", False)
+        self.instance_names = list(behavior_data.get("instance_names", []))
         
         self.animations.clear()
         anim_data: dict[str, Any] = data.get("animations", {})
@@ -268,6 +270,7 @@ class ModManager:
                 max_targets=self.max_targets,
                 death_animation=self.death_animation,
                 auto_close_on_death=self.auto_close_on_death,
+                instance_names=self.instance_names,
             ),
             animations={str(state): meta for state, meta in self.animations.items()},
             dialogue=DialogueConfig(

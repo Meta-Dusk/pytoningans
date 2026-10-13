@@ -186,6 +186,7 @@ class IModInfo(Protocol):
     death_dialogue: list[str]
     death_animation: DeathAnimation
     auto_close_on_death: bool
+    instance_names: list[str]
 
 
 @runtime_checkable
@@ -200,8 +201,9 @@ class IEntityManager(Protocol):
         x: float,
         y: float,
         mod_folder: str,
-        target_world: Optional[IWorld] = None
-    ) -> None:
+        target_world: Optional[IWorld] = None,
+        instance_name: Optional[str] = None
+    ) -> Optional[IBaseEntity]:
         """Spawns an entity or structure into the game world."""
         ...
 
@@ -301,9 +303,20 @@ class IBaseEntity(Protocol):
 
     is_force_idle: bool
     is_physics_enabled: bool
+    is_hovered: bool
+    instance_name: Optional[str]
+    display_name: str
 
     def set_force_idle(self, enabled: bool) -> None:
         """Toggles force-idle state where the entity plays idle animations but disables AI and gravity."""
+        ...
+
+    def set_instance_name(self, name: Optional[str]) -> None:
+        """Sets a unique instance name for this entity and updates its tooltip."""
+        ...
+
+    def update_tooltip(self) -> None:
+        """Updates the item tooltip to match its display name."""
         ...
 
 
@@ -429,6 +442,14 @@ class BaseEntityBehavior:
         """Called whenever the entity's state changes (e.g. idle -> moving)."""
         pass
 
+    def on_hover_enter(self, entity: IEntity) -> None:
+        """Called when the mouse cursor enters the entity's bounding area."""
+        pass
+
+    def on_hover_leave(self, entity: IEntity) -> None:
+        """Called when the mouse cursor leaves the entity's bounding area."""
+        pass
+
 
 class BaseStructureBehavior:
     """
@@ -446,6 +467,14 @@ class BaseStructureBehavior:
 
     def on_interact(self, structure: IStructure, entity: IEntity) -> None:
         """Called when a living entity overlaps or touches this structure."""
+        pass
+
+    def on_hover_enter(self, structure: IStructure) -> None:
+        """Called when the mouse cursor enters the structure's bounding area."""
+        pass
+
+    def on_hover_leave(self, structure: IStructure) -> None:
+        """Called when the mouse cursor leaves the structure's bounding area."""
         pass
 
     def on_state_change(self, structure: IStructure, old_state: str, new_state: str) -> None:

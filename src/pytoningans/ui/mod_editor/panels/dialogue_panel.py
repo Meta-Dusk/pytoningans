@@ -40,7 +40,7 @@ class DialoguePanel(BasePanel):
         
         plain_btns = QHBoxLayout()
         self.add_plain_btn = QPushButton("+ Add")
-        self.edit_plain_btn = QPushButton("✎ Edit")
+        self.edit_plain_btn = QPushButton("/\\ Edit")
         self.del_plain_btn = QPushButton("- Remove")
         plain_btns.addWidget(self.add_plain_btn)
         plain_btns.addWidget(self.edit_plain_btn)
@@ -67,7 +67,7 @@ class DialoguePanel(BasePanel):
         
         death_btns = QHBoxLayout()
         self.add_death_btn = QPushButton("+ Add")
-        self.edit_death_btn = QPushButton("✎ Edit")
+        self.edit_death_btn = QPushButton("/\\ Edit")
         self.del_death_btn = QPushButton("- Remove")
         death_btns.addWidget(self.add_death_btn)
         death_btns.addWidget(self.edit_death_btn)
@@ -113,7 +113,7 @@ class DialoguePanel(BasePanel):
         
         trigger_btns = QHBoxLayout()
         self.add_trigger_btn = QPushButton("+ Add")
-        self.edit_trigger_btn = QPushButton("✎ Edit")
+        self.edit_trigger_btn = QPushButton("/\\ Edit")
         self.del_trigger_btn = QPushButton("- Remove")
         trigger_btns.addWidget(self.add_trigger_btn)
         trigger_btns.addWidget(self.edit_trigger_btn)
