@@ -239,9 +239,18 @@ class ModManager:
         if not behavior_path.exists(): return
         try:
             # Guarantee that 'import api' inside any mod's behavior.py resolves
-            # directly to the engine's core API module in memory
+            # directly to the engine's core API module and submodules in memory
             import pytoningans.core.api as core_api
+            import pytoningans.core.api.types as api_types
+            import pytoningans.core.api.components as api_components
+            import pytoningans.core.api.protocols as api_protocols
+            import pytoningans.core.api.behaviors as api_behaviors
+
             sys.modules["api"] = core_api
+            sys.modules["api.types"] = api_types
+            sys.modules["api.components"] = api_components
+            sys.modules["api.protocols"] = api_protocols
+            sys.modules["api.behaviors"] = api_behaviors
 
             spec = importlib.util.spec_from_file_location(f"mod_behavior_{mod_folder_name}", str(behavior_path))
             if spec is None or spec.loader is None: return

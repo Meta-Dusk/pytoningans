@@ -27,7 +27,7 @@ class DamageNumberItem(QGraphicsItem):
         self.start_pos: QPointF = start_pos
         self.setPos(start_pos)
         self.setZValue(10.0)
-
+ 
         self.lifetime: int = 700  # ms
         self.elapsed: int = 0
         self.total_rise: float = 38.0
@@ -163,7 +163,6 @@ class HealthBarItem(QGraphicsItem):
                 self.fade_time_left = 0
                 self.update()
         else:
-            from pytoningans.core.settings import SettingsManager, HealthBarMode
             settings = SettingsManager.get().settings
             if settings.health_bar_mode == HealthBarMode.ALWAYS.value and not self.entity.is_dead:
                 pass
@@ -177,7 +176,6 @@ class HealthBarItem(QGraphicsItem):
         if not getattr(self, "_signals_connected", False):
             return
         try:
-            from pytoningans.core.settings import SettingsManager
             SettingsManager.get().settings_changed.disconnect(self.apply_settings)
         except Exception:
             pass
@@ -211,7 +209,6 @@ class HealthBarItem(QGraphicsItem):
 
     def on_damage_taken(self, damage: int, new_hp: int, old_hp: int) -> None:
         if self.entity is None: return
-        from pytoningans.core.settings import SettingsManager, HealthBarMode
         settings = SettingsManager.get().settings
 
         self.current_hp = float(max(0, new_hp))
@@ -237,7 +234,6 @@ class HealthBarItem(QGraphicsItem):
         self.update()
 
     def on_heal(self, heal_amount: int, new_hp: int, old_hp: int) -> None:
-        from pytoningans.core.settings import SettingsManager, HealthBarMode
         settings = SettingsManager.get().settings
 
         self.current_hp = float(new_hp)
@@ -267,7 +263,6 @@ class HealthBarItem(QGraphicsItem):
 
     def tick(self, dt: int) -> None:
         if self.entity is None: return
-        from pytoningans.core.settings import SettingsManager, HealthBarMode
         settings = SettingsManager.get().settings
         needs_redraw: bool = False
 
@@ -384,7 +379,7 @@ class HealthBarItem(QGraphicsItem):
         painter.setBrush(QBrush(QColor(18, 18, 18, 225)))
         painter.drawRoundedRect(card_rect, radius, radius)
 
-        # 1. Instance Name Text (Top row)
+        #? Instance Name Text (Top row)
         name_text: str = self.entity.instance_name or self.entity.display_name or "Entity"
         name_font = QFont("Pixel Code", 8)
         name_font.setBold(True)
@@ -399,7 +394,7 @@ class HealthBarItem(QGraphicsItem):
         painter.setPen(QPen(QColor(245, 245, 245, 255)))
         painter.drawText(name_rect, Qt.AlignmentFlag.AlignCenter, elided_name)
 
-        # 2. Health Bar Slot (Bottom row)
+        #? Health Bar Slot (Bottom row)
         bar_x: float = 3.0
         bar_y: float = 15.0
         bar_w: float = max(0.0, w - 6.0)

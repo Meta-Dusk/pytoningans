@@ -46,7 +46,7 @@ Name: "custom"; Description: "Custom installation"; Flags: iscustom
 Name: "core"; Description: "Core Engine Files"; Types: full custom; Flags: fixed
 
 ; Added a specific component for the API
-Name: "mods\api"; Description: "Modding API Base (api.py)"; Types: full custom
+Name: "mods\api"; Description: "Modding API Package (api/)"; Types: full custom
 Name: "mods\default_mod"; Description: "Include Default Entity Mod"; Types: full custom
 Name: "mods\example_mods"; Description: "Include All Example Mods"; Types: full custom
 
@@ -56,8 +56,8 @@ Source: "..\build\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs crea
 Source: "..\assets\icon.ico"; DestDir: "{app}"; Flags: ignoreversion; Components: core
 
 ; Modding API
-; By listing 'mods\api mods\default_mod mods\example_mods', this file installs if ANY of those three boxes are checked.
-Source: "..\src\pytoningans\core\api.py"; DestDir: "{userdocs}\{#MyAppName}\mods"; DestName: "api.py"; Flags: ignoreversion uninsneveruninstall; Components: mods\api mods\default_mod mods\example_mods
+; By listing 'mods\api mods\default_mod mods\example_mods', this package installs if ANY of those three boxes are checked.
+Source: "..\src\pytoningans\core\api\*"; DestDir: "{userdocs}\{#MyAppName}\mods\api"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: mods\api mods\default_mod mods\example_mods
 
 ; Default Mod
 Source: "..\assets\mods\default_entity\*"; DestDir: "{userdocs}\{#MyAppName}\mods\default_entity"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: mods\default_mod
