@@ -97,8 +97,8 @@ class AISystem:
         behavior: Optional[BaseBehavior] = self.entity.mod_manager.custom_behavior
         if behavior is None or not isinstance(behavior, BaseEntityBehavior): return False
         try:
-            pet_api: IEntity = cast(IEntity, self.entity)
-            if behavior.on_decision_tick(pet_api): return True
+            entity_api: IEntity = cast(IEntity, self.entity)
+            if behavior.on_decision_tick(entity_api): return True
         except Exception as e:
             print(f"Custom AI Error (Decision): {e}")
             
@@ -171,7 +171,7 @@ class AISystem:
         self.attack_cooldown = 2000 
         self.entity.anim_sys.set_state(EntityState.ATTACK)
 
-    def _on_combat_check(self, other_pet: Entity) -> bool:
+    def _on_combat_check(self, other_entity: Entity) -> bool:
         if (
             self.entity is None or
             self.entity.mod_manager is None or
@@ -182,7 +182,7 @@ class AISystem:
         if not isinstance(behavior, BaseEntityBehavior): return False
         try:
             entity_api: IEntity = cast(IEntity, self.entity)
-            other_entity_api: IEntity = cast(IEntity, other_pet)
+            other_entity_api: IEntity = cast(IEntity, other_entity)
             return behavior.on_attack(entity_api, other_entity_api)
         except Exception as e:
             print(f"Custom AI Error (Attack): {e}")
@@ -230,7 +230,7 @@ class AISystem:
                 
             break
 
-    def _on_check_interactions(self, other_pet: Entity) -> bool:
+    def _on_check_interactions(self, other_entity: Entity) -> bool:
         if (
             self.entity is None or
             self.entity.mod_manager is None or
@@ -241,7 +241,7 @@ class AISystem:
         if not isinstance(behavior, BaseEntityBehavior): return False
         try:
             entity_api: IEntity = cast(IEntity, self.entity)
-            other_entity_api: IEntity = cast(IEntity, other_pet)
+            other_entity_api: IEntity = cast(IEntity, other_entity)
             return behavior.on_interact(entity_api, other_entity_api)
         except Exception as e:
             print(f"Custom AI Error (Interact): {e}")

@@ -73,8 +73,8 @@ class ModManager:
     
     @property
     def entity_type(self) -> str:
-        """Returns the entity type, defaulting to 'pet' for backward compatibility."""
-        return self.config.entity_type if self.config else EntityType.PET.value
+        """Returns the entity type, defaulting to 'entity' for backward compatibility."""
+        return self.config.entity_type if self.config else EntityType.ENTITY.value
     
     def get_available_mods_with_type(self) -> dict[str, tuple[str, str]]:
         """Returns a dict mapping folder_name -> (display_name, entity_type)."""
@@ -87,7 +87,7 @@ class ModManager:
                 continue
             folder_name: str = item.name
             display_name: str = folder_name
-            entity_type: str = EntityType.PET.value
+            entity_type: str = EntityType.ENTITY.value
             
             config_path: Path = item / "config.json"
             if config_path.exists():
@@ -95,7 +95,7 @@ class ModManager:
                     with open(config_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
                         display_name = data.get("name", folder_name)
-                        entity_type = data.get("entity_type", EntityType.PET.value)
+                        entity_type = data.get("entity_type", EntityType.ENTITY.value)
                 except Exception:
                     pass
                     
@@ -122,7 +122,7 @@ class ModManager:
         with open(config_path, "r", encoding="utf-8") as f:
             data: dict[str, Any] = json.load(f)
         
-        raw_entity_type = data.get("entity_type", EntityType.PET.value)
+        raw_entity_type = data.get("entity_type", EntityType.ENTITY.value)
         entity_type_str: str = (
             raw_entity_type.value if hasattr(raw_entity_type, "value") else str(raw_entity_type)
         )

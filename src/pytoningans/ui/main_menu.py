@@ -64,7 +64,7 @@ class MainMenu(QWidget):
         filter_layout.addWidget(QLabel("Category:"))
         self.category_combo = QComboBox()
         self.category_combo.addItem("All Entities", "all")
-        self.category_combo.addItem("Pets Only", EntityType.PET.value)
+        self.category_combo.addItem("Entities Only", EntityType.ENTITY.value)
         self.category_combo.addItem("Structures Only", EntityType.STRUCTURE.value)
         self.category_combo.currentIndexChanged.connect(self._refresh_spawn_list)
         filter_layout.addWidget(self.category_combo, stretch=1)
@@ -292,25 +292,25 @@ class MainMenu(QWidget):
                 self.mod_combo.addItem(f"[{entity_type.capitalize()}] {name}", userData=folder)
 
     def _update_stats(self) -> None:
-        total_pets: int = len(self.manager.active_entities)
-        dead_pets: int = sum(1 for p in self.manager.active_entities if p.is_dead)
-        alive_pets: int = total_pets - dead_pets
+        total_entities: int = len(self.manager.active_entities)
+        dead_entities: int = sum(1 for p in self.manager.active_entities if p.is_dead)
+        alive_entities: int = total_entities - dead_entities
         total_structs: int = len(self.manager.active_structures)
         
-        self.alive_count_label.setText(f"Alive: {alive_pets}")
-        self.dead_count_label.setText(f"Dead: {dead_pets}")
+        self.alive_count_label.setText(f"Alive: {alive_entities}")
+        self.dead_count_label.setText(f"Dead: {dead_entities}")
         self.struct_count_label.setText(f"Structures: {total_structs}")
 
-        self.kill_alive_btn.setEnabled(alive_pets > 0)
-        self.close_alive_btn.setEnabled(alive_pets > 0)
+        self.kill_alive_btn.setEnabled(alive_entities > 0)
+        self.close_alive_btn.setEnabled(alive_entities > 0)
 
-        self.revive_dead_btn.setEnabled(dead_pets > 0)
-        self.close_dead_btn.setEnabled(dead_pets > 0)
+        self.revive_dead_btn.setEnabled(dead_entities > 0)
+        self.close_dead_btn.setEnabled(dead_entities > 0)
 
         self.close_struct_btn.setEnabled(total_structs > 0)
 
-        self.close_all_entities_btn.setEnabled(total_pets > 0)
-        self.close_all_objects_btn.setEnabled(total_pets > 0 or total_structs > 0)
+        self.close_all_entities_btn.setEnabled(total_entities > 0)
+        self.close_all_objects_btn.setEnabled(total_entities > 0 or total_structs > 0)
 
     def _on_spawn_clicked(self) -> None:
         selected_mod: str = self.mod_combo.currentData()

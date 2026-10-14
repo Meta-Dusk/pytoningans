@@ -128,7 +128,7 @@ class ModEditorWindow(QWidget):
         name_layout = QHBoxLayout()
         name_layout.addWidget(QLabel("Display Name:"))
         self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("e.g. My Cool Pet")
+        self.name_input.setPlaceholderText("e.g. My Cool Entity")
         name_layout.addWidget(self.name_input)
         self.left_layout.addLayout(name_layout)
         

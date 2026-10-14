@@ -62,7 +62,7 @@ class PhysicsSystem:
         repel_x, repel_y = 0.0, 0.0
         min_dist: float = hitbox.width() * 0.6
         
-        # Combine both lists so pets and structures can repel each other
+        # Combine both lists so entities and structures can repel each other
         all_entities: list[BaseStructure | Entity] = self.entity.world.active_entities + self.entity.world.active_structures
         
         for other in all_entities:
@@ -144,9 +144,9 @@ class PhysicsSystem:
         
         hitbox: QRect = self.entity.current_hitbox
         hitbox_bottom_offset: int = hitbox.y() + hitbox.height()
-        pet_bottom: float = self.entity.y() + hitbox_bottom_offset
+        entity_bottom: float = self.entity.y() + hitbox_bottom_offset
         
-        if pet_bottom < ground_y or self.entity.velocity_y < 0:
+        if entity_bottom < ground_y or self.entity.velocity_y < 0:
             self.entity.velocity_y += current_gravity
             new_y: float = self.entity.y() + self.entity.velocity_y
             

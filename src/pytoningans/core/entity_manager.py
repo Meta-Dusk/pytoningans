@@ -160,7 +160,7 @@ class EntityManager:
         target_world: Optional[WorldOverlay] = None,
         instance_name: Optional[str] = None
     ) -> Optional[BaseEntity]:
-        """Dynamically spawns a living Pet or a static Structure based on mod config."""
+        """Dynamically spawns a living Entity or a static Structure based on mod config."""
         mod_manager = ModManager(self.mod_manager.mods_dir)
         mod_manager.load_mod(mod_folder)
         

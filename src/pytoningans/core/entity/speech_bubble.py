@@ -253,11 +253,11 @@ class SpeechBubble(QGraphicsItem):
     def update_position(self) -> None:
         if not self.isVisible() and self._interrupt_hold_left <= 0: return
         
-        pet_width: float = self.entity.boundingRect().width()
+        entity_width: float = self.entity.boundingRect().width()
         
         # Place the bubble's local (0,0) point (the tip of the tail) 
-        # above the pet's sprite, giving clearance to the health bar if visible
-        x: float = pet_width / 2.0
+        # above the entity's sprite, giving clearance to the health bar if visible
+        x: float = entity_width / 2.0
         y: float = -10.0
         if (
             hasattr(self.entity, "health_bar")

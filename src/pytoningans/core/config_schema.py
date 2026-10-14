@@ -50,7 +50,7 @@ class DialogueConfig:
 @dataclass
 class ModConfig:
     name: str
-    entity_type: str = EntityType.PET.value
+    entity_type: str = EntityType.ENTITY.value
     version: int = CURRENT_CONFIG_VERSION
     columns: int = 4
     rows: int = len(EntityState)

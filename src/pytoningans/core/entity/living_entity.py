@@ -21,13 +21,13 @@ if TYPE_CHECKING:
 
 
 class Entity(BaseEntity):
-    """Living entities with AI, health, dialogue, and combat (formerly PetWindow)."""
+    """Living entities with AI, health, dialogue, and combat."""
     def __init__(
         self, start_x: float, start_y: float,
-        mod_manager: ModManager, world: WorldOverlay, pet_manager: EntityManager
+        mod_manager: ModManager, world: WorldOverlay, entity_manager: EntityManager
     ) -> None:
         super().__init__(start_x, start_y, mod_manager, world)
-        self.entity_manager = pet_manager
+        self.entity_manager = entity_manager
 
         self.is_dead: bool = False
         self.current_health: int = mod_manager.max_health if mod_manager else 100
@@ -122,6 +122,12 @@ class Entity(BaseEntity):
     def on_moved(self) -> None:
         if self.health_bar is not None: self.health_bar.update_position()
         if self.bubble is not None: self.bubble.update_position()
+
+    def on_instance_name_changed(self) -> None:
+        super().on_instance_name_changed()
+        if self.health_bar is not None:
+            self.health_bar.update_position()
+            self.health_bar.update()
 
     def take_damage(self, amount: int) -> None:
         if self.is_dead: return
@@ -297,15 +303,15 @@ class Entity(BaseEntity):
         self.sprite_rotation = 0.0
 
         menu = QMenu(self.world.view) if self.world else QMenu()
-        menu.addAction("Close Pet", self.destroy)
+        menu.addAction("Close Entity", self.destroy)
         menu.addSeparator()
 
         if not self.is_dead:
             menu.addAction("Talk To", self.force_talk)
             menu.addAction("Force Jump", self.jump)
-            menu.addAction("Kill Pet", self.die)
+            menu.addAction("Kill Entity", self.die)
         else:
-            menu.addAction("Revive Pet", self.revive)
+            menu.addAction("Revive Entity", self.revive)
 
         if self.is_dead:
             if (
@@ -344,8 +350,8 @@ class Entity(BaseEntity):
         behavior: BaseBehavior = self.mod_manager.custom_behavior
         if not isinstance(behavior, BaseEntityBehavior): return
 
-        pet_api: IEntity = cast(IEntity, self)
-        behavior.on_death(pet_api)
+        entity_api: IEntity = cast(IEntity, self)
+        behavior.on_death(entity_api)
 
     def _on_revive(self) -> None:
         if (
@@ -357,8 +363,8 @@ class Entity(BaseEntity):
         behavior: BaseBehavior = self.mod_manager.custom_behavior
         if not isinstance(behavior, BaseEntityBehavior): return
 
-        pet_api: IEntity = cast(IEntity, self)
-        behavior.on_revive(pet_api)
+        entity_api: IEntity = cast(IEntity, self)
+        behavior.on_revive(entity_api)
 
     def _on_speak(self, text: str) -> None:
         if (

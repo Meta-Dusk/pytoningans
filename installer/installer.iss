@@ -1,5 +1,5 @@
 #define MyAppName "PyToNingans"
-#define MyAppVersion "0.7.4"
+#define MyAppVersion "0.7.5"
 #define MyAppPublisher "MetaDusk Inc."
 #define MyAppURL "https://github.com/Meta-Dusk/pytoningans"
 #define MyAppExeName "PyToNingans.dist\PyToNingans.exe"
@@ -47,7 +47,7 @@ Name: "core"; Description: "Core Engine Files"; Types: full custom; Flags: fixed
 
 ; Added a specific component for the API
 Name: "mods\api"; Description: "Modding API Base (api.py)"; Types: full custom
-Name: "mods\default_mod"; Description: "Include Default Pet Mod"; Types: full custom
+Name: "mods\default_mod"; Description: "Include Default Entity Mod"; Types: full custom
 Name: "mods\example_mods"; Description: "Include All Example Mods"; Types: full custom
 
 [Files]
@@ -60,7 +60,7 @@ Source: "..\assets\icon.ico"; DestDir: "{app}"; Flags: ignoreversion; Components
 Source: "..\src\pytoningans\core\api.py"; DestDir: "{userdocs}\{#MyAppName}\mods"; DestName: "api.py"; Flags: ignoreversion uninsneveruninstall; Components: mods\api mods\default_mod mods\example_mods
 
 ; Default Mod
-Source: "..\assets\mods\default_pet\*"; DestDir: "{userdocs}\{#MyAppName}\mods\default_pet"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: mods\default_mod
+Source: "..\assets\mods\default_entity\*"; DestDir: "{userdocs}\{#MyAppName}\mods\default_entity"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: mods\default_mod
 
 ; Example Mods
 Source: "..\assets\mods\*"; DestDir: "{userdocs}\{#MyAppName}\mods"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: mods\example_mods

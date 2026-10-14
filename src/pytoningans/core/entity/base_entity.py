@@ -19,6 +19,7 @@ from pytoningans.core.components.base_component import BaseComponent
 if TYPE_CHECKING:
     from pytoningans.core.mod_manager import ModManager
     from pytoningans.core.world import WorldOverlay
+    from pytoningans.core.entity.base_structure import BaseStructure
 
 
 class BaseEntity(QGraphicsPixmapItem):
@@ -65,11 +66,16 @@ class BaseEntity(QGraphicsPixmapItem):
         self.set_instance_name(value)
 
     def set_instance_name(self, name: Optional[str]) -> None:
-        """Sets a custom instance name for this entity and updates its tooltip."""
+        """Sets a custom instance name for this entity and updates HUD and tooltip."""
         self._instance_name = name
         self.update_tooltip()
+        self.on_instance_name_changed()
         if self.is_hovered:
             self._show_hover_tooltip(QCursor.pos())
+
+    def on_instance_name_changed(self) -> None:
+        """Hook for subclasses to react to instance name updates (e.g. updating HUD elements)."""
+        pass
 
     @property
     def display_name(self) -> str:
@@ -82,9 +88,27 @@ class BaseEntity(QGraphicsPixmapItem):
                 return self.mod_manager.current_mod_folder
         return "Entity"
 
+    @property
+    def identification(self) -> str:
+        """Formatted identification string for the entity: '<entity_type> from <mod_name>'."""
+        type_str: str = "Entity"
+        if self.mod_manager is not None and self.mod_manager.entity_type:
+            type_str = str(self.mod_manager.entity_type).capitalize()
+        else:
+            type_str = "Structure" if isinstance(self, BaseStructure) else "Entity"
+
+        mod_name = "Unknown"
+        if self.mod_manager is not None:
+            if self.mod_manager.current_mod_name:
+                mod_name = self.mod_manager.current_mod_name
+            elif self.mod_manager.current_mod_folder:
+                mod_name = self.mod_manager.current_mod_folder
+
+        return f"{type_str} from \"{mod_name}\""
+
     def update_tooltip(self) -> None:
-        """Updates the item tooltip to match its display name."""
-        self.setToolTip(self.display_name)
+        """Updates the item tooltip to match its identification."""
+        self.setToolTip(self.identification)
 
     def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         self.on_hover_enter()
@@ -102,10 +126,10 @@ class BaseEntity(QGraphicsPixmapItem):
         super().hoverLeaveEvent(event)
 
     def _show_hover_tooltip(self, screen_pos: QPoint) -> None:
-        name: str = self.display_name
-        if name:
+        tip_text: str = self.identification
+        if tip_text:
             from pytoningans.ui.tool_tip import CustomToolTipManager
-            CustomToolTipManager.get().show_tip(None, name, screen_pos)
+            CustomToolTipManager.get().show_tip(None, tip_text, screen_pos)
 
     def _hide_hover_tooltip(self) -> None:
         from pytoningans.ui.tool_tip import CustomToolTipManager

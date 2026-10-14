@@ -42,10 +42,10 @@ class ModCreationDialog(QDialog):
         
         form = QFormLayout()
         self.folder_input = QLineEdit()
-        self.folder_input.setPlaceholderText("e.g. my_cool_pet")
+        self.folder_input.setPlaceholderText("e.g. my_cool_entity")
         
         self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("e.g. My Cool Pet")
+        self.name_input.setPlaceholderText("e.g. My Cool Entity")
         
         self.cols_spin = QSpinBox()
         self.cols_spin.setRange(1, 100); self.cols_spin.setValue(4)
@@ -54,7 +54,7 @@ class ModCreationDialog(QDialog):
         self.rows_spin.setRange(1, 100); self.rows_spin.setValue(len(EntityState))
         
         self.type_combo = QComboBox()
-        self.type_combo.addItem("Living Pet", userData=EntityType.PET)
+        self.type_combo.addItem("Living Entity", userData=EntityType.ENTITY)
         self.type_combo.addItem("Static/Animated Structure", userData=EntityType.STRUCTURE)
         
         form.addRow(self._create_info_label(
@@ -64,7 +64,7 @@ class ModCreationDialog(QDialog):
         
         form.addRow(self._create_info_label(
             "Display Name:", 
-            "The human-readable name of the pet shown in the main menu."
+            "The human-readable name of the entity shown in the main menu."
         ), self.name_input)
         
         form.addRow(self._create_info_label(

@@ -4,7 +4,7 @@ from typing import Any
 
 @unique
 class EntityType(StrEnum):
-    PET = "pet"
+    ENTITY = "entity"
     STRUCTURE = "structure"
 
 @unique

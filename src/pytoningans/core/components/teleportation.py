@@ -68,12 +68,12 @@ class TeleportationComponent(BaseComponent):
         dest_world.scene.addItem(entity)
         dest_world.active_entities.append(entity)
 
-        pet_w: int = entity.width()
+        entity_w: int = entity.width()
         if self.linked_portal is not None:
             if self.exit_offset_x > 0:
                 spawn_x = self.linked_portal.x() + self.linked_portal.width() + 10
             else:
-                spawn_x = self.linked_portal.x() - pet_w - 10
+                spawn_x = self.linked_portal.x() - entity_w - 10
             spawn_y = self.linked_portal.y() + self.exit_offset_y
         else:
             spawn_x = dest_world.scene.sceneRect().width() / 2

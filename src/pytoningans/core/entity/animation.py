@@ -13,7 +13,7 @@ type EntityTransforms = tuple[int, bool, int]
 class AnimationSystem(QObject):
     attack_frame_hit = Signal()
     
-    # Class-level cache shared by EVERY pet instance
+    # Class-level cache shared by EVERY entity instance
     _shared_transform_cache: dict[EntityTransforms, QPixmap] = {}
 
     @classmethod

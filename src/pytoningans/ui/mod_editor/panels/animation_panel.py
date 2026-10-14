@@ -111,7 +111,7 @@ class AnimationSubsystem(BasePanel):
         h_layout.addWidget(
             create_info_label(
                 "State:",
-                "The State of the Pet to edit the values for."
+                "The State of the Entity to edit the values for."
             )
         )
         

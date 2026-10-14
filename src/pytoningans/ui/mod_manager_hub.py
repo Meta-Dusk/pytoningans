@@ -67,7 +67,7 @@ class ModManagerHub(QWidget):
         
         self.type_filter = QComboBox()
         self.type_filter.addItem("All Types", "all")
-        self.type_filter.addItem("Pets Only", EntityType.PET.value)
+        self.type_filter.addItem("Entities Only", EntityType.ENTITY.value)
         self.type_filter.addItem("Structures Only", EntityType.STRUCTURE.value)
         self.type_filter.currentIndexChanged.connect(self._apply_filter)
         
@@ -121,7 +121,7 @@ class ModManagerHub(QWidget):
         btn_layout.addWidget(actions_header)
         
         self.create_btn = QPushButton("Create New Mod")
-        self.create_btn.setToolTip("Create a new custom pet or structure mod")
+        self.create_btn.setToolTip("Create a new custom entity or structure mod")
         self.create_btn.clicked.connect(self._on_create_clicked)
         btn_layout.addWidget(self.create_btn)
         

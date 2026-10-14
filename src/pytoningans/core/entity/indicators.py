@@ -3,7 +3,7 @@ import math, random
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtWidgets import QGraphicsItem, QStyleOptionGraphicsItem, QWidget
-from PySide6.QtGui import QPainter, QColor, QFont, QPen, QBrush, QPainterPath
+from PySide6.QtGui import QPainter, QColor, QFont, QPen, QBrush, QPainterPath, QFontMetrics
 from PySide6.QtCore import QRectF, QPointF, Qt
 
 if TYPE_CHECKING:
@@ -118,8 +118,10 @@ class HealthBarItem(QGraphicsItem):
         self.entity: Entity = parent_entity
         self.setZValue(4.0)
 
+        self.card_w: float = 64.0
+        self.card_h: float = 27.0
         self.bar_w: float = 64.0
-        self.bar_h: float = 11.0
+        self.bar_h: float = 27.0
 
         init_hp: float = float(parent_entity.current_health)
         self.current_hp: float = init_hp
@@ -306,18 +308,27 @@ class HealthBarItem(QGraphicsItem):
             self.update()
 
     def update_position(self) -> None:
-        pet_w: float = self.entity.boundingRect().width()
-        bar_w: float = max(56.0, min(pet_w * 0.9, 88.0))
-        self.bar_w = bar_w
-        self.bar_h = 11.0
+        entity_w: float = self.entity.boundingRect().width()
+        name_text: str = self.entity.instance_name or self.entity.display_name or "Entity"
 
-        x: float = (pet_w - bar_w) / 2.0
-        y: float = -self.bar_h - 4.0
+        font = QFont("Pixel Code", 8)
+        font.setBold(True)
+        font_met = QFontMetrics(font)
+        name_text_w: float = float(font_met.horizontalAdvance(name_text))
+
+        card_w: float = max(64.0, min(entity_w * 0.9, 130.0), min(name_text_w + 14.0, 150.0))
+        self.card_w = card_w
+        self.card_h = 27.0
+        self.bar_w = card_w
+        self.bar_h = 27.0
+
+        x: float = (entity_w - card_w) / 2.0
+        y: float = -self.card_h - 4.0
         self.setPos(x, y)
 
     def boundingRect(self) -> QRectF:
         pad: float = 14.0
-        return QRectF(-pad, -pad / 2.0, self.bar_w + pad * 2.0, self.bar_h + pad)
+        return QRectF(-pad, -pad / 2.0, self.card_w + pad * 2.0, self.card_h + pad)
 
     def paint(
         self, painter: QPainter, _: QStyleOptionGraphicsItem,
@@ -341,26 +352,53 @@ class HealthBarItem(QGraphicsItem):
         if shake_x != 0.0:
             painter.translate(shake_x, 0.0)
 
-        w: float = self.bar_w
-        h: float = self.bar_h
-        radius: float = 3.0
+        w: float = self.card_w
+        total_h: float = self.card_h
+        radius: float = 4.0
 
-        # Background container
-        bg_rect = QRectF(0, 0, w, h)
+        # Background container for HUD card
+        card_rect = QRectF(0, 0, w, total_h)
         painter.setPen(QPen(QColor(40, 40, 40, 230), 1.2))
         painter.setBrush(QBrush(QColor(18, 18, 18, 225)))
-        painter.drawRoundedRect(bg_rect, radius, radius)
+        painter.drawRoundedRect(card_rect, radius, radius)
 
-        inner_pad: float = 1.5
-        inner_w: float = max(0.0, w - (inner_pad * 2.0))
-        inner_h: float = max(0.0, h - (inner_pad * 2.0))
+        # 1. Instance Name Text (Top row)
+        name_text: str = self.entity.instance_name or self.entity.display_name or "Entity"
+        name_font = QFont("Pixel Code", 8)
+        name_font.setBold(True)
+        painter.setFont(name_font)
+        name_fm = QFontMetrics(name_font)
+        elided_name = name_fm.elidedText(name_text, Qt.TextElideMode.ElideRight, int(w - 6))
+        name_rect = QRectF(0, 2.0, w, 12.0)
+
+        # Drop shadow + crisp white text
+        painter.setPen(QPen(QColor(0, 0, 0, 220)))
+        painter.drawText(name_rect.translated(0.8, 0.8), Qt.AlignmentFlag.AlignCenter, elided_name)
+        painter.setPen(QPen(QColor(245, 245, 245, 255)))
+        painter.drawText(name_rect, Qt.AlignmentFlag.AlignCenter, elided_name)
+
+        # 2. Health Bar Slot (Bottom row)
+        bar_x: float = 3.0
+        bar_y: float = 15.0
+        bar_w: float = max(0.0, w - 6.0)
+        bar_h: float = 9.0
+        bar_rect = QRectF(bar_x, bar_y, bar_w, bar_h)
+
+        # Inner bar trough
+        painter.setPen(QPen(QColor(35, 35, 35, 240), 1.0))
+        painter.setBrush(QBrush(QColor(10, 10, 10, 220)))
+        painter.drawRoundedRect(bar_rect, 2.5, 2.5)
+
+        inner_pad: float = 1.0
+        inner_w: float = max(0.0, bar_w - (inner_pad * 2.0))
+        inner_h: float = max(0.0, bar_h - (inner_pad * 2.0))
         max_hp: int = max(1, self.entity.mod_manager.max_health if self.entity.mod_manager else 100)
 
         # Ghost Depletion Bar (shows subtracted chunk flashing & smoothly draining)
         ghost_ratio: float = max(0.0, min(1.0, self.ghost_hp / max_hp))
         if ghost_ratio > 0:
             ghost_w = inner_w * ghost_ratio
-            ghost_rect = QRectF(inner_pad, inner_pad, ghost_w, inner_h)
+            ghost_rect = QRectF(bar_x + inner_pad, bar_y + inner_pad, ghost_w, inner_h)
             if self.flash_time_left > 0:
                 ghost_color = QColor(255, 245, 220, 240)
             else:
@@ -373,7 +411,7 @@ class HealthBarItem(QGraphicsItem):
         cur_ratio: float = max(0.0, min(1.0, self.current_hp / max_hp))
         if cur_ratio > 0:
             cur_w = inner_w * cur_ratio
-            cur_rect = QRectF(inner_pad, inner_pad, cur_w, inner_h)
+            cur_rect = QRectF(bar_x + inner_pad, bar_y + inner_pad, cur_w, inner_h)
             if cur_ratio > 0.5:
                 hp_color = QColor(46, 204, 113)  # Healthy emerald
             elif cur_ratio > 0.25:
@@ -391,8 +429,8 @@ class HealthBarItem(QGraphicsItem):
             font.setBold(True)
             painter.setFont(font)
 
-            text_rect = QRectF(0, 0, w, h)
-            # Subtle drop shadow for contrast against fills and empty slots
+            text_rect = bar_rect
+            # Drop shadow
             painter.setPen(QPen(QColor(0, 0, 0, 220)))
             painter.drawText(text_rect.translated(0.8, 0.8), Qt.AlignmentFlag.AlignCenter, text)
             painter.setPen(QPen(QColor(255, 255, 255, 255)))

@@ -43,7 +43,7 @@ class BehaviorStatsPanel(BasePanel):
         form.addRow(create_info_label("Max Health:", "Total health points."), self.max_health_spin)
         form.addRow(create_info_label("Attack Damage:", "Damage dealt per hit."), self.atk_dmg_spin)
         form.addRow(create_info_label("Attack Range (px):", "Maximum distance to strike."), self.atk_range_spin)
-        form.addRow(create_info_label("Attack Type:", "How many pets can be damaged."), self.atk_type_combo)
+        form.addRow(create_info_label("Attack Type:", "How many entities can be damaged."), self.atk_type_combo)
         form.addRow(create_info_label("Jump Height:", "Initial vertical velocity."), self.jump_height_spin)
         
         self.section.content_layout.addLayout(form)
@@ -243,7 +243,7 @@ class StructureBehaviorPanel(BasePanel):
             "    def on_update(self, structure: IStructure, dt: int) -> None:\n"
             "        pass\n\n"
             "    def on_interact(self, structure: IStructure, entity: IEntity) -> None:\n"
-            "        # Triggered when a living pet interacts/overlaps with this structure\n"
+            "        # Triggered when a living entity interacts/overlaps with this structure\n"
             "        pass\n"
         )
         with open(path, "w", encoding="utf-8") as f:

@@ -12,7 +12,7 @@ HTTRANSPARENT = -1
 HTCLIENT = 1
 
 class Entity(QGraphicsPixmapItem):
-    """A minimal test entity representing a pet."""
+    """A minimal test entity representing an alive entity."""
     def __init__(self, x: int, y: int):
         super().__init__()
         self.setPos(x, y)
@@ -111,7 +111,7 @@ class WorldOverlay(QMainWindow):
 
 
 class GameManager:
-    """The central nervous system replacing PetManager."""
+    """The central nervous system replacing EntityManager."""
     def __init__(self):
         self.active_worlds: list[WorldOverlay] = []
         

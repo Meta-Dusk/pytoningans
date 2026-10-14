@@ -56,7 +56,7 @@ class IRect(Protocol):
 @unique
 class EntityType(StrEnum):
     """Declared archetype of a mod item."""
-    PET = "pet"
+    ENTITY = "entity"
     STRUCTURE = "structure"
 
 
@@ -307,23 +307,24 @@ class IBaseEntity(Protocol):
     is_hovered: bool
     instance_name: Optional[str]
     display_name: str
+    identification: str
 
     def set_force_idle(self, enabled: bool) -> None:
         """Toggles force-idle state where the entity plays idle animations but disables AI and gravity."""
         ...
 
     def set_instance_name(self, name: Optional[str]) -> None:
-        """Sets a unique instance name for this entity and updates its tooltip."""
+        """Sets a unique instance name for this entity."""
         ...
 
     def update_tooltip(self) -> None:
-        """Updates the item tooltip to match its display name."""
+        """Updates the item tooltip to match its entity identification."""
         ...
 
 
 @runtime_checkable
 class IEntity(IBaseEntity, Protocol):
-    """Living desktop pet entity with health, AI, combat, and dialogue."""
+    """Living desktop entity with health, AI, combat, and dialogue."""
     is_dead: bool
     current_health: int
     target_pos: Optional[Pos2D]
@@ -390,7 +391,7 @@ class IStructure(IBaseEntity, Protocol):
 
 class BaseEntityBehavior:
     """
-    Inherit from this class in your pet's `behavior.py`.
+    Inherit from this class in your entity's `behavior.py`.
     Override any of the hook methods below to implement custom AI logic, interactions,
     combat rules, or dialogue responses.
     """
@@ -456,7 +457,7 @@ class BaseStructureBehavior:
     """
     Inherit from this class in your structure's `behavior.py`.
     Override hook methods below to implement custom structure activations, portal logic,
-    and pet interaction triggers.
+    and entity interaction triggers.
     """
     def on_spawn(self, structure: IStructure) -> None:
         """Called once when the structure is placed in a world. Ideal for attaching components."""
