@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QLabel, QLineEdit, QFileDialog
 )
 from PySide6.QtCore import QRect, Qt, Signal, QUrl, QTimer
-from PySide6.QtGui import QGuiApplication, QResizeEvent, QDesktopServices, QScreen
+from PySide6.QtGui import QGuiApplication, QResizeEvent, QDesktopServices, QScreen, QCloseEvent
 
 from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
@@ -56,6 +56,7 @@ class ModEditorWindow(QWidget):
 
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.resize(880, 620)
         
         main_layout = QVBoxLayout(self)
@@ -297,6 +298,11 @@ class ModEditorWindow(QWidget):
             self.width() - self.grip.width(),
             self.height() - self.grip.height()
         )
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if self.anim_sys is not None and self.anim_sys._preview_timer:
+            self.anim_sys._preview_timer.stop()
+        super().closeEvent(event)
     
     def _on_open_folder_clicked(self) -> None:
         mod_folder: str = self.mod_combo.currentData()

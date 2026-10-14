@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QHeaderView, QAbstractItemView, QLineEdit, QComboBox
 )
 from PySide6.QtCore import QModelIndex, QRect, Qt, Signal, QUrl
-from PySide6.QtGui import QGuiApplication, QDesktopServices, QScreen, QResizeEvent
+from PySide6.QtGui import QGuiApplication, QDesktopServices, QScreen, QResizeEvent, QCloseEvent
 
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.constants import EntityType
@@ -37,6 +37,7 @@ class ModManagerHub(QWidget):
 
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.resize(720, 440)
         self.setMinimumSize(560, 320)
         
@@ -312,20 +313,28 @@ class ModManagerHub(QWidget):
 
     def _on_create_clicked(self) -> None:
         dialog = ModCreationDialog(self.mod_manager.mods_dir, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        result: int = dialog.exec()
+        if result == QDialog.DialogCode.Accepted:
             self._refresh_list()
             self.mods_updated.emit()
             self._select_folder(dialog.new_mod_folder)
             self._open_editor(dialog.new_mod_folder)
+        dialog.deleteLater()
 
     def _on_edit_clicked(self) -> None:
         selected_folder: Optional[str] = self._get_selected_folder()
         if selected_folder is None: return
         self._open_editor(selected_folder)
 
+    def _on_editor_destroyed(self) -> None:
+        self.editor_window = None
+
     def _open_editor(self, mod_folder: str) -> None:
         if self.editor_window is None or not self.editor_window.isVisible():
             self.editor_window = ModEditorWindow(self.mod_manager)
+            self.editor_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            self.editor_window.destroyed.connect(self._on_editor_destroyed)
             self.editor_window.mods_updated.connect(self._on_editor_saved)
             self.editor_window.show()
         else:
@@ -334,6 +343,12 @@ class ModManagerHub(QWidget):
         idx: int = self.editor_window.mod_combo.findData(mod_folder)
         if idx >= 0:
             self.editor_window.mod_combo.setCurrentIndex(idx)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if self.editor_window is not None:
+            self.editor_window.close()
+            self.editor_window = None
+        super().closeEvent(event)
 
     def _on_delete_clicked(self) -> None:
         selected_folder: Optional[str] = self._get_selected_folder()

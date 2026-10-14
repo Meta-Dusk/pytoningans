@@ -1,6 +1,7 @@
 from __future__ import annotations
+
 import math
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, cast, Any
 
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsTextItem, QStyleOptionGraphicsItem, QWidget
 from PySide6.QtGui import (
@@ -15,10 +16,10 @@ class SpeechBubble(QGraphicsItem):
     """Interactive speech bubble with typewriter animation, impact shake, and interruption override."""
     def __init__(self, parent_entity: Entity) -> None:
         super().__init__(parent_entity)
-        self.entity: Entity = parent_entity
+        self.entity: Optional[Entity] = parent_entity
         
         # Child text item moves and transforms with the speech bubble
-        self.text_item: QGraphicsTextItem = QGraphicsTextItem(self)
+        self.text_item: Optional[QGraphicsTextItem] = QGraphicsTextItem(self)
         self.text_item.setDefaultTextColor(QColor("#FFFFFF"))
         
         font = QFont("Pixel Code", 11)
@@ -52,6 +53,7 @@ class SpeechBubble(QGraphicsItem):
 
     def speak(self, text: str, duration_ms: int = 4000) -> None:
         """Starts displaying dialogue with typewriter animation."""
+        if self.text_item is None: return
         self._interrupt_hold_left = 0
         self._pending_override_text = None
         self._full_text = text
@@ -101,6 +103,7 @@ class SpeechBubble(QGraphicsItem):
         Visually cuts the ongoing dialogue with a '-' and
         transitions to new_text after a dramatic pause.
         """
+        if self.text_item is None: return
         if self.is_typewriting and self._char_index < len(self._full_text):
             # Visually cut the visible dialogue text at the interrupted character
             current_visible: str = self._full_text[:self._char_index].rstrip()
@@ -169,8 +172,10 @@ class SpeechBubble(QGraphicsItem):
 
     def boundingRect(self) -> QRectF:
         padding: int = 10
-        w: float = (self._target_w if self._target_w > 0 else self.text_item.boundingRect().width()) + (padding * 2) + 4
-        height: float = (self._target_h if self._target_h > 0 else self.text_item.boundingRect().height()) + (padding * 2) + 15 + 4
+        text_w: float = self.text_item.boundingRect().width() if self.text_item is not None else 0.0
+        text_h: float = self.text_item.boundingRect().height() if self.text_item is not None else 0.0
+        w: float = (self._target_w if self._target_w > 0 else text_w) + (padding * 2) + 4
+        height: float = (self._target_h if self._target_h > 0 else text_h) + (padding * 2) + 15 + 4
         return QRectF(-w / 2.0, -height, w, height)
 
     def paint(
@@ -178,8 +183,10 @@ class SpeechBubble(QGraphicsItem):
         /, widget: Optional[QWidget] = None
     ) -> None:
         padding: int = 10
-        w: float = (self._target_w if self._target_w > 0 else self.text_item.boundingRect().width()) + (padding * 2)
-        h: float = (self._target_h if self._target_h > 0 else self.text_item.boundingRect().height()) + (padding * 2)
+        text_w: float = self.text_item.boundingRect().width() if self.text_item is not None else 0.0
+        text_h: float = self.text_item.boundingRect().height() if self.text_item is not None else 0.0
+        w: float = (self._target_w if self._target_w > 0 else text_w) + (padding * 2)
+        h: float = (self._target_h if self._target_h > 0 else text_h) + (padding * 2)
         
         # Shift the main rectangle up by 15px to leave room for the comic tail
         x: float = -w / 2.0
@@ -231,12 +238,15 @@ class SpeechBubble(QGraphicsItem):
         if self.is_typewriting:
             self._char_accumulator += dt
             advanced: bool = False
-            while self._char_accumulator >= self._char_delay_ms and self._char_index < len(self._full_text):
+            while (
+                self._char_accumulator >= self._char_delay_ms and
+                self._char_index < len(self._full_text)
+            ):
                 self._char_accumulator -= self._char_delay_ms
                 self._char_index += 1
                 advanced = True
 
-            if advanced:
+            if advanced and self.text_item is not None:
                 self.text_item.setPlainText(self._full_text[:self._char_index])
 
             if self._char_index >= len(self._full_text):
@@ -252,6 +262,7 @@ class SpeechBubble(QGraphicsItem):
 
     def update_position(self) -> None:
         if not self.isVisible() and self._interrupt_hold_left <= 0: return
+        if self.entity is None: return
         
         entity_width: float = self.entity.boundingRect().width()
         
@@ -268,3 +279,13 @@ class SpeechBubble(QGraphicsItem):
             y = -18.0
         
         self.setPos(x + self._shake_offset_x, y + self._shake_offset_y)
+
+    def detach(self) -> None:
+        """Tears down scene attachment, child text item, and parent circular reference."""
+        self.setParentItem(cast(Any, None))
+        if self.scene():
+            self.scene().removeItem(self)
+        if hasattr(self, "text_item") and self.text_item is not None:
+            self.text_item.setParentItem(cast(Any, None))
+            self.text_item = None
+        self.entity = None

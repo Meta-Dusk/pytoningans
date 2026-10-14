@@ -87,12 +87,15 @@ class Entity(BaseEntity):
                 self.locks.ai = True
                 self.locks.physics = self.is_physics_enabled
 
-        if self.damage_tint_time_left > 0:
+        if (
+            self.damage_tint_time_left > 0 and
+            self.tint_effect is not None
+        ):
             self.damage_tint_time_left -= dt
             if self.damage_tint_time_left <= 0:
                 self.tint_effect.setEnabled(False)
             else:
-                fade_strength = 0.7 * (self.damage_tint_time_left / 300.0)
+                fade_strength: float = 0.7 * (self.damage_tint_time_left / 300.0)
                 self.tint_effect.setStrength(fade_strength)
 
         if self.is_dead:
@@ -136,8 +139,9 @@ class Entity(BaseEntity):
         actual_damage: int = old_hp - self.current_health
 
         self.damage_tint_time_left = 300
-        self.tint_effect.setEnabled(True)
-        self.tint_effect.setStrength(0.85)
+        if self.tint_effect is not None:
+            self.tint_effect.setEnabled(True)
+            self.tint_effect.setStrength(0.85)
 
         if self.health_bar is not None:
             self.health_bar.on_damage_taken(actual_damage, self.current_health, old_hp)
@@ -394,14 +398,35 @@ class Entity(BaseEntity):
 
     def destroy(self) -> None:
         if self.health_bar is not None:
-            self.health_bar.detach_signals()
+            self.health_bar.detach()
             self.health_bar = None
+            
+        if self.bubble is not None:
+            self.bubble.detach()
+            self.bubble = None
+            
+        if self._fade_anim is not None:
+            self._fade_anim.stop()
+            self._fade_anim = None
+            
+        if self._rot_anim is not None:
+            self._rot_anim.stop()
+            self._rot_anim = None
+            
+        if self.ai_sys is not None:
+            if self.anim_sys is not None:
+                try:
+                    self.anim_sys.attack_frame_hit.disconnect(self.ai_sys.process_combat)
+                except Exception:
+                    pass
+            self.ai_sys.entity = None
+            self.ai_sys = None
+            
         if (
-            self.entity_manager is not None
-            and self in self.entity_manager.active_entities
+            self.entity_manager is not None and
+            self in self.entity_manager.active_entities
         ):
             self.entity_manager.remove_entity(self)
-        if self.ai_sys is not None:
-            self.ai_sys.entity = None
+            
         super().destroy()
         self.entity_manager = None

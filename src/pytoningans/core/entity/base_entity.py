@@ -302,9 +302,18 @@ class BaseEntity(QGraphicsPixmapItem):
             comp.owner = None
         self.components.clear()
         
-        if self.scene(): self.scene().removeItem(self)
-        self.anim_sys = None
-        self.physics_sys = None
+        if self.scene():
+            self.scene().removeItem(self)
+        if self.anim_sys is not None:
+            self.anim_sys.entity = None
+            self.anim_sys = None
+        if self.physics_sys is not None:
+            self.physics_sys.entity = None
+            self.physics_sys = None
+        self.setGraphicsEffect(cast(Any, None))
+        self.tint_effect = None
+        self.world = None
+        self.mod_manager = None
 
     # Universal Drag Logic
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:

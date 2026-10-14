@@ -36,6 +36,7 @@ class CombatSettingsDialog(QDialog):
 
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.resize(380, 440)
         self.setMinimumSize(340, 400)
 
@@ -149,8 +150,7 @@ class CombatSettingsDialog(QDialog):
         self.health_numbers_cb.setChecked(settings.show_health_numbers)
 
     def _on_values_changed(self) -> None:
-        if getattr(self, "_is_loading", False):
-            return
+        if self._is_loading: return
 
         selected_mode: str = self.mode_combo.currentData()
         self.hide_delay_spin.setEnabled(selected_mode == HealthBarMode.ON_DAMAGE.value)

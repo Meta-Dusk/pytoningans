@@ -390,9 +390,17 @@ class MainMenu(QWidget):
             app.setStyleSheet(LIGHT_THEME)
             self.theme_btn.setText("Switch to Dark Mode")
     
+    def _on_hub_destroyed(self) -> None:
+        self.hub_window = None
+
+    def _on_combat_settings_destroyed(self) -> None:
+        self.combat_settings_dialog = None
+
     def _open_hub(self) -> None:
         if self.hub_window is None or not self.hub_window.isVisible():
             self.hub_window = ModManagerHub(self.manager.mod_manager)
+            self.hub_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            self.hub_window.destroyed.connect(self._on_hub_destroyed)
             self.hub_window.mods_updated.connect(self._refresh_spawn_list)
             self.hub_window.show()
         else:
@@ -401,6 +409,8 @@ class MainMenu(QWidget):
     def _open_combat_settings(self) -> None:
         if self.combat_settings_dialog is None or not self.combat_settings_dialog.isVisible():
             self.combat_settings_dialog = CombatSettingsDialog(self)
+            self.combat_settings_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            self.combat_settings_dialog.destroyed.connect(self._on_combat_settings_destroyed)
             self.combat_settings_dialog.show()
         else:
             self.combat_settings_dialog.activateWindow()

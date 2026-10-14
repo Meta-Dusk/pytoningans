@@ -231,6 +231,10 @@ class EntityManager:
             print(f"Custom Behavior on_spawn Error ({entity.mod_manager.current_mod_folder}): {e}")
     
     def remove_entity(self, entity: BaseEntity) -> None:
+        mod_folder: Optional[str] = (
+            entity.mod_manager.current_mod_folder if entity.mod_manager else None
+        )
+
         # Remove from global tracking safely
         if isinstance(entity, Entity) and entity in self.active_entities:
             self.active_entities.remove(entity)
@@ -241,14 +245,30 @@ class EntityManager:
         for world in self.active_worlds:
             if entity in world.active_entities:
                 world.active_entities.remove(cast(Entity, entity))
-                world.scene.removeItem(entity)
+                if entity.scene():
+                    world.scene.removeItem(entity)
                 break
             elif entity in world.active_structures:
                 world.active_structures.remove(cast(BaseStructure, entity))
-                world.scene.removeItem(entity)
+                if entity.scene():
+                    world.scene.removeItem(entity)
                 break
         
-        # Memory cleanup only if NO entities exist at all
+        # If no other remaining active entity or structure uses this mod, prune its sprite sheets & frame cache
+        if mod_folder is not None and mod_folder:
+            all_remaining: list[BaseEntity] = (
+                cast(list[BaseEntity], self.active_entities) +
+                cast(list[BaseEntity], self.active_structures)
+            )
+            has_other: bool = any(
+                entity.mod_manager and
+                entity.mod_manager.current_mod_folder == mod_folder
+                for entity in all_remaining
+            )
+            if not has_other:
+                ModManager.clear_mod_cache(mod_folder)
+
+        # Full memory cleanup if NO entities exist at all
         if not self.active_entities and not self.active_structures:
             AnimationSystem.clear_shared_cache()
             ModManager.clear_shared_cache()

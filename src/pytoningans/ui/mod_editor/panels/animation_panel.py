@@ -26,7 +26,7 @@ class AnimationSubsystem(BasePanel):
         self._copied_meta: Optional[AnimationMeta] = None
         self._preview_frame: int = 0
         
-        self._preview_timer: QTimer = QTimer()
+        self._preview_timer: QTimer = QTimer(self)
         self._preview_timer.timeout.connect(self._update_preview)
         self._preview_timer.setInterval(100)
         

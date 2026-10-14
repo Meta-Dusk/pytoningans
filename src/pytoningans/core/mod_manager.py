@@ -1,7 +1,7 @@
 import json, sys, inspect
 import importlib.util
-from pathlib import Path
 
+from pathlib import Path
 from typing import Optional, Any, cast
 
 from PySide6.QtGui import QPixmap, QPainter
@@ -30,6 +30,17 @@ class ModManager:
         """Flushes the extracted master frames from memory."""
         cls._shared_frame_cache.clear()
         cls._shared_sheets.clear()
+
+    @classmethod
+    def clear_mod_cache(cls, mod_folder: str) -> None:
+        """Flushes cached sprite sheets and sliced frames for a specific mod folder."""
+        if mod_folder in cls._shared_sheets:
+            del cls._shared_sheets[mod_folder]
+        keys_to_remove: list[CacheKey] = [
+            key for key in cls._shared_frame_cache if key[0] == mod_folder
+        ]
+        for key in keys_to_remove:
+            del cls._shared_frame_cache[key]
         
     def __init__(self, mods_dir: str | Path = "assets/mods") -> None:
         self.mods_dir: Path = Path(mods_dir)

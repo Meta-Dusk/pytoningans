@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 import math, random
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, cast, Any
 
 from PySide6.QtWidgets import QGraphicsItem, QStyleOptionGraphicsItem, QWidget
 from PySide6.QtGui import QPainter, QColor, QFont, QPen, QBrush, QPainterPath, QFontMetrics
 from PySide6.QtCore import QRectF, QPointF, Qt
+
+from pytoningans.core.settings import SettingsManager, HealthBarMode
 
 if TYPE_CHECKING:
     from pytoningans.core.entity.living_entity import Entity
@@ -115,7 +118,7 @@ class HealthBarItem(QGraphicsItem):
     """
     def __init__(self, parent_entity: Entity) -> None:
         super().__init__(parent_entity)
-        self.entity: Entity = parent_entity
+        self.entity: Optional[Entity] = parent_entity
         self.setZValue(4.0)
 
         self.card_w: float = 64.0
@@ -143,6 +146,7 @@ class HealthBarItem(QGraphicsItem):
 
         from pytoningans.core.settings import SettingsManager
         SettingsManager.get().settings_changed.connect(self.apply_settings)
+        self._signals_connected: bool = True
 
         self.update_position()
         self.apply_settings()
@@ -150,6 +154,8 @@ class HealthBarItem(QGraphicsItem):
     def set_hovered(self, hovered: bool) -> None:
         """Shows or fades out the health bar based on mouse cursor hover state."""
         self.is_hovered = hovered
+        if self.entity is None:
+            return
         if hovered:
             if not self.entity.is_dead:
                 self.show()
@@ -168,14 +174,26 @@ class HealthBarItem(QGraphicsItem):
             self.update()
 
     def detach_signals(self) -> None:
+        if not getattr(self, "_signals_connected", False):
+            return
         try:
             from pytoningans.core.settings import SettingsManager
             SettingsManager.get().settings_changed.disconnect(self.apply_settings)
         except Exception:
             pass
+        finally:
+            self._signals_connected = False
+
+    def detach(self) -> None:
+        """Tears down signals, scene attachment, and parent circular reference."""
+        self.detach_signals()
+        self.setParentItem(cast(Any, None))
+        if self.scene():
+            self.scene().removeItem(self)
+        self.entity = None
 
     def apply_settings(self) -> None:
-        from pytoningans.core.settings import SettingsManager, HealthBarMode
+        if self.entity is None: return
         mode: str = SettingsManager.get().settings.health_bar_mode
 
         if mode == HealthBarMode.ALWAYS.value:
@@ -192,6 +210,7 @@ class HealthBarItem(QGraphicsItem):
         self.update()
 
     def on_damage_taken(self, damage: int, new_hp: int, old_hp: int) -> None:
+        if self.entity is None: return
         from pytoningans.core.settings import SettingsManager, HealthBarMode
         settings = SettingsManager.get().settings
 
@@ -238,6 +257,8 @@ class HealthBarItem(QGraphicsItem):
         self.update()
 
     def on_revive(self) -> None:
+        if self.entity is None:
+            return
         max_hp: float = float(self.entity.mod_manager.max_health if self.entity.mod_manager else 100)
         self.current_hp = max_hp
         self.ghost_hp = max_hp
@@ -245,6 +266,7 @@ class HealthBarItem(QGraphicsItem):
         self.update()
 
     def tick(self, dt: int) -> None:
+        if self.entity is None: return
         from pytoningans.core.settings import SettingsManager, HealthBarMode
         settings = SettingsManager.get().settings
         needs_redraw: bool = False
@@ -308,6 +330,7 @@ class HealthBarItem(QGraphicsItem):
             self.update()
 
     def update_position(self) -> None:
+        if self.entity is None: return
         entity_w: float = self.entity.boundingRect().width()
         name_text: str = self.entity.instance_name or self.entity.display_name or "Entity"
 
@@ -334,10 +357,9 @@ class HealthBarItem(QGraphicsItem):
         self, painter: QPainter, _: QStyleOptionGraphicsItem,
         widget: Optional[QWidget] = None
     ) -> None:
-        if not self.isVisible() or self.opacity() <= 0.01:
+        if not self.isVisible() or self.opacity() <= 0.01 or self.entity is None:
             return
 
-        from pytoningans.core.settings import SettingsManager
         settings = SettingsManager.get().settings
 
         # Proportional shake offset
