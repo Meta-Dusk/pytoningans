@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Protocol, Optional, TYPE_CHECKING, runtime_checkable
 
 if TYPE_CHECKING:
-    from pytoningans.core.api.protocols import IBaseEntity, IWorld, IEntity, IStructure
+    from .protocols import IBaseEntity, IWorld, IEntity, IStructure
 
 
 # =============================================================================

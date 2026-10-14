@@ -14,7 +14,7 @@ Modular Package Structure:
 from __future__ import annotations
 
 # Primitives, Coordinates, and Enums
-from pytoningans.core.api.types import (
+from .types import (
     Pos2D,
     Rect2D,
     IRect,
@@ -28,14 +28,14 @@ from pytoningans.core.api.types import (
 )
 
 # Component System
-from pytoningans.core.api.components import (
+from .components import (
     IComponent,
     BaseComponent,
     ITeleportationComponent,
 )
 
 # Protocols
-from pytoningans.core.api.protocols import (
+from .protocols import (
     IModInfo,
     IEntityManager,
     IWorld,
@@ -46,7 +46,7 @@ from pytoningans.core.api.protocols import (
 )
 
 # Behaviors
-from pytoningans.core.api.behaviors import (
+from .behaviors import (
     BaseEntityBehavior,
     BaseStructureBehavior,
     BaseItemBehavior,

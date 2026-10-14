@@ -9,7 +9,7 @@ from PySide6.QtCore import QRect, Qt, QPoint
 
 from pytoningans.core.constants import (
     EntityState, AnimationMeta, BehaviorType, AttackType, DeathAnimation,
-    EntityType, StructureState
+    EntityType, StructureState, ItemState
 )
 from pytoningans.core.api import BaseBehavior
 from pytoningans.core.config_schema import (
@@ -87,6 +87,8 @@ class ModManager:
         """Returns the entity type, defaulting to 'entity' for backward compatibility."""
         return self.config.entity_type if self.config else EntityType.ENTITY.value
     
+    IGNORED_MOD_FOLDERS: set[str] = {"api", "__pycache__"}
+
     def get_available_mods_with_type(self) -> dict[str, tuple[str, str]]:
         """Returns a dict mapping folder_name -> (display_name, entity_type)."""
         valid_mods: dict[str, tuple[str, str]] = {}
@@ -94,8 +96,17 @@ class ModManager:
             return valid_mods
             
         for item in self.mods_dir.iterdir():
-            if not item.is_dir() or item.name.startswith(('_', '.')): 
+            if (
+                not item.is_dir()
+                or item.name.startswith(('_', '.'))
+                or item.name.lower() in self.IGNORED_MOD_FOLDERS
+            ): 
                 continue
+
+            # A valid mod must contain a sprite sheet or config
+            if not (item / "sprite_sheet.png").exists() and not (item / "config.json").exists():
+                continue
+
             folder_name: str = item.name
             display_name: str = folder_name
             entity_type: str = EntityType.ENTITY.value
@@ -115,6 +126,9 @@ class ModManager:
         return valid_mods
 
     def load_mod(self, mod_folder_name: str) -> bool:
+        if mod_folder_name.lower() in self.IGNORED_MOD_FOLDERS:
+            return False
+
         self.current_mod_folder = mod_folder_name
         mod_path: Path = self.mods_dir / mod_folder_name
         config_path: Path = mod_path / "config.json"
@@ -199,7 +213,12 @@ class ModManager:
             self.animations[str(state_key)] = AnimationMeta(**filtered)
             
         # Ensure standard enum states exist as fallbacks
-        state_enum = StructureState if self.entity_type == EntityType.STRUCTURE.value else EntityState
+        if self.entity_type == EntityType.STRUCTURE.value:
+            state_enum = StructureState
+        elif self.entity_type == EntityType.ITEM.value:
+            state_enum = ItemState
+        else:
+            state_enum = EntityState
         cols: int = max(1, self.global_columns)
         for state in state_enum:
             key_str: str = str(state.value)

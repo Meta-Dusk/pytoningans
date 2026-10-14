@@ -188,9 +188,7 @@ class BaseItem(BaseEntity):
                         print(f"Custom Item on_interact Error: {e}")
 
                 # Notify entity custom behavior
-                entity_behavior: Optional[BaseBehavior] = (
-                    entity.mod_manager.custom_behavior if entity.mod_manager else None
-                )
+                entity_behavior: Optional[BaseBehavior] = entity.get_behavior
                 if isinstance(entity_behavior, BaseEntityBehavior):
                     try:
                         handled_entity: bool = entity_behavior.on_item_interact(

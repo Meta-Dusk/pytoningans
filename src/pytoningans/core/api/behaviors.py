@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from pytoningans.core.api.protocols import IEntity, IStructure, IItem
+    from .protocols import IEntity, IStructure, IItem
 
 
 # =============================================================================

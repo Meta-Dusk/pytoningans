@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Optional, TYPE_CHECKING, Any
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QComboBox, QSpinBox, QLabel,
@@ -9,7 +10,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtCore import Qt, QPoint, QRect, Signal, QPointF
 
-from pytoningans.core.constants import AnimationMeta, EntityType, StructureState, EntityState
+from pytoningans.core.constants import AnimationMeta, EntityType, StructureState, EntityState, ItemState
 from pytoningans.ui.mod_editor.components import CollapsibleSection, create_info_label
 from .base_panel import BasePanel
 
@@ -295,8 +296,12 @@ class PhysicsPanel(BasePanel):
         self.state_combo.blockSignals(True)
         self.state_combo.clear()
         
-        is_structure: bool = self.controller.manager.entity_type == EntityType.STRUCTURE.value
-        state_enum = StructureState if is_structure else EntityState
+        if self.controller.manager.entity_type == EntityType.STRUCTURE.value:
+            state_enum = StructureState
+        elif self.controller.manager.entity_type == EntityType.ITEM.value:
+            state_enum = ItemState
+        else:
+            state_enum = EntityState
         
         target_idx: int = 0
         for i, state in enumerate(state_enum):
@@ -329,17 +334,18 @@ class PhysicsPanel(BasePanel):
             self._is_loading = False
             return
             
-        is_structure: bool = self.controller.manager.entity_type == EntityType.STRUCTURE.value
+        is_combat_entity: bool = self.controller.manager.entity_type not in (
+            EntityType.STRUCTURE.value, EntityType.ITEM.value
+        )
         
         # Toggle combat inputs according to entity type
-        combat_visible = not is_structure
-        self.attack_frame_check.setVisible(combat_visible)
-        self.show_range_check.setVisible(combat_visible)
-        self.attack_header.setVisible(combat_visible)
-        self.atk_lbl_x.setVisible(combat_visible); self.atkx_spin.setVisible(combat_visible)
-        self.atk_lbl_y.setVisible(combat_visible); self.atky_spin.setVisible(combat_visible)
-        self.atk_lbl_w.setVisible(combat_visible); self.atkw_spin.setVisible(combat_visible)
-        self.atk_lbl_h.setVisible(combat_visible); self.atkh_spin.setVisible(combat_visible)
+        self.attack_frame_check.setVisible(is_combat_entity)
+        self.show_range_check.setVisible(is_combat_entity)
+        self.attack_header.setVisible(is_combat_entity)
+        self.atk_lbl_x.setVisible(is_combat_entity); self.atkx_spin.setVisible(is_combat_entity)
+        self.atk_lbl_y.setVisible(is_combat_entity); self.atky_spin.setVisible(is_combat_entity)
+        self.atk_lbl_w.setVisible(is_combat_entity); self.atkw_spin.setVisible(is_combat_entity)
+        self.atk_lbl_h.setVisible(is_combat_entity); self.atkh_spin.setVisible(is_combat_entity)
 
         frame_idx: int = self.frame_spin.value()
         is_attack: bool = False
@@ -388,9 +394,9 @@ class PhysicsPanel(BasePanel):
         self.attack_frame_check.blockSignals(True)
         self.attack_frame_check.setChecked(is_attack)
         self.attack_frame_check.blockSignals(False)
-        self.canvas.attack_range = 0 if is_structure else self.controller.manager.attack_range
+        self.canvas.attack_range = self.controller.manager.attack_range if is_combat_entity else 0
         
-        self.canvas.update_data(pixmap, anchor, hitbox, QRect() if is_structure else atk_hitbox)
+        self.canvas.update_data(pixmap, anchor, hitbox, atk_hitbox if is_combat_entity else QRect())
         self._is_loading = False
 
     def _on_canvas_dragged(

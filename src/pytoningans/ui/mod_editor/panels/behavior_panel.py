@@ -234,54 +234,18 @@ class StructureBehaviorPanel(BasePanel):
     def _create_script(self) -> None:
         path: Path = self._get_script_path()
         if path.exists(): return
-        
-        entity_type: str = self.controller.manager.entity_type
-        if entity_type == EntityType.STRUCTURE.value:
-            boilerplate = (
-                "from api import BaseStructureBehavior, IStructure, IEntity, StructureState\n\n"
-                "class Behavior(BaseStructureBehavior):\n"
-                "    def on_spawn(self, structure: IStructure) -> None:\n"
-                "        # Attach teleportation or configure initial state\n"
-                "        pass\n\n"
-                "    def on_update(self, structure: IStructure, dt: int) -> None:\n"
-                "        pass\n\n"
-                "    def on_interact(self, structure: IStructure, entity: IEntity) -> None:\n"
-                "        # Triggered when a living entity interacts/overlaps with this structure\n"
-                "        pass\n"
-            )
-        elif entity_type == EntityType.ITEM.value:
-            boilerplate = (
-                "from api import BaseItemBehavior, IItem, IEntity, ItemState\n\n"
-                "class Behavior(BaseItemBehavior):\n"
-                "    def on_spawn(self, item: IItem) -> None:\n"
-                "        pass\n\n"
-                "    def on_pickup(self, item: IItem, entity: IEntity) -> bool:\n"
-                "        # Return True to allow pickup, False to cancel\n"
-                "        return True\n\n"
-                "    def on_use(self, item: IItem, entity: IEntity | None) -> bool:\n"
-                "        # Return True if consumed/handled\n"
-                "        return True\n\n"
-                "    def on_drop(self, item: IItem, entity: IEntity | None) -> None:\n"
-                "        pass\n\n"
-                "    def on_interact(self, item: IItem, entity: IEntity) -> bool:\n"
-                "        # Triggered when an entity touches the item on the ground\n"
-                "        return False\n"
-            )
-        else:
-            boilerplate = (
-                "from api import BaseEntityBehavior, IEntity, EntityState\n\n"
-                "class Behavior(BaseEntityBehavior):\n"
-                "    def on_spawn(self, entity: IEntity) -> None:\n"
-                "        pass\n\n"
-                "    def on_update(self, entity: IEntity, dt: int) -> None:\n"
-                "        pass\n\n"
-                "    def on_decision_tick(self, entity: IEntity) -> bool:\n"
-                "        # Return True to override default movement/action\n"
-                "        return False\n\n"
-                "    def on_interact(self, entity: IEntity, other_entity: IEntity) -> bool:\n"
-                "        return False\n"
-            )
-
+        boilerplate = (
+            "from api import BaseStructureBehavior, IStructure, IEntity, StructureState\n\n"
+            "class Behavior(BaseStructureBehavior):\n"
+            "    def on_spawn(self, structure: IStructure) -> None:\n"
+            "        # Attach teleportation or configure initial state\n"
+            "        pass\n\n"
+            "    def on_update(self, structure: IStructure, dt: int) -> None:\n"
+            "        pass\n\n"
+            "    def on_interact(self, structure: IStructure, entity: IEntity) -> None:\n"
+            "        # Triggered when a living entity interacts/overlaps with this structure\n"
+            "        pass\n"
+        )
         with open(path, "w", encoding="utf-8") as f:
             f.write(boilerplate)
         self.load_data()
@@ -291,3 +255,83 @@ class StructureBehaviorPanel(BasePanel):
         if not path.exists(): return
         path.unlink()
         self.load_data()
+
+
+class ItemBehaviorPanel(BasePanel):
+    """Behavior panel for Item mods, managing custom item scripts."""
+    def __init__(self, controller: ModEditorController) -> None:
+        super().__init__(controller)
+        self._build_ui()
+        self._connect_signals()
+
+    def _build_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.section = CollapsibleSection("Item Custom Behavior")
+        form = QFormLayout()
+        
+        self.add_btn = QPushButton("Create Custom Behavior")
+        self.edit_btn = QPushButton("Open in VS Code")
+        self.delete_btn = QPushButton("Delete Script")
+        
+        form.addWidget(self.add_btn)
+        form.addWidget(self.edit_btn)
+        form.addWidget(self.delete_btn)
+        
+        self.section.content_layout.addLayout(form)
+        layout.addWidget(self.section)
+
+    def _connect_signals(self) -> None:
+        self.add_btn.clicked.connect(self._create_script)
+        self.edit_btn.clicked.connect(self._open_script)
+        self.delete_btn.clicked.connect(self._delete_script)
+
+    def _get_script_path(self) -> Path:
+        return self.controller.manager.current_mod_path / "behavior.py"
+
+    def load_data(self) -> None:
+        exists: bool = self._get_script_path().exists()
+        self.add_btn.setEnabled(not exists)
+        self.edit_btn.setEnabled(exists)
+        self.delete_btn.setEnabled(exists)
+    
+    def _open_script(self) -> None:
+        path: Path = self._get_script_path()
+        if not path.exists(): self._create_script()
+        try:
+            subprocess.Popen(['code', str(self.controller.manager.mods_dir), str(path)], shell=True)
+        except Exception:
+            import os
+            os.startfile(path)
+    
+    def _create_script(self) -> None:
+        path: Path = self._get_script_path()
+        if path.exists(): return
+        boilerplate = (
+            "from api import BaseItemBehavior, IItem, IEntity, ItemState\n\n"
+            "class Behavior(BaseItemBehavior):\n"
+            "    def on_spawn(self, item: IItem) -> None:\n"
+            "        pass\n\n"
+            "    def on_update(self, item: IItem, dt: int) -> None:\n"
+            "        pass\n\n"
+            "    def on_pickup(self, item: IItem, entity: IEntity) -> bool:\n"
+            "        # Return True to allow pickup, False to cancel\n"
+            "        return True\n\n"
+            "    def on_use(self, item: IItem, entity: IEntity | None) -> bool:\n"
+            "        # Return True if consumed/handled\n"
+            "        return True\n\n"
+            "    def on_drop(self, item: IItem, entity: IEntity | None) -> None:\n"
+            "        pass\n\n"
+            "    def on_interact(self, item: IItem, entity: IEntity) -> bool:\n"
+            "        # Triggered when an entity touches the item on the ground\n"
+            "        return False\n"
+        )
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(boilerplate)
+        self.load_data()
+
+    def _delete_script(self) -> None:
+        path: Path = self._get_script_path()
+        if not path.exists(): return
+        path.unlink()
+        self.load_data()

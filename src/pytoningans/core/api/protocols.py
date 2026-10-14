@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from typing import Protocol, Optional, Union, runtime_checkable
 
-from pytoningans.core.api.types import (
+from .types import (
     Pos2D, IRect, EntityState, StructureState, ItemState, BehaviorType, AttackType, DeathAnimation
 )
-from pytoningans.core.api.components import IComponent, ITeleportationComponent
+from .components import IComponent, ITeleportationComponent
 
 
 # =============================================================================

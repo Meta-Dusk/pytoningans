@@ -1,0 +1,122 @@
+{
+    "name": "Test Portal",
+    "entity_type": "structure",
+    "version": 10,
+    "columns": 30,
+    "rows": 1,
+    "behavior": {
+        "type": "neutral",
+        "can_fly": false,
+        "max_health": 100,
+        "attack_damage": 10,
+        "attack_range": 50,
+        "jump_height": 15,
+        "attack_type": "single",
+        "max_targets": 1,
+        "death_animation": "sprite",
+        "auto_close_on_death": false,
+        "instance_names": []
+    },
+    "animations": {
+        "idle": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 29,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 20,
+            "base_h": 131,
+            "computed_w": 129,
+            "computed_h": 131,
+            "anchor_x": 80,
+            "anchor_y": 131,
+            "hitbox_x": 61,
+            "hitbox_y": 28,
+            "hitbox_w": 38,
+            "hitbox_h": 103,
+            "frame_overrides": {}
+        },
+        "active": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 29,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 20,
+            "base_h": 131,
+            "computed_w": 129,
+            "computed_h": 131,
+            "anchor_x": 80,
+            "anchor_y": 131,
+            "hitbox_x": 61,
+            "hitbox_y": 28,
+            "hitbox_w": 38,
+            "hitbox_h": 103,
+            "frame_overrides": {}
+        },
+        "open": {
+            "row": 0,
+            "start_frame": 0,
+            "end_frame": 29,
+            "loop": true,
+            "reverse": false,
+            "override_width": 0,
+            "override_height": 0,
+            "offset_x": 0,
+            "offset_y": 0,
+            "fps": 20,
+            "base_h": 131,
+            "computed_w": 129,
+            "computed_h": 131,
+            "anchor_x": 80,
+            "anchor_y": 131,
+            "hitbox_x": 61,
+            "hitbox_y": 28,
+            "hitbox_w": 38,
+            "hitbox_h": 103,
+            "frame_overrides": {}
+        }
+    },
+    "dialogue": {
+        "plain_dialogue": [
+            "Just hanging out.",
+            "Lovely weather.",
+            "Need a break?"
+        ],
+        "death_dialogue": [
+            "Ugh...",
+            "I'll be back...",
+            "Farewell..."
+        ],
+        "window_triggers": [
+            {
+                "title_matches": [
+                    "secret_diary.txt",
+                    "diary - notepad",
+                    "diary"
+                ],
+                "text": "Are you writing about me?",
+                "duration": 4000,
+                "chance": 0.5
+            },
+            {
+                "title_matches": [
+                    "visual studio code",
+                    "vscode",
+                    "code.exe"
+                ],
+                "text": "Writing bugs or features today?",
+                "duration": 4000,
+                "chance": 0.1
+            }
+        ]
+    }
+}

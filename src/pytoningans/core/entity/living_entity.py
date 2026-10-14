@@ -376,38 +376,21 @@ class Entity(BaseEntity):
             self._rot_anim.resume()
 
     def _on_die(self) -> None:
-        if (
-            self.mod_manager is None
-            or self.mod_manager.custom_behavior is None
-        ):
-            return
-
-        behavior: BaseBehavior = self.mod_manager.custom_behavior
+        behavior: Optional[BaseBehavior] = self.get_behavior
         if not isinstance(behavior, BaseEntityBehavior): return
 
         entity_api: IEntity = cast(IEntity, self)
         behavior.on_death(entity_api)
 
     def _on_revive(self) -> None:
-        if (
-            self.mod_manager is None
-            or self.mod_manager.custom_behavior is None
-        ):
-            return
-
-        behavior: BaseBehavior = self.mod_manager.custom_behavior
+        behavior: Optional[BaseBehavior] = self.get_behavior
         if not isinstance(behavior, BaseEntityBehavior): return
 
         entity_api: IEntity = cast(IEntity, self)
         behavior.on_revive(entity_api)
 
     def _on_speak(self, text: str) -> None:
-        if (
-            self.mod_manager is None
-            or self.mod_manager.custom_behavior is None
-        ):
-            return
-        behavior: BaseBehavior = self.mod_manager.custom_behavior
+        behavior: Optional[BaseBehavior] = self.get_behavior
         if not isinstance(behavior, BaseEntityBehavior): return
         try:
             behavior.on_speak(cast(IEntity, self), text)
@@ -415,12 +398,7 @@ class Entity(BaseEntity):
             print(f"Custom Entity on_speak Error: {e}")
 
     def _on_damage(self, amount: int) -> None:
-        if (
-            self.mod_manager is None
-            or self.mod_manager.custom_behavior is None
-        ):
-            return
-        behavior: BaseBehavior = self.mod_manager.custom_behavior
+        behavior: Optional[BaseBehavior] = self.get_behavior
         if not isinstance(behavior, BaseEntityBehavior): return
         try:
             behavior.on_damage(cast(IEntity, self), amount)

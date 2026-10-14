@@ -233,9 +233,7 @@ class EntityManager:
         return entity
 
     def _on_spawn(self, entity: BaseEntity) -> None:
-        if entity.mod_manager is None: return
-        
-        behavior: Optional[BaseBehavior] = entity.mod_manager.custom_behavior
+        behavior: Optional[BaseBehavior] = entity.get_behavior
         if behavior is None: return
         
         try:
@@ -248,7 +246,11 @@ class EntityManager:
             elif isinstance(entity, BaseItem) and isinstance(behavior, BaseItemBehavior):
                 behavior.on_spawn(cast(IItem, entity))
         except Exception as e:
-            print(f"Custom Behavior on_spawn Error ({entity.mod_manager.current_mod_folder}): {e}")
+            mod_folder: str = "?" if self.mod_manager is None else self.mod_manager.current_mod_folder
+            print(
+                "Custom Behavior on_spawn Error "
+                f"({mod_folder}): {e}"
+            )
     
     def remove_entity(self, entity: BaseEntity) -> None:
         mod_folder: Optional[str] = (
@@ -301,4 +303,4 @@ class EntityManager:
             AnimationSystem.clear_shared_cache()
             ModManager.clear_shared_cache()
             QPixmapCache.clear()
-            gc.collect()
+            gc.collect()

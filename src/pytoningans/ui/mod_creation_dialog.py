@@ -184,8 +184,12 @@ class ModCreationDialog(QDialog):
         if not re.match(r"^[a-zA-Z0-9_-]+$", folder_name):
             QMessageBox.warning(self, "Error", "Folder name can only contain letters, numbers, hyphens, and underscores.")
             return
+
+        if folder_name.lower() in {"api", "__pycache__"}:
+            QMessageBox.warning(self, "Error", f"'{folder_name}' is a reserved engine folder name.")
+            return
             
-        if not self.selected_image_path:
+        if self.selected_image_path is None:
             QMessageBox.warning(self, "Error", "Please select a sprite sheet (.png).")
             return
             
@@ -199,8 +203,8 @@ class ModCreationDialog(QDialog):
             shutil.copy(self.selected_image_path, target_dir / "sprite_sheet.png")
             
             # Read user-selected grid dimensions
-            cols = self.cols_spin.value()
-            rows = self.rows_spin.value()
+            cols: int = self.cols_spin.value()
+            rows: int = self.rows_spin.value()
             
             self._generate_default_config(display_name, target_dir / "config.json", cols=cols, rows=rows)
             self.new_mod_folder = folder_name
