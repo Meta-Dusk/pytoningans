@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Protocol, Optional, Union, runtime_checkable
 
 from pytoningans.core.api.types import (
-    Pos2D, IRect, EntityState, StructureState, BehaviorType, AttackType, DeathAnimation
+    Pos2D, IRect, EntityState, StructureState, ItemState, BehaviorType, AttackType, DeathAnimation
 )
 from pytoningans.core.api.components import IComponent, ITeleportationComponent
 
@@ -44,6 +44,7 @@ class IEntityManager(Protocol):
     active_worlds: list[IWorld]
     active_entities: list[IEntity]
     active_structures: list[IStructure]
+    active_items: list[IItem]
 
     def spawn_entity(
         self,
@@ -67,6 +68,7 @@ class IWorld(Protocol):
     manager: IEntityManager
     active_entities: list[IEntity]
     active_structures: list[IStructure]
+    active_items: list[IItem]
 
 
 # =============================================================================
@@ -89,7 +91,7 @@ class IBaseEntity(Protocol):
         ...
 
     @state.setter
-    def state(self, value: Union[str, EntityState, StructureState]) -> None:
+    def state(self, value: Union[str, EntityState, StructureState, ItemState]) -> None:
         """Transitions the entity to a new state, updating animation and callbacks."""
         ...
 
@@ -178,6 +180,7 @@ class IEntity(IBaseEntity, Protocol):
     target_pos: Optional[Pos2D]
     behavior_type: BehaviorType
     entity_manager: Optional[IEntityManager]
+    held_item: Optional[IItem]
 
     def jump(self) -> None:
         """Causes the entity to jump upwards if grounded."""
@@ -207,6 +210,18 @@ class IEntity(IBaseEntity, Protocol):
         """Displays a speech bubble with the given text for duration_ms milliseconds."""
         ...
 
+    def pick_up(self, item: IItem) -> bool:
+        """Picks up an item if one is not already held."""
+        ...
+
+    def drop_item(self) -> Optional[IItem]:
+        """Drops the currently held item."""
+        ...
+
+    def use_item(self) -> bool:
+        """Uses the currently held item."""
+        ...
+
 
 @runtime_checkable
 class IStructure(IBaseEntity, Protocol):
@@ -230,5 +245,24 @@ class IStructure(IBaseEntity, Protocol):
         exit_offset_y: float = 0.0
     ) -> ITeleportationComponent:
         """Attaches a TeleportationComponent configuring this structure as a travel portal."""
+        ...
+
+
+@runtime_checkable
+class IItem(IBaseEntity, Protocol):
+    """Interactable item object on desktop that can be picked up, dropped, and used."""
+    holder: Optional[IEntity]
+    is_held: bool
+
+    def pick_up(self, entity: IEntity) -> bool:
+        """Picks up this item by the specified living entity."""
+        ...
+
+    def drop(self, entity: Optional[IEntity] = None) -> None:
+        """Drops this item onto the ground/desktop."""
+        ...
+
+    def use(self, entity: Optional[IEntity] = None) -> bool:
+        """Uses this item (invoking custom behavior hook or triggering interaction)."""
         ...
 

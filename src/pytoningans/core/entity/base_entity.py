@@ -12,7 +12,8 @@ from pytoningans.core.constants import EntityState, SystemLocks
 from pytoningans.core.entity.animation import AnimationSystem
 from pytoningans.core.entity.physics import PhysicsSystem
 from pytoningans.core.api import (
-    IEntity, BaseEntityBehavior, BaseBehavior, BaseStructureBehavior, IStructure
+    IEntity, BaseEntityBehavior, BaseBehavior, BaseStructureBehavior, IStructure,
+    BaseItemBehavior, IItem
 )
 from pytoningans.core.components.base_component import BaseComponent
 
@@ -56,7 +57,11 @@ class BaseEntity(QGraphicsPixmapItem):
         
         self._setup_ui(start_x, start_y)
         self.update_tooltip()
-
+    
+    @property
+    def get_behavior(self) -> Optional[BaseBehavior]:
+        return self.mod_manager.custom_behavior if self.mod_manager is not None else None
+    
     @property
     def instance_name(self) -> Optional[str]:
         return self._instance_name
@@ -146,26 +151,30 @@ class BaseEntity(QGraphicsPixmapItem):
         self._on_hover_leave()
 
     def _on_hover_enter(self) -> None:
-        if self.mod_manager is not None and self.mod_manager.custom_behavior is not None:
-            behavior: BaseBehavior = self.mod_manager.custom_behavior
-            try:
-                if isinstance(behavior, BaseEntityBehavior):
-                    behavior.on_hover_enter(cast(IEntity, self))
-                elif isinstance(behavior, BaseStructureBehavior):
-                    behavior.on_hover_enter(cast(IStructure, self))
-            except Exception as e:
-                print(f"Custom Behavior on_hover_enter Error: {e}")
+        behavior: Optional[BaseBehavior] = self.get_behavior
+        if behavior is None: return
+        try:
+            if isinstance(behavior, BaseEntityBehavior):
+                behavior.on_hover_enter(cast(IEntity, self))
+            elif isinstance(behavior, BaseStructureBehavior):
+                behavior.on_hover_enter(cast(IStructure, self))
+            elif isinstance(behavior, BaseItemBehavior):
+                behavior.on_hover_enter(cast(IItem, self))
+        except Exception as e:
+            print(f"Custom Behavior on_hover_enter Error: {e}")
 
     def _on_hover_leave(self) -> None:
-        if self.mod_manager is not None and self.mod_manager.custom_behavior is not None:
-            behavior: BaseBehavior = self.mod_manager.custom_behavior
-            try:
-                if isinstance(behavior, BaseEntityBehavior):
-                    behavior.on_hover_leave(cast(IEntity, self))
-                elif isinstance(behavior, BaseStructureBehavior):
-                    behavior.on_hover_leave(cast(IStructure, self))
-            except Exception as e:
-                print(f"Custom Behavior on_hover_leave Error: {e}")
+        behavior: Optional[BaseBehavior] = self.get_behavior
+        if behavior is None: return
+        try:
+            if isinstance(behavior, BaseEntityBehavior):
+                behavior.on_hover_leave(cast(IEntity, self))
+            elif isinstance(behavior, BaseStructureBehavior):
+                behavior.on_hover_leave(cast(IStructure, self))
+            elif isinstance(behavior, BaseItemBehavior):
+                behavior.on_hover_leave(cast(IItem, self))
+        except Exception as e:
+            print(f"Custom Behavior on_hover_leave Error: {e}")
     
     @property
     def state(self) -> str:
@@ -203,14 +212,15 @@ class BaseEntity(QGraphicsPixmapItem):
         self.is_force_idle = enabled
 
     def _on_state_change(self, old_state: str, new_state: str) -> None:
-        if self.mod_manager is None or self.mod_manager.custom_behavior is None:
-            return
-        behavior: BaseBehavior = self.mod_manager.custom_behavior
+        behavior: Optional[BaseBehavior] = self.get_behavior
+        if behavior is None: return
         try:
             if isinstance(behavior, BaseEntityBehavior):
                 behavior.on_state_change(cast(IEntity, self), old_state, new_state)
             elif isinstance(behavior, BaseStructureBehavior):
                 behavior.on_state_change(cast(IStructure, self), old_state, new_state)
+            elif isinstance(behavior, BaseItemBehavior):
+                behavior.on_state_change(cast(IItem, self), old_state, new_state)
         except Exception as e:
             print(f"Custom Behavior on_state_change Error: {e}")
 

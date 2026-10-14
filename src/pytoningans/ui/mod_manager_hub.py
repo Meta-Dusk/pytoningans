@@ -320,7 +320,10 @@ class ModManagerHub(QWidget):
             self.mods_updated.emit()
             self._select_folder(dialog.new_mod_folder)
             self._open_editor(dialog.new_mod_folder)
-        dialog.deleteLater()
+        try:
+            dialog.deleteLater()
+        except Exception:
+            pass
 
     def _on_edit_clicked(self) -> None:
         selected_folder: Optional[str] = self._get_selected_folder()

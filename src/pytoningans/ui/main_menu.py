@@ -39,8 +39,8 @@ class MainMenu(QWidget):
 
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.resize(420, 600)
-        self.setMinimumSize(340, 540)
+        self.resize(420, 650)
+        self.setMinimumSize(420, 650)
         
         main_layout: QVBoxLayout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -66,6 +66,7 @@ class MainMenu(QWidget):
         self.category_combo.addItem("All Entities", "all")
         self.category_combo.addItem("Entities Only", EntityType.ENTITY.value)
         self.category_combo.addItem("Structures Only", EntityType.STRUCTURE.value)
+        self.category_combo.addItem("Items Only", EntityType.ITEM.value)
         self.category_combo.currentIndexChanged.connect(self._refresh_spawn_list)
         filter_layout.addWidget(self.category_combo, stretch=1)
         content_layout.addLayout(filter_layout)
@@ -175,6 +176,26 @@ class MainMenu(QWidget):
         struct_layout.addWidget(self.close_struct_btn)
 
         content_layout.addWidget(struct_frame)
+
+        # Row 4: Items
+        item_frame = QFrame()
+        item_frame.setObjectName("ActionRow")
+        item_layout = QHBoxLayout(item_frame)
+        item_layout.setContentsMargins(10, 5, 10, 5)
+        item_layout.setSpacing(6)
+
+        self.item_count_label = QLabel("Items: 0")
+        self.item_count_label.setObjectName("StatItemLabel")
+        item_layout.addWidget(self.item_count_label)
+        item_layout.addStretch()
+
+        self.close_item_btn = QPushButton("Close All")
+        self.close_item_btn.setObjectName("RowBtn")
+        self.close_item_btn.setToolTip("Close all active items")
+        self.close_item_btn.clicked.connect(self._on_close_items_clicked)
+        item_layout.addWidget(self.close_item_btn)
+
+        content_layout.addWidget(item_frame)
 
         content_layout.addWidget(self._create_separator())
 
@@ -296,10 +317,12 @@ class MainMenu(QWidget):
         dead_entities: int = sum(1 for p in self.manager.active_entities if p.is_dead)
         alive_entities: int = total_entities - dead_entities
         total_structs: int = len(self.manager.active_structures)
+        total_items: int = len(self.manager.active_items)
         
         self.alive_count_label.setText(f"Alive: {alive_entities}")
         self.dead_count_label.setText(f"Dead: {dead_entities}")
         self.struct_count_label.setText(f"Structures: {total_structs}")
+        self.item_count_label.setText(f"Items: {total_items}")
 
         self.kill_alive_btn.setEnabled(alive_entities > 0)
         self.close_alive_btn.setEnabled(alive_entities > 0)
@@ -308,9 +331,12 @@ class MainMenu(QWidget):
         self.close_dead_btn.setEnabled(dead_entities > 0)
 
         self.close_struct_btn.setEnabled(total_structs > 0)
+        self.close_item_btn.setEnabled(total_items > 0)
 
         self.close_all_entities_btn.setEnabled(total_entities > 0)
-        self.close_all_objects_btn.setEnabled(total_entities > 0 or total_structs > 0)
+        self.close_all_objects_btn.setEnabled(
+            total_entities > 0 or total_structs > 0 or total_items > 0
+        )
 
     def _on_spawn_clicked(self) -> None:
         selected_mod: str = self.mod_combo.currentData()
@@ -365,17 +391,24 @@ class MainMenu(QWidget):
         for struct in list(self.manager.active_structures):
             struct.destroy()
 
+    def _on_close_items_clicked(self) -> None:
+        """Destroys all active items."""
+        for item in list(self.manager.active_items):
+            item.destroy()
+
     def _on_close_all_entities_clicked(self) -> None:
         """Destroys all entities regardless of alive/dead state."""
         for entity in list(self.manager.active_entities):
             entity.destroy()
 
     def _on_close_all_objects_clicked(self) -> None:
-        """Destroys all entities and structures across all worlds."""
+        """Destroys all entities, structures, and items across all worlds."""
         for entity in list(self.manager.active_entities):
             entity.destroy()
         for struct in list(self.manager.active_structures):
             struct.destroy()
+        for item in list(self.manager.active_items):
+            item.destroy()
 
     def _toggle_theme(self) -> None:
         self._is_dark_mode = not self._is_dark_mode

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from pytoningans.core.entity_manager import EntityManager
     from pytoningans.core.entity.base_entity import BaseEntity
     from pytoningans.core.entity.base_structure import BaseStructure
+    from pytoningans.core.entity.base_item import BaseItem
     from pytoningans.core.entity.living_entity import Entity
 
 HTTRANSPARENT = -1
@@ -28,6 +29,7 @@ class WorldOverlay(QMainWindow):
         # The World now manages multiple entity types natively
         self.active_entities: list[Entity] = []
         self.active_structures: list[BaseStructure] = []
+        self.active_items: list[BaseItem] = []
         self.active_damage_numbers: list[DamageNumberItem] = []
         
         flags: Qt.WindowType = (
@@ -86,6 +88,10 @@ class WorldOverlay(QMainWindow):
         }
         for entity in list(self.active_entities):
             entity.update_systems(dt, centers)
+
+        # Tick items
+        for item in list(self.active_items):
+            item.update_systems(dt)
 
         # Tick floating combat numbers
         for num in list(self.active_damage_numbers):

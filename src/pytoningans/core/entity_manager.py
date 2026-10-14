@@ -6,12 +6,13 @@ from PySide6.QtCore import QTimer, QElapsedTimer, QRunnable, QThreadPool, QObjec
 from PySide6.QtGui import QPixmapCache, QGuiApplication, QScreen
 
 from pytoningans.core.entity.base_structure import BaseStructure
+from pytoningans.core.entity.base_item import BaseItem
 from pytoningans.core.entity.living_entity import Entity
 from pytoningans.core.world import WorldOverlay
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.api import (
-    IEntity, IStructure, BaseStructureBehavior, BaseEntityBehavior,
-    BaseBehavior
+    IEntity, IStructure, IItem, BaseStructureBehavior, BaseEntityBehavior,
+    BaseItemBehavior, BaseBehavior
 )
 from pytoningans.core.entity.base_entity import BaseEntity
 from pytoningans.core.entity.animation import AnimationSystem
@@ -80,6 +81,7 @@ class EntityManager:
         self.active_worlds: list[WorldOverlay] = []
         self.active_entities: list[Entity] = []
         self.active_structures: list[BaseStructure] = []
+        self.active_items: list[BaseItem] = []
         
         self.active_window_titles: list[str] = []
         self.vision_accumulator: int = 0
@@ -175,7 +177,11 @@ class EntityManager:
         if chosen_name is None:
             mod_display_name: str = mod_manager.current_mod_name or mod_folder
             if mod_manager.instance_names:
-                all_active: list[BaseStructure | Entity] = self.active_entities + self.active_structures
+                all_active: list[BaseEntity] = (
+                    cast(list[BaseEntity], self.active_entities) +
+                    cast(list[BaseEntity], self.active_structures) +
+                    cast(list[BaseEntity], self.active_items)
+                )
                 used_names: set[str] = {
                     e.instance_name for e in all_active
                     if e.instance_name is not None
@@ -187,7 +193,11 @@ class EntityManager:
                     chosen_name = random.choice(mod_manager.instance_names)
             else:
                 existing_count: int = sum(
-                    1 for e in (self.active_entities + self.active_structures)
+                    1 for e in (
+                        cast(list[BaseEntity], self.active_entities) +
+                        cast(list[BaseEntity], self.active_structures) +
+                        cast(list[BaseEntity], self.active_items)
+                    )
                     if e.mod_manager and e.mod_manager.current_mod_folder == mod_folder
                 )
                 if existing_count > 0:
@@ -196,7 +206,7 @@ class EntityManager:
                     chosen_name = mod_display_name
 
         # Route instantiation based on the declared entity type
-        entity: BaseStructure | Entity
+        entity: BaseStructure | BaseItem | Entity
         if mod_manager.entity_type == EntityType.STRUCTURE.value:
             entity = BaseStructure(x, y, mod_manager, world)
             if chosen_name:
@@ -204,6 +214,13 @@ class EntityManager:
             world.scene.addItem(entity)
             world.active_structures.append(entity)
             self.active_structures.append(entity)
+        elif mod_manager.entity_type == EntityType.ITEM.value:
+            entity = BaseItem(x, y, mod_manager, world)
+            if chosen_name:
+                entity.set_instance_name(chosen_name)
+            world.scene.addItem(entity)
+            world.active_items.append(entity)
+            self.active_items.append(entity)
         else:
             entity = Entity(x, y, mod_manager, world, self)
             if chosen_name:
@@ -227,6 +244,9 @@ class EntityManager:
                 
             elif isinstance(entity, BaseStructure) and isinstance(behavior, BaseStructureBehavior):
                 behavior.on_spawn(cast(IStructure, entity))
+
+            elif isinstance(entity, BaseItem) and isinstance(behavior, BaseItemBehavior):
+                behavior.on_spawn(cast(IItem, entity))
         except Exception as e:
             print(f"Custom Behavior on_spawn Error ({entity.mod_manager.current_mod_folder}): {e}")
     
@@ -240,6 +260,8 @@ class EntityManager:
             self.active_entities.remove(entity)
         elif isinstance(entity, BaseStructure) and entity in self.active_structures:
             self.active_structures.remove(entity)
+        elif isinstance(entity, BaseItem) and entity in self.active_items:
+            self.active_items.remove(entity)
             
         # Remove from the specific world it inhabits
         for world in self.active_worlds:
@@ -253,12 +275,18 @@ class EntityManager:
                 if entity.scene():
                     world.scene.removeItem(entity)
                 break
+            elif entity in world.active_items:
+                world.active_items.remove(cast(BaseItem, entity))
+                if entity.scene():
+                    world.scene.removeItem(entity)
+                break
         
         # If no other remaining active entity or structure uses this mod, prune its sprite sheets & frame cache
         if mod_folder is not None and mod_folder:
             all_remaining: list[BaseEntity] = (
                 cast(list[BaseEntity], self.active_entities) +
-                cast(list[BaseEntity], self.active_structures)
+                cast(list[BaseEntity], self.active_structures) +
+                cast(list[BaseEntity], self.active_items)
             )
             has_other: bool = any(
                 entity.mod_manager and
@@ -269,8 +297,8 @@ class EntityManager:
                 ModManager.clear_mod_cache(mod_folder)
 
         # Full memory cleanup if NO entities exist at all
-        if not self.active_entities and not self.active_structures:
+        if not self.active_entities and not self.active_structures and not self.active_items:
             AnimationSystem.clear_shared_cache()
             ModManager.clear_shared_cache()
             QPixmapCache.clear()
-            gc.collect()
+            gc.collect()

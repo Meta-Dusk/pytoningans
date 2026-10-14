@@ -57,6 +57,16 @@ class EntityType(StrEnum):
     """Declared archetype of a mod item."""
     ENTITY = "entity"
     STRUCTURE = "structure"
+    ITEM = "item"
+
+
+@unique
+class ItemState(StrEnum):
+    """Operational and animation states for items."""
+    IDLE = "idle"
+    HELD = "held"
+    DROPPED = "dropped"
+    USED = "used"
 
 
 @unique

@@ -6,7 +6,7 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QVBoxLayout, QComboBox, QCheckBox, QPushButton, QFormLayout, QSpacerItem
 )
-from pytoningans.core.constants import BehaviorType, AttackType, DeathAnimation
+from pytoningans.core.constants import BehaviorType, AttackType, DeathAnimation, EntityType
 from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.components import CollapsibleSection, create_spinbox, create_info_label
 from .base_panel import BasePanel
@@ -234,18 +234,54 @@ class StructureBehaviorPanel(BasePanel):
     def _create_script(self) -> None:
         path: Path = self._get_script_path()
         if path.exists(): return
-        boilerplate = (
-            "from api import BaseStructureBehavior, IStructure, IEntity, StructureState\n\n"
-            "class Behavior(BaseStructureBehavior):\n"
-            "    def on_spawn(self, structure: IStructure) -> None:\n"
-            "        # Attach teleportation or configure initial state\n"
-            "        pass\n\n"
-            "    def on_update(self, structure: IStructure, dt: int) -> None:\n"
-            "        pass\n\n"
-            "    def on_interact(self, structure: IStructure, entity: IEntity) -> None:\n"
-            "        # Triggered when a living entity interacts/overlaps with this structure\n"
-            "        pass\n"
-        )
+        
+        entity_type: str = self.controller.manager.entity_type
+        if entity_type == EntityType.STRUCTURE.value:
+            boilerplate = (
+                "from api import BaseStructureBehavior, IStructure, IEntity, StructureState\n\n"
+                "class Behavior(BaseStructureBehavior):\n"
+                "    def on_spawn(self, structure: IStructure) -> None:\n"
+                "        # Attach teleportation or configure initial state\n"
+                "        pass\n\n"
+                "    def on_update(self, structure: IStructure, dt: int) -> None:\n"
+                "        pass\n\n"
+                "    def on_interact(self, structure: IStructure, entity: IEntity) -> None:\n"
+                "        # Triggered when a living entity interacts/overlaps with this structure\n"
+                "        pass\n"
+            )
+        elif entity_type == EntityType.ITEM.value:
+            boilerplate = (
+                "from api import BaseItemBehavior, IItem, IEntity, ItemState\n\n"
+                "class Behavior(BaseItemBehavior):\n"
+                "    def on_spawn(self, item: IItem) -> None:\n"
+                "        pass\n\n"
+                "    def on_pickup(self, item: IItem, entity: IEntity) -> bool:\n"
+                "        # Return True to allow pickup, False to cancel\n"
+                "        return True\n\n"
+                "    def on_use(self, item: IItem, entity: IEntity | None) -> bool:\n"
+                "        # Return True if consumed/handled\n"
+                "        return True\n\n"
+                "    def on_drop(self, item: IItem, entity: IEntity | None) -> None:\n"
+                "        pass\n\n"
+                "    def on_interact(self, item: IItem, entity: IEntity) -> bool:\n"
+                "        # Triggered when an entity touches the item on the ground\n"
+                "        return False\n"
+            )
+        else:
+            boilerplate = (
+                "from api import BaseEntityBehavior, IEntity, EntityState\n\n"
+                "class Behavior(BaseEntityBehavior):\n"
+                "    def on_spawn(self, entity: IEntity) -> None:\n"
+                "        pass\n\n"
+                "    def on_update(self, entity: IEntity, dt: int) -> None:\n"
+                "        pass\n\n"
+                "    def on_decision_tick(self, entity: IEntity) -> bool:\n"
+                "        # Return True to override default movement/action\n"
+                "        return False\n\n"
+                "    def on_interact(self, entity: IEntity, other_entity: IEntity) -> bool:\n"
+                "        return False\n"
+            )
+
         with open(path, "w", encoding="utf-8") as f:
             f.write(boilerplate)
         self.load_data()

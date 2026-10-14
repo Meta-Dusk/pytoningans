@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer, QRect
 
 from pytoningans.core.constants import (
-    EntityState, AnimationMeta, EntityType, StructureState
+    EntityState, AnimationMeta, EntityType, StructureState, ItemState
 )
 from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.components import (
@@ -276,8 +276,12 @@ class AnimationSubsystem(BasePanel):
         self.swap_combo.blockSignals(True)
         self.swap_combo.clear()
 
-        is_structure: bool = self.controller.manager.entity_type == EntityType.STRUCTURE.value
-        state_enum = StructureState if is_structure else EntityState
+        if self.controller.manager.entity_type == EntityType.STRUCTURE.value:
+            state_enum = StructureState
+        elif self.controller.manager.entity_type == EntityType.ITEM.value:
+            state_enum = ItemState
+        else:
+            state_enum = EntityState
 
         target_idx: int = 0
         for i, state in enumerate(state_enum):

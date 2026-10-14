@@ -258,8 +258,12 @@ class ModManager:
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             
-            is_structure: bool = (self.entity_type == EntityType.STRUCTURE.value)
-            target_base_name: str = "BaseStructureBehavior" if is_structure else "BaseEntityBehavior"
+            if self.entity_type == EntityType.STRUCTURE.value:
+                target_base_name: str = "BaseStructureBehavior"
+            elif self.entity_type == EntityType.ITEM.value:
+                target_base_name: str = "BaseItemBehavior"
+            else:
+                target_base_name: str = "BaseEntityBehavior"
             
             for _, obj in inspect.getmembers(module, inspect.isclass):
                 mro_names: list[str] = [base.__name__ for base in inspect.getmro(obj)]

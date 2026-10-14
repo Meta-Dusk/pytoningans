@@ -18,6 +18,7 @@ from pytoningans.core.settings import SettingsManager
 
 if TYPE_CHECKING:
     from pytoningans.core.entity_manager import EntityManager
+    from pytoningans.core.entity.base_item import BaseItem
 
 
 class Entity(BaseEntity):
@@ -34,6 +35,7 @@ class Entity(BaseEntity):
         self.damage_tint_time_left: int = 0
         self.revive_time_left: int = 0
         self._target_pos: Optional[QPointF] = None
+        self.held_item: Optional[BaseItem] = None
 
         self._fade_anim: Optional[QVariantAnimation] = None
         self._rot_anim: Optional[QVariantAnimation] = None
@@ -110,12 +112,9 @@ class Entity(BaseEntity):
             self.ai_sys.update(dt)
         super().update_systems(dt, centers)
 
-        if (
-            not self.is_force_idle and
-            self.mod_manager is not None and
-            self.mod_manager.custom_behavior is not None
-        ):
-            behavior: BaseBehavior = self.mod_manager.custom_behavior
+        if not self.is_force_idle:
+            behavior: Optional[BaseBehavior] = self.get_behavior
+            if behavior is None: return
             if isinstance(behavior, BaseEntityBehavior):
                 try:
                     behavior.on_update(cast(IEntity, self), dt)
@@ -125,6 +124,25 @@ class Entity(BaseEntity):
     def on_moved(self) -> None:
         if self.health_bar is not None: self.health_bar.update_position()
         if self.bubble is not None: self.bubble.update_position()
+        if self.held_item is not None: self.held_item._update_held_position()
+
+    def pick_up(self, item: BaseItem) -> bool:
+        """Picks up the specified item if possible."""
+        return item.pick_up(self)
+
+    def drop_item(self) -> Optional[BaseItem]:
+        """Drops the currently held item onto the ground."""
+        if self.held_item is not None:
+            item: BaseItem = self.held_item
+            item.drop(self)
+            return item
+        return None
+
+    def use_item(self) -> bool:
+        """Uses the currently held item."""
+        if self.held_item is not None:
+            return self.held_item.use(self)
+        return False
 
     def on_instance_name_changed(self) -> None:
         super().on_instance_name_changed()
@@ -188,6 +206,10 @@ class Entity(BaseEntity):
         if self.is_dead or self.mod_manager is None: return
         self.current_health = 0
         self.is_dead = True
+        
+        if self.held_item is not None:
+            self.held_item.drop(self)
+            
         self.sprite_rotation = 0.0
         if self.anim_sys: self.anim_sys.set_state(EntityState.DYING)
         self._target_pos = None
@@ -313,6 +335,15 @@ class Entity(BaseEntity):
         if not self.is_dead:
             menu.addAction("Talk To", self.force_talk)
             menu.addAction("Force Jump", self.jump)
+            if self.held_item is not None:
+                menu.addAction("Use Held Item", self.use_item)
+                menu.addAction("Drop Held Item", lambda: self.drop_item())
+            elif self.world is not None and getattr(self.world, "active_items", None):
+                unheld_items: list[BaseItem] = [it for it in self.world.active_items if not it.is_held]
+                if unheld_items:
+                    pickup_menu: QMenu = menu.addMenu("Pick Up Item")
+                    for it in unheld_items:
+                        pickup_menu.addAction(it.display_name, lambda target_item=it: self.pick_up(target_item))
             menu.addAction("Kill Entity", self.die)
         else:
             menu.addAction("Revive Entity", self.revive)
@@ -397,6 +428,9 @@ class Entity(BaseEntity):
             print(f"Custom Entity on_damage Error: {e}")
 
     def destroy(self) -> None:
+        if self.held_item is not None:
+            self.held_item.drop(self)
+
         if self.health_bar is not None:
             self.health_bar.detach()
             self.health_bar = None

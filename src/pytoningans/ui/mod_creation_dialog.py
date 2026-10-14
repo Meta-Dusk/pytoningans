@@ -13,7 +13,7 @@ from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
 from pytoningans.core.config_schema import ModConfig
 from pytoningans.core.constants import (
-    EntityState, AnimationMeta, EntityType, StructureState
+    EntityState, AnimationMeta, EntityType, StructureState, ItemState
 )
 
 class ModCreationDialog(QDialog):
@@ -56,6 +56,19 @@ class ModCreationDialog(QDialog):
         self.type_combo = QComboBox()
         self.type_combo.addItem("Living Entity", userData=EntityType.ENTITY)
         self.type_combo.addItem("Static/Animated Structure", userData=EntityType.STRUCTURE)
+        self.type_combo.addItem("Interactable Item", userData=EntityType.ITEM)
+        
+        def _on_type_changed(_: int) -> None:
+            selected_type: EntityType = self.type_combo.currentData()
+            entity_type: str = getattr(selected_type, "value", str(selected_type))
+            if entity_type == EntityType.STRUCTURE.value:
+                self.rows_spin.setValue(len(StructureState))
+            elif entity_type == EntityType.ITEM.value:
+                self.rows_spin.setValue(len(ItemState))
+            else:
+                self.rows_spin.setValue(len(EntityState))
+
+        self.type_combo.currentIndexChanged.connect(_on_type_changed)
         
         form.addRow(self._create_info_label(
             "Internal Folder Name:", 
@@ -200,10 +213,15 @@ class ModCreationDialog(QDialog):
         self, display_name: str, config_path: Path,
         *, cols: int = 4, rows: int = len(EntityState)
     ) -> None:
-        selected_entity_type = self.type_combo.currentData()
-        entity_type: str = getattr(selected_entity_type, "value", str(selected_entity_type))
+        selected_type: EntityType = self.type_combo.currentData()
+        entity_type: str = getattr(selected_type, "value", str(selected_type))
         
-        state_enum = StructureState if entity_type == EntityType.STRUCTURE.value else EntityState
+        if entity_type == EntityType.STRUCTURE.value:
+            state_enum = StructureState
+        elif entity_type == EntityType.ITEM.value:
+            state_enum = ItemState
+        else:
+            state_enum = EntityState
 
         animations = {
             state.value: AnimationMeta(

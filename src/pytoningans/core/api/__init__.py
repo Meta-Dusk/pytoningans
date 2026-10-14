@@ -21,6 +21,7 @@ from pytoningans.core.api.types import (
     EntityType,
     EntityState,
     StructureState,
+    ItemState,
     BehaviorType,
     AttackType,
     DeathAnimation,
@@ -41,12 +42,14 @@ from pytoningans.core.api.protocols import (
     IBaseEntity,
     IEntity,
     IStructure,
+    IItem,
 )
 
 # Behaviors
 from pytoningans.core.api.behaviors import (
     BaseEntityBehavior,
     BaseStructureBehavior,
+    BaseItemBehavior,
     BaseBehavior,
 )
 
@@ -60,6 +63,7 @@ __all__ = [
     "EntityType",
     "EntityState",
     "StructureState",
+    "ItemState",
     "BehaviorType",
     "AttackType",
     "DeathAnimation",
@@ -78,10 +82,12 @@ __all__ = [
     "IBaseEntity",
     "IEntity",
     "IStructure",
+    "IItem",
     
     # Behavior Base Classes
     "BaseEntityBehavior",
     "BaseStructureBehavior",
+    "BaseItemBehavior",
     "BaseBehavior",
 ]
 

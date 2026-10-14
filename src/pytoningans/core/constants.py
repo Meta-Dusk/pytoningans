@@ -6,6 +6,7 @@ from typing import Any
 class EntityType(StrEnum):
     ENTITY = "entity"
     STRUCTURE = "structure"
+    ITEM = "item"
 
 @unique
 class DeathAnimation(StrEnum):
@@ -38,6 +39,13 @@ class StructureState(StrEnum):
     IDLE = "idle"
     ACTIVE = "active"
     OPEN = "open"
+
+@unique
+class ItemState(StrEnum):
+    IDLE = "idle"
+    HELD = "held"
+    DROPPED = "dropped"
+    USED = "used"
 
 @unique
 class BehaviorType(StrEnum):
