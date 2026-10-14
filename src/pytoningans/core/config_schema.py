@@ -5,7 +5,7 @@ from pytoningans.core.constants import (
     EntityState, BehaviorType, AnimationMeta, AttackType, DeathAnimation, EntityType
 )
 
-CURRENT_CONFIG_VERSION = 9
+CURRENT_CONFIG_VERSION = 10
 
 @dataclass
 class BehaviorConfig:

@@ -1,6 +1,8 @@
 from typing import Optional, cast
 
-from PySide6.QtCore import QAbstractItemModel, QEvent, QModelIndex, QPoint, QPointF, QRect, Qt, QObject, QTimer
+from PySide6.QtCore import (
+    QAbstractItemModel, QEvent, QModelIndex, QPoint, QPointF, QRect, Qt, QObject, QTimer
+)
 from PySide6.QtGui import (
     QGuiApplication, QPainter, QPaintEvent, QScreen, QHelpEvent, QMouseEvent
 )
@@ -13,7 +15,12 @@ class CustomToolTip(QWidget):
     """A completely customized overlay widget acting as a modern tooltip."""
 
     def __init__(self, text: str = "", parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent, Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
+        super().__init__(
+            parent,
+            Qt.WindowType.ToolTip
+            | Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint,
+        )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
@@ -67,14 +74,15 @@ class CustomToolTipManager(QObject):
             self._tooltip_widget = CustomToolTip("")
         return self._tooltip_widget
 
-    def show_tip(self, watched: QObject, text: str, global_pos: QPoint) -> None:
+    def show_tip(self, watched: Optional[QObject], text: str, global_pos: QPoint) -> None:
         clean_text: str = text.strip()
         if not clean_text:
             self.hide_tip()
             return
 
         tip: CustomToolTip = self._ensure_widget()
-        tip.set_text(clean_text)
+        if tip.label.text() != clean_text:
+            tip.set_text(clean_text)
         tip_w: int = tip.width()
         tip_h: int = tip.height()
 
@@ -213,9 +221,13 @@ class CustomToolTipManager(QObject):
 
         elif event_type == QEvent.Type.MouseMove:
             if self._current_widget is not None and watched is self._current_widget:
-                mouse_pos = event.globalPos() if isinstance(event, (QMouseEvent, QHelpEvent)) else QPoint()
-                if (mouse_pos - self._show_pos).manhattanLength() > 25:
-                    self.hide_tip()
+                is_view = isinstance(watched, (QGraphicsView, QAbstractItemView)) or (
+                    isinstance(watched, QWidget) and isinstance(watched.parent(), (QGraphicsView, QAbstractItemView))
+                )
+                if not is_view:
+                    mouse_pos = event.globalPos() if isinstance(event, (QMouseEvent, QHelpEvent)) else QPoint()
+                    if (mouse_pos - self._show_pos).manhattanLength() > 25:
+                        self.hide_tip()
 
         elif event_type in (
             QEvent.Type.Leave,
@@ -225,7 +237,9 @@ class CustomToolTipManager(QObject):
             QEvent.Type.KeyPress,
             QEvent.Type.Wheel
         ):
-            if self._current_widget is not None:
+            if event_type in (QEvent.Type.WindowDeactivate, QEvent.Type.KeyPress):
+                self.hide_tip()
+            elif self._current_widget is not None:
                 if event_type == QEvent.Type.Leave and watched is not self._current_widget:
                     pass
                 else:

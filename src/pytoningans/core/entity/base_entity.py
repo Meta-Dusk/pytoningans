@@ -5,8 +5,8 @@ from typing import Optional, TYPE_CHECKING, cast, Any
 from PySide6.QtWidgets import (
     QGraphicsPixmapItem, QGraphicsColorizeEffect, QGraphicsSceneMouseEvent, QGraphicsSceneHoverEvent
 )
-from PySide6.QtCore import QPointF, QRect, QRectF, Qt
-from PySide6.QtGui import QColor, QPixmap, QTransform
+from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt
+from PySide6.QtGui import QColor, QPixmap, QTransform, QCursor
 
 from pytoningans.core.constants import EntityState, SystemLocks
 from pytoningans.core.entity.animation import AnimationSystem
@@ -68,6 +68,8 @@ class BaseEntity(QGraphicsPixmapItem):
         """Sets a custom instance name for this entity and updates its tooltip."""
         self._instance_name = name
         self.update_tooltip()
+        if self.is_hovered:
+            self._show_hover_tooltip(QCursor.pos())
 
     @property
     def display_name(self) -> str:
@@ -86,11 +88,28 @@ class BaseEntity(QGraphicsPixmapItem):
 
     def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         self.on_hover_enter()
+        self._show_hover_tooltip(event.screenPos())
         super().hoverEnterEvent(event)
+
+    def hoverMoveEvent(self, event: QGraphicsSceneHoverEvent) -> None:
+        if self.is_hovered:
+            self._show_hover_tooltip(event.screenPos())
+        super().hoverMoveEvent(event)
 
     def hoverLeaveEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         self.on_hover_leave()
+        self._hide_hover_tooltip()
         super().hoverLeaveEvent(event)
+
+    def _show_hover_tooltip(self, screen_pos: QPoint) -> None:
+        name: str = self.display_name
+        if name:
+            from pytoningans.ui.tool_tip import CustomToolTipManager
+            CustomToolTipManager.get().show_tip(None, name, screen_pos)
+
+    def _hide_hover_tooltip(self) -> None:
+        from pytoningans.ui.tool_tip import CustomToolTipManager
+        CustomToolTipManager.get().hide_tip()
 
     def on_hover_enter(self) -> None:
         """Hook called when the mouse cursor enters the entity's bounding area."""
@@ -253,6 +272,7 @@ class BaseEntity(QGraphicsPixmapItem):
             if comp.enabled: comp.update(dt)
 
     def destroy(self) -> None:
+        self._hide_hover_tooltip()
         for comp in list(self.components.values()):
             comp.on_detach()
             comp.owner = None
@@ -264,6 +284,7 @@ class BaseEntity(QGraphicsPixmapItem):
 
     # Universal Drag Logic
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        self._hide_hover_tooltip()
         if event.button() == Qt.MouseButton.LeftButton:
             if self.anim_sys is not None:
                 self.anim_sys.set_state(EntityState.DRAG)
@@ -294,6 +315,8 @@ class BaseEntity(QGraphicsPixmapItem):
             if not self.is_physics_enabled:
                 self.velocity_y = 0.0
             event.accept()
+        if self.is_hovered:
+            self._show_hover_tooltip(event.screenPos())
             
     def on_moved(self) -> None:
         """Hook for subclasses to update attached items (like speech bubbles) when dragged."""

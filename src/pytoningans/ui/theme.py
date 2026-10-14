@@ -81,6 +81,30 @@ QTableWidget::item:selected {
     color: #0d47a1;
 }
 
+QListWidget {
+    background-color: #ffffff;
+    alternate-background-color: #f7f7f7;
+    border: 1px solid #d1d1d1;
+    border-radius: 4px;
+    selection-background-color: #e3f2fd;
+    selection-color: #0d47a1;
+}
+
+QListWidget::item {
+    padding: 5px 8px;
+    border: none;
+    color: #1e1e1e;
+}
+
+QListWidget::item:selected {
+    background-color: #e3f2fd;
+    color: #0d47a1;
+}
+
+QListWidget::item:hover {
+    background-color: #f0f0f0;
+}
+
 QHeaderView::section {
     background-color: #f0f0f0;
     color: #333333;
@@ -352,6 +376,31 @@ QTableWidget::item {
 QTableWidget::item:selected {
     background-color: #1e3a5f;
     color: #ffffff;
+}
+
+QListWidget {
+    background-color: #252525;
+    alternate-background-color: #2a2a2a;
+    border: 1px solid #3d3d3d;
+    border-radius: 4px;
+    selection-background-color: #1e3a5f;
+    selection-color: #ffffff;
+    outline: none;
+}
+
+QListWidget::item {
+    padding: 5px 8px;
+    border: none;
+    color: #f3f3f3;
+}
+
+QListWidget::item:selected {
+    background-color: #1e3a5f;
+    color: #ffffff;
+}
+
+QListWidget::item:hover {
+    background-color: #303030;
 }
 
 QHeaderView::section {

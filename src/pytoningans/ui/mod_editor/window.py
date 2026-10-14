@@ -15,7 +15,7 @@ from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.panels import (
     BasePanel, AnimationSubsystem, BehaviorStatsPanel, BehaviorScriptPanel,
-    StructureBehaviorPanel, DialoguePanel, PhysicsPanel
+    StructureBehaviorPanel, DialoguePanel, PhysicsPanel, InstanceNamesPanel
 )
 from pytoningans.utils.assets import get_main_icon
 
@@ -85,10 +85,12 @@ class ModEditorWindow(QWidget):
         self.structure_behavior = StructureBehaviorPanel(self.controller)
         self.anim_sys = AnimationSubsystem(self.controller, self.sheet_info_label)
         self.physics_panel = PhysicsPanel(self.controller)
+        self.instance_names_panel = InstanceNamesPanel(self.controller)
         
         self.panels: list[BasePanel] = [
             self.dialogue_panel, self.behavior_stats, self.behavior_script,
-            self.structure_behavior, self.anim_sys, self.physics_panel
+            self.structure_behavior, self.anim_sys, self.physics_panel,
+            self.instance_names_panel
         ]
 
         # Scroll Areas
@@ -145,6 +147,7 @@ class ModEditorWindow(QWidget):
         
         self.right_layout.addWidget(self.anim_sys.state_panel)
         self.right_layout.addWidget(self.physics_panel)
+        self.right_layout.addWidget(self.instance_names_panel)
         self.right_layout.addWidget(self.behavior_script)
         self.right_layout.addWidget(self.structure_behavior)
         self.right_layout.addWidget(self.dialogue_panel)

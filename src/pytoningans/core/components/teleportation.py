@@ -5,9 +5,9 @@ from PySide6.QtCore import QRectF
 
 from pytoningans.core.constants import EntityState
 from pytoningans.core.components.base_component import BaseComponent
-from pytoningans.core.entity.living_entity import Entity
 
 if TYPE_CHECKING:
+    from pytoningans.core.entity.living_entity import Entity
     from pytoningans.core.entity.base_structure import BaseStructure
     from pytoningans.core.world import WorldOverlay
 
