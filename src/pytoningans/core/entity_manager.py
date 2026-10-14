@@ -5,15 +5,16 @@ from typing import cast, Optional
 from PySide6.QtCore import QTimer, QElapsedTimer, QRunnable, QThreadPool, QObject, Signal
 from PySide6.QtGui import QPixmapCache, QGuiApplication, QScreen
 
+from pytoningans.core.entity.base_structure import BaseStructure
+from pytoningans.core.entity.living_entity import Entity
 from pytoningans.core.world import WorldOverlay
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.api import (
     IEntity, IStructure, BaseStructureBehavior, BaseEntityBehavior,
     BaseBehavior
 )
-from pytoningans.core.entity.base_entity import BaseEntity, Entity, BaseStructure
+from pytoningans.core.entity.base_entity import BaseEntity
 from pytoningans.core.entity.animation import AnimationSystem
-from pytoningans.core.structure import TravelPortal
 from pytoningans.core.constants import EntityType
 
 HTTRANSPARENT = -1

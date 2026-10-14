@@ -6,6 +6,7 @@ This module is strictly decoupled from engine internals and Qt dependencies so t
 in any standalone development environment or IDE.
 """
 from __future__ import annotations
+
 from typing import Protocol, Optional, Union, runtime_checkable
 from enum import StrEnum, unique
 from dataclasses import dataclass

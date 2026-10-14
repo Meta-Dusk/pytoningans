@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING, Optional
 from PySide6.QtGui import QPixmap, QColor
 
-from pytoningans.core.entity.base_entity import BaseStructure
+from pytoningans.core.entity.base_structure import BaseStructure
 
 if TYPE_CHECKING:
     from pytoningans.core.world import WorldOverlay

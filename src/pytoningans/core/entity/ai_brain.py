@@ -7,7 +7,7 @@ from pytoningans.core.constants import EntityState, BehaviorType, AttackType
 from pytoningans.core.api import BaseEntityBehavior, IEntity, BaseBehavior
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.base_entity import Entity
+    from pytoningans.core.entity.living_entity import Entity
 
 class AISystem:
     def __init__(self, entity: Optional[Entity] = None) -> None:

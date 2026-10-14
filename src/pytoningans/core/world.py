@@ -11,7 +11,9 @@ from pytoningans.core.entity.indicators import DamageNumberItem
 
 if TYPE_CHECKING:
     from pytoningans.core.entity_manager import EntityManager
-    from pytoningans.core.entity.base_entity import Entity, BaseStructure, BaseEntity
+    from pytoningans.core.entity.base_entity import BaseEntity
+    from pytoningans.core.entity.base_structure import BaseStructure
+    from pytoningans.core.entity.living_entity import Entity
 
 HTTRANSPARENT = -1
 HTCLIENT = 1

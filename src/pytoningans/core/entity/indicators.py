@@ -3,11 +3,11 @@ import math, random
 from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtWidgets import QGraphicsItem, QStyleOptionGraphicsItem, QWidget
-from PySide6.QtGui import QFontMetrics, QPainter, QColor, QFont, QPen, QBrush, QPainterPath
+from PySide6.QtGui import QPainter, QColor, QFont, QPen, QBrush, QPainterPath
 from PySide6.QtCore import QRectF, QPointF, Qt
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.base_entity import Entity
+    from pytoningans.core.entity.living_entity import Entity
 
 
 class DamageNumberItem(QGraphicsItem):

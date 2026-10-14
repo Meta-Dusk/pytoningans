@@ -9,7 +9,7 @@ from PySide6.QtGui import (
 from PySide6.QtCore import QRectF, Qt
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.base_entity import Entity
+    from pytoningans.core.entity.living_entity import Entity
 
 class SpeechBubble(QGraphicsItem):
     """Interactive speech bubble with typewriter animation, impact shake, and interruption override."""

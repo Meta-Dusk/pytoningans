@@ -7,7 +7,8 @@ from pytoningans.core.constants import EntityState
 
 if TYPE_CHECKING:
     from pytoningans.core.entity.base_entity import BaseEntity
-    from pytoningans.core.entity.base_entity import BaseStructure, Entity
+    from pytoningans.core.entity.base_structure import BaseStructure
+    from pytoningans.core.entity.living_entity import Entity
 
 class PhysicsSystem:
     def __init__(self, entity: Optional[BaseEntity] = None) -> None:

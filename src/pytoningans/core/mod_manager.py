@@ -11,7 +11,7 @@ from pytoningans.core.constants import (
     EntityState, AnimationMeta, BehaviorType, AttackType, DeathAnimation,
     EntityType, StructureState
 )
-from pytoningans.core.api import BaseEntityBehavior, BaseStructureBehavior, BaseBehavior
+from pytoningans.core.api import BaseBehavior
 from pytoningans.core.config_schema import (
     ModConfig, BehaviorConfig, DialogueConfig, CURRENT_CONFIG_VERSION
 )
