@@ -1,13 +1,15 @@
 from __future__ import annotations
+
 import random, math
 from typing import TYPE_CHECKING, cast, Optional, List
 from PySide6.QtCore import QPointF, QRectF
 
 from pytoningans.core.constants import EntityState, BehaviorType, AttackType
-from pytoningans.core.api import BaseEntityBehavior, IEntity, BaseBehavior
+from pytoningans.core.api import BaseEntityBehavior, IEntity, BaseBehavior, IItem
 
 if TYPE_CHECKING:
     from pytoningans.core.entity.living_entity import Entity
+    from pytoningans.core.entity.base_item import BaseItem
 
 class AISystem:
     def __init__(self, entity: Optional[Entity] = None) -> None:
@@ -54,7 +56,91 @@ class AISystem:
         if self.entity is None: return
         if self.entity.state in (EntityState.DRAG, EntityState.INTERACT): return
         if self._on_ai_decision_tick(): return
+        if self._check_item_seeking(): return
         self._default_ai_decision()
+
+    def _check_item_seeking(self) -> bool:
+        if (
+            self.entity is None or
+            self.entity.world is None or
+            self.entity.mod_manager is None or
+            self.entity.anim_sys is None or
+            getattr(self.entity, "is_dead", False)
+        ):
+            return False
+
+        # Gather ground items available in the world
+        world_items: list[BaseItem] = getattr(self.entity.world, "active_items", [])
+        ground_items: list[IItem] = [cast(IItem, it) for it in world_items if not it.is_held]
+
+        #? Custom Modder Hook: on_seek_item
+        behavior: Optional[BaseBehavior] = self.entity.get_behavior
+        if isinstance(behavior, BaseEntityBehavior):
+            try:
+                entity_api: IEntity = cast(IEntity, self.entity)
+                custom_result = behavior.on_seek_item(entity_api, ground_items)
+                if custom_result is True:
+                    return True
+                elif custom_result is not None and custom_result is not False:
+                    # Modder returned a specific IItem to seek towards
+                    target_item = cast(IItem, custom_result)
+                    self._navigate_towards_item(target_item)
+                    return True
+            except Exception as e:
+                print(f"Custom AI Error (Seek Item): {e}")
+
+        #? Engine Default Survival Seeking
+        return self._default_survival_seeking(ground_items)
+
+    def _default_survival_seeking(self, ground_items: list[IItem]) -> bool:
+        if self.entity is None or self.entity.mod_manager is None or self.entity.anim_sys is None:
+            return False
+
+        max_hp: int = self.entity.mod_manager.max_health
+        # Only seek survival items when injured (below 50% max HP)
+        if self.entity.current_health >= max_hp * 0.5:
+            return False
+
+        # A. Check if already holding a consumable healing item
+        held = self.entity.held_item
+        if held is not None and held.has_all_tags("consumable", "healing"):
+            if random.random() < 0.35 and not (self.entity.bubble and self.entity.bubble.isVisible()):
+                self.entity.say("I need this!", duration_ms=2000)
+            self.entity.use_item()
+            return True
+
+        # B. Search for unheld ground items with "consumable" and "healing" tags
+        healing_items: list[IItem] = [
+            it for it in ground_items
+            if it.has_all_tags("consumable", "healing")
+        ]
+        if not healing_items:
+            return False
+
+        # Find closest healing item
+        my_pos = self.entity.pos()
+        nearest: IItem = min(
+            healing_items,
+            key=lambda it: math.hypot(it.x() - my_pos.x(), it.y() - my_pos.y())
+        )
+
+        self._navigate_towards_item(nearest)
+        if random.random() < 0.25 and not (self.entity.bubble and self.entity.bubble.isVisible()):
+            self.entity.say("Need healing!", duration_ms=2000)
+        return True
+
+    def _navigate_towards_item(self, item: IItem) -> None:
+        if self.entity is None or self.entity.anim_sys is None:
+            return
+
+        target_x: float = item.x()
+        target_y: float = (
+            item.y() if (self.entity.mod_manager and self.entity.mod_manager.can_fly)
+            else self.entity.y()
+        )
+
+        self.entity._target_pos = QPointF(target_x, target_y)
+        self.entity.anim_sys.set_state(EntityState.MOVING)
 
     def _default_ai_decision(self) -> None:
         if (
@@ -92,9 +178,9 @@ class AISystem:
             self.entity.anim_sys.set_state(EntityState.IDLE)
     
     def _on_ai_decision_tick(self) -> bool:
-        if self.entity is None or self.entity.mod_manager is None: return False
+        if self.entity is None: return False
         
-        behavior: Optional[BaseBehavior] = self.entity.mod_manager.custom_behavior
+        behavior: Optional[BaseBehavior] = self.entity.get_behavior
         if behavior is None or not isinstance(behavior, BaseEntityBehavior): return False
         try:
             entity_api: IEntity = cast(IEntity, self.entity)
@@ -172,13 +258,9 @@ class AISystem:
         self.entity.anim_sys.set_state(EntityState.ATTACK)
 
     def _on_combat_check(self, other_entity: Entity) -> bool:
-        if (
-            self.entity is None or
-            self.entity.mod_manager is None or
-            self.entity.mod_manager.custom_behavior is None
-        ):
+        if self.entity is None:
             return False
-        behavior: BaseBehavior = self.entity.mod_manager.custom_behavior
+        behavior: Optional[BaseBehavior] = self.entity.get_behavior
         if not isinstance(behavior, BaseEntityBehavior): return False
         try:
             entity_api: IEntity = cast(IEntity, self.entity)
@@ -231,13 +313,9 @@ class AISystem:
             break
 
     def _on_check_interactions(self, other_entity: Entity) -> bool:
-        if (
-            self.entity is None or
-            self.entity.mod_manager is None or
-            self.entity.mod_manager.custom_behavior is None
-        ):
+        if self.entity is None:
             return False
-        behavior: BaseBehavior = self.entity.mod_manager.custom_behavior
+        behavior: Optional[BaseBehavior] = self.entity.get_behavior
         if not isinstance(behavior, BaseEntityBehavior): return False
         try:
             entity_api: IEntity = cast(IEntity, self.entity)

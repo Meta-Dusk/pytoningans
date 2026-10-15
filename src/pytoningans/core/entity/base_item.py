@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING, cast, Any
+from typing import Optional, TYPE_CHECKING, cast
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QAction
@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QGraphicsSceneContextMenuEvent, QGraphicsSceneMous
 from pytoningans.core.api import (
     BaseBehavior, BaseItemBehavior, BaseEntityBehavior, IItem, IEntity
 )
-from pytoningans.core.constants import ItemState, EntityState
+from pytoningans.core.constants import ItemState
 from pytoningans.core.entity.base_entity import BaseEntity
 
 if TYPE_CHECKING:
@@ -72,8 +72,7 @@ class BaseItem(BaseEntity):
         if isinstance(behavior, BaseItemBehavior):
             try:
                 allowed: bool = behavior.on_pickup(cast(IItem, self), cast(IEntity, entity))
-                if not allowed:
-                    return False
+                if not allowed: return False
             except Exception as e:
                 print(f"Custom Item on_pickup Error: {e}")
                 return False
@@ -176,28 +175,13 @@ class BaseItem(BaseEntity):
                     continue
 
                 # Notify item custom behavior
-                item_behavior: Optional[BaseBehavior] = self.get_behavior
-                if isinstance(item_behavior, BaseItemBehavior):
-                    try:
-                        handled_item: bool = item_behavior.on_interact(
-                            cast(IItem, self), cast(IEntity, entity)
-                        )
-                        if handled_item:
-                            break
-                    except Exception as e:
-                        print(f"Custom Item on_interact Error: {e}")
+                if self._on_interact(entity): break
 
                 # Notify entity custom behavior
-                entity_behavior: Optional[BaseBehavior] = entity.get_behavior
-                if isinstance(entity_behavior, BaseEntityBehavior):
-                    try:
-                        handled_entity: bool = entity_behavior.on_item_interact(
-                            cast(IEntity, entity), cast(IItem, self)
-                        )
-                        if handled_entity:
-                            break
-                    except Exception as e:
-                        print(f"Custom Entity on_item_interact Error: {e}")
+                if self._on_item_interact(entity): break
+
+                # Default engine interaction if not intercepted by mod behaviors
+                if self._default_item_interaction(entity): break
 
         # Tick custom behavior
         behavior: Optional[BaseBehavior] = self.get_behavior
@@ -206,11 +190,48 @@ class BaseItem(BaseEntity):
                 behavior.on_update(cast(IItem, self), dt)
             except Exception as e:
                 print(f"Custom Item on_update Error: {e}")
+    
+    def _on_interact(self, entity: Entity) -> bool:
+        item_behavior: Optional[BaseBehavior] = self.get_behavior
+        if isinstance(item_behavior, BaseItemBehavior):
+            try:
+                handled_item: bool = item_behavior.on_interact(
+                    cast(IItem, self), cast(IEntity, entity)
+                )
+                if handled_item: return True
+            except Exception as e:
+                print(f"Custom Item on_interact Error: {e}")
+        return False
+    
+    def _on_item_interact(self, entity: Entity) -> bool:
+        entity_behavior: Optional[BaseBehavior] = entity.get_behavior
+        if isinstance(entity_behavior, BaseEntityBehavior):
+            try:
+                handled_entity: bool = entity_behavior.on_item_interact(
+                    cast(IEntity, entity), cast(IItem, self)
+                )
+                if handled_entity: return True
+            except Exception as e:
+                print(f"Custom Entity on_item_interact Error: {e}")
+        return False
+    
+    def _default_item_interaction(self, entity: Entity) -> bool:
+        if self.has_all_tags("consumable", "healing"):
+            max_hp: int = entity.mod_manager.max_health if entity.mod_manager else 100
+            if entity.current_health < max_hp:
+                heal_amount: int = 25
+                entity.heal(heal_amount)
+                entity.say(f"Restored {heal_amount} HP!", duration_ms=2500)
+                self.destroy()
+                return True
+        elif self.has_tag("consumable"):
+            if self.use(entity): return True
+        return False
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             if self.is_held:
-                # Dragging the item pulls it out of the holder's grasp
+                #? Dragging the item pulls it out of the holder's grasp
                 self.drop()
         super().mousePressEvent(event)
 
@@ -259,8 +280,7 @@ class BaseItem(BaseEntity):
 
     def destroy(self) -> None:
         self._on_destroy()
-        if self.is_held:
-            self.drop()
+        if self.is_held: self.drop()
 
         if self.world is not None and self.world.manager is not None:
             self.world.manager.remove_entity(self)

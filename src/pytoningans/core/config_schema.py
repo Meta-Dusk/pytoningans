@@ -51,6 +51,7 @@ class DialogueConfig:
 class ModConfig:
     name: str
     entity_type: str = EntityType.ENTITY.value
+    tags: list[str] = field(default_factory=list)
     version: int = CURRENT_CONFIG_VERSION
     columns: int = 4
     rows: int = len(EntityState)

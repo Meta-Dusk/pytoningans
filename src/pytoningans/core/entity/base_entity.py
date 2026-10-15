@@ -52,6 +52,9 @@ class BaseEntity(QGraphicsPixmapItem):
         self.physics_sys: Optional[PhysicsSystem] = PhysicsSystem(self)
         
         self._instance_name: Optional[str] = None
+        self.tags: set[str] = (
+            set(self.mod_manager.tags) if self.mod_manager is not None else set()
+        )
         self.is_hovered: bool = False
         self.setAcceptHoverEvents(True)
         
@@ -100,7 +103,13 @@ class BaseEntity(QGraphicsPixmapItem):
         if self.mod_manager is not None and self.mod_manager.entity_type:
             type_str = str(self.mod_manager.entity_type).capitalize()
         else:
-            type_str = "Structure" if isinstance(self, BaseStructure) else "Entity"
+            cls_name: str = self.__class__.__name__
+            if "Structure" in cls_name:
+                type_str = "Structure"
+            elif "Item" in cls_name:
+                type_str = "Item"
+            else:
+                type_str = "Entity"
 
         mod_name = "Unknown"
         if self.mod_manager is not None:
@@ -114,6 +123,29 @@ class BaseEntity(QGraphicsPixmapItem):
     def update_tooltip(self) -> None:
         """Updates the item tooltip to match its identification."""
         self.setToolTip(self.identification)
+
+    #? Entity Tags API
+    def has_tag(self, tag: str) -> bool:
+        """Returns True if the entity has the specified tag (case-insensitive)."""
+        return tag.lower().strip() in self.tags
+
+    def has_all_tags(self, *tags: str) -> bool:
+        """Returns True if the entity contains every specified tag."""
+        return all(t.lower().strip() in self.tags for t in tags)
+
+    def has_any_tag(self, *tags: str) -> bool:
+        """Returns True if the entity contains at least one of the specified tags."""
+        return any(t.lower().strip() in self.tags for t in tags)
+
+    def add_tag(self, tag: str) -> None:
+        """Dynamically adds a tag to the entity at runtime."""
+        clean_tag: str = tag.lower().strip()
+        if clean_tag:
+            self.tags.add(clean_tag)
+
+    def remove_tag(self, tag: str) -> None:
+        """Removes a tag from the entity at runtime."""
+        self.tags.discard(tag.lower().strip())
 
     def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         self.on_hover_enter()

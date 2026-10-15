@@ -71,6 +71,7 @@ class ModManager:
         self.death_animation: DeathAnimation = DeathAnimation.SPRITE
         self.auto_close_on_death: bool = False
         self.instance_names: list[str] = []
+        self.tags: list[str] = []
         
         # Inject the mods folder into Python's runtime path
         abs_mods_dir: str = str(self.mods_dir.resolve())
@@ -154,10 +155,15 @@ class ModManager:
             str(raw_entity_type)
         )
         
+        behavior_data: dict[str, Any] = data.get("behavior", {})
+        raw_tags: list[Any] = data.get("tags", behavior_data.get("tags", []))
+        self.tags = [str(t).lower().strip() for t in raw_tags if str(t).strip()]
+
         # Instantiate the config to store the entity type
         self.config = ModConfig(
             name=data.get("name", mod_folder_name),
             entity_type=entity_type_str,
+            tags=self.tags,
             version=data.get("version", CURRENT_CONFIG_VERSION),
             columns=data.get("columns", 1),
             rows=data.get("rows", 1)
@@ -169,7 +175,6 @@ class ModManager:
         self.global_rows = data.get("rows", 1)
         self.config_version = data.get("version", 1)
         
-        behavior_data: dict[str, Any] = data.get("behavior", {})
         self.can_fly = behavior_data.get("can_fly", False)
         
         self.max_health = behavior_data.get("max_health", 100)
@@ -303,6 +308,7 @@ class ModManager:
         config = ModConfig(
             name=name,
             entity_type=self.entity_type,
+            tags=self.tags,
             version=CURRENT_CONFIG_VERSION,
             columns=self.global_columns,
             rows=self.global_rows,

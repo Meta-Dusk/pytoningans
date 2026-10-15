@@ -147,6 +147,12 @@ class ModEditorController:
 
     def set_instance_names(self, names: list[str]) -> None:
         self.manager.instance_names = list(names)
+
+    def get_tags(self) -> list[str]:
+        return list(self.manager.tags)
+
+    def set_tags(self, tags: list[str]) -> None:
+        self.manager.tags = list(tags)
     
     def replace_sprite_sheet(self, mod_folder: str, new_image_path: str) -> None:
         target_path: Path = self.manager.mods_dir / mod_folder / "sprite_sheet.png"

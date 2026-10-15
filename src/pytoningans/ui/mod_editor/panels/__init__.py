@@ -6,6 +6,7 @@ from .behavior_panel import (
 from .dialogue_panel import DialoguePanel
 from .physics_panel import PhysicsPanel
 from .instance_names_panel import InstanceNamesPanel
+from .tags_panel import TagsPanel
 
 __all__ = [
     "BasePanel",
@@ -17,5 +18,6 @@ __all__ = [
     "DialoguePanel",
     "PhysicsPanel",
     "InstanceNamesPanel",
+    "TagsPanel",
 ]
 

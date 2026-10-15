@@ -171,6 +171,29 @@ class IBaseEntity(Protocol):
         """Updates the item tooltip to match its entity identification."""
         ...
 
+    #? Entity Tags
+    tags: set[str]
+
+    def has_tag(self, tag: str) -> bool:
+        """Returns True if the entity has the specified tag (case-insensitive)."""
+        ...
+
+    def has_all_tags(self, *tags: str) -> bool:
+        """Returns True if the entity contains every specified tag."""
+        ...
+
+    def has_any_tag(self, *tags: str) -> bool:
+        """Returns True if the entity contains at least one of the specified tags."""
+        ...
+
+    def add_tag(self, tag: str) -> None:
+        """Dynamically adds a tag to the entity at runtime."""
+        ...
+
+    def remove_tag(self, tag: str) -> None:
+        """Removes a tag from the entity at runtime."""
+        ...
+
 
 @runtime_checkable
 class IEntity(IBaseEntity, Protocol):

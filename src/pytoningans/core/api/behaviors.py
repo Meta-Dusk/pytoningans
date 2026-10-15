@@ -51,6 +51,15 @@ class BaseEntityBehavior:
         """
         return False
 
+    def on_seek_item(self, entity: IEntity, available_items: list[IItem]) -> Optional[IItem] | bool:
+        """
+        Called when the entity evaluates seeking an item (e.g. survival or scavenging).
+        - Return a specific IItem to actively pathfind towards it.
+        - Return True to indicate custom seeking was handled (skips default search).
+        - Return False or None to allow default survival seeking (e.g. seeking healing items when low on HP) to run.
+        """
+        return None
+
     def on_speak(self, entity: IEntity, text: str) -> None:
         """Called whenever this entity speaks dialogue via say() or force_talk()."""
         pass
