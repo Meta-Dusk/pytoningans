@@ -6,16 +6,18 @@ from PySide6.QtWidgets import (
     QMessageBox, QLabel, QLineEdit, QFileDialog
 )
 from PySide6.QtCore import QRect, Qt, Signal, QUrl, QTimer
-from PySide6.QtGui import QGuiApplication, QResizeEvent, QDesktopServices, QScreen
+from PySide6.QtGui import QGuiApplication, QResizeEvent, QDesktopServices, QScreen, QCloseEvent
 
 from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION
+from pytoningans.core.constants import EntityType
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.ui.mod_editor.controller import ModEditorController
-from pytoningans.ui.mod_editor.panels.dialogue_panel import DialoguePanel
-from pytoningans.ui.mod_editor.panels.behavior_panel import BehaviorStatsPanel, BehaviorScriptPanel
-from pytoningans.ui.mod_editor.panels.animation_panel import AnimationSubsystem
-from pytoningans.ui.mod_editor.panels.physics_panel import PhysicsPanel
+from pytoningans.ui.mod_editor.panels import (
+    BasePanel, AnimationSubsystem, BehaviorStatsPanel, BehaviorScriptPanel,
+    StructureBehaviorPanel, ItemBehaviorPanel, DialoguePanel, PhysicsPanel, InstanceNamesPanel,
+    TagsPanel
+)
 from pytoningans.utils.assets import get_main_icon
 
 class ModEditorWindow(QWidget):
@@ -34,8 +36,9 @@ class ModEditorWindow(QWidget):
         
         # Silently hydrate the combo box to prevent premature load events
         self.mod_combo.blockSignals(True)
-        for folder, name in self.controller.get_mod_list().items():
-            self.mod_combo.addItem(name, userData=folder)
+        mods: dict[str, tuple[str, str]] = self.controller.get_mod_list()
+        for folder, (name, entity_type) in mods.items():
+            self.mod_combo.addItem(f"[{entity_type.capitalize()}] {name}", userData=folder)
         self.mod_combo.blockSignals(False)
         
         # Wait for the ModManagerHub to finish passing the target index, 
@@ -54,6 +57,7 @@ class ModEditorWindow(QWidget):
 
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.resize(880, 620)
         
         main_layout = QVBoxLayout(self)
@@ -80,12 +84,17 @@ class ModEditorWindow(QWidget):
         self.dialogue_panel = DialoguePanel(self.controller)
         self.behavior_stats = BehaviorStatsPanel(self.controller)
         self.behavior_script = BehaviorScriptPanel(self.controller)
+        self.structure_behavior = StructureBehaviorPanel(self.controller)
+        self.item_behavior = ItemBehaviorPanel(self.controller)
         self.anim_sys = AnimationSubsystem(self.controller, self.sheet_info_label)
         self.physics_panel = PhysicsPanel(self.controller)
+        self.instance_names_panel = InstanceNamesPanel(self.controller)
+        self.tags_panel = TagsPanel(self.controller)
         
-        self.panels = [
-            self.dialogue_panel, self.behavior_stats, self.behavior_script, self.anim_sys,
-            self.physics_panel
+        self.panels: list[BasePanel] = [
+            self.dialogue_panel, self.behavior_stats, self.behavior_script,
+            self.structure_behavior, self.item_behavior, self.anim_sys,
+            self.physics_panel, self.instance_names_panel, self.tags_panel
         ]
 
         # Scroll Areas
@@ -123,7 +132,7 @@ class ModEditorWindow(QWidget):
         name_layout = QHBoxLayout()
         name_layout.addWidget(QLabel("Display Name:"))
         self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("e.g. My Cool Pet")
+        self.name_input.setPlaceholderText("e.g. My Cool Entity")
         name_layout.addWidget(self.name_input)
         self.left_layout.addLayout(name_layout)
         
@@ -142,8 +151,14 @@ class ModEditorWindow(QWidget):
         
         self.right_layout.addWidget(self.anim_sys.state_panel)
         self.right_layout.addWidget(self.physics_panel)
+        self.right_layout.addWidget(self.instance_names_panel)
+        self.right_layout.addWidget(self.tags_panel)
         self.right_layout.addWidget(self.behavior_script)
+        self.right_layout.addWidget(self.structure_behavior)
+        self.right_layout.addWidget(self.item_behavior)
         self.right_layout.addWidget(self.dialogue_panel)
+        self.structure_behavior.hide()
+        self.item_behavior.hide()
         
         left_scroll.setWidget(left_content)
         right_scroll.setWidget(right_content)
@@ -200,10 +215,10 @@ class ModEditorWindow(QWidget):
         self._current_loaded_mod = mod_folder
             
         if self.controller.load_mod(mod_folder):
-            current_v: int = self.controller.get_config_version()
-            self.version_label.setText(f"v{current_v}")
+            current_version: int = self.controller.get_config_version()
+            self.version_label.setText(f"v{current_version}")
             
-            if current_v < CURRENT_CONFIG_VERSION:
+            if current_version < CURRENT_CONFIG_VERSION:
                 # Add a visual warning color for outdated mods
                 self.version_label.setStyleSheet("color: #d97706; font-weight: bold;")
                 QMessageBox.warning(
@@ -217,6 +232,30 @@ class ModEditorWindow(QWidget):
             self.name_input.blockSignals(True)
             self.name_input.setText(self.controller.get_mod_name())
             self.name_input.blockSignals(False)
+            
+            entity_type: str = getattr(
+                self.controller.manager.entity_type,
+                "value",
+                str(self.controller.manager.entity_type)
+            )
+            if entity_type == EntityType.STRUCTURE.value:
+                self.dialogue_panel.hide()
+                self.behavior_script.hide()
+                self.behavior_stats.hide()
+                self.structure_behavior.show()
+                self.item_behavior.hide()
+            elif entity_type == EntityType.ITEM.value:
+                self.dialogue_panel.hide()
+                self.behavior_script.hide()
+                self.behavior_stats.hide()
+                self.structure_behavior.hide()
+                self.item_behavior.show()
+            else:
+                self.dialogue_panel.show()
+                self.behavior_script.show()
+                self.behavior_stats.show()
+                self.structure_behavior.hide()
+                self.item_behavior.hide()
                 
             for panel in self.panels:
                 panel.load_data()
@@ -275,6 +314,11 @@ class ModEditorWindow(QWidget):
             self.width() - self.grip.width(),
             self.height() - self.grip.height()
         )
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if self.anim_sys is not None and self.anim_sys._preview_timer:
+            self.anim_sys._preview_timer.stop()
+        super().closeEvent(event)
     
     def _on_open_folder_clicked(self) -> None:
         mod_folder: str = self.mod_combo.currentData()

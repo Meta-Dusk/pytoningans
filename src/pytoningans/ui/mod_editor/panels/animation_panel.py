@@ -1,39 +1,44 @@
 import copy
-
 from typing import Optional
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox, 
-    QPushButton, QLabel, QFormLayout, QFrame, QMessageBox
+    QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox, QPushButton,
+    QLabel, QFormLayout, QFrame, QMessageBox
 )
 from PySide6.QtCore import Qt, QTimer, QRect
 
-from pytoningans.core.constants import PetState, AnimationMeta
+from pytoningans.core.constants import (
+    EntityState, AnimationMeta, EntityType, StructureState, ItemState
+)
 from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.components import (
     CollapsibleSection, PreviewLabel, create_info_label, create_spinbox, create_info_widget
 )
+from .base_panel import BasePanel
 
-class AnimationSubsystem:
+class AnimationSubsystem(BasePanel):
     """Manages all animation-related UI panels, timers, and state bridging."""
     def __init__(self, controller: ModEditorController, dynamic_info_label: QLabel) -> None:
-        self.controller = controller
-        self.info_label = dynamic_info_label
-        self._is_updating_ui = False
+        super().__init__(controller)
+        self.info_label: QLabel = dynamic_info_label
+        self._is_updating_ui: bool = False
         self._copied_meta: Optional[AnimationMeta] = None
-        self._preview_frame = 0
+        self._preview_frame: int = 0
         
-        self._preview_timer = QTimer()
+        self._preview_timer: QTimer = QTimer(self)
         self._preview_timer.timeout.connect(self._update_preview)
         self._preview_timer.setInterval(100)
         
+        self._setup_ui()
+        self._connect_signals()
+        
+        self._preview_timer.start()
+    
+    def _setup_ui(self) -> None:
         self._build_grid_panel()
         self._build_preview_panel()
         self._build_debug_panel()
         self._build_state_panel()
-        self._connect_signals()
-        
-        self._preview_timer.start()
 
     def load_data(self) -> None:
         self._is_updating_ui = True
@@ -44,7 +49,6 @@ class AnimationSubsystem:
         
         self._refresh_dynamic_info()
         self._refresh_state_dropdown()
-        self._on_state_changed()
 
     def _build_grid_panel(self) -> None:
         self.grid_panel = QWidget()
@@ -106,14 +110,16 @@ class AnimationSubsystem:
         h_layout.addWidget(
             create_info_label(
                 "State:",
-                "The State of the Pet to edit the values for."
+                "The State of the Entity to edit the values for."
             )
         )
+        
         self.state_combo = QComboBox()
-        h_layout.addWidget(self.state_combo)
+        h_layout.addWidget(self.state_combo, stretch=1)
+        
         self.copy_btn = QPushButton("Copy")
-        self.paste_btn = QPushButton("Paste")
-        self.paste_btn.setEnabled(False)
+        self.paste_btn = QPushButton("Paste"); self.paste_btn.setEnabled(False)
+        
         h_layout.addWidget(self.copy_btn)
         h_layout.addWidget(self.paste_btn)
         section.content_layout.addLayout(h_layout)
@@ -127,8 +133,6 @@ class AnimationSubsystem:
             )
         )
         self.swap_combo = QComboBox()
-        for state in PetState:
-            self.swap_combo.addItem(state.value.capitalize(), userData=state)
         self.swap_btn = QPushButton("Swap")
         swap_layout.addWidget(self.swap_combo)
         swap_layout.addWidget(self.swap_btn)
@@ -260,20 +264,50 @@ class AnimationSubsystem:
         self.width_spin.setSpecialValueText(f"0 (Auto: {base_w}px)")
         self.height_spin.setSpecialValueText(f"0 (Auto: {base_h}px)")
 
-    def _refresh_state_dropdown(self) -> None:
-        current = self.state_combo.currentData()
+    def _refresh_state_dropdown(self, selected_state: Optional[str] = None) -> None:
+        # Determine previous selection as a raw string
+        prev_data = self.state_combo.currentData()
+        current_selection: Optional[str] = selected_state or (str(prev_data) if prev_data else None)
+
         self.state_combo.blockSignals(True)
         self.state_combo.clear()
-        target_idx = 0
-        for i, state in enumerate(PetState):
-            exists, row = self.controller.has_mapped_row(state)
-            self.state_combo.addItem(
-                f"{state.value.capitalize()} [{'Row ' + str(row) if exists else 'Missing'}]",
-                userData=state
-            )
-            if state == current: target_idx = i
-        self.state_combo.setCurrentIndex(target_idx)
+        
+        self.swap_combo.blockSignals(True)
+        self.swap_combo.clear()
+
+        if self.controller.manager.entity_type == EntityType.STRUCTURE.value:
+            state_enum = StructureState
+        elif self.controller.manager.entity_type == EntityType.ITEM.value:
+            state_enum = ItemState
+        else:
+            state_enum = EntityState
+
+        target_idx: int = 0
+        for i, state in enumerate(state_enum):
+            state_val: str = str(state.value)
+            exists, row = self.controller.has_mapped_row(state_val)
+            display_name: str = f"{state_val.capitalize()} [{'Row ' + str(row) if exists else 'Unmapped'}]"
+            
+            # Store pure string keys in both combo boxes
+            self.state_combo.addItem(display_name, userData=state_val)
+            self.swap_combo.addItem(state_val.capitalize(), userData=state_val)
+                
+            if current_selection and state_val == current_selection:
+                target_idx = i
+
+        if self.state_combo.count() > 0:
+            self.state_combo.setCurrentIndex(target_idx)
+            
+        if self.swap_combo.count() > 0:
+            # Set swap_combo to a different item by default if possible
+            swap_idx = 1 if self.swap_combo.count() > 1 else 0
+            self.swap_combo.setCurrentIndex(swap_idx)
+
         self.state_combo.blockSignals(False)
+        self.swap_combo.blockSignals(False)
+
+        # Explicitly reload the data for the active selection
+        self._on_state_changed()
 
     def _on_global_edited(self, *_) -> None:
         if self._is_updating_ui: return
@@ -282,9 +316,11 @@ class AnimationSubsystem:
         self._update_preview()
 
     def _on_state_changed(self, *_) -> None:
-        state = self.state_combo.currentData()
-        if not state: return
-        meta = self.controller.get_meta(state)
+        raw_data = self.state_combo.currentData()
+        if not raw_data: return
+        state_key = str(raw_data)
+        
+        meta: AnimationMeta = self.controller.get_meta(state_key)
         
         self._is_updating_ui = True
         self.row_spin.setValue(meta.row)
@@ -298,12 +334,13 @@ class AnimationSubsystem:
         self.offset_y_spin.setValue(meta.offset_y)
         self.fps_spin.setValue(meta.fps)
         self._is_updating_ui = False
+        
         self._preview_timer.setInterval(1000 // max(1, meta.fps))
         self._restart_preview()
 
     def _on_meta_edited(self, *_) -> None:
         if self._is_updating_ui: return
-        state = self.state_combo.currentData()
+        state: str = self.state_combo.currentData()
         if not state: return
         
         new_meta = AnimationMeta(
@@ -322,49 +359,48 @@ class AnimationSubsystem:
         self._preview_timer.setInterval(1000 // max(1, self.fps_spin.value()))
 
     def _on_copy(self) -> None:
-        state: Optional[PetState] = self.state_combo.currentData()
+        state: Optional[str] = self.state_combo.currentData()
         if state is None: return
-        
         self._copied_meta = copy.deepcopy(self.controller.get_meta(state))
         self.paste_btn.setEnabled(True)
 
     def _on_paste(self) -> None:
-        state: Optional[PetState] = self.state_combo.currentData()
+        state: Optional[str] = self.state_combo.currentData()
         if state is None or self._copied_meta is None: return
-        
         self.controller.update_meta(state, copy.deepcopy(self._copied_meta))
-        self._refresh_state_dropdown()
+        self._refresh_state_dropdown(selected_state=state)
         self._on_state_changed()
         self._restart_preview()
 
     def _on_swap(self) -> None:
         state_a, state_b = self.state_combo.currentData(), self.swap_combo.currentData()
-        if state_a or state_b or state_a == state_b: return
+        if state_a is None or state_b is None or state_a == state_b: return
             
         meta_a: AnimationMeta = copy.deepcopy(self.controller.get_meta(state_a))
         meta_b: AnimationMeta = copy.deepcopy(self.controller.get_meta(state_b))
         self.controller.update_meta(state_a, meta_b)
         self.controller.update_meta(state_b, meta_a)
-        self._refresh_state_dropdown()
+        self._refresh_state_dropdown(selected_state=state_a)
         self._on_state_changed()
         self._restart_preview()
 
     def _update_preview(self) -> None:
-        state: Optional[PetState] = self.state_combo.currentData()
-        if state is None: return
+        state_data = self.state_combo.currentData()
+        if not state_data: return
+        state_key: str = state_data.value if hasattr(state_data, "value") else str(state_data)
+        
         self._preview_frame += 1
         
-        # Fetch the exact anchor for the current frame
-        anchor, hitbox = self.controller.manager.get_frame_physics(state, self._preview_frame)
+        anchor, hitbox = self.controller.manager.get_frame_physics(state_key, self._preview_frame)
         self.preview_label.current_anchor = anchor
         self.preview_label.current_hitbox = hitbox
         self.preview_label.attack_range = self.controller.manager.attack_range
         
         if self.preview_label.show_crop:
-            frame, crop_rect = self.controller.get_raw_preview(state, self._preview_frame)
+            frame, crop_rect = self.controller.get_raw_preview(state_key, self._preview_frame)
             self.preview_label.crop_rect = crop_rect
         else:
-            frame = self.controller.get_frame(state, self._preview_frame)
+            frame = self.controller.get_frame(state_key, self._preview_frame)
             
         self.preview_label.setPixmap(frame) if frame else self.preview_label.setText("No Image")
 
@@ -425,7 +461,7 @@ class AnimationSubsystem:
         self.bake_btn.setEnabled(True)
     
     def _on_apply_all_clicked(self) -> None:
-        state: Optional[PetState] = self.state_combo.currentData()
+        state: Optional[EntityState] = self.state_combo.currentData()
         if state is None: return
         
         reply: QMessageBox.StandardButton = QMessageBox.question(

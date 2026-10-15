@@ -3,6 +3,12 @@ from enum import StrEnum, unique
 from typing import Any
 
 @unique
+class EntityType(StrEnum):
+    ENTITY = "entity"
+    STRUCTURE = "structure"
+    ITEM = "item"
+
+@unique
 class DeathAnimation(StrEnum):
     SPRITE = "sprite"
     ROTATE_LEFT = "rotate_left"
@@ -16,17 +22,30 @@ class AttackType(StrEnum):
     MULTI = "multi"
 
 @unique
-class PetState(StrEnum):
-    DRAG = "drag"
+class EntityState(StrEnum):
     IDLE = "idle"
+    DRAG = "drag"
     CLICKED = "clicked"
     INTERACT = "interact"
     MOVING = "moving"
     JUMPING = "jumping"
-    DYING = "dying"
     CLIMBING = "climbing"
+    DYING = "dying"
     REVIVING = "reviving"
     ATTACK = "attack"
+
+@unique
+class StructureState(StrEnum):
+    IDLE = "idle"
+    ACTIVE = "active"
+    OPEN = "open"
+
+@unique
+class ItemState(StrEnum):
+    IDLE = "idle"
+    HELD = "held"
+    DROPPED = "dropped"
+    USED = "used"
 
 @unique
 class BehaviorType(StrEnum):
@@ -77,10 +96,10 @@ class AnimationMeta:
 
 @dataclass(frozen=True)
 class ModConfig:
-    animations: dict[PetState, AnimationMeta] = field(default_factory=lambda: {
-        PetState.IDLE: AnimationMeta(row=0, start_frame=0, end_frame=3),
-        PetState.DRAG: AnimationMeta(row=1, start_frame=0, end_frame=3),
-        PetState.INTERACT: AnimationMeta(row=2, start_frame=0, end_frame=3),
+    animations: dict[EntityState, AnimationMeta] = field(default_factory=lambda: {
+        EntityState.IDLE: AnimationMeta(row=0, start_frame=0, end_frame=3),
+        EntityState.DRAG: AnimationMeta(row=1, start_frame=0, end_frame=3),
+        EntityState.INTERACT: AnimationMeta(row=2, start_frame=0, end_frame=3),
     })
 
 @dataclass(frozen=True)

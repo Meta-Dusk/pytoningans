@@ -1,15 +1,21 @@
 {
-    "version": 6,
-    "name": "defaul_pet",
+    "name": "Kasane Teto",
+    "entity_type": "entity",
+    "version": 10,
     "columns": 24,
     "rows": 7,
     "behavior": {
-        "type": "neutral",
+        "type": "hostile",
         "can_fly": false,
         "max_health": 100,
         "attack_damage": 10,
         "attack_range": 50,
-        "jump_height": 15
+        "jump_height": 15,
+        "attack_type": "single",
+        "max_targets": 1,
+        "death_animation": "sprite",
+        "auto_close_on_death": true,
+        "instance_names": []
     },
     "animations": {
         "drag": {
@@ -23,9 +29,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 3,
+            "base_h": 71,
             "computed_w": 53,
             "computed_h": 71,
-            "base_h": 71
+            "anchor_x": 31,
+            "anchor_y": 66,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 53,
+            "hitbox_h": 66,
+            "frame_overrides": {}
         },
         "idle": {
             "row": 1,
@@ -38,9 +51,16 @@
             "offset_x": 0,
             "offset_y": -5,
             "fps": 10,
+            "base_h": 71,
             "computed_w": 61,
             "computed_h": 76,
-            "base_h": 71
+            "anchor_x": 38,
+            "anchor_y": 73,
+            "hitbox_x": 9,
+            "hitbox_y": 0,
+            "hitbox_w": 50,
+            "hitbox_h": 73,
+            "frame_overrides": {}
         },
         "clicked": {
             "row": 4,
@@ -53,9 +73,16 @@
             "offset_x": 0,
             "offset_y": -1,
             "fps": 10,
+            "base_h": 71,
             "computed_w": 82,
             "computed_h": 80,
-            "base_h": 71
+            "anchor_x": 55,
+            "anchor_y": 78,
+            "hitbox_x": 21,
+            "hitbox_y": 5,
+            "hitbox_w": 61,
+            "hitbox_h": 73,
+            "frame_overrides": {}
         },
         "interact": {
             "row": 4,
@@ -68,9 +95,16 @@
             "offset_x": 0,
             "offset_y": -1,
             "fps": 10,
+            "base_h": 71,
             "computed_w": 82,
             "computed_h": 80,
-            "base_h": 71
+            "anchor_x": 55,
+            "anchor_y": 78,
+            "hitbox_x": 21,
+            "hitbox_y": 5,
+            "hitbox_w": 61,
+            "hitbox_h": 73,
+            "frame_overrides": {}
         },
         "moving": {
             "row": 2,
@@ -83,9 +117,16 @@
             "offset_x": 0,
             "offset_y": -2,
             "fps": 10,
+            "base_h": 71,
             "computed_w": 73,
             "computed_h": 71,
-            "base_h": 71
+            "anchor_x": 42,
+            "anchor_y": 69,
+            "hitbox_x": 18,
+            "hitbox_y": 0,
+            "hitbox_w": 53,
+            "hitbox_h": 69,
+            "frame_overrides": {}
         },
         "jumping": {
             "row": 3,
@@ -98,9 +139,16 @@
             "offset_x": 0,
             "offset_y": -3,
             "fps": 10,
+            "base_h": 71,
             "computed_w": 73,
             "computed_h": 75,
-            "base_h": 71
+            "anchor_x": 45,
+            "anchor_y": 70,
+            "hitbox_x": 15,
+            "hitbox_y": 4,
+            "hitbox_w": 57,
+            "hitbox_h": 66,
+            "frame_overrides": {}
         },
         "dying": {
             "row": 6,
@@ -113,9 +161,33 @@
             "offset_x": 0,
             "offset_y": -4,
             "fps": 5,
+            "base_h": 71,
             "computed_w": 72,
             "computed_h": 100,
-            "base_h": 71
+            "anchor_x": 39,
+            "anchor_y": 73,
+            "hitbox_x": 8,
+            "hitbox_y": 3,
+            "hitbox_w": 62,
+            "hitbox_h": 70,
+            "frame_overrides": {
+                "2": {
+                    "anchor_x": 39,
+                    "anchor_y": 73,
+                    "hitbox_x": 4,
+                    "hitbox_y": 3,
+                    "hitbox_w": 62,
+                    "hitbox_h": 70
+                },
+                "3": {
+                    "anchor_x": 39,
+                    "anchor_y": 73,
+                    "hitbox_x": 4,
+                    "hitbox_y": 37,
+                    "hitbox_w": 62,
+                    "hitbox_h": 36
+                }
+            }
         },
         "climbing": {
             "row": 2,
@@ -128,9 +200,16 @@
             "offset_x": 0,
             "offset_y": -2,
             "fps": 10,
+            "base_h": 71,
             "computed_w": 73,
             "computed_h": 71,
-            "base_h": 71
+            "anchor_x": 42,
+            "anchor_y": 69,
+            "hitbox_x": 18,
+            "hitbox_y": 0,
+            "hitbox_w": 53,
+            "hitbox_h": 69,
+            "frame_overrides": {}
         },
         "reviving": {
             "row": 6,
@@ -143,9 +222,49 @@
             "offset_x": 0,
             "offset_y": -4,
             "fps": 5,
+            "base_h": 71,
             "computed_w": 72,
             "computed_h": 100,
-            "base_h": 71
+            "anchor_x": 0,
+            "anchor_y": 0,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 0,
+            "hitbox_h": 0,
+            "frame_overrides": {
+                "0": {
+                    "anchor_x": 39,
+                    "anchor_y": 73,
+                    "hitbox_x": 8,
+                    "hitbox_y": 3,
+                    "hitbox_w": 62,
+                    "hitbox_h": 70
+                },
+                "1": {
+                    "anchor_x": 39,
+                    "anchor_y": 73,
+                    "hitbox_x": 8,
+                    "hitbox_y": 3,
+                    "hitbox_w": 62,
+                    "hitbox_h": 70
+                },
+                "3": {
+                    "anchor_x": 39,
+                    "anchor_y": 73,
+                    "hitbox_x": 4,
+                    "hitbox_y": 37,
+                    "hitbox_w": 62,
+                    "hitbox_h": 36
+                },
+                "2": {
+                    "anchor_x": 39,
+                    "anchor_y": 73,
+                    "hitbox_x": 4,
+                    "hitbox_y": 3,
+                    "hitbox_w": 62,
+                    "hitbox_h": 70
+                }
+            }
         },
         "attack": {
             "row": 4,
@@ -158,9 +277,43 @@
             "offset_x": 0,
             "offset_y": -1,
             "fps": 10,
+            "base_h": 71,
             "computed_w": 82,
             "computed_h": 80,
-            "base_h": 71
+            "anchor_x": 55,
+            "anchor_y": 78,
+            "hitbox_x": 21,
+            "hitbox_y": 5,
+            "hitbox_w": 61,
+            "hitbox_h": 73,
+            "frame_overrides": {
+                "4": {
+                    "anchor_x": 55,
+                    "anchor_y": 78,
+                    "hitbox_x": 21,
+                    "hitbox_y": 5,
+                    "hitbox_w": 61,
+                    "hitbox_h": 73,
+                    "is_attack_frame": true,
+                    "attack_x": -3,
+                    "attack_y": -21,
+                    "attack_w": 120,
+                    "attack_h": 99
+                },
+                "5": {
+                    "anchor_x": 55,
+                    "anchor_y": 78,
+                    "hitbox_x": 21,
+                    "hitbox_y": 5,
+                    "hitbox_w": 61,
+                    "hitbox_h": 73,
+                    "is_attack_frame": true,
+                    "attack_x": -3,
+                    "attack_y": -21,
+                    "attack_w": 120,
+                    "attack_h": 99
+                }
+            }
         }
     },
     "dialogue": {
@@ -172,24 +325,19 @@
             "I like baguettes :)",
             "Have you seen Miku anywhere?"
         ],
+        "death_dialogue": ["Ugh...", "I'll be back...", "Farewell..."],
         "window_triggers": [
             {
                 "chance": 0.1,
                 "duration": 4000,
                 "text": "Can you code me a baguette?",
-                "title_matches": [
-                    "vscode",
-                    "code.exe",
-                    "visual studio code"
-                ]
+                "title_matches": ["vscode", "code.exe", "visual studio code"]
             },
             {
                 "chance": 1.0,
                 "duration": 4000,
                 "text": "Happy Birthday, Lance!",
-                "title_matches": [
-                    "hbl"
-                ]
+                "title_matches": ["hbl"]
             },
             {
                 "chance": 0.5,

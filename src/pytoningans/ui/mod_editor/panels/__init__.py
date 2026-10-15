@@ -1,0 +1,23 @@
+from .base_panel import BasePanel
+from .animation_panel import AnimationSubsystem
+from .behavior_panel import (
+    BehaviorStatsPanel, BehaviorScriptPanel, StructureBehaviorPanel, ItemBehaviorPanel
+)
+from .dialogue_panel import DialoguePanel
+from .physics_panel import PhysicsPanel
+from .instance_names_panel import InstanceNamesPanel
+from .tags_panel import TagsPanel
+
+__all__ = [
+    "BasePanel",
+    "AnimationSubsystem",
+    "BehaviorStatsPanel",
+    "BehaviorScriptPanel",
+    "StructureBehaviorPanel",
+    "ItemBehaviorPanel",
+    "DialoguePanel",
+    "PhysicsPanel",
+    "InstanceNamesPanel",
+    "TagsPanel",
+]
+

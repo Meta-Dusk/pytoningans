@@ -1,15 +1,21 @@
 {
-    "version": 6,
     "name": "The Isaac",
+    "entity_type": "entity",
+    "version": 10,
     "columns": 2,
     "rows": 1,
     "behavior": {
-        "type": "neutral",
+        "type": "hostile",
         "can_fly": true,
         "max_health": 100,
         "attack_damage": 10,
-        "attack_range": 50,
-        "jump_height": 15
+        "attack_range": 140,
+        "jump_height": 15,
+        "attack_type": "single",
+        "max_targets": 1,
+        "death_animation": "rotate_left_or_right",
+        "auto_close_on_death": true,
+        "instance_names": []
     },
     "animations": {
         "drag": {
@@ -23,9 +29,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 3,
+            "base_h": 291,
             "computed_w": 261,
             "computed_h": 291,
-            "base_h": 291
+            "anchor_x": 138,
+            "anchor_y": 291,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 261,
+            "hitbox_h": 291,
+            "frame_overrides": {}
         },
         "idle": {
             "row": 0,
@@ -38,9 +51,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 2,
+            "base_h": 291,
             "computed_w": 261,
             "computed_h": 291,
-            "base_h": 291
+            "anchor_x": 138,
+            "anchor_y": 291,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 261,
+            "hitbox_h": 291,
+            "frame_overrides": {}
         },
         "clicked": {
             "row": 0,
@@ -53,9 +73,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 3,
+            "base_h": 291,
             "computed_w": 261,
             "computed_h": 291,
-            "base_h": 291
+            "anchor_x": 138,
+            "anchor_y": 291,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 261,
+            "hitbox_h": 291,
+            "frame_overrides": {}
         },
         "interact": {
             "row": 0,
@@ -68,9 +95,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 7,
+            "base_h": 291,
             "computed_w": 261,
             "computed_h": 291,
-            "base_h": 291
+            "anchor_x": 138,
+            "anchor_y": 291,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 261,
+            "hitbox_h": 291,
+            "frame_overrides": {}
         },
         "moving": {
             "row": 0,
@@ -83,9 +117,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 6,
+            "base_h": 291,
             "computed_w": 261,
             "computed_h": 291,
-            "base_h": 291
+            "anchor_x": 138,
+            "anchor_y": 291,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 261,
+            "hitbox_h": 291,
+            "frame_overrides": {}
         },
         "jumping": {
             "row": 0,
@@ -98,9 +139,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 4,
+            "base_h": 291,
             "computed_w": 261,
             "computed_h": 291,
-            "base_h": 291
+            "anchor_x": 138,
+            "anchor_y": 291,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 261,
+            "hitbox_h": 291,
+            "frame_overrides": {}
         },
         "dying": {
             "row": 0,
@@ -113,9 +161,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 2,
+            "base_h": 291,
             "computed_w": 261,
             "computed_h": 291,
-            "base_h": 291
+            "anchor_x": 138,
+            "anchor_y": 291,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 261,
+            "hitbox_h": 291,
+            "frame_overrides": {}
         },
         "climbing": {
             "row": 0,
@@ -128,9 +183,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 4,
+            "base_h": 291,
             "computed_w": 261,
             "computed_h": 291,
-            "base_h": 291
+            "anchor_x": 138,
+            "anchor_y": 291,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 261,
+            "hitbox_h": 291,
+            "frame_overrides": {}
         },
         "reviving": {
             "row": 0,
@@ -143,9 +205,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 2,
+            "base_h": 291,
             "computed_w": 261,
             "computed_h": 291,
-            "base_h": 291
+            "anchor_x": 138,
+            "anchor_y": 291,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 261,
+            "hitbox_h": 291,
+            "frame_overrides": {}
         },
         "attack": {
             "row": 0,
@@ -158,9 +227,43 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 8,
+            "base_h": 291,
             "computed_w": 261,
             "computed_h": 291,
-            "base_h": 291
+            "anchor_x": 0,
+            "anchor_y": 0,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 0,
+            "hitbox_h": 0,
+            "frame_overrides": {
+                "1": {
+                    "anchor_x": 138,
+                    "anchor_y": 291,
+                    "hitbox_x": 0,
+                    "hitbox_y": 0,
+                    "hitbox_w": 261,
+                    "hitbox_h": 291,
+                    "is_attack_frame": true,
+                    "attack_x": -9,
+                    "attack_y": 5,
+                    "attack_w": 270,
+                    "attack_h": 281
+                },
+                "0": {
+                    "anchor_x": 138,
+                    "anchor_y": 291,
+                    "hitbox_x": 0,
+                    "hitbox_y": 0,
+                    "hitbox_w": 261,
+                    "hitbox_h": 291,
+                    "is_attack_frame": false,
+                    "attack_x": 0,
+                    "attack_y": 0,
+                    "attack_w": 0,
+                    "attack_h": 0
+                }
+            }
         }
     },
     "dialogue": {
@@ -170,6 +273,11 @@
             "Hello I'm Isaac",
             "You got them jokes?",
             "I'm one of the biggest chuds"
+        ],
+        "death_dialogue": [
+            "Ugh...",
+            "I'll be back...",
+            "Farewell..."
         ],
         "window_triggers": [
             {

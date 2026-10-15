@@ -4,7 +4,7 @@ from typing import Optional
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit,
-    QSpinBox, QPushButton, QFileDialog, QMessageBox, QWidget
+    QSpinBox, QPushButton, QFileDialog, QMessageBox, QWidget, QComboBox
 )
 from PySide6.QtGui import QDragEnterEvent, QDropEvent, QPixmap
 from PySide6.QtCore import QUrl, Qt
@@ -12,7 +12,9 @@ from PySide6.QtCore import QUrl, Qt
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
 from pytoningans.core.config_schema import ModConfig
-from pytoningans.core.constants import PetState, AnimationMeta
+from pytoningans.core.constants import (
+    EntityState, AnimationMeta, EntityType, StructureState, ItemState
+)
 
 class ModCreationDialog(QDialog):
     def __init__(self, mods_dir: str | Path, parent: Optional[QWidget] = None) -> None:
@@ -31,7 +33,7 @@ class ModCreationDialog(QDialog):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
-        self.title_bar = CustomTitleBar(self, "Create New Mod")
+        self.title_bar = CustomTitleBar(self, "Create New Mod", can_minimize=False, can_maximize=False)
         main_layout.addWidget(self.title_bar)
         
         content = QWidget()
@@ -40,18 +42,40 @@ class ModCreationDialog(QDialog):
         
         form = QFormLayout()
         self.folder_input = QLineEdit()
-        self.folder_input.setPlaceholderText("e.g. my_cool_pet")
+        self.folder_input.setPlaceholderText("e.g. my_cool_entity")
         
         self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("e.g. My Cool Pet")
+        self.name_input.setPlaceholderText("e.g. My Cool Entity")
         
         self.cols_spin = QSpinBox()
-        self.cols_spin.setRange(1, 100)
-        self.cols_spin.setValue(4)
+        self.cols_spin.setRange(1, 100); self.cols_spin.setValue(4)
         
         self.rows_spin = QSpinBox()
-        self.rows_spin.setRange(1, 100)
-        self.rows_spin.setValue(len(PetState))
+        self.rows_spin.setRange(1, 100); self.rows_spin.setValue(len(EntityState))
+        
+        self.type_combo = QComboBox()
+        self.type_combo.addItem("Living Entity", userData=EntityType.ENTITY)
+        self.type_combo.addItem("Static/Animated Structure", userData=EntityType.STRUCTURE)
+        self.type_combo.addItem("Static Item (Single Sprite)", userData="static_item")
+        self.type_combo.addItem("Animated Item (Multi-State)", userData="animated_item")
+        
+        def _on_type_changed(_: int) -> None:
+            selected_type: str = self.type_combo.currentData()
+            match selected_type:
+                case "static_item":
+                    self.cols_spin.setValue(1)
+                    self.rows_spin.setValue(1)
+                case "animated_item":
+                    self.cols_spin.setValue(4)
+                    self.rows_spin.setValue(len(ItemState))
+                case EntityType.STRUCTURE:
+                    self.cols_spin.setValue(4)
+                    self.rows_spin.setValue(len(StructureState))
+                case _:
+                    self.cols_spin.setValue(4)
+                    self.rows_spin.setValue(len(EntityState))
+
+        self.type_combo.currentIndexChanged.connect(_on_type_changed)
         
         form.addRow(self._create_info_label(
             "Internal Folder Name:", 
@@ -60,7 +84,7 @@ class ModCreationDialog(QDialog):
         
         form.addRow(self._create_info_label(
             "Display Name:", 
-            "The human-readable name of the pet shown in the main menu."
+            "The human-readable name of the entity shown in the main menu."
         ), self.name_input)
         
         form.addRow(self._create_info_label(
@@ -72,6 +96,8 @@ class ModCreationDialog(QDialog):
             "Authoring Rows:", 
             "How many rows the sprite sheet is divided into evenly (used to calculate base tile height)."
         ), self.rows_spin)
+        
+        form.addRow("Entity Type:", self.type_combo)
         
         layout.addLayout(form)
         
@@ -163,10 +189,17 @@ class ModCreationDialog(QDialog):
             return
             
         if not re.match(r"^[a-zA-Z0-9_-]+$", folder_name):
-            QMessageBox.warning(self, "Error", "Folder name can only contain letters, numbers, hyphens, and underscores.")
+            QMessageBox.warning(
+                self, "Error",
+                "Folder name can only contain letters, numbers, hyphens, and underscores."
+            )
+            return
+
+        if folder_name.lower() in {"api", "__pycache__"}:
+            QMessageBox.warning(self, "Error", f"'{folder_name}' is a reserved engine folder name.")
             return
             
-        if not self.selected_image_path:
+        if self.selected_image_path is None:
             QMessageBox.warning(self, "Error", "Please select a sprite sheet (.png).")
             return
             
@@ -180,8 +213,8 @@ class ModCreationDialog(QDialog):
             shutil.copy(self.selected_image_path, target_dir / "sprite_sheet.png")
             
             # Read user-selected grid dimensions
-            cols = self.cols_spin.value()
-            rows = self.rows_spin.value()
+            cols: int = self.cols_spin.value()
+            rows: int = self.rows_spin.value()
             
             self._generate_default_config(display_name, target_dir / "config.json", cols=cols, rows=rows)
             self.new_mod_folder = folder_name
@@ -192,20 +225,46 @@ class ModCreationDialog(QDialog):
     
     def _generate_default_config(
         self, display_name: str, config_path: Path,
-        *, cols: int = 4, rows: int = len(PetState)
+        *, cols: int = 4, rows: int = len(EntityState)
     ) -> None:
-        # Scale default animations to respect the chosen row/column dimensions
-        animations = {
-            state.value: AnimationMeta(
-                row=min(i, max(0, rows - 1)),
-                start_frame=0,
-                end_frame=max(0, cols - 1)
-            )
-            for i, state in enumerate(PetState)
-        }
+        selected_data = self.type_combo.currentData()
+        is_static: bool = (selected_data == "static_item")
+        
+        if selected_data in ("static_item", "animated_item", EntityType.ITEM):
+            entity_type = EntityType.ITEM.value
+            state_enum = ItemState
+        elif getattr(selected_data, "value", str(selected_data)) == EntityType.STRUCTURE.value:
+            entity_type = EntityType.STRUCTURE.value
+            state_enum = StructureState
+        else:
+            entity_type = EntityType.ENTITY.value
+            state_enum = EntityState
+
+        if is_static:
+            animations = {
+                state.value: AnimationMeta(
+                    row=0,
+                    start_frame=0,
+                    end_frame=0,
+                    loop=True
+                )
+                for state in state_enum
+            }
+        else:
+            animations = {
+                state.value: AnimationMeta(
+                    row=min(i, max(0, rows - 1)),
+                    start_frame=0,
+                    end_frame=max(0, cols - 1),
+                    loop=True
+                )
+                for i, state in enumerate(state_enum)
+            }
 
         new_config = ModConfig(
             name=display_name,
+            entity_type=entity_type,
+            is_static=is_static,
             columns=cols,
             rows=rows,
             animations=animations

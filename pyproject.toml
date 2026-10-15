@@ -1,11 +1,11 @@
 [project]
 name = "pytoningans"
-version = "0.6.7"
-description = "A PySide6 Desktop Pets App"
+version = "0.7.8"
+description = "A PySide6 Desktop Idler Sandbox Game"
 readme = "README.md"
 authors = [{ name = "MetaDusk", email = "andredcxxv@gmail.com" }]
 requires-python = ">=3.14"
-dependencies = ["pyside6>=6.11.2"]
+dependencies = ["pyside6>=6.11.2,<6.12.0"]
 
 [project.scripts]
 pytoningans = "pytoningans:main"

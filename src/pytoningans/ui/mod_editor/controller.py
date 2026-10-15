@@ -6,15 +6,15 @@ from PySide6.QtCore import QRect
 from PySide6.QtGui import QPixmap
 
 from pytoningans.core.mod_manager import ModManager
-from pytoningans.core.constants import PetState, AnimationMeta
+from pytoningans.core.constants import AnimationMeta
 
 class ModEditorController:
     """Handles data bridging between the UI and the ModManager."""
     def __init__(self, mod_manager: ModManager) -> None:
         self.manager: ModManager = mod_manager
 
-    def get_mod_list(self) -> dict[str, str]:
-        return self.manager.get_available_mods()
+    def get_mod_list(self) -> dict[str, Tuple[str, str]]:
+        return self.manager.get_available_mods_with_type()
 
     def load_mod(self, folder: str) -> bool:
         return self.manager.load_mod(folder)
@@ -31,18 +31,18 @@ class ModEditorController:
         self.manager._resolve_dimensions() # Recalculate base tile sizes
         self.manager.clear_shared_cache()  # Flush old grid cuts
 
-    def get_meta(self, state: PetState) -> AnimationMeta:
+    def get_meta(self, state: str) -> AnimationMeta:
         return self.manager.animations.get(state, AnimationMeta(row=0, start_frame=0, end_frame=1))
 
-    def update_meta(self, state: PetState, meta: AnimationMeta) -> None:
+    def update_meta(self, state: str, meta: AnimationMeta) -> None:
         self.manager.animations[state] = meta
         self.manager._resolve_dimensions()
         self.manager.clear_shared_cache()
 
-    def get_frame(self, state: PetState, frame_index: int):
+    def get_frame(self, state: str, frame_index: int) -> Optional[QPixmap]:
         return self.manager.get_frame(state, frame_index)
         
-    def has_mapped_row(self, state: PetState) -> Tuple[bool, int]:
+    def has_mapped_row(self, state: str) -> Tuple[bool, int]:
         meta: Optional[AnimationMeta] = self.manager.animations.get(state)
         return (True, meta.row) if meta else (False, 0)
     
@@ -76,7 +76,7 @@ class ModEditorController:
         self.manager.jump_height = stats.get("jump_height", self.manager.jump_height)
         self.manager.attack_type = stats.get("attack_type", self.manager.attack_type)
     
-    def get_raw_preview(self, state: PetState, frame_index: int) -> Tuple[Optional[QPixmap], QRect]:
+    def get_raw_preview(self, state: str, frame_index: int) -> Tuple[Optional[QPixmap], QRect]:
         """Returns the uncropped base tile and the QRect representing the custom crop area."""
         sheet: Optional[QPixmap] = self.manager._global_sheet
         if not sheet: return None, QRect()
@@ -98,17 +98,13 @@ class ModEditorController:
         base_w: int = sheet.width() // cols
         base_h: int = sheet.height() // rows
         
-        raw_rect: QRect = QRect(actual_sheet_index * base_w, meta.row * base_h, base_w, base_h)
-        raw_tile: QPixmap = sheet.copy(raw_rect)
-        
-        # Calculate the target crop area boundaries
+        # Pad the extracted background so you don't lose the ability to expand the crop box
         final_w: int = meta.override_width if meta.override_width > 0 else base_w
         final_h: int = meta.override_height if meta.override_height > 0 else base_h
         
         origin_x: int = actual_sheet_index * final_w
         origin_y: int = meta.row * base_h
         
-        # Pad the extracted background so you don't lose the ability to expand the crop box
         display_w: int = max(base_w, final_w * 2)
         display_h: int = max(base_h, final_h * 2)
         
@@ -122,7 +118,7 @@ class ModEditorController:
     def bake_sprite_sheet(self) -> bool:
         return self.manager.bake_sprite_sheet()
     
-    def apply_crop_to_all(self, source_state: PetState) -> None:
+    def apply_crop_to_all(self, source_state: str) -> None:
         """Copies the crop offsets and dimensions of the source state to all other states."""
         source_meta: Optional[AnimationMeta] = self.manager.animations.get(source_state)
         if source_meta is None: return
@@ -134,8 +130,8 @@ class ModEditorController:
                 meta.offset_x = source_meta.offset_x
                 meta.offset_y = source_meta.offset_y
         
-        self.manager._resolve_dimensions() # Recalculate dimensions for all states
-        self.manager.clear_shared_cache()  # Force the preview to redraw
+        self.manager._resolve_dimensions()
+        self.manager.clear_shared_cache()
     
     def get_mod_name(self) -> str:
         return self.manager.current_mod_name
@@ -145,6 +141,18 @@ class ModEditorController:
     
     def get_config_version(self) -> int:
         return self.manager.config_version
+
+    def get_instance_names(self) -> list[str]:
+        return list(self.manager.instance_names)
+
+    def set_instance_names(self, names: list[str]) -> None:
+        self.manager.instance_names = list(names)
+
+    def get_tags(self) -> list[str]:
+        return list(self.manager.tags)
+
+    def set_tags(self, tags: list[str]) -> None:
+        self.manager.tags = list(tags)
     
     def replace_sprite_sheet(self, mod_folder: str, new_image_path: str) -> None:
         target_path: Path = self.manager.mods_dir / mod_folder / "sprite_sheet.png"

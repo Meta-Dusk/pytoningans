@@ -1,6 +1,7 @@
 {
-    "version": 6,
-    "name": "BotNets",
+    "name": "Bot Nets",
+    "entity_type": "entity",
+    "version": 10,
     "columns": 4,
     "rows": 1,
     "behavior": {
@@ -9,7 +10,12 @@
         "max_health": 100,
         "attack_damage": 10,
         "attack_range": 50,
-        "jump_height": 15
+        "jump_height": 15,
+        "attack_type": "single",
+        "max_targets": 1,
+        "death_animation": "rotate_left_or_right",
+        "auto_close_on_death": true,
+        "instance_names": []
     },
     "animations": {
         "drag": {
@@ -23,9 +29,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 1,
+            "base_h": 51,
             "computed_w": 64,
             "computed_h": 51,
-            "base_h": 51
+            "anchor_x": 34,
+            "anchor_y": 51,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 64,
+            "hitbox_h": 51,
+            "frame_overrides": {}
         },
         "idle": {
             "row": 0,
@@ -38,9 +51,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 2,
+            "base_h": 51,
             "computed_w": 64,
             "computed_h": 51,
-            "base_h": 51
+            "anchor_x": 34,
+            "anchor_y": 51,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 64,
+            "hitbox_h": 51,
+            "frame_overrides": {}
         },
         "clicked": {
             "row": 0,
@@ -53,9 +73,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 4,
+            "base_h": 51,
             "computed_w": 64,
             "computed_h": 51,
-            "base_h": 51
+            "anchor_x": 34,
+            "anchor_y": 51,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 64,
+            "hitbox_h": 51,
+            "frame_overrides": {}
         },
         "interact": {
             "row": 0,
@@ -68,9 +95,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 6,
+            "base_h": 51,
             "computed_w": 64,
             "computed_h": 51,
-            "base_h": 51
+            "anchor_x": 34,
+            "anchor_y": 51,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 64,
+            "hitbox_h": 51,
+            "frame_overrides": {}
         },
         "moving": {
             "row": 0,
@@ -83,9 +117,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 4,
+            "base_h": 51,
             "computed_w": 64,
             "computed_h": 51,
-            "base_h": 51
+            "anchor_x": 34,
+            "anchor_y": 51,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 64,
+            "hitbox_h": 51,
+            "frame_overrides": {}
         },
         "jumping": {
             "row": 0,
@@ -98,9 +139,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 4,
+            "base_h": 51,
             "computed_w": 64,
             "computed_h": 51,
-            "base_h": 51
+            "anchor_x": 34,
+            "anchor_y": 51,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 64,
+            "hitbox_h": 51,
+            "frame_overrides": {}
         },
         "dying": {
             "row": 0,
@@ -113,9 +161,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 4,
+            "base_h": 51,
             "computed_w": 64,
             "computed_h": 51,
-            "base_h": 51
+            "anchor_x": 34,
+            "anchor_y": 51,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 64,
+            "hitbox_h": 51,
+            "frame_overrides": {}
         },
         "climbing": {
             "row": 0,
@@ -128,9 +183,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 4,
+            "base_h": 51,
             "computed_w": 64,
             "computed_h": 51,
-            "base_h": 51
+            "anchor_x": 34,
+            "anchor_y": 51,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 64,
+            "hitbox_h": 51,
+            "frame_overrides": {}
         },
         "reviving": {
             "row": 0,
@@ -143,9 +205,16 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 4,
+            "base_h": 51,
             "computed_w": 64,
             "computed_h": 51,
-            "base_h": 51
+            "anchor_x": 34,
+            "anchor_y": 51,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 64,
+            "hitbox_h": 51,
+            "frame_overrides": {}
         },
         "attack": {
             "row": 0,
@@ -158,9 +227,43 @@
             "offset_x": 0,
             "offset_y": 0,
             "fps": 8,
+            "base_h": 51,
             "computed_w": 64,
             "computed_h": 51,
-            "base_h": 51
+            "anchor_x": 34,
+            "anchor_y": 51,
+            "hitbox_x": 0,
+            "hitbox_y": 0,
+            "hitbox_w": 64,
+            "hitbox_h": 51,
+            "frame_overrides": {
+                "1": {
+                    "anchor_x": 34,
+                    "anchor_y": 51,
+                    "hitbox_x": 0,
+                    "hitbox_y": 0,
+                    "hitbox_w": 64,
+                    "hitbox_h": 51,
+                    "is_attack_frame": true,
+                    "attack_x": -18,
+                    "attack_y": -18,
+                    "attack_w": 100,
+                    "attack_h": 93
+                },
+                "3": {
+                    "anchor_x": 34,
+                    "anchor_y": 51,
+                    "hitbox_x": 0,
+                    "hitbox_y": 0,
+                    "hitbox_w": 64,
+                    "hitbox_h": 51,
+                    "is_attack_frame": true,
+                    "attack_x": -18,
+                    "attack_y": -18,
+                    "attack_w": 100,
+                    "attack_h": 93
+                }
+            }
         }
     },
     "dialogue": {
@@ -169,6 +272,11 @@
             "I will kill ANYONE if they come close...",
             "I'm a bot :P",
             "Try me >:("
+        ],
+        "death_dialogue": [
+            "Ugh...",
+            "I'll be back...",
+            "Farewell..."
         ],
         "window_triggers": [
             {

@@ -2,10 +2,10 @@ from dataclasses import dataclass, field, asdict
 from typing import Any
 
 from pytoningans.core.constants import (
-    PetState, BehaviorType, AnimationMeta, AttackType, DeathAnimation
+    EntityState, BehaviorType, AnimationMeta, AttackType, DeathAnimation, EntityType
 )
 
-CURRENT_CONFIG_VERSION = 9
+CURRENT_CONFIG_VERSION = 10
 
 @dataclass
 class BehaviorConfig:
@@ -22,11 +22,15 @@ class BehaviorConfig:
     
     death_animation: DeathAnimation = DeathAnimation.SPRITE
     auto_close_on_death: bool = False
+    instance_names: list[str] = field(default_factory=list)
 
 @dataclass
 class DialogueConfig:
     plain_dialogue: list[str] = field(
         default_factory=lambda: ["Just hanging out.", "Lovely weather.", "Need a break?"]
+    )
+    death_dialogue: list[str] = field(
+        default_factory=lambda: ["Ugh...", "I'll be back...", "Farewell..."]
     )
     window_triggers: list[dict[str, Any]] = field(default_factory=lambda: [
         {
@@ -46,14 +50,17 @@ class DialogueConfig:
 @dataclass
 class ModConfig:
     name: str
+    entity_type: str = EntityType.ENTITY.value
+    is_static: bool = False
+    tags: list[str] = field(default_factory=list)
     version: int = CURRENT_CONFIG_VERSION
     columns: int = 4
-    rows: int = len(PetState)
+    rows: int = len(EntityState)
     behavior: BehaviorConfig = field(default_factory=BehaviorConfig)
     animations: dict[str, AnimationMeta] = field(
         default_factory=lambda: {
             state.value: AnimationMeta(row=i, start_frame=0, end_frame=3) 
-            for i, state in enumerate(PetState)
+            for i, state in enumerate(EntityState)
         }
     )
     dialogue: DialogueConfig = field(default_factory=DialogueConfig)
