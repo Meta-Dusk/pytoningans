@@ -21,7 +21,6 @@ from pytoningans.core.components.base_component import BaseComponent
 if TYPE_CHECKING:
     from pytoningans.core.mod_manager import ModManager
     from pytoningans.core.world import WorldOverlay
-    from pytoningans.core.entity.base_structure import BaseStructure
 
 
 class BaseEntity(QGraphicsPixmapItem):
@@ -63,6 +62,15 @@ class BaseEntity(QGraphicsPixmapItem):
         self._setup_ui(start_x, start_y)
         self.update_tooltip()
         self._highlight_item: Optional[Any] = None
+        self._active_context_menu: Optional[Any] = None
+
+    def pause_death_animations(self) -> None:
+        """Hook for subclasses to pause death animations while context menu is open."""
+        pass
+
+    def resume_death_animations(self) -> None:
+        """Hook for subclasses to resume death animations when context menu is closed."""
+        pass
 
     def set_highlighted(self, enabled: bool) -> None:
         """Toggles visual selection highlight outline around this entity."""
@@ -124,7 +132,7 @@ class BaseEntity(QGraphicsPixmapItem):
             else:
                 type_str = "Entity"
 
-        mod_name = "Unknown"
+        mod_name: str = "Unknown"
         if self.mod_manager is not None:
             if self.mod_manager.current_mod_name:
                 mod_name = self.mod_manager.current_mod_name
@@ -230,10 +238,11 @@ class BaseEntity(QGraphicsPixmapItem):
         val_str = value.value if hasattr(value, "value") else str(value)
         if getattr(self, "_state", None) == val_str:
             return
-        old_state: str = self._state
-        self._state = val_str
+        old_state: str = getattr(self, "_state", "")
         if self.anim_sys is not None:
             self.anim_sys.set_state(val_str)
+        else:
+            self._state = val_str
         self._on_state_change(old_state, val_str)
 
     @property
@@ -375,7 +384,13 @@ class BaseEntity(QGraphicsPixmapItem):
             self._highlight_item.setVisible(False)
             if self.scene() and self._highlight_item.scene():
                 self.scene().removeItem(self._highlight_item)
-            self._highlight_item = None
+        if hasattr(self, "_active_context_menu") and self._active_context_menu is not None:
+            menu = self._active_context_menu
+            self._active_context_menu = None
+            try:
+                menu.close()
+            except RuntimeError:
+                pass
         self.setGraphicsEffect(cast(Any, None))
         self.tint_effect = None
         self.world = None
@@ -386,7 +401,11 @@ class BaseEntity(QGraphicsPixmapItem):
         self._hide_hover_tooltip()
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_dragged = True
-            if self.anim_sys is not None:
+            if (
+                self.anim_sys is not None and
+                self.mod_manager is not None and
+                EntityState.DRAG in self.mod_manager.animations
+            ):
                 self.anim_sys.set_state(EntityState.DRAG)
             self.locks.physics = False
             self.velocity_y = 0.0
@@ -411,7 +430,11 @@ class BaseEntity(QGraphicsPixmapItem):
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_dragged = False
-            if self.anim_sys is not None:
+            if (
+                self.anim_sys is not None and
+                self.mod_manager is not None and
+                EntityState.IDLE in self.mod_manager.animations
+            ):
                 self.anim_sys.set_state(EntityState.IDLE)
             self.locks.physics = self.is_physics_enabled
             if not self.is_physics_enabled:
@@ -425,12 +448,6 @@ class BaseEntity(QGraphicsPixmapItem):
         pass
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
-        self.is_force_idle = True
-        self.set_highlighted(True)
-        try:
-            from pytoningans.ui.context_menu import EntityContextMenu
-            menu = EntityContextMenu(self)
-            menu.exec_at(event.screenPos())
-        finally:
-            self.set_highlighted(False)
-            self.is_force_idle = False
+        from pytoningans.ui.context_menu import EntityContextMenu
+        EntityContextMenu.show_for_entity(self, event.screenPos())
+        event.accept()

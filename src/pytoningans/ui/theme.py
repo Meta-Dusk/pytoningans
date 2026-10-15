@@ -316,6 +316,27 @@ QLabel#ContextMenuSection {
     color: #0078d4;
     font-size: 12px;
 }
+
+QLabel#ContextMenuTagBadge {
+    background-color: rgba(0, 120, 212, 0.12);
+    color: #0078d4;
+    border: 1px solid rgba(0, 120, 212, 0.35);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+QScrollArea#ContextMenuScrollArea,
+QScrollArea#ContextMenuTagsScroll {
+    background: transparent;
+    border: none;
+}
+
+QWidget#ContextMenuActionsContainer,
+QWidget#ContextMenuTagsContainer {
+    background: transparent;
+}
 """
 
 DARK_THEME = """
@@ -636,5 +657,26 @@ QLabel#ContextMenuSection {
     font-weight: bold;
     color: #4a90e2;
     font-size: 12px;
+}
+
+QLabel#ContextMenuTagBadge {
+    background-color: rgba(74, 144, 226, 0.18);
+    color: #4a90e2;
+    border: 1px solid rgba(74, 144, 226, 0.45);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+QScrollArea#ContextMenuScrollArea,
+QScrollArea#ContextMenuTagsScroll {
+    background: transparent;
+    border: none;
+}
+
+QWidget#ContextMenuActionsContainer,
+QWidget#ContextMenuTagsContainer {
+    background: transparent;
 }
 """

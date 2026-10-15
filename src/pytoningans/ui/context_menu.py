@@ -3,14 +3,15 @@ from __future__ import annotations
 from typing import Optional, Any, TYPE_CHECKING
 
 from PySide6.QtCore import QRect, Qt, QPoint
-from PySide6.QtGui import QGuiApplication, QPixmap, QScreen
+from PySide6.QtGui import QGuiApplication, QPixmap, QScreen, QResizeEvent, QMouseEvent
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox,
-    QCheckBox, QFrame, QWidget
+    QDialog, QLayoutItem, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox,
+    QCheckBox, QFrame, QWidget, QScrollArea, QLayout
 )
 
 from pytoningans.core.constants import StructureState
 from pytoningans.ui.tool_tip import ToolTipLabel
+from pytoningans.ui.mod_editor.components import CustomSizeGrip
 
 if TYPE_CHECKING:
     from pytoningans.core.entity.base_entity import BaseEntity
@@ -42,25 +43,94 @@ def _create_separator() -> QFrame:
     return sep
 
 
+class ContextMenuHeader(QWidget):
+    """
+    Draggable header bar for the entity context menu window.
+    Clicking and dragging on this header smoothly repositions the window on screen.
+    """
+    def __init__(self, parent_window: EntityContextMenu) -> None:
+        super().__init__(parent_window)
+        self.parent_window: EntityContextMenu = parent_window
+        self._drag_offset: Optional[QPoint] = None
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_offset = (
+                event.globalPosition().toPoint() - self.parent_window.frameGeometry().topLeft()
+            )
+            event.accept()
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_offset is not None:
+            self.parent_window.move(event.globalPosition().toPoint() - self._drag_offset)
+            event.accept()
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_offset = None
+            event.accept()
+
+
 class EntityContextMenu(QDialog):
     """
-    Custom card-style context popup window for entities, items, and structures.
+    Draggable, resizable tool window for entity inspection and control.
     Features detailed context actions, combobox target pickers, tooltips,
-    and visual target highlighting.
+    horizontal scrollable tag badges, and stays active until closed via [X].
     """
+    _active_menu: Optional[EntityContextMenu] = None
+
     def __init__(self, target_entity: BaseEntity, parent: Optional[QWidget] = None) -> None:
         super().__init__(
             parent,
-            Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint
+            Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
         )
-        self.entity: BaseEntity = target_entity
+        self.entity: Optional[BaseEntity] = target_entity
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setMinimumWidth(280)
-        self.setMaximumWidth(340)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self.setMinimumSize(280, 200)
 
+        self._drag_offset: Optional[QPoint] = None
+        self._combos: list[QComboBox] = []
+        self.actions_container: Optional[QWidget] = None
+        self.actions_layout: Optional[QVBoxLayout] = None
+        self.subtitle_lbl: Optional[QLabel] = None
         self._build_ui()
 
+        self.grip = CustomSizeGrip(self)
+        self.grip.setFixedSize(16, 16)
+
+    # --- Window Dragging Logic (Card level) ---
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_offset is not None:
+            self.move(event.globalPosition().toPoint() - self._drag_offset)
+            event.accept()
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_offset = None
+            event.accept()
+        super().mouseReleaseEvent(event)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "grip"):
+            self.grip.move(
+                self.width() - self.grip.width(),
+                self.height() - self.grip.height()
+            )
+            self.grip.raise_()
+
     def _build_ui(self) -> None:
+        if self.entity is None:
+            return
+
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
@@ -71,8 +141,9 @@ class EntityContextMenu(QDialog):
         card_layout.setContentsMargins(12, 10, 12, 12)
         card_layout.setSpacing(8)
 
-        #? Header Bar
-        header_layout = QHBoxLayout()
+        # Draggable Header Bar
+        self.header_bar = ContextMenuHeader(self)
+        header_layout = QHBoxLayout(self.header_bar)
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(8)
 
@@ -82,6 +153,7 @@ class EntityContextMenu(QDialog):
             thumb = QLabel()
             thumb.setFixedSize(30, 30)
             thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            thumb.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
             scaled = pixmap.scaled(
                 28, 28,
                 Qt.AspectRatioMode.KeepAspectRatio,
@@ -97,12 +169,13 @@ class EntityContextMenu(QDialog):
 
         title_lbl = QLabel(self.entity.display_name)
         title_lbl.setObjectName("ContextMenuTitle")
+        title_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         text_layout.addWidget(title_lbl)
 
-        subtitle_text: str = self._get_subtitle_text()
-        subtitle_lbl = QLabel(subtitle_text)
-        subtitle_lbl.setObjectName("ContextMenuSubtitle")
-        text_layout.addWidget(subtitle_lbl)
+        self.subtitle_lbl = QLabel(self._get_subtitle_text())
+        self.subtitle_lbl.setObjectName("ContextMenuSubtitle")
+        self.subtitle_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        text_layout.addWidget(self.subtitle_lbl)
 
         header_layout.addLayout(text_layout, stretch=1)
 
@@ -110,42 +183,126 @@ class EntityContextMenu(QDialog):
         close_btn = QPushButton("[X]")
         close_btn.setObjectName("TitleBarCloseBtn")
         close_btn.setFixedSize(26, 26)
-        close_btn.setToolTip("Dismiss this context menu")
-        close_btn.clicked.connect(self.reject)
+        close_btn.setToolTip("Dismiss this entity window")
+        close_btn.clicked.connect(self.close)
         header_layout.addWidget(close_btn)
 
-        card_layout.addLayout(header_layout)
+        card_layout.addWidget(self.header_bar)
+
+        # Dedicated Horizontal Scrollable Tags Section
+        tags_section = self._create_tags_section()
+        if tags_section is not None:
+            card_layout.addWidget(tags_section)
+
         card_layout.addWidget(_create_separator())
 
-        #? Entity-Specific Content
-        from pytoningans.core.entity.living_entity import Entity
-        from pytoningans.core.entity.base_item import BaseItem
-        from pytoningans.core.entity.base_structure import BaseStructure
-        
-        if isinstance(self.entity, Entity):
-            self._build_living_entity_ui(card_layout, self.entity)
-        elif isinstance(self.entity, BaseItem):
-            self._build_item_ui(card_layout, self.entity)
-        elif isinstance(self.entity, BaseStructure):
-            self._build_structure_ui(card_layout, self.entity)
-        else:
-            self._build_generic_ui(card_layout)
+        # Scrollable Action Area
+        self.actions_scroll = QScrollArea()
+        self.actions_scroll.setObjectName("ContextMenuScrollArea")
+        self.actions_scroll.setWidgetResizable(True)
+        self.actions_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.actions_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.actions_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+        self.actions_container = QWidget()
+        self.actions_container.setObjectName("ContextMenuActionsContainer")
+        self.actions_layout = QVBoxLayout(self.actions_container)
+        self.actions_layout.setContentsMargins(0, 0, 0, 0)
+        self.actions_layout.setSpacing(8)
+
+        self._populate_actions(self.actions_layout)
+
+        self.actions_scroll.setWidget(self.actions_container)
+        card_layout.addWidget(self.actions_scroll, stretch=1)
 
         root_layout.addWidget(self.card)
 
-    def _get_subtitle_text(self) -> str:
+    def _populate_actions(self, layout: QVBoxLayout) -> None:
         from pytoningans.core.entity.living_entity import Entity
         from pytoningans.core.entity.base_item import BaseItem
         from pytoningans.core.entity.base_structure import BaseStructure
-        
+
+        if isinstance(self.entity, Entity):
+            self._build_living_entity_ui(layout, self.entity)
+        elif isinstance(self.entity, BaseItem):
+            self._build_item_ui(layout, self.entity)
+        elif isinstance(self.entity, BaseStructure):
+            self._build_structure_ui(layout, self.entity)
+        else:
+            self._build_generic_ui(layout)
+
+        layout.addStretch()
+
+    def _refresh_actions(self) -> None:
+        """Dynamically refreshes action buttons and subtitle when an action is executed."""
+        if self.entity is None or self.actions_layout is None:
+            return
+
+        if self.subtitle_lbl is not None:
+            self.subtitle_lbl.setText(self._get_subtitle_text())
+
+        for combo in self._combos:
+            try: combo.clear()
+            except RuntimeError: pass
+        self._combos.clear()
+
+        self._clear_layout(self.actions_layout)
+        self._populate_actions(self.actions_layout)
+
+    def _clear_layout(self, layout: QLayout) -> None:
+        while layout.count():
+            item: Optional[QLayoutItem] = layout.takeAt(0)
+            if item is None: continue
+            w: Optional[QWidget] = item.widget()
+            item_layout: Optional[QLayout] = item.layout()
+            if w is not None:
+                w.deleteLater()
+            elif item_layout is not None:
+                self._clear_layout(item_layout)
+
+    def _create_tags_section(self) -> Optional[QWidget]:
+        """Creates a horizontal scrollable strip of tag badges if tags exist."""
+        if not self.entity or not getattr(self.entity, "tags", None):
+            return None
+
+        scroll = QScrollArea()
+        scroll.setObjectName("ContextMenuTagsScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setFixedHeight(30)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+
+        container = QWidget()
+        container.setObjectName("ContextMenuTagsContainer")
+        c_layout = QHBoxLayout(container)
+        c_layout.setContentsMargins(0, 0, 0, 0)
+        c_layout.setSpacing(4)
+
+        for tag in sorted(self.entity.tags):
+            badge = QLabel(f"#{tag}")
+            badge.setObjectName("ContextMenuTagBadge")
+            c_layout.addWidget(badge)
+
+        c_layout.addStretch()
+        scroll.setWidget(container)
+        return scroll
+
+    def _get_subtitle_text(self) -> str:
+        if self.entity is None:
+            return "[Object]"
+
+        from pytoningans.core.entity.living_entity import Entity
+        from pytoningans.core.entity.base_item import BaseItem
+        from pytoningans.core.entity.base_structure import BaseStructure
+
         if isinstance(self.entity, Entity):
             max_hp: int = self.entity.mod_manager.max_health if self.entity.mod_manager else 100
             status: str = "Dead" if self.entity.is_dead else f"HP: {self.entity.current_health}/{max_hp}"
             return f"[Living Entity] • {status}"
         elif isinstance(self.entity, BaseItem):
-            tags_str: str = ", ".join(sorted(self.entity.tags)) if self.entity.tags else "None"
             state_str: str = "Held" if self.entity.is_held else "Ground"
-            return f"[Item: {state_str}] • Tags: {tags_str}"
+            return f"[Item: {state_str}]"
         elif isinstance(self.entity, BaseStructure):
             state_str: str = self.entity.state.capitalize()
             return f"[Structure] • State: {state_str}"
@@ -156,18 +313,18 @@ class EntityContextMenu(QDialog):
     # =========================================================================
     def _build_living_entity_ui(self, layout: QVBoxLayout, entity: Entity) -> None:
         if not entity.is_dead:
-            # Action Row 1
+            # Action Row 1: Talk & Jump
             row1 = QHBoxLayout()
             row1.setSpacing(6)
 
             talk_btn = QPushButton("Talk To")
             talk_btn.setToolTip("Prompt the entity to speak a random dialogue line immediately.")
-            talk_btn.clicked.connect(lambda: self._execute_and_close(entity.force_talk))
+            talk_btn.clicked.connect(lambda: self._execute_action(entity.force_talk))
             row1.addWidget(talk_btn)
 
             jump_btn = QPushButton("Force Jump")
             jump_btn.setToolTip("Make the entity perform an upward jump.")
-            jump_btn.clicked.connect(lambda: self._execute_and_close(entity.jump))
+            jump_btn.clicked.connect(lambda: self._execute_action(entity.jump))
             row1.addWidget(jump_btn)
 
             layout.addLayout(row1)
@@ -180,12 +337,12 @@ class EntityContextMenu(QDialog):
                 item_name: str = entity.held_item.display_name
                 use_btn = QPushButton("Use Held Item")
                 use_btn.setToolTip(f"Activate or consume '{item_name}'.")
-                use_btn.clicked.connect(lambda: self._execute_and_close(entity.use_item))
+                use_btn.clicked.connect(lambda: self._execute_action(entity.use_item))
                 row_item.addWidget(use_btn)
 
                 drop_btn = QPushButton("Drop Item")
                 drop_btn.setToolTip(f"Drop '{item_name}' from the entity's hands onto the ground.")
-                drop_btn.clicked.connect(lambda: self._execute_and_close(entity.drop_item))
+                drop_btn.clicked.connect(lambda: self._execute_action(entity.drop_item))
                 row_item.addWidget(drop_btn)
 
                 layout.addLayout(row_item)
@@ -206,6 +363,7 @@ class EntityContextMenu(QDialog):
                 target_row.setSpacing(6)
 
                 item_combo = QComboBox()
+                self._combos.append(item_combo)
                 pickup_btn = QPushButton("Pick Up")
 
                 if unheld_items:
@@ -213,7 +371,7 @@ class EntityContextMenu(QDialog):
                         item_combo.addItem(f"{it.display_name} (@ {int(it.x())}, {int(it.y())})", userData=it)
                     pickup_btn.setToolTip("Command the entity to take this item.")
                     pickup_btn.clicked.connect(
-                        lambda: self._execute_and_close(lambda: entity.pick_up(item_combo.currentData()))
+                        lambda: self._execute_action(lambda: entity.pick_up(item_combo.currentData()))
                     )
                 else:
                     item_combo.addItem("No ground items nearby")
@@ -228,13 +386,13 @@ class EntityContextMenu(QDialog):
             kill_btn = QPushButton("Kill Entity")
             kill_btn.setObjectName("DangerBtn")
             kill_btn.setToolTip("Trigger entity fatal damage and play its death sequence.")
-            kill_btn.clicked.connect(lambda: self._execute_and_close(entity.die))
+            kill_btn.clicked.connect(lambda: self._execute_action(entity.die))
             layout.addWidget(kill_btn)
         else:
             # Revive action
             revive_btn = QPushButton("Revive Entity")
             revive_btn.setToolTip("Bring this entity back to life with full health.")
-            revive_btn.clicked.connect(lambda: self._execute_and_close(entity.revive))
+            revive_btn.clicked.connect(lambda: self._execute_action(entity.revive))
             layout.addWidget(revive_btn)
 
         layout.addWidget(_create_separator())
@@ -256,13 +414,13 @@ class EntityContextMenu(QDialog):
 
         use_btn = QPushButton("Use Item")
         use_btn.setToolTip("Activate or consume this item immediately.")
-        use_btn.clicked.connect(lambda: self._execute_and_close(item.use))
+        use_btn.clicked.connect(lambda: self._execute_action(item.use))
         row_quick.addWidget(use_btn)
 
         if item.is_held:
             drop_btn = QPushButton("Drop Item")
             drop_btn.setToolTip("Drop this item from the current holder's hands.")
-            drop_btn.clicked.connect(lambda: self._execute_and_close(item.drop))
+            drop_btn.clicked.connect(lambda: self._execute_action(item.drop))
             row_quick.addWidget(drop_btn)
 
         layout.addLayout(row_quick)
@@ -284,6 +442,7 @@ class EntityContextMenu(QDialog):
             target_row.setSpacing(6)
 
             entity_combo = QComboBox()
+            self._combos.append(entity_combo)
             give_btn = QPushButton("Give")
 
             if alive_entities:
@@ -291,7 +450,7 @@ class EntityContextMenu(QDialog):
                     entity_combo.addItem(f"{e.display_name} (HP: {e.current_health})", userData=e)
                 give_btn.setToolTip("Directly place this item into the selected entity's hands.")
                 give_btn.clicked.connect(
-                    lambda: self._execute_and_close(lambda: item.pick_up(entity_combo.currentData()))
+                    lambda: self._execute_action(lambda: item.pick_up(entity_combo.currentData()))
                 )
             else:
                 entity_combo.addItem("No entities available")
@@ -308,7 +467,7 @@ class EntityContextMenu(QDialog):
 
         flip_btn = QPushButton("Flip Horizontally")
         flip_btn.setToolTip("Mirror the item's sprite horizontally.")
-        flip_btn.clicked.connect(lambda: self._execute_and_close(item.flip))
+        flip_btn.clicked.connect(lambda: self._execute_action(item.flip))
         row_util.addWidget(flip_btn)
         layout.addLayout(row_util)
 
@@ -340,12 +499,12 @@ class EntityContextMenu(QDialog):
 
         toggle_btn = QPushButton(f"{status_text} Structure")
         toggle_btn.setToolTip("Toggle the structure between IDLE and ACTIVE operational states.")
-        toggle_btn.clicked.connect(lambda: self._execute_and_close(structure.toggle_active))
+        toggle_btn.clicked.connect(lambda: self._execute_action(structure.toggle_active))
         row_quick.addWidget(toggle_btn)
 
         flip_btn = QPushButton("Flip Horizontally")
         flip_btn.setToolTip("Mirror the structure's sprite horizontally.")
-        flip_btn.clicked.connect(lambda: self._execute_and_close(structure.flip))
+        flip_btn.clicked.connect(lambda: self._execute_action(structure.flip))
         row_quick.addWidget(flip_btn)
 
         layout.addLayout(row_quick)
@@ -372,6 +531,7 @@ class EntityContextMenu(QDialog):
             target_row.setSpacing(6)
 
             portal_combo = QComboBox()
+            self._combos.append(portal_combo)
             portal_combo.addItem("None (Unlinked)", userData=None)
 
             other_structures: list[BaseStructure] = []
@@ -393,7 +553,7 @@ class EntityContextMenu(QDialog):
             link_btn = QPushButton("Link")
             link_btn.setToolTip("Apply the selected portal destination.")
             link_btn.clicked.connect(
-                lambda: self._execute_and_close(lambda: structure._set_linked_portal(portal_combo.currentData()))
+                lambda: self._execute_action(lambda: structure._set_linked_portal(portal_combo.currentData()))
             )
 
             target_row.addWidget(portal_combo, stretch=1)
@@ -403,14 +563,14 @@ class EntityContextMenu(QDialog):
             remove_tele_btn = QPushButton("Remove Portal Component")
             remove_tele_btn.setToolTip("Detach the teleportation component from this structure.")
             remove_tele_btn.clicked.connect(
-                lambda: self._execute_and_close(lambda: structure.remove_component("teleportation"))
+                lambda: self._execute_action(lambda: structure.remove_component("teleportation"))
             )
             layout.addWidget(remove_tele_btn)
         else:
             add_tele_btn = QPushButton("Enable Portal Component")
             add_tele_btn.setToolTip("Equip this structure with a teleportation portal component.")
             add_tele_btn.clicked.connect(
-                lambda: self._execute_and_close(structure.attach_teleportation)
+                lambda: self._execute_action(structure.attach_teleportation)
             )
             layout.addWidget(add_tele_btn)
 
@@ -424,36 +584,124 @@ class EntityContextMenu(QDialog):
         layout.addWidget(close_btn)
 
     def _build_generic_ui(self, layout: QVBoxLayout) -> None:
+        if self.entity is None:
+            return
         close_btn = QPushButton("Close Object")
         close_btn.setObjectName("DangerBtn")
-        close_btn.clicked.connect(lambda: self._execute_and_close(self.entity.destroy))
+        close_btn.clicked.connect(lambda: self._execute_and_close(self.entity.destroy if self.entity else None))
         layout.addWidget(close_btn)
 
+    # =========================================================================
+    # Action Execution & Cleanup
+    # =========================================================================
+    def _execute_action(self, action_fn: Any) -> None:
+        """Executes an action and dynamically updates the UI while keeping the window open."""
+        try:
+            if action_fn is not None:
+                action_fn()
+        except Exception as e:
+            print(f"Error executing context action: {e}")
+
+        if self.entity is not None:
+            self._refresh_actions()
+
     def _execute_and_close(self, action_fn: Any) -> None:
-        """Executes the chosen callback and cleanly dismisses the context menu."""
-        try: action_fn()
-        finally: self.accept()
+        """Executes action and closes window (used for entity despawn/destroy)."""
+        try:
+            if action_fn is not None:
+                action_fn()
+        except Exception as e:
+            print(f"Error executing context action: {e}")
+        finally:
+            self.close()
 
-    def exec_at(self, screen_pos: QPoint) -> int:
-        """Positions the popup at screen_pos with boundary clamping and executes modally."""
-        self.adjustSize()
-        w: int = max(280, self.sizeHint().width())
-        h: int = self.sizeHint().height()
+    def cleanup(self) -> None:
+        """Cleans up internal state and entity references to prevent memory leaks."""
+        for combo in self._combos:
+            try:
+                combo.clear()
+            except RuntimeError:
+                pass
+        self._combos.clear()
+        self.entity = None
 
-        target_x: int = screen_pos.x() + 8
-        target_y: int = screen_pos.y() + 8
+    def closeEvent(self, event: Any) -> None:
+        if self.entity is not None:
+            self.entity.set_highlighted(False)
+            self.entity.resume_death_animations()
+            if self.entity._active_context_menu is self:
+                self.entity._active_context_menu = None
+
+        if EntityContextMenu._active_menu is self:
+            EntityContextMenu._active_menu = None
+
+        self.cleanup()
+        event.accept()
+
+    # =========================================================================
+    # Window Spawning & Management
+    # =========================================================================
+    @classmethod
+    def show_for_entity(cls, entity: BaseEntity, click_pos: QPoint) -> EntityContextMenu:
+        """
+        Creates or shows the inspector window for the entity, positioned near it on screen.
+        Only one context menu window is active at a time.
+        """
+        if cls._active_menu is not None:
+            try:
+                cls._active_menu.close()
+            except RuntimeError:
+                pass
+            cls._active_menu = None
+
+        menu = cls(entity)
+        cls._active_menu = menu
+        entity._active_context_menu = menu
+        entity.set_highlighted(True)
+        entity.pause_death_animations()
+
+        menu.adjustSize()
+        w: int = max(300, menu.sizeHint().width())
+        h: int = max(240, min(500, menu.sizeHint().height()))
+        menu.resize(w, h)
+
+        # Calculate spawn location near entity
+        spawn_x: int
+        spawn_y: int
+
+        if entity.world is not None and getattr(entity.world, "view", None) is not None:
+            entity_rect = entity.sceneBoundingRect()
+            top_right_view = entity.world.view.mapFromScene(entity_rect.topRight())
+            global_top_right = entity.world.view.mapToGlobal(top_right_view)
+            spawn_x = global_top_right.x() + 8
+            spawn_y = global_top_right.y()
+        else:
+            spawn_x = click_pos.x() + 8
+            spawn_y = click_pos.y() + 8
 
         screen: Optional[QScreen] = (
-            QGuiApplication.screenAt(screen_pos) or QGuiApplication.primaryScreen()
+            QGuiApplication.screenAt(QPoint(spawn_x, spawn_y)) or
+            QGuiApplication.screenAt(click_pos) or
+            QGuiApplication.primaryScreen()
         )
         if screen is not None:
             geom: QRect = screen.availableGeometry()
-            if target_x + w > geom.right() - 8:
-                target_x = screen_pos.x() - w - 8
-            if target_y + h > geom.bottom() - 8:
-                target_y = screen_pos.y() - h - 8
-            target_x = max(geom.left() + 8, target_x)
-            target_y = max(geom.top() + 8, target_y)
+            # If overflowing on the right, place to the left of the entity
+            if spawn_x + w > geom.right() - 8:
+                if entity.world is not None and getattr(entity.world, "view", None) is not None:
+                    top_left_view = entity.world.view.mapFromScene(entity.sceneBoundingRect().topLeft())
+                    global_top_left = entity.world.view.mapToGlobal(top_left_view)
+                    spawn_x = global_top_left.x() - w - 8
+                else:
+                    spawn_x = click_pos.x() - w - 8
 
-        self.move(target_x, target_y)
-        return self.exec()
+            # Clamp inside screen boundaries
+            spawn_x = max(geom.left() + 8, min(spawn_x, geom.right() - w - 8))
+            spawn_y = max(geom.top() + 8, min(spawn_y, geom.bottom() - h - 8))
+
+        menu.move(spawn_x, spawn_y)
+        menu.show()
+        menu.raise_()
+        menu.activateWindow()
+        return menu
+

@@ -262,9 +262,16 @@ class BaseItem(BaseEntity):
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        super().mouseReleaseEvent(event)
-        if event.button() == Qt.MouseButton.LeftButton and not self.is_held:
-            self.state = ItemState.DROPPED.value
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.is_dragged = False
+            if not self.is_held:
+                self.state = ItemState.DROPPED.value
+            self.locks.physics = self.is_physics_enabled
+            if not self.is_physics_enabled:
+                self.velocity_y = 0.0
+            event.accept()
+        if self.is_hovered:
+            self._show_hover_tooltip(event.screenPos())
 
     def _on_destroy(self) -> None:
         behavior: Optional[BaseBehavior] = self.get_behavior

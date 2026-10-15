@@ -4,7 +4,7 @@ import random
 from typing import Optional, cast, TYPE_CHECKING
 
 from PySide6.QtCore import QEasingCurve, QPointF, QVariantAnimation
-from PySide6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
+from PySide6.QtWidgets import QGraphicsSceneContextMenuEvent
 
 from pytoningans.core.api import BaseBehavior, BaseEntityBehavior, IEntity, Pos2D
 from pytoningans.core.constants import AnimationMeta, DeathAnimation, EntityState
@@ -324,24 +324,21 @@ class Entity(BaseEntity):
         if self.anim_sys: self.anim_sys.set_state(EntityState.IDLE)
         self._target_pos = None
 
-    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
-        self.sprite_rotation = 0.0
+    def pause_death_animations(self) -> None:
+        """Pauses death fade/rotation animations while context menu is open."""
+        if (
+            self._fade_anim is not None and
+            self._fade_anim.state() == QVariantAnimation.State.Running
+        ):
+            self._fade_anim.pause()
+        if (
+            self._rot_anim is not None and
+            self._rot_anim.state() == QVariantAnimation.State.Running
+        ):
+            self._rot_anim.pause()
 
-        if self.is_dead:
-            if (
-                self._fade_anim is not None and
-                self._fade_anim.state() == QVariantAnimation.State.Running
-            ):
-                self._fade_anim.pause()
-            if (
-                self._rot_anim is not None and
-                self._rot_anim.state() == QVariantAnimation.State.Running
-            ):
-                self._rot_anim.pause()
-
-        super().contextMenuEvent(event)
-
-        if not self.is_dead: return
+    def resume_death_animations(self) -> None:
+        """Resumes death fade/rotation animations when context menu is dismissed."""
         if (
             self._fade_anim is not None and
             self._fade_anim.state() == QVariantAnimation.State.Paused
@@ -352,6 +349,10 @@ class Entity(BaseEntity):
             self._rot_anim.state() == QVariantAnimation.State.Paused
         ):
             self._rot_anim.resume()
+
+    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
+        self.sprite_rotation = 0.0
+        super().contextMenuEvent(event)
 
     def _on_die(self) -> None:
         behavior: Optional[BaseBehavior] = self.get_behavior
