@@ -3,8 +3,7 @@ from __future__ import annotations
 from typing import Optional, TYPE_CHECKING, cast
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QGraphicsSceneContextMenuEvent, QGraphicsSceneMouseEvent, QMenu
+from PySide6.QtWidgets import QGraphicsSceneMouseEvent
 
 from pytoningans.core.api import (
     BaseBehavior, BaseItemBehavior, BaseEntityBehavior, IItem, IEntity
@@ -266,41 +265,6 @@ class BaseItem(BaseEntity):
         super().mouseReleaseEvent(event)
         if event.button() == Qt.MouseButton.LeftButton and not self.is_held:
             self.state = ItemState.DROPPED.value
-
-    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
-        self.is_force_idle = True
-        menu = QMenu(self.world.view) if self.world else QMenu()
-
-        # Close/Destroy item
-        menu.addAction("Destroy Item", self.destroy)
-        menu.addSeparator()
-
-        # Use Item
-        menu.addAction("Use Item", lambda: self.use())
-
-        # Drop or Give options
-        if self.is_held:
-            menu.addAction("Drop Item", lambda: self.drop())
-        elif self.world is not None and self.world.active_entities:
-            alive_entities: list[Entity] = [e for e in self.world.active_entities if not e.is_dead]
-            if alive_entities:
-                give_menu: QMenu = menu.addMenu("Give to Entity")
-                for e in alive_entities:
-                    give_menu.addAction(e.display_name, lambda target=e: self.pick_up(target))
-
-        menu.addSeparator()
-
-        # Flip Horizontally
-        menu.addAction("Flip Horizontally", self.flip)
-
-        # Toggle Physics / Gravity
-        physics_action: QAction = menu.addAction("Affected by Gravity")
-        physics_action.setCheckable(True)
-        physics_action.setChecked(self.is_physics_enabled)
-        physics_action.toggled.connect(self.set_physics_enabled)
-
-        menu.exec(event.screenPos())
-        self.is_force_idle = False
 
     def _on_destroy(self) -> None:
         behavior: Optional[BaseBehavior] = self.get_behavior

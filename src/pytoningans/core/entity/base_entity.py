@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import Optional, TYPE_CHECKING, cast, Any
 
 from PySide6.QtWidgets import (
-    QGraphicsPixmapItem, QGraphicsColorizeEffect, QGraphicsSceneMouseEvent, QGraphicsSceneHoverEvent
+    QGraphicsPixmapItem, QGraphicsColorizeEffect, QGraphicsSceneMouseEvent,
+    QGraphicsSceneHoverEvent, QGraphicsSceneContextMenuEvent
 )
 from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt
 from PySide6.QtGui import QColor, QPixmap, QTransform, QCursor
@@ -61,6 +62,17 @@ class BaseEntity(QGraphicsPixmapItem):
         
         self._setup_ui(start_x, start_y)
         self.update_tooltip()
+        self._highlight_item: Optional[Any] = None
+
+    def set_highlighted(self, enabled: bool) -> None:
+        """Toggles visual selection highlight outline around this entity."""
+        if enabled:
+            if self._highlight_item is None:
+                from pytoningans.core.entity.indicators import HighlightOutlineItem
+                self._highlight_item = HighlightOutlineItem(self)
+            self._highlight_item.setVisible(True)
+        elif self._highlight_item is not None:
+            self._highlight_item.setVisible(False)
     
     @property
     def get_behavior(self) -> Optional[BaseBehavior]:
@@ -359,6 +371,11 @@ class BaseEntity(QGraphicsPixmapItem):
         if self.physics_sys is not None:
             self.physics_sys.entity = None
             self.physics_sys = None
+        if self._highlight_item is not None:
+            self._highlight_item.setVisible(False)
+            if self.scene() and self._highlight_item.scene():
+                self.scene().removeItem(self._highlight_item)
+            self._highlight_item = None
         self.setGraphicsEffect(cast(Any, None))
         self.tint_effect = None
         self.world = None
@@ -406,3 +423,14 @@ class BaseEntity(QGraphicsPixmapItem):
     def on_moved(self) -> None:
         """Hook for subclasses to update attached items (like speech bubbles) when dragged."""
         pass
+
+    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
+        self.is_force_idle = True
+        self.set_highlighted(True)
+        try:
+            from pytoningans.ui.context_menu import EntityContextMenu
+            menu = EntityContextMenu(self)
+            menu.exec_at(event.screenPos())
+        finally:
+            self.set_highlighted(False)
+            self.is_force_idle = False

@@ -124,7 +124,7 @@ class AISystem:
             return False
 
         # Find closest healing item
-        my_pos = self.entity.pos()
+        my_pos: QPointF = self.entity.pos()
         nearest: IItem = min(
             healing_items,
             key=lambda it: math.hypot(it.x() - my_pos.x(), it.y() - my_pos.y())
@@ -132,7 +132,7 @@ class AISystem:
 
         self._navigate_towards_item(nearest)
         if random.random() < 0.25 and not (self.entity.bubble and self.entity.bubble.isVisible()):
-            self.entity.say("Need healing!", duration_ms=2000)
+            self.entity.say("I need healing!", duration_ms=2000)
         return True
 
     def _navigate_towards_item(self, item: IItem) -> None:

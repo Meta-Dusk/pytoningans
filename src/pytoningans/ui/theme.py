@@ -293,6 +293,29 @@ QPushButton#DangerBtn:disabled {
     border: 1px solid #e5e5e5;
     color: #a0a0a0;
 }
+
+QFrame#ContextMenuCard {
+    background-color: #ffffff;
+    border: 1px solid #d1d1d1;
+    border-radius: 8px;
+}
+
+QLabel#ContextMenuTitle {
+    font-weight: bold;
+    font-size: 14px;
+    color: #1e1e1e;
+}
+
+QLabel#ContextMenuSubtitle {
+    color: #666666;
+    font-size: 11px;
+}
+
+QLabel#ContextMenuSection {
+    font-weight: bold;
+    color: #0078d4;
+    font-size: 12px;
+}
 """
 
 DARK_THEME = """
@@ -590,5 +613,28 @@ QPushButton#DangerBtn:disabled {
     background-color: #222222;
     border: 1px solid #2a2a2a;
     color: #666666;
+}
+
+QFrame#ContextMenuCard {
+    background-color: #202020;
+    border: 1px solid #3d3d3d;
+    border-radius: 8px;
+}
+
+QLabel#ContextMenuTitle {
+    font-weight: bold;
+    font-size: 14px;
+    color: #f3f3f3;
+}
+
+QLabel#ContextMenuSubtitle {
+    color: #aaaaaa;
+    font-size: 11px;
+}
+
+QLabel#ContextMenuSection {
+    font-weight: bold;
+    color: #4a90e2;
+    font-size: 12px;
 }
 """

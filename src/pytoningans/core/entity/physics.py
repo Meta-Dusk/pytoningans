@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import math
 from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import QRect, QPointF
@@ -39,7 +40,7 @@ class PhysicsSystem:
         self._tick_movement(current_move_speed)
 
     def _tick_soft_collision(
-        self, current_move_speed: float, centers: Optional[dict['BaseEntity', QPointF]]= None
+        self, current_move_speed: float, centers: Optional[dict[BaseEntity, QPointF]]= None
     ) -> None:
         """Gently repels overlapping entities to prevent dense clustering."""
         if (
@@ -63,7 +64,9 @@ class PhysicsSystem:
         min_dist: float = hitbox.width() * 0.6
         
         # Combine both lists so entities and structures can repel each other
-        all_entities: list[BaseStructure | Entity] = self.entity.world.active_entities + self.entity.world.active_structures
+        all_entities: list[BaseStructure | Entity] = (
+            self.entity.world.active_entities + self.entity.world.active_structures
+        )
         
         for other in all_entities:
             is_other_dead: bool = getattr(other, 'is_dead', False)

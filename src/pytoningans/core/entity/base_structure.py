@@ -1,8 +1,6 @@
 from typing import Optional, cast
 
 from PySide6.QtCore import QPointF, QRectF
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
 
 from pytoningans.core.api import BaseBehavior, BaseStructureBehavior, IEntity, IStructure
 from pytoningans.core.components.base_component import BaseComponent
@@ -55,82 +53,6 @@ class BaseStructure(BaseEntity):
                 target_comp: Optional[BaseComponent] = target.get_component("teleportation")
                 if isinstance(target_comp, TeleportationComponent):
                     target_comp.linked_portal = self
-
-    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
-        self.is_force_idle = True
-        menu = QMenu(self.world.view) if self.world else QMenu()
-
-        # Close Structure
-        menu.addAction("Close Structure", self.destroy)
-        menu.addSeparator()
-
-        # Flip Horizontally
-        menu.addAction("Flip Horizontally", self.flip)
-
-        # Toggle Active
-        status_text: str = (
-            "Deactivate"
-            if self.state == StructureState.ACTIVE.value else
-            "Activate"
-        )
-        menu.addAction(f"{status_text} Structure", self.toggle_active)
-
-        # Toggle Physics / Gravity
-        physics_action: QAction = menu.addAction("Affected by Gravity")
-        physics_action.setCheckable(True)
-        physics_action.setChecked(self.is_physics_enabled)
-        physics_action.toggled.connect(self.set_physics_enabled)
-
-        menu.addSeparator()
-
-        # Component-specific actions
-        teleport_comp: Optional[BaseComponent] = self.get_component("teleportation")
-        if isinstance(teleport_comp, TeleportationComponent):
-            portal_menu: QMenu = menu.addMenu("Change Linked Portal")
-
-            # Unlink option
-            unlink_action: QAction = portal_menu.addAction("None (Unlinked)")
-            if teleport_comp.linked_portal is None:
-                unlink_action.setCheckable(True)
-                unlink_action.setChecked(True)
-            unlink_action.triggered.connect(lambda: self._set_linked_portal(None))
-            portal_menu.addSeparator()
-
-            # Available other structures
-            other_structures: list[BaseStructure] = []
-            if self.world is not None and self.world.manager is not None:
-                for struct in self.world.manager.active_structures:
-                    if struct is self: continue
-                    other_structures.append(struct)
-
-            if other_structures:
-                for idx, other in enumerate(other_structures):
-                    other_name: str = (
-                        other.mod_manager.current_mod_name
-                        if other.mod_manager and other.mod_manager.current_mod_name
-                        else (other.mod_manager.current_mod_folder if other.mod_manager else f"Structure #{idx + 1}")
-                    )
-                    world_info: str = (
-                        f"World {self.world.manager.active_worlds.index(other.world) + 1}"
-                        if self.world is not None and other.world in self.world.manager.active_worlds
-                        else ""
-                    )
-                    label: str = f"{other_name} ({world_info} @ {int(other.x())}, {int(other.y())})"
-                    action = portal_menu.addAction(label)
-                    action.setCheckable(True)
-                    if teleport_comp.linked_portal is other:
-                        action.setChecked(True)
-                    action.triggered.connect(lambda checked=False, target=other: self._set_linked_portal(target))
-            else:
-                empty_action = portal_menu.addAction("No other structures available")
-                empty_action.setEnabled(False)
-
-            menu.addAction("Remove Teleportation Component", lambda: self.remove_component("teleportation"))
-        else:
-            menu.addAction("Add Teleportation Component", lambda: self.attach_teleportation())
-
-        menu.exec(event.screenPos())
-        self.is_force_idle = False
 
     def update_systems(self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None) -> None:
         super().update_systems(dt, centers)

@@ -325,28 +325,7 @@ class Entity(BaseEntity):
         self._target_pos = None
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
-        self.is_force_idle = True
         self.sprite_rotation = 0.0
-
-        menu = QMenu(self.world.view) if self.world else QMenu()
-        menu.addAction("Close Entity", self.destroy)
-        menu.addSeparator()
-
-        if not self.is_dead:
-            menu.addAction("Talk To", self.force_talk)
-            menu.addAction("Force Jump", self.jump)
-            if self.held_item is not None:
-                menu.addAction("Use Held Item", self.use_item)
-                menu.addAction("Drop Held Item", lambda: self.drop_item())
-            elif self.world is not None and getattr(self.world, "active_items", None):
-                unheld_items: list[BaseItem] = [it for it in self.world.active_items if not it.is_held]
-                if unheld_items:
-                    pickup_menu: QMenu = menu.addMenu("Pick Up Item")
-                    for it in unheld_items:
-                        pickup_menu.addAction(it.display_name, lambda target_item=it: self.pick_up(target_item))
-            menu.addAction("Kill Entity", self.die)
-        else:
-            menu.addAction("Revive Entity", self.revive)
 
         if self.is_dead:
             if (
@@ -360,9 +339,8 @@ class Entity(BaseEntity):
             ):
                 self._rot_anim.pause()
 
-        menu.exec(event.screenPos())
+        super().contextMenuEvent(event)
 
-        self.is_force_idle = False
         if not self.is_dead: return
         if (
             self._fade_anim is not None and
