@@ -149,7 +149,9 @@ class ModManager:
         
         raw_entity_type = data.get("entity_type", EntityType.ENTITY.value)
         entity_type_str: str = (
-            raw_entity_type.value if hasattr(raw_entity_type, "value") else str(raw_entity_type)
+            raw_entity_type.value
+            if hasattr(raw_entity_type, "value") else
+            str(raw_entity_type)
         )
         
         # Instantiate the config to store the entity type
@@ -232,7 +234,9 @@ class ModManager:
         
         dialogue_data = data.get("dialogue", {})
         self.plain_dialogue = dialogue_data.get("plain_dialogue", ["..."])
-        self.death_dialogue = dialogue_data.get("death_dialogue", ["Ugh...", "I'll be back...", "Farewell..."])
+        self.death_dialogue = dialogue_data.get(
+            "death_dialogue", ["Ugh...", "I'll be back...", "Farewell..."]
+        )
         self.window_triggers = dialogue_data.get("window_triggers", [])
         
         self.custom_behavior = None
@@ -455,7 +459,11 @@ class ModManager:
         total_play_frames: int = max(1, (anim_meta.end_frame - anim_meta.start_frame) + 1)
         
         # Calculate exactly which relative frame index we are playing
-        mapped_index: int = tick_index % total_play_frames if anim_meta.loop else min(tick_index, total_play_frames - 1)
+        mapped_index: int = (
+            tick_index % total_play_frames
+            if anim_meta.loop else
+            min(tick_index, total_play_frames - 1)
+        )
         if anim_meta.reverse:
             mapped_index = (total_play_frames - 1) - mapped_index
             

@@ -182,7 +182,10 @@ class ModCreationDialog(QDialog):
             return
             
         if not re.match(r"^[a-zA-Z0-9_-]+$", folder_name):
-            QMessageBox.warning(self, "Error", "Folder name can only contain letters, numbers, hyphens, and underscores.")
+            QMessageBox.warning(
+                self, "Error",
+                "Folder name can only contain letters, numbers, hyphens, and underscores."
+            )
             return
 
         if folder_name.lower() in {"api", "__pycache__"}:

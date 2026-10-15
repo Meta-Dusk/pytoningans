@@ -1,9 +1,7 @@
-from typing import Optional
 from PySide6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QPushButton, QListWidget, QInputDialog,
+    QListWidgetItem, QVBoxLayout, QHBoxLayout, QPushButton, QListWidget, QInputDialog,
     QLineEdit, QMessageBox
 )
-from PySide6.QtCore import Qt
 
 from pytoningans.ui.mod_editor.controller import ModEditorController
 from pytoningans.ui.mod_editor.components import CollapsibleSection, create_info_label
@@ -71,15 +69,15 @@ class InstanceNamesPanel(BasePanel):
         self.filter_input.textChanged.connect(self._apply_filter)
 
     def _update_button_states(self) -> None:
-        has_sel = len(self.names_list.selectedItems()) > 0
-        total_items = self.names_list.count()
+        has_sel: bool = len(self.names_list.selectedItems()) > 0
+        total_items: int = self.names_list.count()
         self.edit_btn.setEnabled(has_sel)
         self.del_btn.setEnabled(has_sel)
         self.clear_btn.setEnabled(total_items > 0)
 
     def _update_section_title(self) -> None:
-        count = self.names_list.count()
-        base_title = f"Instance Names Pool ({count})"
+        count: int = self.names_list.count()
+        base_title: str = f"Instance Names Pool ({count})"
         self.section.title = base_title
         if self.section.content.isVisible():
             self.section.btn.setText(f"▼  {base_title}")
@@ -91,9 +89,8 @@ class InstanceNamesPanel(BasePanel):
         self.filter_input.clear()
         self.names_list.clear()
 
-        names = self.controller.get_instance_names()
-        if names:
-            self.names_list.addItems(names)
+        names: list[str] = self.controller.get_instance_names()
+        if names: self.names_list.addItems(names)
 
         self._update_button_states()
         self._update_section_title()
@@ -110,9 +107,9 @@ class InstanceNamesPanel(BasePanel):
         self._update_section_title()
 
     def _apply_filter(self, filter_text: str) -> None:
-        query = filter_text.strip().lower()
+        query: str = filter_text.strip().lower()
         for i in range(self.names_list.count()):
-            item = self.names_list.item(i)
+            item: QListWidgetItem = self.names_list.item(i)
             item.setHidden(bool(query and query not in item.text().lower()))
 
     def _on_add_name(self) -> None:
@@ -127,9 +124,8 @@ class InstanceNamesPanel(BasePanel):
             self._apply_filter(self.filter_input.text())
 
     def _on_edit_name(self) -> None:
-        item = self.names_list.currentItem()
-        if not item:
-            return
+        item: QListWidgetItem = self.names_list.currentItem()
+        if not item: return
         text, ok = QInputDialog.getText(
             self,
             "Edit Instance Name",
@@ -142,14 +138,13 @@ class InstanceNamesPanel(BasePanel):
             self._apply_filter(self.filter_input.text())
 
     def _on_remove_name(self) -> None:
-        row = self.names_list.currentRow()
+        row: int = self.names_list.currentRow()
         if row >= 0:
             self.names_list.takeItem(row)
             self._sync_to_controller()
 
     def _on_clear_all(self) -> None:
-        if self.names_list.count() == 0:
-            return
+        if self.names_list.count() == 0: return
         reply = QMessageBox.question(
             self,
             "Clear Instance Names",
