@@ -8,7 +8,7 @@ from PySide6.QtCore import QRect, Qt, QPoint, QPointF
 from PySide6.QtGui import QScreen
 from PySide6.QtWidgets import QMainWindow, QGraphicsView, QGraphicsScene
 
-from pytoningans.core.entity.indicators.damage_number import DamageNumberItem
+from pytoningans.core.entity.indicators import DamageNumberItem
 from pytoningans.core.vision_worker import HTCLIENT, HTTRANSPARENT
 
 if TYPE_CHECKING:

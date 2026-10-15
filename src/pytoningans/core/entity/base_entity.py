@@ -12,7 +12,7 @@ from PySide6.QtGui import QColor, QPixmap, QTransform, QCursor
 from pytoningans.core.constants import EntityState, SystemLocks, EntityType
 from pytoningans.core.entity.animation import AnimationSystem
 from pytoningans.core.entity.physics import PhysicsSystem
-from pytoningans.core.entity.indicators.highlight_outline import HighlightOutlineItem
+from pytoningans.core.entity.indicators import HighlightOutlineItem
 from pytoningans.core.api import (
     IEntity, BaseEntityBehavior, BaseBehavior, BaseStructureBehavior, IStructure,
     BaseItemBehavior, IItem

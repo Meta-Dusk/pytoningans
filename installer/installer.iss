@@ -1,5 +1,5 @@
 #define MyAppName "PyToNingans"
-#define MyAppVersion "0.7.7"
+#define MyAppVersion "0.7.8"
 #define MyAppPublisher "MetaDusk Inc."
 #define MyAppURL "https://github.com/Meta-Dusk/pytoningans"
 #define MyAppExeName "PyToNingans.dist\PyToNingans.exe"
