@@ -60,9 +60,9 @@ class Entity(BaseEntity):
     @property
     def is_interactable(self) -> bool:
         return (
+            super().is_interactable and
             self.state not in (EntityState.DRAG, EntityState.INTERACT) and
-            not self.is_dead and
-            not self.is_force_idle
+            not self.is_dead
         )
 
     @property

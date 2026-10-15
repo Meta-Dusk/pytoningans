@@ -39,6 +39,16 @@ class BaseItem(BaseEntity):
 
         self._state: str = ItemState.IDLE.value
         self.holder: Optional[Entity] = None
+        self._pickup_cooldown: int = 0
+        self._last_holder: Optional[Entity] = None
+
+    @property
+    def is_interactable(self) -> bool:
+        """Returns True if the item can be interacted with by entities in the world."""
+        return (
+            super().is_interactable and
+            not self.is_held
+        )
 
     @property
     def is_held(self) -> bool:
@@ -62,6 +72,10 @@ class BaseItem(BaseEntity):
         Causes the specified living entity to pick up this item.
         Returns True if successful, False if cancelled by mod behavior or already held.
         """
+        if self.is_dragged:
+            return False
+        if entity is self._last_holder and self._pickup_cooldown > 0:
+            return False
         if self.holder is entity:
             return True
         if self.holder is not None and self.holder != entity:
@@ -82,6 +96,8 @@ class BaseItem(BaseEntity):
             entity.held_item.drop(entity)
 
         self.holder = entity
+        self._last_holder = None
+        self._pickup_cooldown = 0
         entity.held_item = self
 
         # Disable physics simulation while held
@@ -121,6 +137,9 @@ class BaseItem(BaseEntity):
 
         prev_holder: Entity = self.holder
         self.holder = None
+        self._last_holder = prev_holder
+        self._pickup_cooldown = 600
+
         if prev_holder.held_item is self:
             prev_holder.held_item = None
 
@@ -158,6 +177,11 @@ class BaseItem(BaseEntity):
     ) -> None:
         if self.is_paused: return
 
+        if self._pickup_cooldown > 0:
+            self._pickup_cooldown -= dt
+            if self._pickup_cooldown <= 0:
+                self._last_holder = None
+
         # If held, stick to the holder
         if self.holder is not None:
             if getattr(self.holder, "is_dead", False) or self.holder.scene() is None:
@@ -167,11 +191,14 @@ class BaseItem(BaseEntity):
 
         super().update_systems(dt, centers)
 
-        # Ground intersection checks when not held
-        if self.holder is None and self.world is not None:
+        # Ground intersection checks when interactable (not held and not dragged)
+        if self.is_interactable and self.world is not None:
             item_rect: QRectF = self.sceneBoundingRect()
             for entity in list(self.world.active_entities):
                 if entity.is_dead or not item_rect.intersects(entity.sceneBoundingRect()):
+                    continue
+
+                if entity is self._last_holder and self._pickup_cooldown > 0:
                     continue
 
                 # Notify item custom behavior
@@ -234,6 +261,11 @@ class BaseItem(BaseEntity):
                 #? Dragging the item pulls it out of the holder's grasp
                 self.drop()
         super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        super().mouseReleaseEvent(event)
+        if event.button() == Qt.MouseButton.LeftButton and not self.is_held:
+            self.state = ItemState.DROPPED.value
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         self.is_force_idle = True

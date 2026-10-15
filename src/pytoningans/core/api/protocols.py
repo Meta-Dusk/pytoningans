@@ -155,6 +155,8 @@ class IBaseEntity(Protocol):
     is_force_idle: bool
     is_physics_enabled: bool
     is_hovered: bool
+    is_dragged: bool
+    is_interactable: bool
     instance_name: Optional[str]
     display_name: str
     identification: str

@@ -69,9 +69,15 @@ class AISystem:
         ):
             return False
 
-        # Gather ground items available in the world
+        # Gather ground items available in the world (excluding held, dragged, or cooldown items)
         world_items: list[BaseItem] = getattr(self.entity.world, "active_items", [])
-        ground_items: list[IItem] = [cast(IItem, it) for it in world_items if not it.is_held]
+        ground_items: list[IItem] = [
+            cast(IItem, item) for item in world_items
+            if item.is_interactable and not (
+                getattr(item, "_last_holder", None) is self.entity and
+                getattr(item, "_pickup_cooldown", 0) > 0
+            )
+        ]
 
         #? Custom Modder Hook: on_seek_item
         behavior: Optional[BaseBehavior] = self.entity.get_behavior
@@ -102,7 +108,7 @@ class AISystem:
             return False
 
         # A. Check if already holding a consumable healing item
-        held = self.entity.held_item
+        held: Optional[BaseItem] = self.entity.held_item
         if held is not None and held.has_all_tags("consumable", "healing"):
             if random.random() < 0.35 and not (self.entity.bubble and self.entity.bubble.isVisible()):
                 self.entity.say("I need this!", duration_ms=2000)

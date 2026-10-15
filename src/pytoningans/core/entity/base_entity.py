@@ -40,6 +40,7 @@ class BaseEntity(QGraphicsPixmapItem):
         self.is_paused: bool = False
         self._is_force_idle: bool = False
         self.is_physics_enabled: bool = True
+        self.is_dragged: bool = False
         self.velocity_y: float = 0.0
         
         self.components: dict[str, BaseComponent] = {}
@@ -243,6 +244,11 @@ class BaseEntity(QGraphicsPixmapItem):
         """Toggles force-idle state where the entity plays idle animations but disables AI and gravity."""
         self.is_force_idle = enabled
 
+    @property
+    def is_interactable(self) -> bool:
+        """Returns True if the entity is currently eligible for interactions."""
+        return not self.is_dragged and not self.is_force_idle and not self.is_paused
+
     def _on_state_change(self, old_state: str, new_state: str) -> None:
         behavior: Optional[BaseBehavior] = self.get_behavior
         if behavior is None: return
@@ -338,6 +344,7 @@ class BaseEntity(QGraphicsPixmapItem):
             if comp.enabled: comp.update(dt)
 
     def destroy(self) -> None:
+        self.is_dragged = False
         self._hide_hover_tooltip()
         for comp in list(self.components.values()):
             comp.on_detach()
@@ -361,9 +368,11 @@ class BaseEntity(QGraphicsPixmapItem):
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         self._hide_hover_tooltip()
         if event.button() == Qt.MouseButton.LeftButton:
+            self.is_dragged = True
             if self.anim_sys is not None:
                 self.anim_sys.set_state(EntityState.DRAG)
             self.locks.physics = False
+            self.velocity_y = 0.0
             event.accept()
 
     def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
@@ -384,6 +393,7 @@ class BaseEntity(QGraphicsPixmapItem):
 
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
+            self.is_dragged = False
             if self.anim_sys is not None:
                 self.anim_sys.set_state(EntityState.IDLE)
             self.locks.physics = self.is_physics_enabled
