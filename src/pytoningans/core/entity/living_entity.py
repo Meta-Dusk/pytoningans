@@ -10,7 +10,7 @@ from pytoningans.core.api import BaseBehavior, BaseEntityBehavior, IEntity, Pos2
 from pytoningans.core.constants import AnimationMeta, DeathAnimation, EntityState
 from pytoningans.core.entity.ai_brain import AISystem
 from pytoningans.core.entity.base_entity import BaseEntity
-from pytoningans.core.entity.indicators import HealthBarItem
+from pytoningans.core.entity.indicators.health_bar import HealthBarItem
 from pytoningans.core.entity.speech_bubble import SpeechBubble
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.world import WorldOverlay

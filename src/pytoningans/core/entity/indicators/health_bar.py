@@ -1,111 +1,16 @@
 from __future__ import annotations
 
-import math, random
+import math
 from typing import TYPE_CHECKING, Optional, cast, Any
 
 from PySide6.QtWidgets import QGraphicsItem, QStyleOptionGraphicsItem, QWidget
-from PySide6.QtGui import QPainter, QColor, QFont, QPen, QBrush, QPainterPath, QFontMetrics
-from PySide6.QtCore import QRectF, QPointF, Qt
+from PySide6.QtGui import QPainter, QColor, QFont, QPen, QBrush, QFontMetrics
+from PySide6.QtCore import QRectF, Qt
 
 from pytoningans.core.settings import SettingsManager, HealthBarMode
 
 if TYPE_CHECKING:
     from pytoningans.core.entity.living_entity import Entity
-    from pytoningans.core.entity.base_entity import BaseEntity
-
-
-class DamageNumberItem(QGraphicsItem):
-    """
-    Lightweight floating combat text item.
-    Rises upward with a slight spread and fades out smoothly.
-    """
-    def __init__(
-        self, amount: int, start_pos: QPointF, is_heal: bool = False
-    ) -> None:
-        super().__init__()
-        self.amount: int = amount
-        self.is_heal: bool = is_heal
-        self.start_pos: QPointF = start_pos
-        self.setPos(start_pos)
-        self.setZValue(10.0)
- 
-        self.lifetime: int = 700  # ms
-        self.elapsed: int = 0
-        self.total_rise: float = 38.0
-        self.drift_x: float = random.uniform(-12.0, 12.0)
-
-        self.text: str = f"+{self.amount}" if is_heal else f"-{self.amount}"
-        self.font: QFont = QFont("Pixel Code", 11)
-        self.font.setBold(True)
-
-    def boundingRect(self) -> QRectF:
-        return QRectF(-45.0, -25.0, 90.0, 50.0)
-
-    def paint(
-        self, painter: QPainter, _: QStyleOptionGraphicsItem,
-        widget: Optional[QWidget] = None
-    ) -> None:
-        painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setFont(self.font)
-
-        font_metrics = painter.fontMetrics()
-        text_w: int = font_metrics.horizontalAdvance(self.text)
-        text_h: int = font_metrics.capHeight()
-
-        # Center path around local origin (0, 0)
-        path = QPainterPath()
-        path.addText(-text_w / 2.0, text_h / 2.0, self.font, self.text)
-
-        # Pass 1: Draw high-contrast dark outline behind the text
-        outline_pen = QPen(
-            QColor(12, 12, 12, 240), 2.6,
-            Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin
-        )
-        painter.strokePath(path, outline_pen)
-
-        # Pass 2: Draw vivid combat color on top so the number is immediately vibrant
-        if self.is_heal:
-            fill_color = QColor(46, 204, 113)   # Emerald green
-        elif self.amount >= 25:
-            fill_color = QColor(255, 65, 65)    # Critical red
-        else:
-            fill_color = QColor(255, 120, 45)   # Combat orange
-
-        painter.fillPath(path, QBrush(fill_color))
-        painter.restore()
-
-    def tick(self, dt: int) -> bool:
-        """
-        Advances the floating animation. Returns True when expired and ready to remove.
-        """
-        self.elapsed += dt
-        if self.elapsed >= self.lifetime:
-            return True
-
-        progress: float = min(1.0, self.elapsed / self.lifetime)
-
-        # Smooth upward rise with deceleration
-        rise_progress: float = 1.0 - ((1.0 - progress) ** 2)
-        y: float = self.start_pos.y() - (self.total_rise * rise_progress)
-        x: float = self.start_pos.x() + (self.drift_x * progress)
-        self.setPos(x, y)
-
-        # Initial punch scale pop: 1.25 -> 1.0 in first 15% of lifetime
-        if progress < 0.15:
-            scale: float = 1.25 - ((progress / 0.15) * 0.25)
-            self.setScale(scale)
-        else:
-            self.setScale(1.0)
-
-        # Fade out during the last 40% of lifetime
-        if progress > 0.6:
-            fade: float = (progress - 0.6) / 0.4
-            self.setOpacity(max(0.0, 1.0 - fade))
-        else:
-            self.setOpacity(1.0)
-
-        return False
 
 
 class HealthBarItem(QGraphicsItem):
@@ -457,65 +362,3 @@ class HealthBarItem(QGraphicsItem):
         painter.restore()
 
 
-class HighlightOutlineItem(QGraphicsItem):
-    """
-    Visual highlight box drawn around an entity when its context menu is open.
-    Renders an antialiased glowing rounded outline with corner brackets to clearly
-    indicate which entity is targeted.
-    """
-    def __init__(self, parent_entity: BaseEntity) -> None:
-        super().__init__(parent_entity)
-        self.entity: BaseEntity = parent_entity
-        self.setZValue(parent_entity.zValue() + 0.05)
-        self.setVisible(False)
-
-    def boundingRect(self) -> QRectF:
-        if not self.entity:
-            return QRectF()
-        rect: QRectF = self.entity.boundingRect()
-        return rect.adjusted(-5.0, -5.0, 5.0, 5.0)
-
-    def paint(
-        self, painter: QPainter, _: QStyleOptionGraphicsItem,
-        widget: Optional[QWidget] = None
-    ) -> None:
-        if not self.entity:
-            return
-        painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        r: QRectF = self.boundingRect().adjusted(1.5, 1.5, -1.5, -1.5)
-
-        # Soft translucent background fill
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QBrush(QColor(74, 144, 226, 30)))
-        painter.drawRoundedRect(r, 6.0, 6.0)
-
-        # Glowing cyan/blue dashed outline
-        glow_pen = QPen(QColor(74, 144, 226, 210), 1.8, Qt.PenStyle.DashLine)
-        painter.setPen(glow_pen)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawRoundedRect(r, 6.0, 6.0)
-
-        # Corner bracket accents (crisp high-contrast white corners)
-        bracket_pen = QPen(QColor(255, 255, 255, 240), 2.2, Qt.PenStyle.SolidLine)
-        painter.setPen(bracket_pen)
-        corner_len: float = 8.0
-
-        # Top-left corner
-        painter.drawLine(QPointF(r.left(), r.top() + corner_len), QPointF(r.left(), r.top()))
-        painter.drawLine(QPointF(r.left(), r.top()), QPointF(r.left() + corner_len, r.top()))
-
-        # Top-right corner
-        painter.drawLine(QPointF(r.right() - corner_len, r.top()), QPointF(r.right(), r.top()))
-        painter.drawLine(QPointF(r.right(), r.top()), QPointF(r.right(), r.top() + corner_len))
-
-        # Bottom-left corner
-        painter.drawLine(QPointF(r.left(), r.bottom() - corner_len), QPointF(r.left(), r.bottom()))
-        painter.drawLine(QPointF(r.left(), r.bottom()), QPointF(r.left() + corner_len, r.bottom()))
-
-        # Bottom-right corner
-        painter.drawLine(QPointF(r.right() - corner_len, r.bottom()), QPointF(r.right(), r.bottom()))
-        painter.drawLine(QPointF(r.right(), r.bottom()), QPointF(r.right(), r.bottom() - corner_len))
-
-        painter.restore()

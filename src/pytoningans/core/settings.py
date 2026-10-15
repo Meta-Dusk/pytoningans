@@ -1,8 +1,8 @@
 from __future__ import annotations
+
+import json
 from enum import StrEnum, unique
 from dataclasses import dataclass, asdict
-from pathlib import Path
-import json
 from typing import Optional
 
 from PySide6.QtCore import QObject, Signal
@@ -19,7 +19,7 @@ class HealthBarMode(StrEnum):
 
 @dataclass
 class CombatVisualSettings:
-    health_bar_mode: str = HealthBarMode.ON_DAMAGE.value
+    health_bar_mode: str = HealthBarMode.ON_DAMAGE
     show_damage_numbers: bool = True
     show_health_numbers: bool = True
     enable_health_shake: bool = True
@@ -47,7 +47,7 @@ class SettingsManager(QObject):
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
                 self.settings = CombatVisualSettings(
-                    health_bar_mode=data.get("health_bar_mode", HealthBarMode.ON_DAMAGE.value),
+                    health_bar_mode=data.get("health_bar_mode", HealthBarMode.ON_DAMAGE),
                     show_damage_numbers=data.get("show_damage_numbers", True),
                     show_health_numbers=data.get("show_health_numbers", True),
                     enable_health_shake=data.get("enable_health_shake", True),

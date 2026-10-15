@@ -1,77 +1,24 @@
-import ctypes, gc, random
-from ctypes import wintypes
+import gc, random
 from typing import cast, Optional
 
-from PySide6.QtCore import QTimer, QElapsedTimer, QRunnable, QThreadPool, QObject, Signal
+from PySide6.QtCore import QTimer, QElapsedTimer, QThreadPool
 from PySide6.QtGui import QPixmapCache, QGuiApplication, QScreen
+
+from pytoningans.core.vision_worker import VisionWorker
 
 from pytoningans.core.entity.base_structure import BaseStructure
 from pytoningans.core.entity.base_item import BaseItem
 from pytoningans.core.entity.living_entity import Entity
+from pytoningans.core.entity.base_entity import BaseEntity
+from pytoningans.core.entity.animation import AnimationSystem
+
 from pytoningans.core.world import WorldOverlay
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.api import (
     IEntity, IStructure, IItem, BaseStructureBehavior, BaseEntityBehavior,
     BaseItemBehavior, BaseBehavior
 )
-from pytoningans.core.entity.base_entity import BaseEntity
-from pytoningans.core.entity.animation import AnimationSystem
 from pytoningans.core.constants import EntityType
-
-HTTRANSPARENT = -1
-HTCLIENT = 1
-
-def fetch_visible_windows_worker() -> list[str]:
-    """Background worker function querying visible window titles safely."""
-    user32 = ctypes.windll.user32
-    
-    # Explicitly define C-types for compiled environments
-    WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-    
-    user32.EnumWindows.argtypes = [WNDENUMPROC, wintypes.LPARAM]
-    user32.EnumWindows.restype = wintypes.BOOL
-    
-    user32.GetWindowTextLengthW.argtypes = [wintypes.HWND]
-    user32.GetWindowTextLengthW.restype = ctypes.c_int
-    
-    user32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
-    user32.GetWindowTextW.restype = ctypes.c_int
-    
-    user32.IsWindowVisible.argtypes = [wintypes.HWND]
-    user32.IsWindowVisible.restype = wintypes.BOOL
-
-    titles: list[str] = []
-
-    def foreach_window(hwnd, lParam):
-        if user32.IsWindowVisible(hwnd):
-            length = user32.GetWindowTextLengthW(hwnd)
-            if length > 0:
-                buff = ctypes.create_unicode_buffer(length + 1)
-                user32.GetWindowTextW(hwnd, buff, length + 1)
-                if buff.value:
-                    titles.append(buff.value)
-        return True
-
-    # Keep a strong reference to the callback during execution to prevent GC crashes
-    callback = WNDENUMPROC(foreach_window)
-    user32.EnumWindows(callback, 0)
-    
-    return titles
-
-
-class VisionWorkerSignals(QObject):
-    finished = Signal(list)
-
-
-class VisionWorker(QRunnable):
-    def __init__(self) -> None:
-        super().__init__()
-        self.signals = VisionWorkerSignals()
-
-    def run(self) -> None:
-        titles = fetch_visible_windows_worker()
-        self.signals.finished.emit(titles)
-
 
 class EntityManager:
     """The central nervous system managing active worlds and global loops."""
@@ -106,36 +53,6 @@ class EntityManager:
             world = WorldOverlay(screen, self)
             world.showFullScreen()
             self.active_worlds.append(world)
-            
-        # Link adjacent monitors with two-way Travel Portals
-        # for i in range(len(self.active_worlds) - 1):
-        #     world_a: WorldOverlay = self.active_worlds[i]
-        #     world_b: WorldOverlay = self.active_worlds[i + 1]
-            
-        #     wa_rect: QRectF = world_a.scene.sceneRect()
-        #     wb_rect: QRectF = world_b.scene.sceneRect()
-            
-        #     # Floor level approximation (120 is portal height)
-        #     ground_y_a: float = wa_rect.bottom() - 120
-        #     ground_y_b: float = wb_rect.bottom() - 120
-            
-        #     portal_a = TravelPortal(wa_rect.right() - 80, ground_y_a, world_a, world_b)
-        #     portal_a.exit_offset_x = 80.0  # Tells portal_b to spit out to the right
-            
-        #     world_a.scene.addItem(portal_a)
-        #     world_a.active_structures.append(portal_a)
-        #     self.active_structures.append(portal_a)
-            
-        #     portal_b = TravelPortal(20, ground_y_b, world_b, world_a)
-        #     portal_b.exit_offset_x = -80.0 # Tells portal_a to spit out to the left
-            
-        #     world_b.scene.addItem(portal_b)
-        #     world_b.active_structures.append(portal_b)
-        #     self.active_structures.append(portal_b)
-            
-        #     # Form the two-way dynamic link
-        #     portal_a.linked_portal = portal_b
-        #     portal_b.linked_portal = portal_a
 
     def _on_vision_ready(self, titles: list[str]) -> None:
         self.active_window_titles = titles

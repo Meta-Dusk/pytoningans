@@ -89,8 +89,7 @@ class AISystem:
                     return True
                 elif custom_result is not None and custom_result is not False:
                     # Modder returned a specific IItem to seek towards
-                    target_item = cast(IItem, custom_result)
-                    self._navigate_towards_item(target_item)
+                    self._navigate_towards_item(custom_result)
                     return True
             except Exception as e:
                 print(f"Custom AI Error (Seek Item): {e}")

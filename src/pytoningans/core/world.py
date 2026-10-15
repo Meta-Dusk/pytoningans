@@ -1,5 +1,6 @@
-import ctypes
+from __future__ import annotations
 
+import ctypes
 from ctypes import wintypes
 from typing import TYPE_CHECKING
 
@@ -7,7 +8,8 @@ from PySide6.QtCore import QRect, Qt, QPoint, QPointF
 from PySide6.QtGui import QScreen
 from PySide6.QtWidgets import QMainWindow, QGraphicsView, QGraphicsScene
 
-from pytoningans.core.entity.indicators import DamageNumberItem
+from pytoningans.core.entity.indicators.damage_number import DamageNumberItem
+from pytoningans.core.vision_worker import HTCLIENT, HTTRANSPARENT
 
 if TYPE_CHECKING:
     from pytoningans.core.entity_manager import EntityManager
@@ -15,9 +17,7 @@ if TYPE_CHECKING:
     from pytoningans.core.entity.base_structure import BaseStructure
     from pytoningans.core.entity.base_item import BaseItem
     from pytoningans.core.entity.living_entity import Entity
-
-HTTRANSPARENT = -1
-HTCLIENT = 1
+    
 
 class WorldOverlay(QMainWindow):
     """The transparent, fullscreen monitor overlay that acts as a **World**."""

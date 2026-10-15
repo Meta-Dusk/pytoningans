@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import Optional, TYPE_CHECKING, cast, Any
-
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtWidgets import QGraphicsSceneMouseEvent
 
