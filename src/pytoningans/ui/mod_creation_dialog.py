@@ -60,19 +60,20 @@ class ModCreationDialog(QDialog):
         self.type_combo.addItem("Animated Item (Multi-State)", userData="animated_item")
         
         def _on_type_changed(_: int) -> None:
-            selected_type = self.type_combo.currentData()
-            if selected_type == "static_item":
-                self.cols_spin.setValue(1)
-                self.rows_spin.setValue(1)
-            elif selected_type == "animated_item":
-                self.cols_spin.setValue(4)
-                self.rows_spin.setValue(len(ItemState))
-            elif getattr(selected_type, "value", str(selected_type)) == EntityType.STRUCTURE.value:
-                self.cols_spin.setValue(4)
-                self.rows_spin.setValue(len(StructureState))
-            else:
-                self.cols_spin.setValue(4)
-                self.rows_spin.setValue(len(EntityState))
+            selected_type: str = self.type_combo.currentData()
+            match selected_type:
+                case "static_item":
+                    self.cols_spin.setValue(1)
+                    self.rows_spin.setValue(1)
+                case "animated_item":
+                    self.cols_spin.setValue(4)
+                    self.rows_spin.setValue(len(ItemState))
+                case EntityType.STRUCTURE:
+                    self.cols_spin.setValue(4)
+                    self.rows_spin.setValue(len(StructureState))
+                case _:
+                    self.cols_spin.setValue(4)
+                    self.rows_spin.setValue(len(EntityState))
 
         self.type_combo.currentIndexChanged.connect(_on_type_changed)
         

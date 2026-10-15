@@ -262,7 +262,7 @@ class ModManagerHub(QWidget):
                 text = base
                 tooltip = f"Click to sort by {base} (A-Z)"
                 
-            if item:
+            if item is not None:
                 item.setText(text)
                 item.setToolTip(tooltip)
             else:
