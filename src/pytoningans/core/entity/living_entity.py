@@ -8,10 +8,12 @@ from PySide6.QtWidgets import QGraphicsSceneContextMenuEvent
 
 from pytoningans.core.api import BaseBehavior, BaseEntityBehavior, IEntity, Pos2D
 from pytoningans.core.constants import AnimationMeta, DeathAnimation, EntityState
-from pytoningans.core.entity.ai_brain import AISystem
+
+from pytoningans.core.entity.ai import AISystem
 from pytoningans.core.entity.base_entity import BaseEntity
 from pytoningans.core.entity.indicators import HealthBarItem
 from pytoningans.core.entity.speech_bubble import SpeechBubble
+
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.world import WorldOverlay
 from pytoningans.core.settings import SettingsManager
