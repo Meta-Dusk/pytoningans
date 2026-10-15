@@ -134,35 +134,56 @@ class CustomToolTipManager(QObject):
         # Extract position from QHelpEvent if available
         help_pos: QPoint = event.pos() if isinstance(event, QHelpEvent) else QPoint()
 
-        # Item Views (QTableWidget, QListWidget, QTreeWidget, etc.)
-        if isinstance(watched, QAbstractItemView):
-            index: QModelIndex = watched.indexAt(help_pos)
-            if index.isValid():
-                tip_data = index.data(Qt.ItemDataRole.ToolTipRole)
-                if tip_data:
-                    return str(tip_data)
-            return watched.toolTip()
-
-        # Viewport of Item Views (where mouse events actually land in Qt)
-        parent: Optional[QObject] = watched.parent()
-        if isinstance(parent, QAbstractItemView):
-            index: QModelIndex = parent.indexAt(help_pos)
-            if index.isValid():
-                tip_data = index.data(Qt.ItemDataRole.ToolTipRole)
-                if tip_data:
-                    return str(tip_data)
-            return parent.toolTip()
-
-        # Header views
+        #? Header Views (QHeaderView or its viewport)
+        # Checked before QAbstractItemView since QHeaderView subclasses QAbstractItemView
+        header_view: Optional[QHeaderView] = None
         if isinstance(watched, QHeaderView):
-            logical_index: int = watched.logicalIndexAt(help_pos)
+            header_view = watched
+        elif isinstance(watched, QWidget) and isinstance(watched.parent(), QHeaderView):
+            header_view = cast(QHeaderView, watched.parent())
+
+        if header_view is not None:
+            logical_index: int = header_view.logicalIndexAt(help_pos)
             if logical_index >= 0:
-                model: QAbstractItemModel = watched.model()
-                if model:
-                    tip_data = model.headerData(logical_index, watched.orientation(), Qt.ItemDataRole.ToolTipRole)
+                model: Optional[QAbstractItemModel] = header_view.model()
+                if model is not None:
+                    tip_data = model.headerData(
+                        logical_index, header_view.orientation(), Qt.ItemDataRole.ToolTipRole
+                    )
                     if tip_data:
                         return str(tip_data)
-            return watched.toolTip()
+                    disp_data = model.headerData(
+                        logical_index, header_view.orientation(), Qt.ItemDataRole.DisplayRole
+                    )
+                    if disp_data:
+                        disp_str = str(disp_data)
+                        sec_size: int = header_view.sectionSize(logical_index)
+                        fm = header_view.fontMetrics()
+                        if fm.horizontalAdvance(disp_str) > sec_size - 12:
+                            return disp_str
+            return header_view.toolTip()
+
+        #? Item Views (QTableWidget, QListView, QTreeWidget, etc. or their viewport)
+        item_view: Optional[QAbstractItemView] = None
+        if isinstance(watched, QAbstractItemView):
+            item_view = watched
+        elif isinstance(watched, QWidget) and isinstance(watched.parent(), QAbstractItemView):
+            item_view = cast(QAbstractItemView, watched.parent())
+
+        if item_view is not None:
+            index: QModelIndex = item_view.indexAt(help_pos)
+            if index.isValid():
+                tip_data = index.data(Qt.ItemDataRole.ToolTipRole)
+                if tip_data:
+                    return str(tip_data)
+                disp_text = index.data(Qt.ItemDataRole.DisplayRole)
+                if disp_text:
+                    disp_str = str(disp_text)
+                    rect: QRect = item_view.visualRect(index)
+                    fm = item_view.fontMetrics()
+                    if fm.horizontalAdvance(disp_str) > rect.width() - 8:
+                        return disp_str
+            return item_view.toolTip()
 
         # Graphics Views (World overlay and scene items)
         view: Optional[QGraphicsView] = None

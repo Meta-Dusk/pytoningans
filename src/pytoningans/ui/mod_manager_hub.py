@@ -210,12 +210,15 @@ class ModManagerHub(QWidget):
         for row, (folder, (name, entity_type)) in enumerate(mods.items()):
             type_item = QTableWidgetItem(entity_type.capitalize())
             type_item.setData(Qt.ItemDataRole.UserRole, entity_type.lower())
+            type_item.setToolTip(f"Entity Type: {entity_type.capitalize()}")
             
             name_item = QTableWidgetItem(name)
             name_item.setData(Qt.ItemDataRole.UserRole, name)
+            name_item.setToolTip(f"Mod Name: {name}")
             
             folder_item = QTableWidgetItem(folder)
             folder_item.setData(Qt.ItemDataRole.UserRole, folder)
+            folder_item.setToolTip(f"Mod Folder: {folder}")
             
             self.mod_table.setItem(row, 0, type_item)
             self.mod_table.setItem(row, 1, name_item)
