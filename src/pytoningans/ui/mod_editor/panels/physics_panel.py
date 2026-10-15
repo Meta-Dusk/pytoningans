@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from typing import Optional, TYPE_CHECKING, Any
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QComboBox, QSpinBox, QLabel,
@@ -465,6 +466,12 @@ class PhysicsPanel(BasePanel):
             "attack_h": self.atkh_spin.value()
         }
 
+        # If static item, sync this frame override to all other item states
+        if getattr(self.controller.manager, "is_static", False) and self.controller.manager.entity_type == EntityType.ITEM.value:
+            for s_key, s_meta in self.controller.manager.animations.items():
+                if s_key != state:
+                    s_meta.frame_overrides[frame_key] = copy.deepcopy(meta.frame_overrides[frame_key])
+
     def _apply_to_base(self) -> None:
         state: Optional[str] = self.state_combo.currentData()
         if not state: return
@@ -479,6 +486,19 @@ class PhysicsPanel(BasePanel):
         meta.hitbox_w = self.hw_spin.value()
         meta.hitbox_h = self.hh_spin.value()
         meta.frame_overrides.clear()
+
+        # If static item, sync base physics to all other item states
+        if getattr(self.controller.manager, "is_static", False) and self.controller.manager.entity_type == EntityType.ITEM.value:
+            for s_key, s_meta in self.controller.manager.animations.items():
+                if s_key != state:
+                    s_meta.anchor_x = meta.anchor_x
+                    s_meta.anchor_y = meta.anchor_y
+                    s_meta.hitbox_x = meta.hitbox_x
+                    s_meta.hitbox_y = meta.hitbox_y
+                    s_meta.hitbox_w = meta.hitbox_w
+                    s_meta.hitbox_h = meta.hitbox_h
+                    s_meta.frame_overrides.clear()
+
         self.load_data()
     
     def _on_copy(self) -> None:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING, cast
+from typing import Optional, TYPE_CHECKING, cast, Any
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtWidgets import QGraphicsSceneMouseEvent
@@ -53,6 +53,24 @@ class BaseItem(BaseEntity):
     def is_held(self) -> bool:
         """Returns True if the item is currently held by an entity."""
         return self.holder is not None
+
+    @property
+    def is_static(self) -> bool:
+        """Returns True if the item is a stateless / single-sprite item."""
+        if self.mod_manager is not None:
+            return getattr(self.mod_manager, "is_static", False)
+        return False
+
+    @BaseEntity.state.setter
+    def state(self, value: Any) -> None:
+        val_str = value.value if hasattr(value, "value") else str(value)
+        if getattr(self, "_state", None) == val_str:
+            return
+        old_state: str = getattr(self, "_state", "")
+        self._state = val_str
+        if not self.is_static and self.anim_sys is not None:
+            self.anim_sys.set_state(val_str)
+        self._on_state_change(old_state, val_str)
 
     def set_physics_enabled(self, enabled: bool) -> None:
         """Sets whether the item is affected by gravity when dropped on the ground."""

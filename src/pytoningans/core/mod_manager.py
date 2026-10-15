@@ -1,4 +1,4 @@
-import json, sys, inspect
+import json, sys, inspect, copy
 import importlib.util
 
 from pathlib import Path
@@ -48,6 +48,7 @@ class ModManager:
         self.current_mod_folder: str = ""
         self.global_columns: int = 1
         self.global_rows: int = 1
+        self.is_static: bool = False
         
         self.config_version: int = CURRENT_CONFIG_VERSION
         self.can_fly: bool = False
@@ -159,10 +160,16 @@ class ModManager:
         raw_tags: list[Any] = data.get("tags", behavior_data.get("tags", []))
         self.tags = [str(t).lower().strip() for t in raw_tags if str(t).strip()]
 
+        self.is_static = data.get("is_static", False)
+        if not self.is_static and entity_type_str == EntityType.ITEM.value:
+            if data.get("columns", 1) == 1 and data.get("rows", 1) == 1:
+                self.is_static = True
+
         # Instantiate the config to store the entity type
         self.config = ModConfig(
             name=data.get("name", mod_folder_name),
             entity_type=entity_type_str,
+            is_static=self.is_static,
             tags=self.tags,
             version=data.get("version", CURRENT_CONFIG_VERSION),
             columns=data.get("columns", 1),
@@ -209,7 +216,11 @@ class ModManager:
         anim_data: dict[str, Any] = data.get("animations", {})
         
         # Load all existing animations from config.json first
+        item_valid_keys: set[str] = {s.value for s in ItemState}
         for state_key, raw_meta in anim_data.items():
+            # For item entities, ignore legacy living entity animation states
+            if self.entity_type == EntityType.ITEM.value and str(state_key) not in item_valid_keys:
+                continue
             meta_dict: dict[str, Any] = dict(raw_meta)
             if "frames" in meta_dict:
                 meta_dict["start_frame"] = 0
@@ -236,6 +247,23 @@ class ModManager:
                     end_frame=max(0, cols - 1),
                     loop=True
                 )
+        
+        # For static items, ensure baseline physics and overrides match idle across all states
+        if self.is_static and self.entity_type == EntityType.ITEM.value:
+            idle_meta = self.animations.get(ItemState.IDLE.value)
+            if idle_meta is not None:
+                for state in ItemState:
+                    key = state.value
+                    if key in self.animations and key != ItemState.IDLE.value:
+                        meta = self.animations[key]
+                        if not meta.frame_overrides and idle_meta.frame_overrides:
+                            meta.frame_overrides = copy.deepcopy(idle_meta.frame_overrides)
+                            meta.anchor_x = idle_meta.anchor_x
+                            meta.anchor_y = idle_meta.anchor_y
+                            meta.hitbox_x = idle_meta.hitbox_x
+                            meta.hitbox_y = idle_meta.hitbox_y
+                            meta.hitbox_w = idle_meta.hitbox_w
+                            meta.hitbox_h = idle_meta.hitbox_h
         
         dialogue_data = data.get("dialogue", {})
         self.plain_dialogue = dialogue_data.get("plain_dialogue", ["..."])
@@ -305,9 +333,25 @@ class ModManager:
         mod_path: Path = self.mods_dir / mod_folder_name
         config_path: Path = mod_path / "config.json"
         
+        if self.is_static and self.entity_type == EntityType.ITEM.value:
+            idle_meta = self.animations.get(ItemState.IDLE.value)
+            if idle_meta is not None:
+                for state in ItemState:
+                    key = state.value
+                    if key in self.animations and key != ItemState.IDLE.value:
+                        meta = self.animations[key]
+                        meta.anchor_x = idle_meta.anchor_x
+                        meta.anchor_y = idle_meta.anchor_y
+                        meta.hitbox_x = idle_meta.hitbox_x
+                        meta.hitbox_y = idle_meta.hitbox_y
+                        meta.hitbox_w = idle_meta.hitbox_w
+                        meta.hitbox_h = idle_meta.hitbox_h
+                        meta.frame_overrides = copy.deepcopy(idle_meta.frame_overrides)
+
         config = ModConfig(
             name=name,
             entity_type=self.entity_type,
+            is_static=self.is_static,
             tags=self.tags,
             version=CURRENT_CONFIG_VERSION,
             columns=self.global_columns,
@@ -457,6 +501,8 @@ class ModManager:
     def get_frame_physics(self, state: str, tick_index: int) -> tuple[QPoint, QRect]:
         """Returns the (Anchor Point, Hitbox Rect) for the current frame."""
         anim_meta: Optional[AnimationMeta] = self.animations.get(state)
+        if anim_meta is None and self.is_static and self.entity_type == EntityType.ITEM.value:
+            anim_meta = self.animations.get(ItemState.IDLE.value)
         
         # Fallback defaults if state doesn't exist
         if anim_meta is None:

@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt
 from PySide6.QtGui import QColor, QPixmap, QTransform, QCursor
 
-from pytoningans.core.constants import EntityState, SystemLocks
+from pytoningans.core.constants import EntityState, SystemLocks, EntityType
 from pytoningans.core.entity.animation import AnimationSystem
 from pytoningans.core.entity.physics import PhysicsSystem
 from pytoningans.core.api import (
@@ -404,6 +404,7 @@ class BaseEntity(QGraphicsPixmapItem):
             if (
                 self.anim_sys is not None and
                 self.mod_manager is not None and
+                self.mod_manager.entity_type == EntityType.ENTITY.value and
                 EntityState.DRAG in self.mod_manager.animations
             ):
                 self.anim_sys.set_state(EntityState.DRAG)
@@ -433,6 +434,7 @@ class BaseEntity(QGraphicsPixmapItem):
             if (
                 self.anim_sys is not None and
                 self.mod_manager is not None and
+                self.mod_manager.entity_type == EntityType.ENTITY.value and
                 EntityState.IDLE in self.mod_manager.animations
             ):
                 self.anim_sys.set_state(EntityState.IDLE)

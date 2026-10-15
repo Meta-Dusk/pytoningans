@@ -56,16 +56,22 @@ class ModCreationDialog(QDialog):
         self.type_combo = QComboBox()
         self.type_combo.addItem("Living Entity", userData=EntityType.ENTITY)
         self.type_combo.addItem("Static/Animated Structure", userData=EntityType.STRUCTURE)
-        self.type_combo.addItem("Interactable Item", userData=EntityType.ITEM)
+        self.type_combo.addItem("Static Item (Single Sprite)", userData="static_item")
+        self.type_combo.addItem("Animated Item (Multi-State)", userData="animated_item")
         
         def _on_type_changed(_: int) -> None:
-            selected_type: EntityType = self.type_combo.currentData()
-            entity_type: str = getattr(selected_type, "value", str(selected_type))
-            if entity_type == EntityType.STRUCTURE.value:
-                self.rows_spin.setValue(len(StructureState))
-            elif entity_type == EntityType.ITEM.value:
+            selected_type = self.type_combo.currentData()
+            if selected_type == "static_item":
+                self.cols_spin.setValue(1)
+                self.rows_spin.setValue(1)
+            elif selected_type == "animated_item":
+                self.cols_spin.setValue(4)
                 self.rows_spin.setValue(len(ItemState))
+            elif getattr(selected_type, "value", str(selected_type)) == EntityType.STRUCTURE.value:
+                self.cols_spin.setValue(4)
+                self.rows_spin.setValue(len(StructureState))
             else:
+                self.cols_spin.setValue(4)
                 self.rows_spin.setValue(len(EntityState))
 
         self.type_combo.currentIndexChanged.connect(_on_type_changed)
@@ -220,29 +226,44 @@ class ModCreationDialog(QDialog):
         self, display_name: str, config_path: Path,
         *, cols: int = 4, rows: int = len(EntityState)
     ) -> None:
-        selected_type: EntityType = self.type_combo.currentData()
-        entity_type: str = getattr(selected_type, "value", str(selected_type))
+        selected_data = self.type_combo.currentData()
+        is_static: bool = (selected_data == "static_item")
         
-        if entity_type == EntityType.STRUCTURE.value:
-            state_enum = StructureState
-        elif entity_type == EntityType.ITEM.value:
+        if selected_data in ("static_item", "animated_item", EntityType.ITEM):
+            entity_type = EntityType.ITEM.value
             state_enum = ItemState
+        elif getattr(selected_data, "value", str(selected_data)) == EntityType.STRUCTURE.value:
+            entity_type = EntityType.STRUCTURE.value
+            state_enum = StructureState
         else:
+            entity_type = EntityType.ENTITY.value
             state_enum = EntityState
 
-        animations = {
-            state.value: AnimationMeta(
-                row=min(i, max(0, rows - 1)),
-                start_frame=0,
-                end_frame=max(0, cols - 1),
-                loop=True
-            )
-            for i, state in enumerate(state_enum)
-        }
+        if is_static:
+            animations = {
+                state.value: AnimationMeta(
+                    row=0,
+                    start_frame=0,
+                    end_frame=0,
+                    loop=True
+                )
+                for state in state_enum
+            }
+        else:
+            animations = {
+                state.value: AnimationMeta(
+                    row=min(i, max(0, rows - 1)),
+                    start_frame=0,
+                    end_frame=max(0, cols - 1),
+                    loop=True
+                )
+                for i, state in enumerate(state_enum)
+            }
 
         new_config = ModConfig(
             name=display_name,
             entity_type=entity_type,
+            is_static=is_static,
             columns=cols,
             rows=rows,
             animations=animations
