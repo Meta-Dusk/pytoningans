@@ -54,9 +54,17 @@ class EntityManager:
             world.showFullScreen()
             self.active_worlds.append(world)
 
+    def _has_window_triggers(self) -> bool:
+        """Returns True if any active entity mod defines window triggers."""
+        return any(
+            bool(getattr(e.mod_manager, "window_triggers", None))
+            for e in self.active_entities
+        )
+
     def _on_vision_ready(self, titles: list[str]) -> None:
         self.active_window_titles = titles
         self._vision_in_progress = False
+        self._vision_worker = None
 
     def _global_tick(self) -> None:
         """The heartbeat of the entire application across all worlds."""
@@ -65,7 +73,7 @@ class EntityManager:
         self.vision_accumulator += dt
         if self.vision_accumulator >= 3000:
             self.vision_accumulator = 0
-            if not self._vision_in_progress:
+            if not self._vision_in_progress and self._has_window_triggers():
                 self._vision_in_progress = True
                 self._vision_worker = VisionWorker()
                 self._vision_worker.signals.finished.connect(self._on_vision_ready)

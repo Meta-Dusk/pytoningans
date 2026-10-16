@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QSpinBox, QHBoxLayout
 )
 from PySide6.QtCore import QCoreApplication, QRectF, Qt, QTimer
-from PySide6.QtGui import QGuiApplication, QScreen, QResizeEvent
+from PySide6.QtGui import QGuiApplication, QScreen, QResizeEvent, QShowEvent, QHideEvent
 
 from pytoningans.core.entity_manager import EntityManager
 from pytoningans.core.constants import EntityType
@@ -271,7 +271,18 @@ class MainMenu(QWidget):
         
         self.stats_timer = QTimer(self)
         self.stats_timer.timeout.connect(self._update_stats)
-        self.stats_timer.start(500)
+        if self.isVisible():
+            self.stats_timer.start(500)
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        self._update_stats()
+        if not self.stats_timer.isActive():
+            self.stats_timer.start(500)
+
+    def hideEvent(self, event: QHideEvent) -> None:
+        super().hideEvent(event)
+        self.stats_timer.stop()
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)

@@ -12,6 +12,14 @@ def fetch_visible_windows_worker() -> list[str]:
     """Background worker function querying visible window titles safely."""
     user32 = ctypes.windll.user32
 
+    # Ensure worker thread on Windows is attached to interactive desktop
+    try:
+        hdesk = user32.OpenInputDesktop(0, False, 0x10000000)
+        if hdesk:
+            user32.SetThreadDesktop(hdesk)
+    except Exception:
+        pass
+
     # Explicitly define C-types for compiled environments
     WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
 
