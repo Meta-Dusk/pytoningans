@@ -16,6 +16,7 @@ from pytoningans.core.entity.animation import AnimationSystem
 
 from pytoningans.core.world import WorldOverlay
 from pytoningans.core.mod_manager import ModManager
+from pytoningans.core.spawning import SpawningSystem
 from pytoningans.core.api import (
     IEntity, IStructure, IItem, BaseStructureBehavior, BaseEntityBehavior,
     BaseItemBehavior, BaseBehavior
@@ -39,6 +40,8 @@ class EntityManager:
         
         self.window_tracker: WindowTracker = WindowTracker()
         self.window_track_accumulator: int = 0
+        
+        self.spawning_system: SpawningSystem = SpawningSystem(self)
         
         self.clock = QElapsedTimer()
         self.timer = QTimer()

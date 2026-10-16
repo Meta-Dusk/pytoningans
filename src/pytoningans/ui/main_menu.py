@@ -1,16 +1,17 @@
-import random
 from typing import Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QApplication, QLabel, QComboBox, QFrame,
-    QSpinBox, QHBoxLayout
+    QSpinBox, QHBoxLayout, QCheckBox
 )
-from PySide6.QtCore import QCoreApplication, QRectF, Qt, QTimer
-from PySide6.QtGui import QGuiApplication, QScreen, QResizeEvent, QShowEvent, QHideEvent
+from PySide6.QtCore import QCoreApplication, QRect, Qt, QTimer
+from PySide6.QtGui import QGuiApplication, QScreen, QResizeEvent, QShowEvent, QHideEvent, QKeyEvent
 
 from pytoningans.core.entity_manager import EntityManager
 from pytoningans.core.constants import EntityType
 from pytoningans.core.world import WorldOverlay
+from pytoningans.core.settings import SettingsManager
+from pytoningans.core.spawning import SpawnAreaMode
 from pytoningans.ui.mod_manager_hub import ModManagerHub
 from pytoningans.ui.combat_settings_dialog import CombatSettingsDialog
 from pytoningans.ui.theme import LIGHT_THEME, DARK_THEME
@@ -39,8 +40,8 @@ class MainMenu(QWidget):
 
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.resize(420, 650)
-        self.setMinimumSize(420, 650)
+        self.resize(480, 720)
+        self.setMinimumSize(480, 720)
         
         main_layout: QVBoxLayout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -83,20 +84,86 @@ class MainMenu(QWidget):
         # Target Mod Dropdown
         self.mod_combo = QComboBox()
         content_layout.addWidget(self.mod_combo)
+
+        # Spawning Area Selection Row
+        area_layout = QHBoxLayout()
+        area_layout.addWidget(QLabel("Area:"))
+        self.area_combo = QComboBox()
+        self.area_combo.addItem("World Bounds (Full Screen)", SpawnAreaMode.SCREEN.value)
+        self.area_combo.addItem("Ground Level", SpawnAreaMode.GROUND.value)
+        self.area_combo.addItem("Sky / High Air", SpawnAreaMode.SKY.value)
+        self.area_combo.addItem("Custom Region...", SpawnAreaMode.CUSTOM.value)
+
+        saved_area: str = SettingsManager.get().settings.spawn_area_mode
+        area_idx: int = self.area_combo.findData(saved_area)
+        if area_idx >= 0:
+            self.area_combo.setCurrentIndex(area_idx)
+        self.area_combo.currentIndexChanged.connect(self._on_area_changed)
+        area_layout.addWidget(self.area_combo, stretch=1)
+        content_layout.addLayout(area_layout)
+
+        # Custom Region Row (Visible only when Custom Region is chosen)
+        self.custom_region_frame = QFrame()
+        custom_reg_layout = QHBoxLayout(self.custom_region_frame)
+        custom_reg_layout.setContentsMargins(0, 0, 0, 0)
+        custom_reg_layout.setSpacing(6)
+
+        self.region_info_label = QLabel("Region: Not Set")
+        self.region_info_label.setObjectName("HelperText")
+        self.select_region_btn = QPushButton("Select on Screen")
+        self.select_region_btn.setObjectName("RowBtn")
+        self.select_region_btn.clicked.connect(self._on_select_region_clicked)
+
+        custom_reg_layout.addWidget(self.region_info_label, stretch=1)
+        custom_reg_layout.addWidget(self.select_region_btn)
+        content_layout.addWidget(self.custom_region_frame)
+        self.custom_region_frame.setVisible(self.area_combo.currentData() == SpawnAreaMode.CUSTOM.value)
+
+        # Spawning Options Row (Avoid Desktop Windows)
+        options_layout = QHBoxLayout()
+        self.avoid_windows_chk = QCheckBox("Avoid Desktop Windows")
+        self.avoid_windows_chk.setToolTip("Prevent entities from spawning inside windows to avoid crushing/ejection deaths")
+        self.avoid_windows_chk.setChecked(SettingsManager.get().settings.avoid_window_spawn)
+        self.avoid_windows_chk.toggled.connect(self._on_avoid_windows_toggled)
+        options_layout.addWidget(self.avoid_windows_chk)
+        content_layout.addLayout(options_layout)
         
-        # Amount and Spawn Button
+        # Actions Row: Amount + Spawn Random + Place with Cursor
         spawn_action_layout = QHBoxLayout()
+        spawn_action_layout.setSpacing(6)
         self.amount_spin = QSpinBox()
         self.amount_spin.setRange(1, 100)
         self.amount_spin.setValue(1)
         self.amount_spin.setToolTip("Number of items to spawn")
         
-        self.spawn_btn: QPushButton = QPushButton("Spawn")
+        self.spawn_btn: QPushButton = QPushButton("Spawn Random")
         self.spawn_btn.clicked.connect(self._on_spawn_clicked)
+
+        self.place_btn: QPushButton = QPushButton("Place with Cursor")
+        self.place_btn.setToolTip("Interactively place entities on the desktop with a ghost cursor preview")
+        self.place_btn.clicked.connect(self._on_place_clicked)
         
         spawn_action_layout.addWidget(self.amount_spin)
         spawn_action_layout.addWidget(self.spawn_btn, stretch=1)
+        spawn_action_layout.addWidget(self.place_btn, stretch=1)
         content_layout.addLayout(spawn_action_layout)
+
+        # Interactive Mode Status Banner
+        self.placement_banner = QFrame()
+        self.placement_banner.setObjectName("ActionRow")
+        banner_layout = QHBoxLayout(self.placement_banner)
+        banner_layout.setContentsMargins(10, 6, 10, 6)
+        banner_layout.setSpacing(8)
+
+        self.placement_status_label = QLabel("Click to place. Esc to cancel.")
+        self.cancel_interactive_btn = QPushButton("Cancel")
+        self.cancel_interactive_btn.setObjectName("RowBtn")
+        self.cancel_interactive_btn.clicked.connect(self._on_cancel_interactive_clicked)
+
+        banner_layout.addWidget(self.placement_status_label, stretch=1)
+        banner_layout.addWidget(self.cancel_interactive_btn)
+        content_layout.addWidget(self.placement_banner)
+        self.placement_banner.hide()
         
         content_layout.addWidget(self._create_separator())
         
@@ -268,11 +335,25 @@ class MainMenu(QWidget):
         
         self._refresh_spawn_list()
         self._update_stats()
+
+        # Connect interactive spawning system signals
+        self.manager.spawning_system.placement_started.connect(self._on_placement_started)
+        self.manager.spawning_system.placement_count_changed.connect(self._on_placement_count_changed)
+        self.manager.spawning_system.placement_ended.connect(self._on_placement_ended)
+        self.manager.spawning_system.region_selection_started.connect(self._on_region_selection_started)
+        self.manager.spawning_system.region_selection_ended.connect(self._on_region_selection_ended)
         
         self.stats_timer = QTimer(self)
         self.stats_timer.timeout.connect(self._update_stats)
         if self.isVisible():
             self.stats_timer.start(500)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() == Qt.Key.Key_Escape and self.manager.spawning_system.is_active:
+            self.manager.spawning_system.cancel_all()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
@@ -349,29 +430,105 @@ class MainMenu(QWidget):
             total_entities > 0 or total_structs > 0 or total_items > 0
         )
 
+    def _on_area_changed(self, _: int) -> None:
+        mode: str = self.area_combo.currentData()
+        self.custom_region_frame.setVisible(mode == SpawnAreaMode.CUSTOM.value)
+        SettingsManager.get().update_settings(spawn_area_mode=mode)
+
+    def _on_avoid_windows_toggled(self, checked: bool) -> None:
+        SettingsManager.get().update_settings(avoid_window_spawn=checked)
+
+    def _on_select_region_clicked(self) -> None:
+        self.manager.spawning_system.start_region_selection()
+
+    def _on_place_clicked(self) -> None:
+        selected_mod: str = self.mod_combo.currentData()
+        if not selected_mod:
+            return
+        amount: int = self.amount_spin.value()
+        avoid_win: bool = self.avoid_windows_chk.isChecked()
+        self.manager.spawning_system.start_placement(selected_mod, amount, avoid_win)
+
+    def _on_cancel_interactive_clicked(self) -> None:
+        self.manager.spawning_system.cancel_all()
+
+    def _on_placement_started(self, mod_name: str, count: int) -> None:
+        self.placement_status_label.setText(
+            f"Placing '{mod_name}'\n"
+            f"({count} left)\n"
+            "Click to spawn, Esc to cancel"
+        )
+        self.placement_banner.show()
+        self.place_btn.setEnabled(False)
+        self.spawn_btn.setEnabled(False)
+        self.resize(480, 800)
+
+    def _on_placement_count_changed(self, count: int) -> None:
+        mod_name = self.manager.spawning_system.placement_mod_name
+        self.placement_status_label.setText(
+            f"Placing '{mod_name}'\n"
+            f"({count} left)\n"
+            "Click to spawn, Esc to cancel"
+        )
+
+    def _on_placement_ended(self) -> None:
+        self.placement_banner.hide()
+        self.place_btn.setEnabled(True)
+        self.spawn_btn.setEnabled(True)
+        self.resize(480, 720)
+
+    def _on_region_selection_started(self) -> None:
+        self.placement_status_label.setText(
+            "Click and drag on screen to select region.\nEsc to cancel."
+        )
+        self.placement_banner.show()
+        self.select_region_btn.setEnabled(False)
+        self.resize(500, 820)
+
+    def _on_region_selection_ended(self, succeeded: bool, rect: QRect) -> None:
+        self.placement_banner.hide()
+        self.select_region_btn.setEnabled(True)
+        if succeeded and not rect.isEmpty():
+            self.region_info_label.setText(
+                f"Region: {rect.width()}x{rect.height()}\n"
+                f"at ({rect.x()},{rect.y()})"
+            )
+            self.resize(480, 760)
+        else: self.resize(480, 720)
+
     def _on_spawn_clicked(self) -> None:
         selected_mod: str = self.mod_combo.currentData()
         if not selected_mod or not self.manager.active_worlds:
             return
-            
-        selected_target = self.monitor_combo.currentData() if self.monitor_combo.isVisible() else None
-        amount: int = self.amount_spin.value()
 
-        for _ in range(amount):
-            # Resolve target WorldOverlay
-            if selected_target == "random":
-                target_world: WorldOverlay = random.choice(self.manager.active_worlds)
-            elif isinstance(selected_target, WorldOverlay):
-                target_world = selected_target
-            else:
-                target_world = self.manager.active_worlds[0]
-                
-            # Compute position inside the target world's scene boundaries
-            scene_rect: QRectF = target_world.scene.sceneRect()
-            random_x = random.uniform(scene_rect.left() + 50, scene_rect.right() - 150)
-            random_y = random.uniform(scene_rect.top() + 50, scene_rect.bottom() - 150)
-                
-            self.manager.spawn_entity(random_x, random_y, selected_mod, target_world=target_world)
+        selected_target = (
+            self.monitor_combo.currentData() if self.monitor_combo.isVisible() else None
+        )
+        amount: int = self.amount_spin.value()
+        area_mode: str = self.area_combo.currentData()
+        avoid_win: bool = self.avoid_windows_chk.isChecked()
+        custom_rect: Optional[QRect] = (
+            self.manager.spawning_system.custom_region
+            if area_mode == SpawnAreaMode.CUSTOM.value
+            else None
+        )
+
+        target_world: Optional[WorldOverlay]
+        if selected_target == "random":
+            target_world = None
+        elif isinstance(selected_target, WorldOverlay):
+            target_world = selected_target
+        else:
+            target_world = self.manager.active_worlds[0]
+
+        self.manager.spawning_system.spawn_random(
+            mod_folder=selected_mod,
+            amount=amount,
+            target_world=target_world,
+            area_mode=area_mode,
+            custom_rect=custom_rect,
+            avoid_windows=avoid_win,
+        )
 
     def _on_kill_alive_clicked(self) -> None:
         """Triggers the death state/animation for all currently alive entities."""

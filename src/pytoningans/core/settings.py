@@ -25,6 +25,8 @@ class CombatVisualSettings:
     enable_health_shake: bool = True
     auto_hide_delay_ms: int = 3000
     enable_window_physics: bool = True
+    avoid_window_spawn: bool = True
+    spawn_area_mode: str = "screen"
 
 
 class SettingsManager(QObject):
@@ -54,6 +56,8 @@ class SettingsManager(QObject):
                     enable_health_shake=data.get("enable_health_shake", True),
                     auto_hide_delay_ms=data.get("auto_hide_delay_ms", 3000),
                     enable_window_physics=data.get("enable_window_physics", True),
+                    avoid_window_spawn=data.get("avoid_window_spawn", True),
+                    spawn_area_mode=data.get("spawn_area_mode", "screen"),
                 )
             except Exception as e:
                 print(f"Warning: Failed to load settings from {path}: {e}")
@@ -76,6 +80,8 @@ class SettingsManager(QObject):
         enable_health_shake: Optional[bool] = None,
         auto_hide_delay_ms: Optional[int] = None,
         enable_window_physics: Optional[bool] = None,
+        avoid_window_spawn: Optional[bool] = None,
+        spawn_area_mode: Optional[str] = None,
     ) -> None:
         changed = False
         if health_bar_mode is not None and self.settings.health_bar_mode != health_bar_mode:
@@ -95,6 +101,12 @@ class SettingsManager(QObject):
             changed = True
         if enable_window_physics is not None and self.settings.enable_window_physics != enable_window_physics:
             self.settings.enable_window_physics = enable_window_physics
+            changed = True
+        if avoid_window_spawn is not None and self.settings.avoid_window_spawn != avoid_window_spawn:
+            self.settings.avoid_window_spawn = avoid_window_spawn
+            changed = True
+        if spawn_area_mode is not None and self.settings.spawn_area_mode != spawn_area_mode:
+            self.settings.spawn_area_mode = spawn_area_mode
             changed = True
 
         if changed:
