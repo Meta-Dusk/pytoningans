@@ -8,7 +8,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QRect, Qt, Signal, QUrl, QTimer
 from PySide6.QtGui import QGuiApplication, QResizeEvent, QDesktopServices, QScreen, QCloseEvent
 
-from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION
+from pytoningans.core.mod_manager import (
+    ModManager, CURRENT_CONFIG_VERSION, get_mod_type_display
+)
 from pytoningans.core.constants import EntityType
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_editor.components import CustomSizeGrip
@@ -37,8 +39,8 @@ class ModEditorWindow(QWidget):
         # Silently hydrate the combo box to prevent premature load events
         self.mod_combo.blockSignals(True)
         mods: dict[str, tuple[str, str]] = self.controller.get_mod_list()
-        for folder, (name, entity_type) in mods.items():
-            self.mod_combo.addItem(f"[{entity_type.capitalize()}] {name}", userData=folder)
+        for folder, (name, type) in mods.items():
+            self.mod_combo.addItem(f"[{type.capitalize()}] {name}", userData=folder)
         self.mod_combo.blockSignals(False)
         
         # Wait for the ModManagerHub to finish passing the target index, 
@@ -58,7 +60,7 @@ class ModEditorWindow(QWidget):
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.resize(880, 620)
+        self.resize(1150, 680)
         
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -120,6 +122,14 @@ class ModEditorWindow(QWidget):
         self.mod_combo = QComboBox()
         mod_layout.addWidget(self.mod_combo)
         
+        # Entity type badge
+        self.type_badge = QLabel()
+        self.type_badge.setStyleSheet(
+            "color: #60a5fa; font-weight: bold; padding: 2px 8px; "
+            "border: 1px solid #3b82f6; border-radius: 4px; font-size: 11px;"
+        )
+        mod_layout.addWidget(self.type_badge)
+
         # Version indicator
         self.version_label = QLabel("v?")
         self.version_label.setStyleSheet("color: gray; font-style: italic;")
@@ -202,16 +212,14 @@ class ModEditorWindow(QWidget):
     
     def _on_combo_index_changed(self, index: int) -> None:
         if index < 0: return
-        mod_folder = self.mod_combo.itemData(index)
+        mod_folder: str = self.mod_combo.itemData(index)
         self._on_mod_changed(mod_folder)
 
     def _on_mod_changed(self, mod_folder: str) -> None:
         if not mod_folder: return
         
         # Block duplicate load events caused by UI initialization triggers
-        if getattr(self, "_current_loaded_mod", None) == mod_folder:
-            return
-        
+        if self._current_loaded_mod == mod_folder: return
         self._current_loaded_mod = mod_folder
             
         if self.controller.load_mod(mod_folder):
@@ -233,11 +241,19 @@ class ModEditorWindow(QWidget):
             self.name_input.setText(self.controller.get_mod_name())
             self.name_input.blockSignals(False)
             
-            entity_type: str = getattr(
-                self.controller.manager.entity_type,
-                "value",
-                str(self.controller.manager.entity_type)
+            is_static: bool = self.controller.manager.is_static
+            entity_type: str = self.controller.manager.entity_type
+            type_display: str = get_mod_type_display(entity_type, is_static)
+            self.type_badge.setText(type_display)
+            self.change_sheet_btn.setText(
+                "Replace Sprite" if is_static else "Replace Sprite Sheet"
             )
+
+            if is_static:
+                self.anim_sys.state_panel.hide()
+            else:
+                self.anim_sys.state_panel.show()
+
             if entity_type == EntityType.STRUCTURE.value:
                 self.dialogue_panel.hide()
                 self.behavior_script.hide()
@@ -268,10 +284,15 @@ class ModEditorWindow(QWidget):
         
         self.controller.save_mod(mod_folder)
         
-        # Update the editor's combo box and version label
+        # Update the editor's combo box, badge, and version label
+        is_static: bool = self.controller.manager.is_static
+        type: str = self.controller.manager.entity_type
+        type_display: str = get_mod_type_display(type, is_static)
+        self.type_badge.setText(type_display)
+
         current_idx: int = self.mod_combo.currentIndex()
         new_name: str = self.controller.get_mod_name()
-        self.mod_combo.setItemText(current_idx, new_name)
+        self.mod_combo.setItemText(current_idx, f"[{type.capitalize()}] {new_name}")
         
         new_v: int = self.controller.get_config_version()
         self.version_label.setText(f"v{new_v}")

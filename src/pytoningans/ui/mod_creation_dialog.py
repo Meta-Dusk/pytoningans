@@ -55,22 +55,26 @@ class ModCreationDialog(QDialog):
         
         self.type_combo = QComboBox()
         self.type_combo.addItem("Living Entity", userData=EntityType.ENTITY)
-        self.type_combo.addItem("Static/Animated Structure", userData=EntityType.STRUCTURE)
+        self.type_combo.addItem("Static Structure (Single Sprite)", userData="static_structure")
+        self.type_combo.addItem("Animated Structure (Multi-State)", userData="animated_structure")
         self.type_combo.addItem("Static Item (Single Sprite)", userData="static_item")
         self.type_combo.addItem("Animated Item (Multi-State)", userData="animated_item")
         
         def _on_type_changed(_: int) -> None:
             selected_type: str = self.type_combo.currentData()
             match selected_type:
+                case "static_structure":
+                    self.cols_spin.setValue(1)
+                    self.rows_spin.setValue(1)
+                case "animated_structure" | EntityType.STRUCTURE:
+                    self.cols_spin.setValue(4)
+                    self.rows_spin.setValue(len(StructureState))
                 case "static_item":
                     self.cols_spin.setValue(1)
                     self.rows_spin.setValue(1)
                 case "animated_item":
                     self.cols_spin.setValue(4)
                     self.rows_spin.setValue(len(ItemState))
-                case EntityType.STRUCTURE:
-                    self.cols_spin.setValue(4)
-                    self.rows_spin.setValue(len(StructureState))
                 case _:
                     self.cols_spin.setValue(4)
                     self.rows_spin.setValue(len(EntityState))
@@ -228,12 +232,15 @@ class ModCreationDialog(QDialog):
         *, cols: int = 4, rows: int = len(EntityState)
     ) -> None:
         selected_data = self.type_combo.currentData()
-        is_static: bool = (selected_data == "static_item")
+        is_static: bool = (selected_data in ("static_item", "static_structure"))
         
         if selected_data in ("static_item", "animated_item", EntityType.ITEM):
             entity_type = EntityType.ITEM.value
             state_enum = ItemState
-        elif getattr(selected_data, "value", str(selected_data)) == EntityType.STRUCTURE.value:
+        elif (
+            selected_data in ("static_structure", "animated_structure", EntityType.STRUCTURE)
+            or getattr(selected_data, "value", str(selected_data)) == EntityType.STRUCTURE.value
+        ):
             entity_type = EntityType.STRUCTURE.value
             state_enum = StructureState
         else:

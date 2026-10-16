@@ -83,6 +83,13 @@ class BaseEntity(QGraphicsPixmapItem):
             self._highlight_item.setVisible(False)
     
     @property
+    def is_static(self) -> bool:
+        """Returns whether this entity is static (single-sprite / non-animated)."""
+        if self.mod_manager is not None:
+            return getattr(self.mod_manager, "is_static", False)
+        return False
+
+    @property
     def get_behavior(self) -> Optional[BaseBehavior]:
         return self.mod_manager.custom_behavior if self.mod_manager is not None else None
     

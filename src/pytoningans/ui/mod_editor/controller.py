@@ -1,7 +1,7 @@
 import shutil
 from pathlib import Path
 
-from typing import Tuple, Any, Optional
+from typing import Any, Optional
 from PySide6.QtCore import QRect
 from PySide6.QtGui import QPixmap
 
@@ -13,7 +13,11 @@ class ModEditorController:
     def __init__(self, mod_manager: ModManager) -> None:
         self.manager: ModManager = mod_manager
 
-    def get_mod_list(self) -> dict[str, Tuple[str, str]]:
+    def get_mod_list(self) -> dict[str, tuple[str, str]]:
+        """
+        Returns a dict of:
+        `folder_name, [entity_name, entity_type]`
+        """
         return self.manager.get_available_mods_with_type()
 
     def load_mod(self, folder: str) -> bool:
@@ -22,7 +26,7 @@ class ModEditorController:
     def save_mod(self, folder: str) -> None:
         self.manager.save_mod_config(folder, self.manager.current_mod_name)
 
-    def get_global_grid(self) -> Tuple[int, int]:
+    def get_global_grid(self) -> tuple[int, int]:
         return self.manager.global_columns, self.manager.global_rows
 
     def update_global_grid(self, cols: int, rows: int) -> None:
@@ -42,11 +46,11 @@ class ModEditorController:
     def get_frame(self, state: str, frame_index: int) -> Optional[QPixmap]:
         return self.manager.get_frame(state, frame_index)
         
-    def has_mapped_row(self, state: str) -> Tuple[bool, int]:
+    def has_mapped_row(self, state: str) -> tuple[bool, int]:
         meta: Optional[AnimationMeta] = self.manager.animations.get(state)
         return (True, meta.row) if meta else (False, 0)
     
-    def get_sheet_info(self) -> Tuple[int, int, int, int]:
+    def get_sheet_info(self) -> tuple[int, int, int, int]:
         """Returns (sheet_width, sheet_height, base_tile_width, base_tile_height)."""
         sheet: Optional[QPixmap] = self.manager._global_sheet
         if sheet is None: return 0, 0, 0, 0
@@ -76,7 +80,7 @@ class ModEditorController:
         self.manager.jump_height = stats.get("jump_height", self.manager.jump_height)
         self.manager.attack_type = stats.get("attack_type", self.manager.attack_type)
     
-    def get_raw_preview(self, state: str, frame_index: int) -> Tuple[Optional[QPixmap], QRect]:
+    def get_raw_preview(self, state: str, frame_index: int) -> tuple[Optional[QPixmap], QRect]:
         """Returns the uncropped base tile and the QRect representing the custom crop area."""
         sheet: Optional[QPixmap] = self.manager._global_sheet
         if not sheet: return None, QRect()

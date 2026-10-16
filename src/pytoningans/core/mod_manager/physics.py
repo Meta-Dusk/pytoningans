@@ -19,8 +19,21 @@ def get_frame_physics(
 ) -> tuple[QPoint, QRect]:
     """Returns the (Anchor Point, Hitbox Rect) for the current frame."""
     anim_meta: Optional[AnimationMeta] = animations.get(state)
-    if anim_meta is None and is_static and entity_type == EntityType.ITEM.value:
-        anim_meta = animations.get(ItemState.IDLE.value)
+    if is_static:
+        if anim_meta is None:
+            anim_meta = (
+                animations.get(ItemState.IDLE.value)
+                or animations.get("idle")
+                or animations.get("default")
+                or next(iter(animations.values()), None)
+            )
+        if anim_meta is None:
+            return QPoint(0, 0), QRect(0, 0, 50, 50)
+        hw = anim_meta.hitbox_w if anim_meta.hitbox_w > 0 else anim_meta.computed_w
+        hh = anim_meta.hitbox_h if anim_meta.hitbox_h > 0 else anim_meta.computed_h
+        return QPoint(anim_meta.anchor_x, anim_meta.anchor_y), QRect(
+            anim_meta.hitbox_x, anim_meta.hitbox_y, hw, hh
+        )
 
     # Fallback defaults if state doesn't exist
     if anim_meta is None:

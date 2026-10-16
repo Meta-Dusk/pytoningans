@@ -45,6 +45,10 @@ class AnimationSubsystem(BasePanel):
         cols, rows = self.controller.get_global_grid()
         self.cols_spin.setValue(cols)
         self.rows_spin.setValue(rows)
+        
+        is_static: bool = self.controller.manager.is_static
+        self.grid_section.setVisible(not is_static)
+        self.restart_btn.setVisible(not is_static)
         self._is_updating_ui = False
         
         self._refresh_dynamic_info()
@@ -54,7 +58,7 @@ class AnimationSubsystem(BasePanel):
         self.grid_panel = QWidget()
         layout = QVBoxLayout(self.grid_panel)
         layout.setContentsMargins(0,0,0,0)
-        section = CollapsibleSection("Grid and Extraction Settings")
+        self.grid_section = CollapsibleSection("Grid and Extraction Settings")
         form = QFormLayout()
         
         self.cols_spin = create_spinbox(1, 100)
@@ -62,8 +66,8 @@ class AnimationSubsystem(BasePanel):
         
         form.addRow(create_info_label("Columns:", "Total columns."), self.cols_spin)
         form.addRow(create_info_label("Rows:", "Total rows."), self.rows_spin)
-        section.content_layout.addLayout(form)
-        layout.addWidget(section)
+        self.grid_section.content_layout.addLayout(form)
+        layout.addWidget(self.grid_section)
 
     def _build_preview_panel(self) -> None:
         self.preview_panel = QWidget()

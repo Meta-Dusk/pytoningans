@@ -171,6 +171,7 @@ class PhysicsPanel(BasePanel):
         
         # Top Controls
         top_layout = QHBoxLayout()
+        self.state_label = QLabel("State:")
         self.state_combo = QComboBox()
             
         self.frame_spin = QSpinBox()
@@ -185,11 +186,16 @@ class PhysicsPanel(BasePanel):
         self.paste_btn = QPushButton("Paste")
         self.paste_btn.setEnabled(False)
         
-        top_layout.addWidget(QLabel("State:"))
+        self.static_indicator = QLabel("Static Collision (Shared across all states)")
+        self.static_indicator.setStyleSheet("color: #60a5fa; font-weight: bold; font-size: 11px;")
+        self.static_indicator.hide()
+
+        top_layout.addWidget(self.state_label)
         top_layout.addWidget(self.state_combo)
         top_layout.addWidget(self.frame_spin)
         top_layout.addWidget(self.copy_btn)
         top_layout.addWidget(self.paste_btn)
+        top_layout.addWidget(self.static_indicator)
         top_layout.addWidget(self.zoom_spin)
         top_layout.addStretch()
 
@@ -338,6 +344,17 @@ class PhysicsPanel(BasePanel):
         is_combat_entity: bool = self.controller.manager.entity_type not in (
             EntityType.STRUCTURE.value, EntityType.ITEM.value
         )
+        is_static: bool = getattr(self.controller.manager, "is_static", False)
+        
+        # Toggle static indicators vs per-state controls
+        self.state_label.setVisible(not is_static)
+        self.state_combo.setVisible(not is_static)
+        self.frame_spin.setVisible(not is_static)
+        self.copy_btn.setVisible(not is_static)
+        self.paste_btn.setVisible(not is_static and bool(self._copied_physics))
+        self.apply_base_btn.setVisible(not is_static)
+        self.magic_btn.setVisible(not is_static)
+        self.static_indicator.setVisible(is_static)
         
         # Toggle combat inputs according to entity type
         self.attack_frame_check.setVisible(is_combat_entity)
@@ -433,6 +450,24 @@ class PhysicsPanel(BasePanel):
         self._save_to_override()
 
     def _save_to_override(self) -> None:
+        if self.controller.manager.is_static:
+            ax: int = self.ax_spin.value()
+            ay: int = self.ay_spin.value()
+            hx: int = self.hx_spin.value()
+            hy: int = self.hy_spin.value()
+            hw: int = self.hw_spin.value()
+            hh: int = self.hh_spin.value()
+            for static_meta in self.controller.manager.animations.values():
+                static_meta.anchor_x = ax
+                static_meta.anchor_y = ay
+                static_meta.hitbox_x = hx
+                static_meta.hitbox_y = hy
+                static_meta.hitbox_w = hw
+                static_meta.hitbox_h = hh
+                static_meta.frame_overrides.clear()
+            self.controller.manager._static_physics_cache = None
+            return
+
         state: Optional[str] = self.state_combo.currentData()
         if not state: return
         
@@ -466,13 +501,26 @@ class PhysicsPanel(BasePanel):
             "attack_h": self.atkh_spin.value()
         }
 
-        # If static item, sync this frame override to all other item states
-        if getattr(self.controller.manager, "is_static", False) and self.controller.manager.entity_type == EntityType.ITEM.value:
-            for s_key, s_meta in self.controller.manager.animations.items():
-                if s_key != state:
-                    s_meta.frame_overrides[frame_key] = copy.deepcopy(meta.frame_overrides[frame_key])
-
     def _apply_to_base(self) -> None:
+        if self.controller.manager.is_static:
+            ax: int = self.ax_spin.value()
+            ay: int = self.ay_spin.value()
+            hx: int = self.hx_spin.value()
+            hy: int = self.hy_spin.value()
+            hw: int = self.hw_spin.value()
+            hh: int = self.hh_spin.value()
+            for static_meta in self.controller.manager.animations.values():
+                static_meta.anchor_x = ax
+                static_meta.anchor_y = ay
+                static_meta.hitbox_x = hx
+                static_meta.hitbox_y = hy
+                static_meta.hitbox_w = hw
+                static_meta.hitbox_h = hh
+                static_meta.frame_overrides.clear()
+            self.controller.manager._static_physics_cache = None
+            self.load_data()
+            return
+
         state: Optional[str] = self.state_combo.currentData()
         if not state: return
         
@@ -486,18 +534,6 @@ class PhysicsPanel(BasePanel):
         meta.hitbox_w = self.hw_spin.value()
         meta.hitbox_h = self.hh_spin.value()
         meta.frame_overrides.clear()
-
-        # If static item, sync base physics to all other item states
-        if getattr(self.controller.manager, "is_static", False) and self.controller.manager.entity_type == EntityType.ITEM.value:
-            for s_key, s_meta in self.controller.manager.animations.items():
-                if s_key != state:
-                    s_meta.anchor_x = meta.anchor_x
-                    s_meta.anchor_y = meta.anchor_y
-                    s_meta.hitbox_x = meta.hitbox_x
-                    s_meta.hitbox_y = meta.hitbox_y
-                    s_meta.hitbox_w = meta.hitbox_w
-                    s_meta.hitbox_h = meta.hitbox_h
-                    s_meta.frame_overrides.clear()
 
         self.load_data()
     

@@ -35,7 +35,7 @@ from .config_io import (
     ensure_fallback_animations,
     parse_animations,
     save_config_file,
-    sync_static_item_physics,
+    sync_static_physics,
 )
 from .discovery import IGNORED_MOD_FOLDERS, get_available_mods_with_type
 from .physics import get_frame_physics
@@ -70,6 +70,7 @@ class ModManager:
         self.global_columns: int = 1
         self.global_rows: int = 1
         self.is_static: bool = False
+        self._static_physics_cache: Optional[tuple[QPoint, QRect]] = None
 
         self.config_version: int = CURRENT_CONFIG_VERSION
         self.can_fly: bool = False
@@ -145,8 +146,9 @@ class ModManager:
         raw_tags: list[Any] = data.get("tags", behavior_data.get("tags", []))
         self.tags = [str(t).lower().strip() for t in raw_tags if str(t).strip()]
 
+        self._static_physics_cache = None
         self.is_static = data.get("is_static", False)
-        if not self.is_static and entity_type_str == EntityType.ITEM.value:
+        if not self.is_static and entity_type_str in (EntityType.ITEM.value, EntityType.STRUCTURE.value):
             if data.get("columns", 1) == 1 and data.get("rows", 1) == 1:
                 self.is_static = True
 
@@ -201,9 +203,9 @@ class ModManager:
         self.animations = parse_animations(anim_data, self.entity_type)
         ensure_fallback_animations(self.animations, self.entity_type, self.global_columns)
 
-        # For static items, ensure baseline physics and overrides match idle across all states
-        if self.is_static and self.entity_type == EntityType.ITEM.value:
-            sync_static_item_physics(self.animations)
+        # For static entities, ensure baseline physics and overrides match idle across all states
+        if self.is_static:
+            sync_static_physics(self.animations)
 
         dialogue_data = data.get("dialogue", {})
         self.plain_dialogue = dialogue_data.get("plain_dialogue", ["..."])
@@ -240,8 +242,9 @@ class ModManager:
         mod_path: Path = self.mods_dir / mod_folder_name
         config_path: Path = mod_path / "config.json"
 
-        if self.is_static and self.entity_type == EntityType.ITEM.value:
-            sync_static_item_physics(self.animations)
+        if self.is_static:
+            sync_static_physics(self.animations)
+        self._static_physics_cache = None
 
         config = ModConfig(
             name=name,
@@ -312,6 +315,19 @@ class ModManager:
 
     def get_frame_physics(self, state: str, tick_index: int) -> tuple[QPoint, QRect]:
         """Returns the (Anchor Point, Hitbox Rect) for the current frame."""
+        if self.is_static:
+            if self._static_physics_cache is not None:
+                return self._static_physics_cache
+            result = get_frame_physics(
+                self.animations,
+                state,
+                tick_index,
+                self.is_static,
+                self.entity_type,
+            )
+            self._static_physics_cache = result
+            return result
+
         return get_frame_physics(
             self.animations,
             state,

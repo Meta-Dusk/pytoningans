@@ -59,23 +59,32 @@ def ensure_fallback_animations(
         )
 
 
-def sync_static_item_physics(animations: dict[str, AnimationMeta]) -> None:
-    """For static items, ensures baseline physics and overrides match idle across all states."""
-    idle_meta = animations.get(ItemState.IDLE.value)
-    if idle_meta is None:
+def sync_static_physics(animations: dict[str, AnimationMeta]) -> None:
+    """For static entities/items/structures, ensures baseline physics match across all states and clears overrides."""
+    if not animations:
         return
-    for state in ItemState:
-        key: str = state.value
-        if key not in animations or key == ItemState.IDLE.value: continue
-        meta: AnimationMeta = animations[key]
-        meta.anchor_x = idle_meta.anchor_x
-        meta.anchor_y = idle_meta.anchor_y
-        meta.hitbox_x = idle_meta.hitbox_x
-        meta.hitbox_y = idle_meta.hitbox_y
-        meta.hitbox_w = idle_meta.hitbox_w
-        meta.hitbox_h = idle_meta.hitbox_h
-        if not meta.frame_overrides and idle_meta.frame_overrides:
-            meta.frame_overrides = copy.deepcopy(idle_meta.frame_overrides)
+    base_meta = (
+        animations.get(ItemState.IDLE.value)
+        or animations.get("idle")
+        or animations.get("default")
+        or next(iter(animations.values()), None)
+    )
+    if base_meta is None:
+        return
+
+    for meta in animations.values():
+        if meta is base_meta:
+            continue
+        meta.anchor_x = base_meta.anchor_x
+        meta.anchor_y = base_meta.anchor_y
+        meta.hitbox_x = base_meta.hitbox_x
+        meta.hitbox_y = base_meta.hitbox_y
+        meta.hitbox_w = base_meta.hitbox_w
+        meta.hitbox_h = base_meta.hitbox_h
+        meta.frame_overrides.clear()
+
+
+sync_static_item_physics = sync_static_physics
 
 
 def ensure_config_file(config_path: Path, mod_folder_name: str) -> None:
