@@ -69,7 +69,8 @@ def build_living_actions(menu: EntityContextMenu, layout: QVBoxLayout, entity: E
 
             if unheld_items:
                 for it in unheld_items:
-                    item_combo.addItem(f"{it.display_name} (@ {int(it.x())}, {int(it.y())})", userData=it)
+                    coords: str = f"x:{int(it.x())}, y:{int(it.y())}"
+                    item_combo.addItem(f"{it.display_name} ({coords})", userData=it)
                 pickup_btn.setToolTip("Command the entity to take this item.")
                 pickup_btn.clicked.connect(
                     lambda: menu.execute_action(lambda: entity.pick_up(item_combo.currentData()))

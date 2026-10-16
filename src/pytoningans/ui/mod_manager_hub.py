@@ -122,7 +122,7 @@ class ModManagerHub(QWidget):
         btn_layout.addWidget(actions_header)
         
         self.create_btn = QPushButton("Create New Mod")
-        self.create_btn.setToolTip("Create a new custom entity or structure mod")
+        self.create_btn.setToolTip("Create a new custom entity, item, or structure mod")
         self.create_btn.clicked.connect(self._on_create_clicked)
         btn_layout.addWidget(self.create_btn)
         
@@ -137,6 +137,11 @@ class ModManagerHub(QWidget):
         self.open_folder_btn.setEnabled(False)
         self.open_folder_btn.clicked.connect(self._on_open_folder_clicked)
         btn_layout.addWidget(self.open_folder_btn)
+        
+        self.open_mods_folder_btn = QPushButton("Open Mods Folder")
+        self.open_mods_folder_btn.setToolTip("Open the mods folder in File Explorer")
+        self.open_mods_folder_btn.clicked.connect(self._on_open_mods_folder_clicked)
+        btn_layout.addWidget(self.open_mods_folder_btn)
         
         self.delete_btn = QPushButton("Delete Selected")
         self.delete_btn.setObjectName("DangerBtn")
@@ -381,6 +386,11 @@ class ModManagerHub(QWidget):
         if selected_folder is None: return
         
         target_dir: Path = self.mod_manager.mods_dir / selected_folder
+        if target_dir.exists():
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(target_dir.resolve())))
+    
+    def _on_open_mods_folder_clicked(self) -> None:
+        target_dir: Path = self.mod_manager.mods_dir
         if target_dir.exists():
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(target_dir.resolve())))
 

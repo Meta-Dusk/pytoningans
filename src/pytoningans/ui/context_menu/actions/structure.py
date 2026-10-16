@@ -66,7 +66,7 @@ def build_structure_actions(menu: EntityContextMenu, layout: QVBoxLayout, struct
         current_idx: int = 0
         for idx, other in enumerate(other_structures, start=1):
             other_name: str = other.display_name
-            coords: str = f"@{int(other.x())}, {int(other.y())}"
+            coords: str = f"x:{int(other.x())}, y:{int(other.y())}"
             portal_combo.addItem(f"{other_name} ({coords})", userData=other)
             if teleport_comp.linked_portal is other:
                 current_idx = idx

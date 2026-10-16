@@ -32,10 +32,15 @@ QFrame#MenuSeparator {{
     max-height: 1px;
 }}
 
+QFrame#MenuSeparatorV {{
+    border: none;
+    border-left: 1px solid {p.menu_separator};
+    max-width: 1px;
+}}
+
 QFrame#ActionRow {{
     background-color: {p.action_row_bg};
     border: 1px solid {p.action_row_border};
     border-radius: 6px;
 }}
 """
-

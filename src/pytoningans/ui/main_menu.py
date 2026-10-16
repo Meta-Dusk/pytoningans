@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QApplication, QLabel, QComboBox, QFrame,
     QSpinBox, QHBoxLayout, QCheckBox
 )
-from PySide6.QtCore import QCoreApplication, QRect, Qt, QTimer
+from PySide6.QtCore import QCoreApplication, QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QGuiApplication, QScreen, QResizeEvent, QShowEvent, QHideEvent, QKeyEvent
 
 from pytoningans.core.entity_manager import EntityManager
@@ -38,10 +38,14 @@ class MainMenu(QWidget):
         sep.setObjectName("MenuSeparator")
         return sep
 
+    def _create_vertical_separator(self) -> QFrame:
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setObjectName("MenuSeparatorV")
+        return sep
+
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.resize(480, 720)
-        self.setMinimumSize(480, 720)
         
         main_layout: QVBoxLayout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -51,26 +55,33 @@ class MainMenu(QWidget):
         main_layout.addWidget(self.title_bar)
         
         content_widget = QWidget()
-        content_layout = QVBoxLayout(content_widget)
+        content_layout = QHBoxLayout(content_widget)
         content_layout.setContentsMargins(14, 12, 14, 14)
-        content_layout.setSpacing(8)
+        content_layout.setSpacing(14)
         
-        # --- Spawning Section ---
+        # =========================================================================
+        # Left Pane: Spawning & Interactive Placement
+        # =========================================================================
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(8)
+
         spawn_label = QLabel("Spawn Objects:")
         spawn_label.setObjectName("SectionHeader")
-        content_layout.addWidget(spawn_label)
+        left_layout.addWidget(spawn_label)
 
         # Category Filter Row
         filter_layout = QHBoxLayout()
         filter_layout.addWidget(QLabel("Category:"))
         self.category_combo = QComboBox()
         self.category_combo.addItem("All Entities", "all")
-        self.category_combo.addItem("Entities Only", EntityType.ENTITY.value)
-        self.category_combo.addItem("Structures Only", EntityType.STRUCTURE.value)
-        self.category_combo.addItem("Items Only", EntityType.ITEM.value)
+        self.category_combo.addItem("Entities Only", EntityType.ENTITY)
+        self.category_combo.addItem("Structures Only", EntityType.STRUCTURE)
+        self.category_combo.addItem("Items Only", EntityType.ITEM)
         self.category_combo.currentIndexChanged.connect(self._refresh_spawn_list)
         filter_layout.addWidget(self.category_combo, stretch=1)
-        content_layout.addLayout(filter_layout)
+        left_layout.addLayout(filter_layout)
 
         # Monitor Selection Row (Shown only if multiple monitors exist)
         self.monitor_layout = QHBoxLayout()
@@ -78,21 +89,21 @@ class MainMenu(QWidget):
         self.monitor_combo = QComboBox()
         self.monitor_layout.addWidget(self.monitor_label)
         self.monitor_layout.addWidget(self.monitor_combo, stretch=1)
-        content_layout.addLayout(self.monitor_layout)
+        left_layout.addLayout(self.monitor_layout)
         self._populate_monitors()
         
         # Target Mod Dropdown
         self.mod_combo = QComboBox()
-        content_layout.addWidget(self.mod_combo)
+        left_layout.addWidget(self.mod_combo)
 
         # Spawning Area Selection Row
         area_layout = QHBoxLayout()
         area_layout.addWidget(QLabel("Area:"))
         self.area_combo = QComboBox()
-        self.area_combo.addItem("World Bounds (Full Screen)", SpawnAreaMode.SCREEN.value)
-        self.area_combo.addItem("Ground Level", SpawnAreaMode.GROUND.value)
-        self.area_combo.addItem("Sky / High Air", SpawnAreaMode.SKY.value)
-        self.area_combo.addItem("Custom Region...", SpawnAreaMode.CUSTOM.value)
+        self.area_combo.addItem("World Bounds (Full Screen)", SpawnAreaMode.SCREEN)
+        self.area_combo.addItem("Ground Level", SpawnAreaMode.GROUND)
+        self.area_combo.addItem("Sky / High Air", SpawnAreaMode.SKY)
+        self.area_combo.addItem("Custom Region...", SpawnAreaMode.CUSTOM)
 
         saved_area: str = SettingsManager.get().settings.spawn_area_mode
         area_idx: int = self.area_combo.findData(saved_area)
@@ -100,33 +111,37 @@ class MainMenu(QWidget):
             self.area_combo.setCurrentIndex(area_idx)
         self.area_combo.currentIndexChanged.connect(self._on_area_changed)
         area_layout.addWidget(self.area_combo, stretch=1)
-        content_layout.addLayout(area_layout)
+        left_layout.addLayout(area_layout)
 
         # Custom Region Row (Visible only when Custom Region is chosen)
         self.custom_region_frame = QFrame()
+        self.custom_region_frame.setObjectName("ActionRow")
         custom_reg_layout = QHBoxLayout(self.custom_region_frame)
-        custom_reg_layout.setContentsMargins(0, 0, 0, 0)
+        custom_reg_layout.setContentsMargins(8, 4, 8, 4)
         custom_reg_layout.setSpacing(6)
 
         self.region_info_label = QLabel("Region: Not Set")
         self.region_info_label.setObjectName("HelperText")
+        self.region_info_label.setWordWrap(True)
         self.select_region_btn = QPushButton("Select on Screen")
         self.select_region_btn.setObjectName("RowBtn")
         self.select_region_btn.clicked.connect(self._on_select_region_clicked)
 
         custom_reg_layout.addWidget(self.region_info_label, stretch=1)
         custom_reg_layout.addWidget(self.select_region_btn)
-        content_layout.addWidget(self.custom_region_frame)
-        self.custom_region_frame.setVisible(self.area_combo.currentData() == SpawnAreaMode.CUSTOM.value)
+        left_layout.addWidget(self.custom_region_frame)
+        self.custom_region_frame.setVisible(self.area_combo.currentData() == SpawnAreaMode.CUSTOM)
 
         # Spawning Options Row (Avoid Desktop Windows)
         options_layout = QHBoxLayout()
         self.avoid_windows_chk = QCheckBox("Avoid Desktop Windows")
-        self.avoid_windows_chk.setToolTip("Prevent entities from spawning inside windows to avoid crushing/ejection deaths")
+        self.avoid_windows_chk.setToolTip(
+            "Prevent entities from spawning inside windows to avoid crushing/ejection deaths"
+        )
         self.avoid_windows_chk.setChecked(SettingsManager.get().settings.avoid_window_spawn)
         self.avoid_windows_chk.toggled.connect(self._on_avoid_windows_toggled)
         options_layout.addWidget(self.avoid_windows_chk)
-        content_layout.addLayout(options_layout)
+        left_layout.addLayout(options_layout)
         
         # Actions Row: Amount + Spawn Random + Place with Cursor
         spawn_action_layout = QHBoxLayout()
@@ -135,18 +150,21 @@ class MainMenu(QWidget):
         self.amount_spin.setRange(1, 100)
         self.amount_spin.setValue(1)
         self.amount_spin.setToolTip("Number of items to spawn")
+        self.amount_spin.setMinimumWidth(50)
         
         self.spawn_btn: QPushButton = QPushButton("Spawn Random")
         self.spawn_btn.clicked.connect(self._on_spawn_clicked)
 
         self.place_btn: QPushButton = QPushButton("Place with Cursor")
-        self.place_btn.setToolTip("Interactively place entities on the desktop with a ghost cursor preview")
+        self.place_btn.setToolTip(
+            "Interactively place entities on the desktop with a ghost cursor preview"
+        )
         self.place_btn.clicked.connect(self._on_place_clicked)
         
         spawn_action_layout.addWidget(self.amount_spin)
         spawn_action_layout.addWidget(self.spawn_btn, stretch=1)
         spawn_action_layout.addWidget(self.place_btn, stretch=1)
-        content_layout.addLayout(spawn_action_layout)
+        left_layout.addLayout(spawn_action_layout)
 
         # Interactive Mode Status Banner
         self.placement_banner = QFrame()
@@ -156,21 +174,35 @@ class MainMenu(QWidget):
         banner_layout.setSpacing(8)
 
         self.placement_status_label = QLabel("Click to place. Esc to cancel.")
+        self.placement_status_label.setWordWrap(True)
         self.cancel_interactive_btn = QPushButton("Cancel")
         self.cancel_interactive_btn.setObjectName("RowBtn")
         self.cancel_interactive_btn.clicked.connect(self._on_cancel_interactive_clicked)
 
         banner_layout.addWidget(self.placement_status_label, stretch=1)
         banner_layout.addWidget(self.cancel_interactive_btn)
-        content_layout.addWidget(self.placement_banner)
+        left_layout.addWidget(self.placement_banner)
         self.placement_banner.hide()
         
-        content_layout.addWidget(self._create_separator())
-        
-        # --- Live Controls Section (Value Display + Context Actions) ---
+        left_layout.addStretch()
+
+        # =========================================================================
+        # Vertical Separator Divider
+        # =========================================================================
+        v_sep: QFrame = self._create_vertical_separator()
+
+        # =========================================================================
+        # Right Pane: Live Controls, Global Actions, Management & Settings
+        # =========================================================================
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(8)
+
+        # --- Live Controls Section ---
         live_label = QLabel("Live Controls:")
         live_label.setObjectName("SectionHeader")
-        content_layout.addWidget(live_label)
+        right_layout.addWidget(live_label)
 
         # Row 1: Alive Entities
         alive_frame = QFrame()
@@ -196,7 +228,7 @@ class MainMenu(QWidget):
         self.close_alive_btn.clicked.connect(self._on_close_alive_clicked)
         alive_layout.addWidget(self.close_alive_btn)
 
-        content_layout.addWidget(alive_frame)
+        right_layout.addWidget(alive_frame)
 
         # Row 2: Dead Entities
         dead_frame = QFrame()
@@ -222,7 +254,7 @@ class MainMenu(QWidget):
         self.close_dead_btn.clicked.connect(self._on_close_dead_clicked)
         dead_layout.addWidget(self.close_dead_btn)
 
-        content_layout.addWidget(dead_frame)
+        right_layout.addWidget(dead_frame)
 
         # Row 3: Structures
         struct_frame = QFrame()
@@ -242,7 +274,7 @@ class MainMenu(QWidget):
         self.close_struct_btn.clicked.connect(self._on_close_structures_clicked)
         struct_layout.addWidget(self.close_struct_btn)
 
-        content_layout.addWidget(struct_frame)
+        right_layout.addWidget(struct_frame)
 
         # Row 4: Items
         item_frame = QFrame()
@@ -262,14 +294,14 @@ class MainMenu(QWidget):
         self.close_item_btn.clicked.connect(self._on_close_items_clicked)
         item_layout.addWidget(self.close_item_btn)
 
-        content_layout.addWidget(item_frame)
+        right_layout.addWidget(item_frame)
 
-        content_layout.addWidget(self._create_separator())
+        right_layout.addWidget(self._create_separator())
 
         # --- Global Actions Section ---
         global_label = QLabel("Global Actions:")
         global_label.setObjectName("SectionHeader")
-        content_layout.addWidget(global_label)
+        right_layout.addWidget(global_label)
 
         global_layout = QHBoxLayout()
         global_layout.setSpacing(8)
@@ -282,16 +314,16 @@ class MainMenu(QWidget):
         self.close_all_objects_btn.setToolTip("Close all entities and structures on all screens")
         self.close_all_objects_btn.clicked.connect(self._on_close_all_objects_clicked)
 
-        global_layout.addWidget(self.close_all_entities_btn)
-        global_layout.addWidget(self.close_all_objects_btn)
-        content_layout.addLayout(global_layout)
+        global_layout.addWidget(self.close_all_entities_btn, stretch=1)
+        global_layout.addWidget(self.close_all_objects_btn, stretch=1)
+        right_layout.addLayout(global_layout)
 
-        content_layout.addWidget(self._create_separator())
+        right_layout.addWidget(self._create_separator())
 
         # --- Mod Management & Settings Section ---
         mod_label = QLabel("Management & Settings:")
         mod_label.setObjectName("SectionHeader")
-        content_layout.addWidget(mod_label)
+        right_layout.addWidget(mod_label)
 
         mgmt_layout = QHBoxLayout()
         mgmt_layout.setSpacing(8)
@@ -304,11 +336,11 @@ class MainMenu(QWidget):
         self.combat_settings_btn.setToolTip("Configure damage indicators and health bar display preferences")
         self.combat_settings_btn.clicked.connect(self._open_combat_settings)
 
-        mgmt_layout.addWidget(self.manage_btn)
-        mgmt_layout.addWidget(self.combat_settings_btn)
-        content_layout.addLayout(mgmt_layout)
+        mgmt_layout.addWidget(self.manage_btn, stretch=1)
+        mgmt_layout.addWidget(self.combat_settings_btn, stretch=1)
+        right_layout.addLayout(mgmt_layout)
 
-        content_layout.addWidget(self._create_separator())
+        right_layout.addWidget(self._create_separator())
 
         # --- System Controls Section ---
         sys_layout = QHBoxLayout()
@@ -322,12 +354,17 @@ class MainMenu(QWidget):
         self.shutdown_btn.setToolTip("Completely quit PyToNingans")
         self.shutdown_btn.clicked.connect(QApplication.quit)
 
-        sys_layout.addWidget(self.theme_btn)
-        sys_layout.addWidget(self.shutdown_btn)
-        content_layout.addLayout(sys_layout)
+        sys_layout.addWidget(self.theme_btn, stretch=1)
+        sys_layout.addWidget(self.shutdown_btn, stretch=1)
+        right_layout.addLayout(sys_layout)
 
-        content_layout.addStretch()
-        
+        right_layout.addStretch()
+
+        # Add panes to content layout
+        content_layout.addWidget(left_widget, stretch=1)
+        content_layout.addWidget(v_sep)
+        content_layout.addWidget(right_widget, stretch=1)
+
         main_layout.addWidget(content_widget)
         
         self.grip = CustomSizeGrip(self)
@@ -335,6 +372,10 @@ class MainMenu(QWidget):
         
         self._refresh_spawn_list()
         self._update_stats()
+
+        # Dynamic layout sizing: establish minimum size from constraints, and size to optimal hint
+        self.setMinimumSize(self.minimumSizeHint())
+        self.resize(self.sizeHint())
 
         # Connect interactive spawning system signals
         self.manager.spawning_system.placement_started.connect(self._on_placement_started)
@@ -347,6 +388,15 @@ class MainMenu(QWidget):
         self.stats_timer.timeout.connect(self._update_stats)
         if self.isVisible():
             self.stats_timer.start(500)
+
+    def _adjust_size_if_needed(self) -> None:
+        """Dynamically adjusts window size if content constraints exceed current dimensions."""
+        hint: QSize = self.sizeHint()
+        min_hint: QSize = self.minimumSizeHint()
+        target_w: int = max(self.width(), hint.width(), min_hint.width())
+        target_h: int = max(self.height(), hint.height(), min_hint.height())
+        if target_w != self.width() or target_h != self.height():
+            self.resize(target_w, target_h)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key.Key_Escape and self.manager.spawning_system.is_active:
@@ -434,6 +484,7 @@ class MainMenu(QWidget):
         mode: str = self.area_combo.currentData()
         self.custom_region_frame.setVisible(mode == SpawnAreaMode.CUSTOM.value)
         SettingsManager.get().update_settings(spawn_area_mode=mode)
+        self._adjust_size_if_needed()
 
     def _on_avoid_windows_toggled(self, checked: bool) -> None:
         SettingsManager.get().update_settings(avoid_window_spawn=checked)
@@ -454,28 +505,26 @@ class MainMenu(QWidget):
 
     def _on_placement_started(self, mod_name: str, count: int) -> None:
         self.placement_status_label.setText(
-            f"Placing '{mod_name}'\n"
-            f"({count} left)\n"
+            f"Placing '{mod_name}' ({count} left)\n"
             "Click to spawn, Esc to cancel"
         )
         self.placement_banner.show()
         self.place_btn.setEnabled(False)
         self.spawn_btn.setEnabled(False)
-        self.resize(480, 800)
+        self._adjust_size_if_needed()
 
     def _on_placement_count_changed(self, count: int) -> None:
         mod_name = self.manager.spawning_system.placement_mod_name
         self.placement_status_label.setText(
-            f"Placing '{mod_name}'\n"
-            f"({count} left)\n"
+            f"Placing '{mod_name}' ({count} left)\n"
             "Click to spawn, Esc to cancel"
         )
+        self._adjust_size_if_needed()
 
     def _on_placement_ended(self) -> None:
         self.placement_banner.hide()
         self.place_btn.setEnabled(True)
         self.spawn_btn.setEnabled(True)
-        self.resize(480, 720)
 
     def _on_region_selection_started(self) -> None:
         self.placement_status_label.setText(
@@ -483,18 +532,17 @@ class MainMenu(QWidget):
         )
         self.placement_banner.show()
         self.select_region_btn.setEnabled(False)
-        self.resize(500, 820)
+        self._adjust_size_if_needed()
 
     def _on_region_selection_ended(self, succeeded: bool, rect: QRect) -> None:
         self.placement_banner.hide()
         self.select_region_btn.setEnabled(True)
         if succeeded and not rect.isEmpty():
             self.region_info_label.setText(
-                f"Region: {rect.width()}x{rect.height()}\n"
+                f"Region: {rect.width()}x{rect.height()} "
                 f"at ({rect.x()},{rect.y()})"
             )
-            self.resize(480, 760)
-        else: self.resize(480, 720)
+        self._adjust_size_if_needed()
 
     def _on_spawn_clicked(self) -> None:
         selected_mod: str = self.mod_combo.currentData()

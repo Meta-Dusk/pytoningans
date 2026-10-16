@@ -116,15 +116,15 @@ def find_safe_spawn_coords(
         if bounds.top() <= roof_y <= bounds.bottom():
             plat_left: int = max(bounds.left(), w.left() + 5)
             plat_right: int = min(bounds.right() - hw, w.right() - 5)
-            if plat_right > plat_left:
-                plat_x: float = random.uniform(plat_left, plat_right)
-                cand_hitbox = QRect(int(plat_x), int(roof_y), hw, hh)
-                if not any(
-                    cand_hitbox.intersects(other_w)
-                    for other_w in window_rects
-                    if other_w != w
-                ):
-                    return plat_x - hx, roof_y - hy
+            if plat_right <= plat_left: continue
+            plat_x: float = random.uniform(plat_left, plat_right)
+            cand_hitbox = QRect(int(plat_x), int(roof_y), hw, hh)
+            if not any(
+                cand_hitbox.intersects(other_w)
+                for other_w in window_rects
+                if other_w != w
+            ):
+                return plat_x - hx, roof_y - hy
 
     # Fallback to floor of bounds
     floor_y: int = max(bounds.top(), bounds.bottom() - hh)
