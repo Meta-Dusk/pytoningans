@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import json
-import sys
+import json, sys
 from pathlib import Path
 from typing import Any, Optional
 
@@ -74,6 +73,7 @@ class ModManager:
 
         self.config_version: int = CURRENT_CONFIG_VERSION
         self.can_fly: bool = False
+        self.can_climb_walls: bool = False
         self.max_health: int = 100
         self.attack_damage: int = 10
         self.attack_range: int = 50
@@ -170,6 +170,7 @@ class ModManager:
         self.config_version = data.get("version", 1)
 
         self.can_fly = behavior_data.get("can_fly", False)
+        self.can_climb_walls = behavior_data.get("can_climb_walls", False)
 
         self.max_health = behavior_data.get("max_health", 100)
         self.attack_damage = behavior_data.get("attack_damage", 10)
@@ -257,6 +258,7 @@ class ModManager:
             behavior=BehaviorConfig(
                 type=BehaviorType(self.behavior_type).value,
                 can_fly=self.can_fly,
+                can_climb_walls=self.can_climb_walls,
                 max_health=self.max_health,
                 attack_damage=self.attack_damage,
                 attack_range=self.attack_range,

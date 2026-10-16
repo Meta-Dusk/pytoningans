@@ -90,7 +90,21 @@ class BaseEntity(QGraphicsPixmapItem):
         return False
 
     @property
-    def get_behavior(self) -> Optional[BaseBehavior]:
+    def can_climb_walls(self) -> bool:
+        """Returns True if the entity is configured to climb desktop window walls."""
+        if self.mod_manager is not None:
+            return getattr(self.mod_manager, "can_climb_walls", False)
+        return False
+
+    @property
+    def is_climbing(self) -> bool:
+        """Returns True if the entity is currently climbing a window wall."""
+        if self.physics_sys is not None:
+            return getattr(self.physics_sys, "is_climbing", False)
+        return False
+
+    @property
+    def behavior(self) -> Optional[BaseBehavior]:
         return self.mod_manager.custom_behavior if self.mod_manager is not None else None
     
     @property
@@ -211,7 +225,7 @@ class BaseEntity(QGraphicsPixmapItem):
         self._on_hover_leave()
 
     def _on_hover_enter(self) -> None:
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if behavior is None: return
         try:
             if isinstance(behavior, BaseEntityBehavior):
@@ -224,7 +238,7 @@ class BaseEntity(QGraphicsPixmapItem):
             print(f"Custom Behavior on_hover_enter Error: {e}")
 
     def _on_hover_leave(self) -> None:
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if behavior is None: return
         try:
             if isinstance(behavior, BaseEntityBehavior):
@@ -278,7 +292,7 @@ class BaseEntity(QGraphicsPixmapItem):
         return not self.is_dragged and not self.is_force_idle and not self.is_paused
 
     def _on_state_change(self, old_state: str, new_state: str) -> None:
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if behavior is None: return
         try:
             if isinstance(behavior, BaseEntityBehavior):
@@ -408,6 +422,9 @@ class BaseEntity(QGraphicsPixmapItem):
         self._hide_hover_tooltip()
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_dragged = True
+            if self.physics_sys is not None and getattr(self.physics_sys, "is_climbing", False):
+                self.physics_sys.stop_climb()
+            self.sprite_rotation = 0.0
             if (
                 self.anim_sys is not None and
                 self.mod_manager is not None and

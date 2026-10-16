@@ -22,6 +22,7 @@ class BehaviorStatsPanel(BasePanel):
         form = QFormLayout()
         
         self.can_fly_check = QCheckBox("Enable Flight (Ignores Gravity)")
+        self.can_climb_walls_check = QCheckBox("Allow Wall Climbing (Runs up Window Sides)")
         self.max_health_spin = create_spinbox(1, 9999)
         self.atk_dmg_spin = create_spinbox(0, 9999)
         self.atk_range_spin = create_spinbox(0, 2000)
@@ -37,6 +38,7 @@ class BehaviorStatsPanel(BasePanel):
             
         form.addRow(create_info_label("Behavior Type:", "Determines engine AI logic."), self.behavior_type_combo)
         form.addRow("", self.can_fly_check)
+        form.addRow("", self.can_climb_walls_check)
         form.addRow(create_info_label("Max Health:", "Total health points."), self.max_health_spin)
         form.addRow(create_info_label("Attack Damage:", "Damage dealt per hit."), self.atk_dmg_spin)
         form.addRow(create_info_label("Attack Range (px):", "Maximum distance to strike."), self.atk_range_spin)
@@ -49,6 +51,7 @@ class BehaviorStatsPanel(BasePanel):
     def _connect_signals(self) -> None:
         self.behavior_type_combo.currentIndexChanged.connect(self._on_edited)
         self.can_fly_check.stateChanged.connect(self._on_edited)
+        self.can_climb_walls_check.stateChanged.connect(self._on_edited)
         for spin in (self.max_health_spin, self.atk_dmg_spin, self.atk_range_spin, self.jump_height_spin):
             spin.valueChanged.connect(self._on_edited)
 
@@ -57,6 +60,7 @@ class BehaviorStatsPanel(BasePanel):
         stats: dict[str, Any] = {
             "type": self.behavior_type_combo.currentData(),
             "can_fly": self.can_fly_check.isChecked(),
+            "can_climb_walls": self.can_climb_walls_check.isChecked(),
             "max_health": self.max_health_spin.value(),
             "attack_damage": self.atk_dmg_spin.value(),
             "attack_range": self.atk_range_spin.value(),
@@ -68,7 +72,8 @@ class BehaviorStatsPanel(BasePanel):
     def load_data(self) -> None:
         self._is_updating_ui = True
         stats = self.controller.get_behavior_stats()
-        self.can_fly_check.setChecked(stats["can_fly"])
+        self.can_fly_check.setChecked(stats.get("can_fly", False))
+        self.can_climb_walls_check.setChecked(stats.get("can_climb_walls", False))
         self.max_health_spin.setValue(stats["max_health"])
         self.atk_dmg_spin.setValue(stats["attack_damage"])
         self.atk_range_spin.setValue(stats["attack_range"])

@@ -14,10 +14,17 @@ if TYPE_CHECKING:
 
 
 def ai_decision_tick(ai: AISystem) -> None:
-    """Executes a periodic AI decision tick (custom hook -> item seeking -> default wandering)."""
+    """
+    Executes a periodic AI decision tick
+    (custom hook -> item seeking -> default wandering).
+    """
     if ai.entity is None:
         return
-    if ai.entity.state in (EntityState.DRAG, EntityState.INTERACT):
+    if ai.entity.state in (
+        EntityState.DRAG, EntityState.INTERACT, EntityState.CLIMBING
+    ):
+        return
+    if ai.entity.is_climbing:
         return
     if on_ai_decision_tick(ai):
         return
@@ -31,7 +38,7 @@ def on_ai_decision_tick(ai: AISystem) -> bool:
     if ai.entity is None:
         return False
 
-    behavior: Optional[BaseBehavior] = ai.entity.get_behavior
+    behavior: Optional[BaseBehavior] = ai.entity.behavior
     if behavior is None or not isinstance(behavior, BaseEntityBehavior):
         return False
     try:

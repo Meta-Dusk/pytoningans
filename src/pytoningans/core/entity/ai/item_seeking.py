@@ -35,7 +35,7 @@ def check_item_seeking(ai: AISystem) -> bool:
     ]
 
     # Custom Modder Hook: on_seek_item
-    behavior: Optional[BaseBehavior] = ai.entity.get_behavior
+    behavior: Optional[BaseBehavior] = ai.entity.behavior
     if isinstance(behavior, BaseEntityBehavior):
         try:
             entity_api: IEntity = cast(IEntity, ai.entity)

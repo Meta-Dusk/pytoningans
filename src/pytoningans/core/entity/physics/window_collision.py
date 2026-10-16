@@ -30,6 +30,13 @@ def resolve_window_side_collisions(
     feet_y: float = entity.y() + hitbox.y() + hitbox.height()
     top_y: float = entity.y() + hitbox.y()
 
+    can_climb: bool = (
+        entity.mod_manager.can_climb_walls and
+        entity.physics_sys is not None and
+        not getattr(entity, "is_dead", False) and
+        not getattr(entity, "is_dragged", False)
+    )
+
     for win in window_rects:
         if feet_y <= win.top() + 8 or top_y >= win.bottom() - 4:
             continue
@@ -40,6 +47,10 @@ def resolve_window_side_collisions(
         # Moving RIGHT: only trigger if entity was to the left of the window (entering from outside)
         if dx > 0 and curr_right <= win.left() + 6:
             if step_right < win.left(): continue
+            if can_climb and entity.physics_sys is not None:
+                entity.physics_sys.start_climb(win, side="left")
+                return float(win.left() - hitbox.x() - hitbox.width()), True
+
             adjusted_x = float(win.left() - hitbox.x() - hitbox.width() - 1)
             entity.facing_left = True
             entity._target_pos = None
@@ -50,6 +61,10 @@ def resolve_window_side_collisions(
         # Moving LEFT: only trigger if entity was to the right of the window (entering from outside)
         elif dx < 0 and curr_left >= win.right() - 6:
             if step_left > win.right(): continue
+            if can_climb and entity.physics_sys is not None:
+                entity.physics_sys.start_climb(win, side="right")
+                return float(win.right() - hitbox.x()), True
+
             adjusted_x = float(win.right() - hitbox.x() + 1)
             entity.facing_left = False
             entity._target_pos = None
@@ -65,13 +80,13 @@ def resolve_window_depenetration(
 ) -> tuple[bool, Optional[QRect]]:
     """
     Handles auto-scoop (near top edge) and lateral ejection for entities caught inside a window.
-    Triggers squish death if lateral ejection pushes the entity out of the monitor boundaries.
-    Returns (was_handled, platform_rect_if_scooped).
+    Triggers squish death if lateral ejection pushes the entity out of the monitor boundaries.\n
+    Returns `(was_handled, platform_rect_if_scooped)`.
     """
-    if entity.world is None:
+    if entity.world is None or (entity.physics_sys and entity.physics_sys.is_climbing):
         return False, None
 
-    window_rects: list[QRect] = getattr(entity.world, "active_window_rects", [])
+    window_rects: list[QRect] = entity.world.active_window_rects
     if not window_rects:
         return False, None
 
@@ -115,7 +130,7 @@ def resolve_window_depenetration(
             entity.facing_left = False
 
         # Check if being pushed to the side would place entity outside monitor bounds
-        x_range = get_world_horizontal_range(entity)
+        x_range: Optional[tuple[float, float]] = get_world_horizontal_range(entity)
         if x_range is not None:
             min_x, max_x = x_range
             if eject_x < min_x or eject_x > max_x:
@@ -125,8 +140,8 @@ def resolve_window_depenetration(
 
                 from pytoningans.core.entity.living_entity import Entity
                 if not is_dead and isinstance(entity, Entity) and entity.mod_manager is not None:
-                    death_lines: list[str] = getattr(entity.mod_manager, "death_dialogue", [])
-                    if not death_lines and hasattr(entity, "say"):
+                    death_lines: list[str] = entity.mod_manager.death_dialogue
+                    if not death_lines:
                         entity.say("Squished!", duration_ms=3000, is_death=True)
                     entity.die()
                 elif not is_dead and entity.anim_sys is not None:

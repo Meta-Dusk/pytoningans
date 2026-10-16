@@ -29,6 +29,7 @@ class IModInfo(Protocol):
     attack_range: int
     jump_height: int
     can_fly: bool
+    can_climb_walls: bool
     behavior_type: BehaviorType
     attack_type: AttackType
     plain_dialogue: list[str]
@@ -83,6 +84,8 @@ class IBaseEntity(Protocol):
     facing_left: bool
     sprite_rotation: float
     velocity_y: float
+    can_climb_walls: bool
+    is_climbing: bool
     components: dict[str, IComponent]
 
     @property

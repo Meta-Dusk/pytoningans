@@ -89,7 +89,7 @@ def on_combat_check(ai: AISystem, other_entity: Entity) -> bool:
     """Invokes custom modder on_attack hook if defined."""
     if ai.entity is None:
         return False
-    behavior: Optional[BaseBehavior] = ai.entity.get_behavior
+    behavior: Optional[BaseBehavior] = ai.entity.behavior
     if not isinstance(behavior, BaseEntityBehavior):
         return False
     try:

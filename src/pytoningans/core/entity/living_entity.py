@@ -115,7 +115,7 @@ class Entity(BaseEntity):
         super().update_systems(dt, centers)
 
         if not self.is_force_idle:
-            behavior: Optional[BaseBehavior] = self.get_behavior
+            behavior: Optional[BaseBehavior] = self.behavior
             if behavior is None: return
             if isinstance(behavior, BaseEntityBehavior):
                 try:
@@ -357,21 +357,21 @@ class Entity(BaseEntity):
         super().contextMenuEvent(event)
 
     def _on_die(self) -> None:
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if not isinstance(behavior, BaseEntityBehavior): return
 
         entity_api: IEntity = cast(IEntity, self)
         behavior.on_death(entity_api)
 
     def _on_revive(self) -> None:
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if not isinstance(behavior, BaseEntityBehavior): return
 
         entity_api: IEntity = cast(IEntity, self)
         behavior.on_revive(entity_api)
 
     def _on_speak(self, text: str) -> None:
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if not isinstance(behavior, BaseEntityBehavior): return
         try:
             behavior.on_speak(cast(IEntity, self), text)
@@ -379,7 +379,7 @@ class Entity(BaseEntity):
             print(f"Custom Entity on_speak Error: {e}")
 
     def _on_damage(self, amount: int) -> None:
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if not isinstance(behavior, BaseEntityBehavior): return
         try:
             behavior.on_damage(cast(IEntity, self), amount)

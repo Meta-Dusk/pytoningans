@@ -11,6 +11,7 @@ CURRENT_CONFIG_VERSION = 10
 class BehaviorConfig:
     type: str = BehaviorType.NEUTRAL.value
     can_fly: bool = False
+    can_climb_walls: bool = False
     max_health: int = 100
     attack_damage: int = 10
     attack_range: int = 50

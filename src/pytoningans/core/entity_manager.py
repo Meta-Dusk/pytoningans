@@ -177,7 +177,7 @@ class EntityManager:
         return entity
 
     def _on_spawn(self, entity: BaseEntity) -> None:
-        behavior: Optional[BaseBehavior] = entity.get_behavior
+        behavior: Optional[BaseBehavior] = entity.behavior
         if behavior is None: return
         
         try:

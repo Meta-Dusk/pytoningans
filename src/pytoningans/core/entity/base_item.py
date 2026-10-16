@@ -98,7 +98,7 @@ class BaseItem(BaseEntity):
             return False
 
         # Custom behavior hook
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if isinstance(behavior, BaseItemBehavior):
             try:
                 allowed: bool = behavior.on_pickup(cast(IItem, self), cast(IEntity, entity))
@@ -162,7 +162,7 @@ class BaseItem(BaseEntity):
         self.locks.physics = self.is_physics_enabled
         self.state = ItemState.DROPPED.value
 
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if isinstance(behavior, BaseItemBehavior):
             try:
                 behavior.on_drop(cast(IItem, self), cast(Optional[IEntity], prev_holder))
@@ -177,7 +177,7 @@ class BaseItem(BaseEntity):
         caller: Optional[Entity] = entity or self.holder
         handled: bool = True
 
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if isinstance(behavior, BaseItemBehavior):
             try:
                 handled = behavior.on_use(cast(IItem, self), cast(Optional[IEntity], caller))
@@ -227,7 +227,7 @@ class BaseItem(BaseEntity):
                 if self._default_item_interaction(entity): break
 
         # Tick custom behavior
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if isinstance(behavior, BaseItemBehavior):
             try:
                 behavior.on_update(cast(IItem, self), dt)
@@ -235,7 +235,7 @@ class BaseItem(BaseEntity):
                 print(f"Custom Item on_update Error: {e}")
     
     def _on_interact(self, entity: Entity) -> bool:
-        item_behavior: Optional[BaseBehavior] = self.get_behavior
+        item_behavior: Optional[BaseBehavior] = self.behavior
         if isinstance(item_behavior, BaseItemBehavior):
             try:
                 handled_item: bool = item_behavior.on_interact(
@@ -247,7 +247,7 @@ class BaseItem(BaseEntity):
         return False
     
     def _on_item_interact(self, entity: Entity) -> bool:
-        entity_behavior: Optional[BaseBehavior] = entity.get_behavior
+        entity_behavior: Optional[BaseBehavior] = entity.behavior
         if isinstance(entity_behavior, BaseEntityBehavior):
             try:
                 handled_entity: bool = entity_behavior.on_item_interact(
@@ -291,7 +291,7 @@ class BaseItem(BaseEntity):
             self._show_hover_tooltip(event.screenPos())
 
     def _on_destroy(self) -> None:
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if not isinstance(behavior, BaseItemBehavior): return
         try:
             behavior.on_destroy(cast(IItem, self))
