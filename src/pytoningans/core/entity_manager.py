@@ -1,10 +1,12 @@
 import gc, random
 from typing import cast, Optional
 
-from PySide6.QtCore import QTimer, QElapsedTimer, QThreadPool
+from PySide6.QtCore import QTimer, QElapsedTimer, QThreadPool, QRect
 from PySide6.QtGui import QPixmapCache, QGuiApplication, QScreen
 
 from pytoningans.core.vision_worker import VisionWorker
+from pytoningans.core.window_tracker import WindowTracker
+from pytoningans.core.settings import SettingsManager
 
 from pytoningans.core.entity.base_structure import BaseStructure
 from pytoningans.core.entity.base_item import BaseItem
@@ -34,6 +36,9 @@ class EntityManager:
         self.vision_accumulator: int = 0
         self._vision_in_progress: bool = False
         self._vision_worker: Optional[VisionWorker] = None
+        
+        self.window_tracker: WindowTracker = WindowTracker()
+        self.window_track_accumulator: int = 0
         
         self.clock = QElapsedTimer()
         self.timer = QTimer()
@@ -78,6 +83,20 @@ class EntityManager:
                 self._vision_worker = VisionWorker()
                 self._vision_worker.signals.finished.connect(self._on_vision_ready)
                 QThreadPool.globalInstance().start(self._vision_worker)
+
+        # Track visible interactive desktop windows for physics collisions
+        self.window_track_accumulator += dt
+        if self.window_track_accumulator >= 150:
+            self.window_track_accumulator = 0
+            if SettingsManager.get().settings.enable_window_physics:
+                self.window_tracker.update()
+                for world in self.active_worlds:
+                    screen_geom: QRect = world.geometry()
+                    world.active_window_rects = self.window_tracker.get_local_window_rects_for_screen(screen_geom)
+            else:
+                for world in self.active_worlds:
+                    if world.active_window_rects:
+                        world.active_window_rects.clear()
 
         for world in self.active_worlds:
             world.update_systems(dt)

@@ -441,9 +441,61 @@ class BaseEntity(QGraphicsPixmapItem):
             self.locks.physics = self.is_physics_enabled
             if not self.is_physics_enabled:
                 self.velocity_y = 0.0
+            else:
+                self._check_window_drop_seat()
             event.accept()
         if self.is_hovered:
             self._show_hover_tooltip(event.screenPos())
+
+    def _check_window_drop_seat(self) -> None:
+        """
+        If dropped onto or inside an active desktop window,
+        seat entity on the window's top ledge.
+        """
+        if self.world is None:
+            return
+        from pytoningans.core.settings import SettingsManager
+        if not SettingsManager.get().settings.enable_window_physics:
+            return
+
+        window_rects: list[QRect] = getattr(self.world, "active_window_rects", [])
+        if not window_rects:
+            return
+
+        hitbox: QRect = self.current_hitbox
+        if hitbox.width() <= 0 or hitbox.height() <= 0:
+            b_rect: QRectF = self.boundingRect()
+            bw: int = int(b_rect.width()) if b_rect.width() > 0 else 50
+            bh: int = int(b_rect.height()) if b_rect.height() > 0 else 50
+            hitbox = QRect(0, 0, bw, bh)
+
+        scene_box = QRect(
+            int(self.x() + hitbox.x()),
+            int(self.y() + hitbox.y()),
+            hitbox.width(),
+            hitbox.height(),
+        )
+
+        for win in window_rects:
+            if scene_box.intersects(win):
+                new_x: float = 0.0
+                new_y = float(win.top() - hitbox.y() - hitbox.height())
+                world_bounds: QRectF = self.world.scene.sceneRect()
+                world_min_x: float = float(world_bounds.left() - hitbox.x())
+                world_max_x: float = float(world_bounds.right() - hitbox.x() - hitbox.width())
+                min_x = max(world_min_x, float(win.left() - hitbox.x() + 4))
+                max_x = min(world_max_x, float(win.right() - hitbox.x() - hitbox.width() - 4))
+                if min_x < max_x:
+                    new_x = max(min_x, min(float(self.x()), max_x))
+                else:
+                    new_x = max(world_min_x, min(float(win.left() - hitbox.x()), world_max_x))
+
+                self.setPos(new_x, new_y)
+                self.velocity_y = 0.0
+                if self.physics_sys is not None:
+                    self.physics_sys.current_platform_rect = win
+                self.on_moved()
+                break
             
     def on_moved(self) -> None:
         """Hook for subclasses to update attached items (like speech bubbles) when dragged."""

@@ -31,6 +31,7 @@ class WorldOverlay(QMainWindow):
         self.active_structures: list[BaseStructure] = []
         self.active_items: list[BaseItem] = []
         self.active_damage_numbers: list[DamageNumberItem] = []
+        self.active_window_rects: list[QRect] = []
         
         flags: Qt.WindowType = (
             Qt.WindowType.FramelessWindowHint | 

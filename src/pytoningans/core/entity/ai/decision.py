@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING, Optional, cast
 
-from PySide6.QtCore import QPointF, QRectF
+from PySide6.QtCore import QPointF, QRect, QRectF
 
 from pytoningans.core.api import BaseBehavior, BaseEntityBehavior, IEntity
 from pytoningans.core.constants import EntityState
@@ -59,12 +59,35 @@ def default_ai_decision(ai: AISystem) -> None:
         return
 
     geom: QRectF = ai.entity.world.scene.sceneRect()
+    platform_rect: Optional[QRect] = (
+        ai.entity.physics_sys.current_platform_rect
+        if ai.entity.physics_sys is not None else None
+    )
 
     if random.random() < 0.60:
-        dest_x: float = random.uniform(
-            geom.left() + 50,
-            geom.right() - ai.entity.boundingRect().width() - 50
-        )
+        dest_x: float = 0.0
+        if (
+            platform_rect is not None and
+            not ai.entity.mod_manager.can_fly and
+            random.random() < 0.70
+        ):
+            # Wander along the window platform ledge
+            min_x: float = max(geom.left() + 20, float(platform_rect.left() + 10))
+            max_x: float = min(
+                geom.right() - ai.entity.boundingRect().width() - 20,
+                float(platform_rect.right() - ai.entity.boundingRect().width() - 10)
+            )
+            if min_x < max_x:
+                dest_x = random.uniform(min_x, max_x)
+            else:
+                dest_x = min_x
+        else:
+            # Wander across the whole screen (or walk off ledge)
+            dest_x = random.uniform(
+                geom.left() + 50,
+                geom.right() - ai.entity.boundingRect().width() - 50
+            )
+
         dest_y: float = 0.0
         if ai.entity.mod_manager.can_fly:
             dest_y = random.uniform(

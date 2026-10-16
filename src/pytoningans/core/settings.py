@@ -24,6 +24,7 @@ class CombatVisualSettings:
     show_health_numbers: bool = True
     enable_health_shake: bool = True
     auto_hide_delay_ms: int = 3000
+    enable_window_physics: bool = True
 
 
 class SettingsManager(QObject):
@@ -52,6 +53,7 @@ class SettingsManager(QObject):
                     show_health_numbers=data.get("show_health_numbers", True),
                     enable_health_shake=data.get("enable_health_shake", True),
                     auto_hide_delay_ms=data.get("auto_hide_delay_ms", 3000),
+                    enable_window_physics=data.get("enable_window_physics", True),
                 )
             except Exception as e:
                 print(f"Warning: Failed to load settings from {path}: {e}")
@@ -73,6 +75,7 @@ class SettingsManager(QObject):
         show_health_numbers: Optional[bool] = None,
         enable_health_shake: Optional[bool] = None,
         auto_hide_delay_ms: Optional[int] = None,
+        enable_window_physics: Optional[bool] = None,
     ) -> None:
         changed = False
         if health_bar_mode is not None and self.settings.health_bar_mode != health_bar_mode:
@@ -89,6 +92,9 @@ class SettingsManager(QObject):
             changed = True
         if auto_hide_delay_ms is not None and self.settings.auto_hide_delay_ms != auto_hide_delay_ms:
             self.settings.auto_hide_delay_ms = auto_hide_delay_ms
+            changed = True
+        if enable_window_physics is not None and self.settings.enable_window_physics != enable_window_physics:
+            self.settings.enable_window_physics = enable_window_physics
             changed = True
 
         if changed:

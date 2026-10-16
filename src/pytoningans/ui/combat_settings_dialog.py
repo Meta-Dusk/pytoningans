@@ -104,14 +104,33 @@ class CombatSettingsDialog(QDialog):
         layout.addWidget(self.damage_numbers_cb)
 
         self.health_shake_cb = QCheckBox("Enable Damage Impact Shake")
-        self.health_shake_cb.setToolTip("Shakes the health bar proportionally based on damage dealt relative to max health.")
+        self.health_shake_cb.setToolTip(
+            "Shakes the health bar proportionally based on damage dealt relative to max health."
+        )
         self.health_shake_cb.toggled.connect(self._on_values_changed)
         layout.addWidget(self.health_shake_cb)
 
         self.health_numbers_cb = QCheckBox("Show HP Values Inside Bar")
-        self.health_numbers_cb.setToolTip("Displays numerical current and max health (e.g. 85 / 100) inside the bar.")
+        self.health_numbers_cb.setToolTip(
+            "Displays numerical current and max health (e.g. 85 / 100) inside the bar."
+        )
         self.health_numbers_cb.toggled.connect(self._on_values_changed)
         layout.addWidget(self.health_numbers_cb)
+
+        layout.addWidget(self._create_separator())
+
+        # Section 3: Desktop Window Physics
+        env_header = QLabel("Desktop Environment Physics:")
+        env_header.setObjectName("SectionHeader")
+        layout.addWidget(env_header)
+
+        self.window_physics_cb = QCheckBox("Enable Desktop Window Physics")
+        self.window_physics_cb.setToolTip(
+            "Allows entities and items to stand, walk, and "
+            "land on non-maximized desktop application windows."
+        )
+        self.window_physics_cb.toggled.connect(self._on_values_changed)
+        layout.addWidget(self.window_physics_cb)
 
         layout.addStretch()
         layout.addWidget(self._create_separator())
@@ -148,6 +167,7 @@ class CombatSettingsDialog(QDialog):
         self.damage_numbers_cb.setChecked(settings.show_damage_numbers)
         self.health_shake_cb.setChecked(settings.enable_health_shake)
         self.health_numbers_cb.setChecked(settings.show_health_numbers)
+        self.window_physics_cb.setChecked(settings.enable_window_physics)
 
     def _on_values_changed(self) -> None:
         if self._is_loading: return
@@ -161,6 +181,7 @@ class CombatSettingsDialog(QDialog):
             show_health_numbers=self.health_numbers_cb.isChecked(),
             enable_health_shake=self.health_shake_cb.isChecked(),
             auto_hide_delay_ms=self.hide_delay_spin.value() * 1000,
+            enable_window_physics=self.window_physics_cb.isChecked(),
         )
 
     def _on_reset_defaults(self) -> None:
