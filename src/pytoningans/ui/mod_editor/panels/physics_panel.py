@@ -19,6 +19,7 @@ from .base_panel import BasePanel
 if TYPE_CHECKING:
     from pytoningans.ui.mod_editor.controller import ModEditorController
 
+# TODO: Refactor; make it modular
 class PhysicsCanvas(QWidget):
     physics_changed = Signal(QPoint, QRect, QRect, QPoint, bool)
     zoom_changed = Signal(int)
@@ -35,8 +36,8 @@ class PhysicsCanvas(QWidget):
 
         self.frame_pixmap: QPixmap = QPixmap()
         self.anchor: QPoint = QPoint(0, 0)
-        self.hitbox: QRect = QRect(0, 0, 0, 0)
         self.atk_hitbox: QRect = QRect(0, 0, 0, 0)
+        self.is_attack_frame: bool = False
         self.hold_anchor: QPoint = QPoint(0, 0)
         self.has_hold_point: bool = False
 
@@ -53,13 +54,15 @@ class PhysicsCanvas(QWidget):
         self, pixmap: QPixmap, anchor: QPoint,
         hitbox: QRect, atk_hitbox: QRect,
         hold_anchor: Optional[QPoint] = None,
-        has_hold_point: bool = False
+        has_hold_point: bool = False,
+        is_attack_frame: bool = False
     ) -> None:
         was_null: bool = self.frame_pixmap.isNull()
         self.frame_pixmap = pixmap
         self.anchor = anchor
         self.hitbox = hitbox
         self.atk_hitbox = atk_hitbox
+        self.is_attack_frame = is_attack_frame
         self.hold_anchor = hold_anchor if hold_anchor is not None else QPoint(0, 0)
         self.has_hold_point = has_hold_point
 
@@ -132,8 +135,8 @@ class PhysicsCanvas(QWidget):
         painter.setBrush(QColor(255, 0, 0, 60))
         painter.drawRect(scaled_hitbox)
 
-        # Attack Hitbox (Orange) - only when configured
-        if not self.atk_hitbox.isNull() and self.atk_hitbox.width() > 0:
+        # Attack Hitbox (Orange) - only when configured and marked as attack frame
+        if self.is_attack_frame and not self.atk_hitbox.isNull() and self.atk_hitbox.width() > 0:
             scaled_attack = self._to_screen_rect(self.atk_hitbox)
             painter.setPen(QColor("#ffa500"))
             painter.setBrush(QColor(255, 165, 0, 80))
@@ -196,8 +199,8 @@ class PhysicsCanvas(QWidget):
             # Priority 2: Standard anchor drag
             elif abs(click_x - self.anchor.x()) <= 4 and abs(click_y - self.anchor.y()) <= 4:
                 self._dragging_anchor = True
-            # Priority 3: Attack hitbox drag
-            elif self.atk_hitbox.contains(click_pos):
+            # Priority 3: Attack hitbox drag (only if attack frame)
+            elif self.is_attack_frame and self.atk_hitbox.contains(click_pos):
                 self._dragging_attack = True
                 self._drag_offset = click_pos - self.atk_hitbox.topLeft()
             # Priority 4: Hitbox drag
@@ -301,11 +304,9 @@ class PhysicsPanel(BasePanel):
         self.state_combo = QComboBox()
             
         self.frame_spin = QSpinBox()
-        self.frame_spin.setPrefix("Frame: ")
-        self.frame_spin.setMinimum(0)
+        self.frame_spin.setPrefix("Frame: "); self.frame_spin.setMinimum(0)
         self.zoom_spin = QSpinBox()
-        self.zoom_spin.setPrefix("Zoom: ")
-        self.zoom_spin.setSuffix("x")
+        self.zoom_spin.setPrefix("Zoom: "); self.zoom_spin.setSuffix("x")
         self.zoom_spin.setRange(1, 20)
         
         self.copy_btn = QPushButton("Copy")
@@ -355,9 +356,6 @@ class PhysicsPanel(BasePanel):
         self.form.addRow("Y:", self.hy_spin)
         self.form.addRow("Width:", self.hw_spin)
         self.form.addRow("Height:", self.hh_spin)
-        
-        self.apply_base_btn = QPushButton("Apply to Entire Animation")
-        self.form.addRow(self.apply_base_btn)
         self.form.addItem(QSpacerItem(0, 16))
 
         # Hold Anchor controls (living entities only)
@@ -406,6 +404,9 @@ class PhysicsPanel(BasePanel):
         self.form.addRow(self.atk_lbl_h, self.atkh_spin)
         self.form.addItem(QSpacerItem(0, 16))
         
+        self.apply_base_btn = QPushButton("Apply to Entire Animation")
+        self.form.addRow(self.apply_base_btn)
+        
         self.magic_btn = QPushButton("Magic Propagate Hitbox")
         self.magic_btn.setStyleSheet(
             "color: #a855f7; font-weight: bold; font-family: 'Pixel Code', monospace;"
@@ -437,7 +438,7 @@ class PhysicsPanel(BasePanel):
         self.hold_check.stateChanged.connect(self._on_hold_check_toggled)
         self.hold_x_spin.valueChanged.connect(self._on_spinbox_changed)
         self.hold_y_spin.valueChanged.connect(self._on_spinbox_changed)
-        self.attack_frame_check.stateChanged.connect(self._on_spinbox_changed)
+        self.attack_frame_check.stateChanged.connect(self._on_attack_frame_toggled)
         self.show_range_check.stateChanged.connect(self._on_show_range_toggled)
         self.magic_btn.clicked.connect(self._on_magic_propagate)
         
@@ -448,13 +449,51 @@ class PhysicsPanel(BasePanel):
         ]:
             spin.valueChanged.connect(self._on_spinbox_changed)
 
+    def _update_attack_hitbox_visibility(self) -> None:
+        is_combat_entity: bool = self.controller.manager.entity_type not in (
+            EntityType.STRUCTURE, EntityType.ITEM
+        )
+        show_attack: bool = is_combat_entity and self.attack_frame_check.isChecked()
+        self.attack_header.setVisible(show_attack)
+        self.atk_lbl_x.setVisible(show_attack)
+        self.atkx_spin.setVisible(show_attack)
+        self.atk_lbl_y.setVisible(show_attack)
+        self.atky_spin.setVisible(show_attack)
+        self.atk_lbl_w.setVisible(show_attack)
+        self.atkw_spin.setVisible(show_attack)
+        self.atk_lbl_h.setVisible(show_attack)
+        self.atkh_spin.setVisible(show_attack)
+
+    def _on_attack_frame_toggled(self, state: int) -> None:
+        is_checked: bool = bool(state)
+        self._update_attack_hitbox_visibility()
+        if not self._is_loading:
+            if is_checked and self.atkw_spin.value() == 0 and self.atkh_spin.value() == 0:
+                self.atkx_spin.setValue(self.hx_spin.value())
+                self.atky_spin.setValue(self.hy_spin.value())
+                self.atkw_spin.setValue(max(10, self.hw_spin.value()))
+                self.atkh_spin.setValue(max(10, self.hh_spin.value()))
+            self._on_spinbox_changed()
+
+    def _update_hold_anchor_visibility(self) -> None:
+        is_living: bool = self.controller.manager.entity_type == EntityType.ENTITY
+        show_hold: bool = is_living and self.hold_check.isChecked()
+        self.hold_header.setVisible(is_living)
+        self.hold_check.setVisible(is_living)
+        self.hold_lbl_x.setVisible(show_hold)
+        self.hold_x_spin.setVisible(show_hold)
+        self.hold_lbl_y.setVisible(show_hold)
+        self.hold_y_spin.setVisible(show_hold)
+
     def _on_hold_check_toggled(self, state: int) -> None:
         is_checked: bool = bool(state)
-        self.hold_x_spin.setEnabled(is_checked)
-        self.hold_y_spin.setEnabled(is_checked)
+        self._update_hold_anchor_visibility()
         if not self._is_loading:
-            if is_checked and self.hold_x_spin.value() == 0 and self.hold_y_spin.value() == 0:
-                pixmap = self.canvas.frame_pixmap
+            if (
+                is_checked and self.hold_x_spin.value() == 0 and
+                self.hold_y_spin.value() == 0
+            ):
+                pixmap: QPixmap = self.canvas.frame_pixmap
                 if not pixmap.isNull():
                     self.hold_x_spin.setValue(pixmap.width() // 2)
                     self.hold_y_spin.setValue(max(0, int(pixmap.height() * 0.2)))
@@ -484,6 +523,9 @@ class PhysicsPanel(BasePanel):
                 
         if self.state_combo.count() > 0:
             self.state_combo.setCurrentIndex(target_idx)
+        
+        self._update_hold_anchor_visibility()
+        self._update_attack_hitbox_visibility()
             
         self.state_combo.blockSignals(False)
 
@@ -517,7 +559,8 @@ class PhysicsPanel(BasePanel):
         self.state_combo.setVisible(not is_static)
         self.frame_spin.setVisible(not is_static)
         self.copy_btn.setVisible(not is_static)
-        self.paste_btn.setVisible(not is_static and bool(self._copied_physics))
+        self.paste_btn.setVisible(not is_static)
+        self.paste_btn.setEnabled(bool(self._copied_physics))
         self.apply_base_btn.setVisible(not is_static)
         self.magic_btn.setVisible(not is_static)
         self.static_indicator.setVisible(is_static)
@@ -525,19 +568,10 @@ class PhysicsPanel(BasePanel):
         # Toggle hold inputs
         self.hold_header.setVisible(is_living)
         self.hold_check.setVisible(is_living)
-        self.hold_lbl_x.setVisible(is_living)
-        self.hold_x_spin.setVisible(is_living)
-        self.hold_lbl_y.setVisible(is_living)
-        self.hold_y_spin.setVisible(is_living)
 
         # Toggle combat inputs according to entity type
         self.attack_frame_check.setVisible(is_combat_entity)
         self.show_range_check.setVisible(is_combat_entity)
-        self.attack_header.setVisible(is_combat_entity)
-        self.atk_lbl_x.setVisible(is_combat_entity); self.atkx_spin.setVisible(is_combat_entity)
-        self.atk_lbl_y.setVisible(is_combat_entity); self.atky_spin.setVisible(is_combat_entity)
-        self.atk_lbl_w.setVisible(is_combat_entity); self.atkw_spin.setVisible(is_combat_entity)
-        self.atk_lbl_h.setVisible(is_combat_entity); self.atkh_spin.setVisible(is_combat_entity)
 
         frame_idx: int = self.frame_spin.value()
         is_attack: bool = False
@@ -596,14 +630,14 @@ class PhysicsPanel(BasePanel):
         self.hold_check.blockSignals(True)
         self.hold_check.setChecked(has_hold)
         self.hold_check.blockSignals(False)
-        self.hold_x_spin.setEnabled(has_hold)
-        self.hold_y_spin.setEnabled(has_hold)
         self.hold_x_spin.setValue(hold_x)
         self.hold_y_spin.setValue(hold_y)
+        self._update_hold_anchor_visibility()
         
         self.attack_frame_check.blockSignals(True)
         self.attack_frame_check.setChecked(is_attack)
         self.attack_frame_check.blockSignals(False)
+        self._update_attack_hitbox_visibility()
         self.canvas.attack_range = self.controller.manager.attack_range if is_combat_entity else 0
         
         self.canvas.update_data(
@@ -612,7 +646,8 @@ class PhysicsPanel(BasePanel):
             hitbox,
             atk_hitbox if is_combat_entity else QRect(),
             QPoint(hold_x, hold_y) if is_living else None,
-            has_hold if is_living else False
+            has_hold if is_living else False,
+            is_attack_frame=is_attack if is_combat_entity else False
         )
         self._is_loading = False
 
@@ -635,10 +670,9 @@ class PhysicsPanel(BasePanel):
         self.atky_spin.setValue(atk_hitbox.y())
 
         self.hold_check.setChecked(has_hold_point)
-        self.hold_x_spin.setEnabled(has_hold_point)
-        self.hold_y_spin.setEnabled(has_hold_point)
         self.hold_x_spin.setValue(hold_anchor.x())
         self.hold_y_spin.setValue(hold_anchor.y())
+        self._update_hold_anchor_visibility()
         self._is_loading = False
         
         self._save_to_override()
@@ -659,6 +693,7 @@ class PhysicsPanel(BasePanel):
         )
         has_hold: bool = self.hold_check.isChecked() if is_living else False
         hold_anchor = QPoint(self.hold_x_spin.value(), self.hold_y_spin.value()) if is_living else QPoint(0, 0)
+        is_attack: bool = self.attack_frame_check.isChecked() and not is_structure
 
         self.canvas.update_data(
             self.canvas.frame_pixmap,
@@ -666,9 +701,12 @@ class PhysicsPanel(BasePanel):
             hitbox,
             atk_hitbox,
             hold_anchor,
-            has_hold
+            has_hold,
+            is_attack_frame=is_attack
         )
         self._save_to_override()
+        self._update_hold_anchor_visibility()
+        self._update_attack_hitbox_visibility()
 
     def _save_to_override(self) -> None:
         is_living: bool = self.controller.manager.entity_type == EntityType.ENTITY
@@ -818,6 +856,8 @@ class PhysicsPanel(BasePanel):
             self.hold_check.setChecked(self._copied_physics["has_hold"])
             self.hold_x_spin.setValue(self._copied_physics["hold_x"])
             self.hold_y_spin.setValue(self._copied_physics["hold_y"])
+        self._update_hold_anchor_visibility()
+        self._update_attack_hitbox_visibility()
     
     def _on_magic_propagate(self) -> None:
         state: Optional[str] = self.state_combo.currentData()

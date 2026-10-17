@@ -16,6 +16,7 @@ from pytoningans.ui.mod_editor.components import (
 )
 from .base_panel import BasePanel
 
+# TODO: Refactor; make it modular
 class AnimationSubsystem(BasePanel):
     """Manages all animation-related UI panels, timers, and state bridging."""
     def __init__(self, controller: ModEditorController, dynamic_info_label: QLabel) -> None:
