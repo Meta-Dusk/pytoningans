@@ -15,7 +15,7 @@ def get_frame_physics(
     state: str,
     tick_index: int,
     is_static: bool = False,
-    entity_type: str = EntityType.ENTITY.value,
+    entity_type: str = EntityType.ENTITY,
 ) -> tuple[QPoint, QRect]:
     """Returns the (Anchor Point, Hitbox Rect) for the current frame."""
     anim_meta: Optional[AnimationMeta] = animations.get(state)
@@ -29,8 +29,8 @@ def get_frame_physics(
             )
         if anim_meta is None:
             return QPoint(0, 0), QRect(0, 0, 50, 50)
-        hw = anim_meta.hitbox_w if anim_meta.hitbox_w > 0 else anim_meta.computed_w
-        hh = anim_meta.hitbox_h if anim_meta.hitbox_h > 0 else anim_meta.computed_h
+        hw: int = anim_meta.hitbox_w if anim_meta.hitbox_w > 0 else anim_meta.computed_w
+        hh: int = anim_meta.hitbox_h if anim_meta.hitbox_h > 0 else anim_meta.computed_h
         return QPoint(anim_meta.anchor_x, anim_meta.anchor_y), QRect(
             anim_meta.hitbox_x, anim_meta.hitbox_y, hw, hh
         )

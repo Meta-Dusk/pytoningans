@@ -41,7 +41,7 @@ def get_frame(
     if not global_sheet:
         return None
     anim_meta: Optional[AnimationMeta] = animations.get(state)
-    if not anim_meta:
+    if anim_meta is None:
         return None
 
     total_play_frames: int = max(1, (anim_meta.end_frame - anim_meta.start_frame) + 1)
@@ -66,8 +66,7 @@ def get_frame(
     crop_rect = QRect(x_pos, y_pos, final_w, final_h)
     safe_rect = crop_rect.intersected(global_sheet.rect())
 
-    if safe_rect.isEmpty():
-        return None
+    if safe_rect.isEmpty(): return None
 
     cache_key: CacheKey = (
         current_mod_name,
@@ -106,10 +105,10 @@ def bake_sprite_sheet(
 
     new_cell_w, new_cell_h = 1, 1
     for meta in animations.values():
-        w = meta.override_width if meta.override_width > 0 else base_w
-        h = meta.override_height if meta.override_height > 0 else base_h
-        new_cell_w = max(new_cell_w, w)
-        new_cell_h = max(new_cell_h, h)
+        w: int = meta.override_width if meta.override_width > 0 else base_w
+        h: int = meta.override_height if meta.override_height > 0 else base_h
+        new_cell_w: int = max(new_cell_w, w)
+        new_cell_h: int = max(new_cell_h, h)
 
     new_sheet = QPixmap(new_cell_w * cols, new_cell_h * rows)
     new_sheet.fill(Qt.GlobalColor.transparent)
@@ -126,14 +125,14 @@ def bake_sprite_sheet(
             if cell_key in painted_cells:
                 continue
 
-            x_pos = (sheet_idx * w) + meta.offset_x
-            y_pos = (meta.row * base_h) + meta.offset_y
+            x_pos: int = (sheet_idx * w) + meta.offset_x
+            y_pos: int = (meta.row * base_h) + meta.offset_y
             crop_rect = QRect(x_pos, y_pos, w, h).intersected(global_sheet.rect())
 
             if not crop_rect.isEmpty():
-                frame = global_sheet.copy(crop_rect)
-                dest_x = (sheet_idx * new_cell_w) + ((new_cell_w - frame.width()) // 2)
-                dest_y = (meta.row * new_cell_h) + ((new_cell_h - frame.height()) // 2)
+                frame: QPixmap = global_sheet.copy(crop_rect)
+                dest_x: int = (sheet_idx * new_cell_w) + ((new_cell_w - frame.width()) // 2)
+                dest_y: int = (meta.row * new_cell_h) + ((new_cell_h - frame.height()) // 2)
                 painter.drawPixmap(dest_x, dest_y, frame)
 
             painted_cells.add(cell_key)

@@ -36,16 +36,17 @@ class WorldView(QGraphicsView):
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if watched == self.viewport():
-            etype = event.type()
-            if etype == QEvent.Type.MouseMove:
-                if self.overlay.manager.spawning_system.handle_mouse_move(self.overlay, cast(QMouseEvent, event)):
-                    return True
-            elif etype == QEvent.Type.MouseButtonPress:
-                if self.overlay.manager.spawning_system.handle_mouse_press(self.overlay, cast(QMouseEvent, event)):
-                    return True
-            elif etype == QEvent.Type.MouseButtonRelease:
-                if self.overlay.manager.spawning_system.handle_mouse_release(self.overlay, cast(QMouseEvent, event)):
-                    return True
+            spawning_sys = self.overlay.manager.spawning_system
+            match event.type():
+                case QEvent.Type.MouseMove:
+                    if spawning_sys.handle_mouse_move(self.overlay, cast(QMouseEvent, event)):
+                        return True
+                case QEvent.Type.MouseButtonPress:
+                    if spawning_sys.handle_mouse_press(self.overlay, cast(QMouseEvent, event)):
+                        return True
+                case QEvent.Type.MouseButtonRelease:
+                    if spawning_sys.handle_mouse_release(self.overlay, cast(QMouseEvent, event)):
+                        return True
         return super().eventFilter(watched, event)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:

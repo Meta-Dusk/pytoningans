@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from enum import StrEnum, unique
 from dataclasses import dataclass, asdict
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Any
 
 from PySide6.QtCore import QObject, Signal
 
@@ -45,10 +46,10 @@ class SettingsManager(QObject):
         return cls._instance
 
     def load(self) -> None:
-        path = get_settings_path()
+        path: Path = get_settings_path()
         if path.exists():
             try:
-                data = json.loads(path.read_text(encoding="utf-8"))
+                data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
                 self.settings = CombatVisualSettings(
                     health_bar_mode=data.get("health_bar_mode", HealthBarMode.ON_DAMAGE),
                     show_damage_numbers=data.get("show_damage_numbers", True),
@@ -66,7 +67,7 @@ class SettingsManager(QObject):
             self.settings = CombatVisualSettings()
 
     def save(self) -> None:
-        path = get_settings_path()
+        path: Path = get_settings_path()
         try:
             path.write_text(json.dumps(asdict(self.settings), indent=2), encoding="utf-8")
         except Exception as e:

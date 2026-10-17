@@ -34,7 +34,7 @@ class SpawnAreaMode(StrEnum):
 
 def calculate_spawn_bounds(
     world: WorldOverlay,
-    area_mode: str,
+    area_mode: SpawnAreaMode | str,
     custom_rect: Optional[QRect] = None,
 ) -> QRect:
     """Calculates candidate boundary rectangle based on area mode and target screen size."""
@@ -42,16 +42,16 @@ def calculate_spawn_bounds(
     sw = int(scene_rect.width())
     sh = int(scene_rect.height())
 
-    if area_mode == SpawnAreaMode.GROUND.value:
+    if area_mode == SpawnAreaMode.GROUND:
         gh: int = max(60, int(sh * 0.18))
         return QRect(50, sh - gh - 30, max(50, sw - 100), gh)
 
-    elif area_mode == SpawnAreaMode.SKY.value:
+    elif area_mode == SpawnAreaMode.SKY:
         sh_air: int = max(60, int(sh * 0.25))
         return QRect(50, 40, max(50, sw - 100), sh_air)
 
     elif (
-        area_mode == SpawnAreaMode.CUSTOM.value
+        area_mode == SpawnAreaMode.CUSTOM
         and custom_rect is not None
         and not custom_rect.isEmpty()
     ):
@@ -79,7 +79,7 @@ def find_safe_spawn_coords(
     mod_manager.load_mod(mod_folder)
 
     # Physics extraction for frame 0 idle
-    anchor, hitbox = mod_manager.get_frame_physics(EntityState.IDLE.value, 0)
+    _, hitbox = mod_manager.get_frame_physics(EntityState.IDLE, 0)
     hw: int = hitbox.width() if hitbox.width() > 0 else 64
     hh: int = hitbox.height() if hitbox.height() > 0 else 64
     hx: int = hitbox.x()
@@ -183,12 +183,17 @@ class SpawningSystem(QObject):
     and region bounds selection across all desktop world overlays.
     """
 
-    placement_started = Signal(str, int)  # (mod_name, remaining_count)
-    placement_count_changed = Signal(int)  # (remaining_count)
+    placement_started = Signal(str, int)
+    """(mod_name, remaining_count)"""
+    
+    placement_count_changed = Signal(int)
+    """(remaining_count)"""
+    
     placement_ended = Signal()
-
     region_selection_started = Signal()
-    region_selection_ended = Signal(bool, QRect)  # (succeeded, rect)
+    
+    region_selection_ended = Signal(bool, QRect)
+    """(succeeded, rect)"""
 
     def __init__(self, manager: EntityManager) -> None:
         super().__init__()
@@ -232,7 +237,7 @@ class SpawningSystem(QObject):
         self.remaining_count = max(1, amount)
         self.avoid_windows = avoid_windows
 
-        pixmap: Optional[QPixmap] = mod_manager.get_frame(EntityState.IDLE.value, 0)
+        pixmap: Optional[QPixmap] = mod_manager.get_frame(EntityState.IDLE, 0)
         if pixmap is None or pixmap.isNull():
             for key in mod_manager.animations.keys():
                 pixmap = mod_manager.get_frame(key, 0)
@@ -243,7 +248,7 @@ class SpawningSystem(QObject):
             pixmap = QPixmap(64, 64)
             pixmap.fill(QColor(100, 150, 255, 120))
 
-        anchor, hitbox = mod_manager.get_frame_physics(EntityState.IDLE.value, 0)
+        anchor, hitbox = mod_manager.get_frame_physics(EntityState.IDLE, 0)
         self.ghost_anchor = anchor
         self.ghost_hitbox = hitbox
         if self.ghost_hitbox.isEmpty() or self.ghost_hitbox.width() == 0:
@@ -325,7 +330,7 @@ class SpawningSystem(QObject):
 
     def handle_mouse_move(self, world: WorldOverlay, event: QMouseEvent) -> bool:
         """Tracks cursor movement for ghost placement or region box updates."""
-        pt = event.position().toPoint()
+        pt: QPoint = event.position().toPoint()
         if self.is_placing:
             scene_pos: QPointF = world.view.mapToScene(pt)
 
@@ -368,7 +373,7 @@ class SpawningSystem(QObject):
 
     def handle_mouse_press(self, world: WorldOverlay, event: QMouseEvent) -> bool:
         """Processes clicks during placement (spawning) or region selection (anchor start)."""
-        pt = event.position().toPoint()
+        pt: QPoint = event.position().toPoint()
         if self.is_placing:
             if event.button() == Qt.MouseButton.LeftButton:
                 scene_pos: QPointF = world.view.mapToScene(pt)
@@ -425,7 +430,7 @@ class SpawningSystem(QObject):
 
     def handle_mouse_release(self, world: WorldOverlay, event: QMouseEvent) -> bool:
         """Processes mouse release to confirm region selection."""
-        pt = event.position().toPoint()
+        pt: QPoint = event.position().toPoint()
         if self.is_selecting_region and self.selection_start_pos is not None:
             if (
                 event.button() == Qt.MouseButton.LeftButton
@@ -463,7 +468,7 @@ class SpawningSystem(QObject):
         mod_folder: str,
         amount: int = 1,
         target_world: Optional[WorldOverlay] = None,
-        area_mode: str = "screen",
+        area_mode: SpawnAreaMode | str = SpawnAreaMode.SCREEN,
         custom_rect: Optional[QRect] = None,
         avoid_windows: bool = True,
     ) -> list[BaseEntity]:
@@ -483,7 +488,9 @@ class SpawningSystem(QObject):
                 bounds=bounds,
                 avoid_windows=avoid_windows,
             )
-            entity: Optional[BaseEntity] = self.manager.spawn_entity(x, y, mod_folder, target_world=world)
+            entity: Optional[BaseEntity] = self.manager.spawn_entity(
+                x, y, mod_folder, target_world=world
+            )
             if entity is not None:
                 spawned.append(entity)
 

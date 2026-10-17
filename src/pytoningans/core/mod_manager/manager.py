@@ -114,7 +114,7 @@ class ModManager:
     @property
     def entity_type(self) -> str:
         """Returns the entity type, defaulting to 'entity' for backward compatibility."""
-        return self.config.entity_type if self.config else EntityType.ENTITY.value
+        return self.config.entity_type if self.config is not None else EntityType.ENTITY
 
     def get_available_mods_with_type(self) -> dict[str, tuple[str, str]]:
         """Returns a dict mapping folder_name -> (display_name, entity_type)."""
@@ -140,10 +140,10 @@ class ModManager:
         with open(config_path, "r", encoding="utf-8") as f:
             data: dict[str, Any] = json.load(f)
 
-        entity_type = data.get("entity_type", EntityType.ENTITY)
+        entity_type: str = data.get("entity_type", EntityType.ENTITY)
         behavior_data: dict[str, Any] = data.get("behavior", {})
-        raw_tags: list[Any] = data.get("tags", behavior_data.get("tags", []))
-        self.tags = [str(t).lower().strip() for t in raw_tags if str(t).strip()]
+        tags: list[str] = data.get("tags", behavior_data.get("tags", []))
+        self.tags = [t.lower().strip() for t in tags if t.strip()]
 
         self._static_physics_cache = None
         self.is_static = data.get("is_static", False)
@@ -181,13 +181,13 @@ class ModManager:
         self.move_speed = float(behavior_data.get("move_speed", 2.0))
         self.regen_rate = float(behavior_data.get("regen_rate", 0.0))
 
-        raw_behavior_type = behavior_data.get("type", "neutral")
+        raw_behavior_type: str = behavior_data.get("type", "neutral")
         try:
             self.behavior_type = BehaviorType(raw_behavior_type)
         except ValueError:
             self.behavior_type = BehaviorType.NEUTRAL
 
-        raw_attack_type = behavior_data.get("attack_type", "single")
+        raw_attack_type: str = behavior_data.get("attack_type", "single")
         try:
             self.attack_type = AttackType(raw_attack_type)
         except ValueError:
@@ -195,7 +195,7 @@ class ModManager:
 
         self.max_targets = behavior_data.get("max_targets", 1)
 
-        raw_death_anim = behavior_data.get("death_animation", "sprite")
+        raw_death_anim: str = behavior_data.get("death_animation", "sprite")
         try:
             self.death_animation = DeathAnimation(raw_death_anim)
         except ValueError:
@@ -212,7 +212,7 @@ class ModManager:
         if self.is_static:
             sync_static_physics(self.animations)
 
-        dialogue_data = data.get("dialogue", {})
+        dialogue_data: dict[str, list[Any]] = data.get("dialogue", {})
         self.plain_dialogue = dialogue_data.get("plain_dialogue", ["..."])
         self.death_dialogue = dialogue_data.get(
             "death_dialogue", ["Ugh...", "I'll be back...", "Farewell..."]
@@ -310,7 +310,7 @@ class ModManager:
             self.animations,
             lambda: self.save_mod_config(self.current_mod_folder, self.current_mod_name),
         )
-        if success and new_sheet:
+        if success and new_sheet is not None:
             self._global_sheet = new_sheet
             return True
         return False
@@ -329,7 +329,7 @@ class ModManager:
         if self.is_static:
             if self._static_physics_cache is not None:
                 return self._static_physics_cache
-            result = get_frame_physics(
+            result: tuple[QPoint, QRect] = get_frame_physics(
                 self.animations,
                 state,
                 tick_index,

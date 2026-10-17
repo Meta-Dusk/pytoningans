@@ -53,13 +53,6 @@ class BehaviorType(StrEnum):
     NEUTRAL = "neutral"
     HOSTILE = "hostile"
 
-@dataclass(frozen=True)
-class WindowConfig:
-    default_width: int = 150
-    default_height: int = 150
-    placeholder_text: str = "🐾"
-    placeholder_style: str = "font-size: 50px; color: black;"
-
 @dataclass()
 class AnimationMeta:
     row: int
@@ -94,15 +87,7 @@ class AnimationMeta:
     frame_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
     """Dictionary mapping string frame indices (for JSON) to override data dicts"""
 
-@dataclass(frozen=True)
-class ModConfig:
-    animations: dict[EntityState, AnimationMeta] = field(default_factory=lambda: {
-        EntityState.IDLE: AnimationMeta(row=0, start_frame=0, end_frame=3),
-        EntityState.DRAG: AnimationMeta(row=1, start_frame=0, end_frame=3),
-        EntityState.INTERACT: AnimationMeta(row=2, start_frame=0, end_frame=3),
-    })
-
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class AppConfig:
     app_name: str = "PyToNingans"
 
@@ -112,6 +97,4 @@ class SystemLocks:
     physics: bool = True
     animation: bool = True
 
-WINDOW_CFG = WindowConfig()
-MOD_CFG = ModConfig()
 APP_CFG = AppConfig()

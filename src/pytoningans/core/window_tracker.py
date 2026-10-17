@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import ctypes, os
-from ctypes import wintypes
+from ctypes import Array, wintypes
 from typing import Optional
 
 from PySide6.QtCore import QObject, QRect
 
-user32 = ctypes.windll.user32
-dwmapi = ctypes.windll.dwmapi
+user32: ctypes.WinDLL = ctypes.windll.user32
+dwmapi: ctypes.WinDLL = ctypes.windll.dwmapi
 
 DWMWA_EXTENDED_FRAME_BOUNDS = 9
 DWMWA_CLOAKED = 14
@@ -86,7 +86,7 @@ def query_interactive_windows() -> list[TrackedWindow]:
     except Exception:
         hdesk = 0
 
-    my_pid = os.getpid()
+    my_pid: int = os.getpid()
     windows: list[TrackedWindow] = []
 
     def enum_cb(hwnd: wintypes.HWND, lparam: wintypes.LPARAM) -> bool:
@@ -94,7 +94,7 @@ def query_interactive_windows() -> list[TrackedWindow]:
             return True
 
         # Check own PID (skip our own overlay, hub, and context menu windows)
-        pid = wintypes.DWORD()
+        pid: ctypes.c_ulong = wintypes.DWORD()
         user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
         if pid.value == my_pid:
             return True
@@ -121,9 +121,9 @@ def query_interactive_windows() -> list[TrackedWindow]:
         length = user32.GetWindowTextLengthW(hwnd)
         if length == 0:
             return True
-        buf = ctypes.create_unicode_buffer(length + 1)
+        buf: Array[ctypes.c_wchar] = ctypes.create_unicode_buffer(length + 1)
         user32.GetWindowTextW(hwnd, buf, length + 1)
-        title = buf.value.strip()
+        title: str = buf.value.strip()
 
         if not title or title in IGNORED_WINDOW_TITLES:
             return True
@@ -183,9 +183,9 @@ class WindowTracker(QObject):
         screen_bounds = QRect(0, 0, screen_geom.width(), screen_geom.height())
 
         for tracked_win in self.active_global_windows:
-            global_rect = tracked_win.rect
-            local_x = global_rect.x() - screen_geom.x()
-            local_y = global_rect.y() - screen_geom.y()
+            global_rect: QRect = tracked_win.rect
+            local_x: int = global_rect.x() - screen_geom.x()
+            local_y: int = global_rect.y() - screen_geom.y()
             local_rect = QRect(local_x, local_y, global_rect.width(), global_rect.height())
 
             if local_rect.intersects(screen_bounds):
@@ -230,8 +230,8 @@ class WindowTracker(QObject):
                 work_top = mi.rcWork.top
                 work_bottom = mi.rcWork.bottom
 
-                target_x = curr_x + dx
-                target_y = curr_y + dy
+                target_x: int = curr_x + dx
+                target_y: int = curr_y + dy
 
                 clamped_x = max(work_left, min(target_x, work_right - w))
                 clamped_y = max(work_top, min(target_y, work_bottom - h))
@@ -252,7 +252,7 @@ class WindowTracker(QObject):
         success = bool(user32.SetWindowPos(hwnd, 0, clamped_x, clamped_y, 0, 0, flags))
         if success:
             for tw in self.active_global_windows:
-                if tw.hwnd == hwnd:
-                    tw.rect = QRect(clamped_x, clamped_y, w, h)
-                    break
+                if tw.hwnd != hwnd: continue
+                tw.rect = QRect(clamped_x, clamped_y, w, h)
+                break
         return success, actual_dx, actual_dy

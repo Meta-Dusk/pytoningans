@@ -10,7 +10,7 @@ HTCLIENT = 1
 
 def fetch_visible_windows_worker() -> list[str]:
     """Background worker function querying visible window titles safely."""
-    user32 = ctypes.windll.user32
+    user32: ctypes.WinDLL = ctypes.windll.user32
 
     # Ensure worker thread on Windows is attached to interactive desktop
     try:
@@ -64,5 +64,5 @@ class VisionWorker(QRunnable):
         self.signals = VisionWorkerSignals()
 
     def run(self) -> None:
-        titles = fetch_visible_windows_worker()
+        titles: list[str] = fetch_visible_windows_worker()
         self.signals.finished.emit(titles)

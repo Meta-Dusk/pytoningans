@@ -65,8 +65,8 @@ class EntityManager:
     def _has_window_triggers(self) -> bool:
         """Returns True if any active entity mod defines window triggers."""
         return any(
-            bool(getattr(e.mod_manager, "window_triggers", None))
-            for e in self.active_entities
+            bool(e.mod_manager.window_triggers)
+            for e in self.active_entities if e.mod_manager is not None
         )
 
     def _on_vision_ready(self, titles: list[str]) -> None:
@@ -157,14 +157,14 @@ class EntityManager:
 
         # Route instantiation based on the declared entity type
         entity: BaseStructure | BaseItem | Entity
-        if mod_manager.entity_type == EntityType.STRUCTURE.value:
+        if mod_manager.entity_type == EntityType.STRUCTURE:
             entity = BaseStructure(x, y, mod_manager, world)
             if chosen_name:
                 entity.set_instance_name(chosen_name)
             world.scene.addItem(entity)
             world.active_structures.append(entity)
             self.active_structures.append(entity)
-        elif mod_manager.entity_type == EntityType.ITEM.value:
+        elif mod_manager.entity_type == EntityType.ITEM:
             entity = BaseItem(x, y, mod_manager, world)
             if chosen_name:
                 entity.set_instance_name(chosen_name)
