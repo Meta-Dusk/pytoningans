@@ -37,7 +37,7 @@ from .config_io import (
     sync_static_physics,
 )
 from .discovery import IGNORED_MOD_FOLDERS, get_available_mods_with_type
-from .physics import get_frame_physics
+from .physics import get_frame_physics, get_frame_hold_point
 from .sprites import bake_sprite_sheet, get_frame, resolve_dimensions
 
 
@@ -343,6 +343,18 @@ class ModManager:
             return result
 
         return get_frame_physics(
+            self.animations,
+            state,
+            tick_index,
+            self.is_static,
+            self.entity_type,
+        )
+
+    def get_frame_hold_point(self, state: str, tick_index: int) -> Optional[QPoint]:
+        """
+        Returns the custom Item Hold Anchor Point for the current frame if configured, or None.
+        """
+        return get_frame_hold_point(
             self.animations,
             state,
             tick_index,

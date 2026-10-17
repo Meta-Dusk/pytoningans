@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-import copy
 from typing import Optional, TYPE_CHECKING, Any
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QComboBox, QSpinBox, QLabel,
     QPushButton, QMessageBox, QCheckBox, QSpacerItem
 )
 from PySide6.QtGui import (
-    QPaintEvent, QPainter, QColor, QMouseEvent, QPixmap, QPen
+    QPaintEvent, QPainter, QColor, QMouseEvent, QPixmap, QPen, QWheelEvent
 )
 from PySide6.QtCore import Qt, QPoint, QRect, Signal, QPointF
 
-from pytoningans.core.constants import AnimationMeta, EntityType, StructureState, EntityState, ItemState
+from pytoningans.core.constants import (
+    AnimationMeta, EntityType, StructureState, EntityState, ItemState
+)
 from pytoningans.ui.mod_editor.components import CollapsibleSection, create_info_label
 from .base_panel import BasePanel
 
@@ -19,90 +20,153 @@ if TYPE_CHECKING:
     from pytoningans.ui.mod_editor.controller import ModEditorController
 
 class PhysicsCanvas(QWidget):
-    physics_changed = Signal(QPoint, QRect, QRect)
+    physics_changed = Signal(QPoint, QRect, QRect, QPoint, bool)
+    zoom_changed = Signal(int)
 
     def __init__(self) -> None:
         super().__init__()
-        self.setMinimumSize(300, 300)
+        self.setMinimumSize(320, 320)
         self.setMouseTracking(True)
         self.zoom: int = 4
-        
+        self.pan_offset: QPoint = QPoint(0, 0)
+        self._is_panning: bool = False
+        self._pan_start: QPoint = QPoint()
+        self._first_load: bool = True
+
         self.frame_pixmap: QPixmap = QPixmap()
         self.anchor: QPoint = QPoint(0, 0)
         self.hitbox: QRect = QRect(0, 0, 0, 0)
         self.atk_hitbox: QRect = QRect(0, 0, 0, 0)
-        
+        self.hold_anchor: QPoint = QPoint(0, 0)
+        self.has_hold_point: bool = False
+
         self._dragging_anchor: bool = False
         self._dragging_hitbox: bool = False
         self._dragging_attack: bool = False
+        self._dragging_hold: bool = False
         self._drag_offset: QPoint = QPoint()
-        
+
         self.attack_range: int = 0
         self.show_attack_range: bool = False
 
     def update_data(
         self, pixmap: QPixmap, anchor: QPoint,
-        hitbox: QRect, atk_hitbox: QRect
+        hitbox: QRect, atk_hitbox: QRect,
+        hold_anchor: Optional[QPoint] = None,
+        has_hold_point: bool = False
     ) -> None:
+        was_null: bool = self.frame_pixmap.isNull()
         self.frame_pixmap = pixmap
         self.anchor = anchor
         self.hitbox = hitbox
         self.atk_hitbox = atk_hitbox
-        self.setMinimumSize(
-            max(300, self.frame_pixmap.width() * self.zoom),
-            max(300, self.frame_pixmap.height() * self.zoom)
-        )
+        self.hold_anchor = hold_anchor if hold_anchor is not None else QPoint(0, 0)
+        self.has_hold_point = has_hold_point
+
+        if (was_null or self._first_load) and not self.frame_pixmap.isNull():
+            self._first_load = False
+            self.reset_view()
         self.update()
-    
+
+    def reset_view(self) -> None:
+        """Centers the frame pixmap in the canvas viewport."""
+        if not self.frame_pixmap.isNull():
+            sw: int = self.frame_pixmap.width() * self.zoom
+            sh: int = self.frame_pixmap.height() * self.zoom
+            self.pan_offset = QPoint((self.width() - sw) // 2, (self.height() - sh) // 2)
+        else:
+            self.pan_offset = QPoint(0, 0)
+        self.update()
+
+    def _to_screen(self, pt: QPoint) -> QPoint:
+        return QPoint(
+            pt.x() * self.zoom + self.pan_offset.x(),
+            pt.y() * self.zoom + self.pan_offset.y()
+        )
+
+    def _to_screen_rect(self, rect: QRect) -> QRect:
+        return QRect(
+            rect.x() * self.zoom + self.pan_offset.x(),
+            rect.y() * self.zoom + self.pan_offset.y(),
+            rect.width() * self.zoom,
+            rect.height() * self.zoom
+        )
+
+    def _to_frame(self, screen_pt: QPoint) -> QPoint:
+        return QPoint(
+            int((screen_pt.x() - self.pan_offset.x()) / self.zoom),
+            int((screen_pt.y() - self.pan_offset.y()) / self.zoom)
+        )
+
     def paintEvent(self, _: QPaintEvent) -> None:
         painter = QPainter(self)
         painter.fillRect(self.rect(), self.palette().base().color())
-        
+
         painter.setPen(self.palette().shadow().color())
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRect(0, 0, self.width() - 1, self.height() - 1)
-        
+
         if self.frame_pixmap.isNull():
             painter.setPen(self.palette().text().color())
             painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "No Frame Loaded")
             return
 
+        painter.setClipRect(self.rect())
+
+        pan_x: int = self.pan_offset.x()
+        pan_y: int = self.pan_offset.y()
         scaled_w: int = self.frame_pixmap.width() * self.zoom
         scaled_h: int = self.frame_pixmap.height() * self.zoom
-        painter.drawPixmap(0, 0, scaled_w, scaled_h, self.frame_pixmap)
+
+        # Draw frame pixmap
+        painter.drawPixmap(pan_x, pan_y, scaled_w, scaled_h, self.frame_pixmap)
+
+        # Subtle frame cell outline
+        painter.setPen(QPen(QColor(120, 120, 120, 120), 1, Qt.PenStyle.DashLine))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRect(pan_x, pan_y, scaled_w - 1, scaled_h - 1)
 
         # Hitbox (Red)
-        scaled_hitbox = QRect(
-            self.hitbox.x() * self.zoom, self.hitbox.y() * self.zoom,
-            self.hitbox.width() * self.zoom, self.hitbox.height() * self.zoom
-        )
+        scaled_hitbox = self._to_screen_rect(self.hitbox)
         painter.setPen(Qt.GlobalColor.red)
         painter.setBrush(QColor(255, 0, 0, 60))
         painter.drawRect(scaled_hitbox)
-        
-        # Attack Hitbox (Orange) - only when enabled
+
+        # Attack Hitbox (Orange) - only when configured
         if not self.atk_hitbox.isNull() and self.atk_hitbox.width() > 0:
-            scaled_attack = QRect(
-                self.atk_hitbox.x() * self.zoom, self.atk_hitbox.y() * self.zoom,
-                self.atk_hitbox.width() * self.zoom, self.atk_hitbox.height() * self.zoom
-            )
+            scaled_attack = self._to_screen_rect(self.atk_hitbox)
             painter.setPen(QColor("#ffa500"))
             painter.setBrush(QColor(255, 165, 0, 80))
             painter.drawRect(scaled_attack)
 
-        # Anchor (Cyan Crosshair)
-        ax: int = self.anchor.x() * self.zoom
-        ay: int = self.anchor.y() * self.zoom
-        painter.setPen(Qt.GlobalColor.cyan)
+        # Primary Anchor (Cyan Crosshair)
+        anchor_s: QPoint = self._to_screen(self.anchor)
+        ax: int = anchor_s.x()
+        ay: int = anchor_s.y()
+        painter.setPen(QPen(Qt.GlobalColor.cyan, 2))
         painter.drawLine(ax - 10, ay, ax + 10, ay)
         painter.drawLine(ax, ay - 10, ax, ay + 10)
-        
-        # Aggro Range
+
+        # Item Hold Anchor (Gold Crosshair)
+        if self.has_hold_point:
+            hold_s: QPoint = self._to_screen(self.hold_anchor)
+            hx: int = hold_s.x()
+            hy: int = hold_s.y()
+            painter.setPen(QPen(QColor("#fbbf24"), 2))
+            painter.drawLine(hx - 8, hy, hx + 8, hy)
+            painter.drawLine(hx, hy - 8, hx, hy + 8)
+            painter.setBrush(QColor(251, 191, 36, 120))
+            painter.drawRect(hx - 3, hy - 3, 6, 6)
+            painter.setPen(QColor("#fbbf24"))
+            painter.setFont(self.font())
+            painter.drawText(hx + 7, hy - 5, "Hold")
+
+        # Aggro Range Circle
         if self.show_attack_range and self.attack_range > 0 and not self.hitbox.isEmpty():
-            center_x: float = (self.hitbox.x() + self.hitbox.width() / 2.0) * self.zoom
-            center_y: float = (self.hitbox.y() + self.hitbox.height() / 2.0) * self.zoom
+            center_x: float = (self.hitbox.x() + self.hitbox.width() / 2.0) * self.zoom + pan_x
+            center_y: float = (self.hitbox.y() + self.hitbox.height() / 2.0) * self.zoom + pan_y
             scaled_radius: int = self.attack_range * self.zoom
-            
+
             pen = QPen(QColor(255, 50, 50, 180), 2, Qt.PenStyle.DashLine)
             painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -110,48 +174,110 @@ class PhysicsCanvas(QWidget):
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if self.frame_pixmap.isNull(): return
-        
-        click_x: int = event.pos().x() // self.zoom
-        click_y: int = event.pos().y() // self.zoom
-        click_pos = QPoint(click_x, click_y)
 
-        if (abs(click_x - self.anchor.x()) <= 2 and abs(click_y - self.anchor.y()) <= 2):
-            self._dragging_anchor = True
-        elif self.atk_hitbox.contains(click_pos):
-            self._dragging_attack = True
-            self._drag_offset = click_pos - self.atk_hitbox.topLeft()
-        elif self.hitbox.contains(click_pos):
-            self._dragging_hitbox = True
-            self._drag_offset = click_pos - self.hitbox.topLeft()
+        # Middle or Right mouse button drag pans the viewport
+        if event.button() in (Qt.MouseButton.MiddleButton, Qt.MouseButton.RightButton):
+            self._is_panning = True
+            self._pan_start = event.pos()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            return
+
+        if event.button() == Qt.MouseButton.LeftButton:
+            click_pos: QPoint = self._to_frame(event.pos())
+            click_x: int = click_pos.x()
+            click_y: int = click_pos.y()
+
+            # Priority 1: Hold anchor drag
+            if self.has_hold_point and (
+                abs(click_x - self.hold_anchor.x()) <= 4 and
+                abs(click_y - self.hold_anchor.y()) <= 4
+            ):
+                self._dragging_hold = True
+            # Priority 2: Standard anchor drag
+            elif abs(click_x - self.anchor.x()) <= 4 and abs(click_y - self.anchor.y()) <= 4:
+                self._dragging_anchor = True
+            # Priority 3: Attack hitbox drag
+            elif self.atk_hitbox.contains(click_pos):
+                self._dragging_attack = True
+                self._drag_offset = click_pos - self.atk_hitbox.topLeft()
+            # Priority 4: Hitbox drag
+            elif self.hitbox.contains(click_pos):
+                self._dragging_hitbox = True
+                self._drag_offset = click_pos - self.hitbox.topLeft()
+            elif event.modifiers() & (Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.ControlModifier):
+                self._is_panning = True
+                self._pan_start = event.pos()
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        if not (self._dragging_anchor or self._dragging_hitbox or self._dragging_attack): return
-        
-        new_x: int = max(0, min(event.pos().x() // self.zoom, self.frame_pixmap.width()))
-        new_y: int = max(0, min(event.pos().y() // self.zoom, self.frame_pixmap.height()))
+        if self._is_panning:
+            delta: QPoint = event.pos() - self._pan_start
+            self._pan_start = event.pos()
+            self.pan_offset += delta
+            self.update()
+            return
 
-        if self._dragging_anchor:
-            self.anchor = QPoint(new_x, new_y)
+        if not (self._dragging_anchor or self._dragging_hitbox or self._dragging_attack or self._dragging_hold):
+            return
+
+        frame_pos: QPoint = self._to_frame(event.pos())
+        new_x: int = frame_pos.x()
+        new_y: int = frame_pos.y()
+
+        if self._dragging_hold:
+            self.hold_anchor = QPoint(new_x, new_y)
+        elif self._dragging_anchor:
+            self.anchor = QPoint(
+                max(0, min(new_x, self.frame_pixmap.width())),
+                max(0, min(new_y, self.frame_pixmap.height()))
+            )
         elif self._dragging_attack:
             self.atk_hitbox.moveTo(new_x - self._drag_offset.x(), new_y - self._drag_offset.y())
         elif self._dragging_hitbox:
             self.hitbox.moveTo(new_x - self._drag_offset.x(), new_y - self._drag_offset.y())
-            
-        self.physics_changed.emit(self.anchor, self.hitbox, self.atk_hitbox)
+
+        self.physics_changed.emit(self.anchor, self.hitbox, self.atk_hitbox, self.hold_anchor, self.has_hold_point)
         self.update()
 
-    def mouseReleaseEvent(self, _: QMouseEvent) -> None:
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() in (Qt.MouseButton.MiddleButton, Qt.MouseButton.RightButton) or self._is_panning:
+            self._is_panning = False
+            self.unsetCursor()
         self._dragging_anchor = False
         self._dragging_hitbox = False
         self._dragging_attack = False
-    
-    def set_zoom(self, zoom: int) -> None:
-        self.zoom = zoom
-        if not self.frame_pixmap.isNull():
-            self.setMinimumSize(
-                max(300, self.frame_pixmap.width() * self.zoom),
-                max(300, self.frame_pixmap.height() * self.zoom)
+        self._dragging_hold = False
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        angle: int = event.angleDelta().y()
+        if angle == 0: return
+        old_zoom: int = self.zoom
+        delta: int = 1 if angle > 0 else -1
+        new_zoom: int = max(1, min(20, self.zoom + delta))
+        if new_zoom != old_zoom:
+            cursor_pos: QPoint = event.position().toPoint()
+            fx: float = (cursor_pos.x() - self.pan_offset.x()) / float(old_zoom)
+            fy: float = (cursor_pos.y() - self.pan_offset.y()) / float(old_zoom)
+            self.zoom = new_zoom
+            self.pan_offset = QPoint(
+                int(cursor_pos.x() - fx * new_zoom),
+                int(cursor_pos.y() - fy * new_zoom)
             )
+            self.zoom_changed.emit(self.zoom)
+            self.update()
+
+    def set_zoom(self, zoom: int) -> None:
+        if self.zoom == zoom: return
+        old_zoom: int = self.zoom
+        center_x: float = self.width() / 2.0
+        center_y: float = self.height() / 2.0
+        fx: float = (center_x - self.pan_offset.x()) / float(old_zoom)
+        fy: float = (center_y - self.pan_offset.y()) / float(old_zoom)
+        self.zoom = zoom
+        self.pan_offset = QPoint(
+            int(center_x - fx * self.zoom),
+            int(center_y - fy * self.zoom)
+        )
         self.update()
 
 
@@ -190,6 +316,8 @@ class PhysicsPanel(BasePanel):
         self.static_indicator.setStyleSheet("color: #60a5fa; font-weight: bold; font-size: 11px;")
         self.static_indicator.hide()
 
+        self.reset_view_btn = QPushButton("Reset View")
+
         top_layout.addWidget(self.state_label)
         top_layout.addWidget(self.state_combo)
         top_layout.addWidget(self.frame_spin)
@@ -197,6 +325,7 @@ class PhysicsPanel(BasePanel):
         top_layout.addWidget(self.paste_btn)
         top_layout.addWidget(self.static_indicator)
         top_layout.addWidget(self.zoom_spin)
+        top_layout.addWidget(self.reset_view_btn)
         top_layout.addStretch()
 
         # Canvas and Form Controls
@@ -229,6 +358,25 @@ class PhysicsPanel(BasePanel):
         
         self.apply_base_btn = QPushButton("Apply to Entire Animation")
         self.form.addRow(self.apply_base_btn)
+        self.form.addItem(QSpacerItem(0, 16))
+
+        # Hold Anchor controls (living entities only)
+        self.hold_header = create_info_label(
+            "Item Hold Anchor",
+            "Custom point where this entity holds items.\n"
+            "If unchecked, default top-of-head holding is used."
+        )
+        self.hold_check = QCheckBox("Enable Custom Hold Point")
+        self.hold_check.setStyleSheet("color: #fbbf24; font-weight: bold;")
+        self.hold_x_spin = QSpinBox(); self.hold_x_spin.setRange(-999, 999)
+        self.hold_y_spin = QSpinBox(); self.hold_y_spin.setRange(-999, 999)
+        self.hold_lbl_x = QLabel("Hold X:")
+        self.hold_lbl_y = QLabel("Hold Y:")
+
+        self.form.addRow(self.hold_header)
+        self.form.addRow(self.hold_check)
+        self.form.addRow(self.hold_lbl_x, self.hold_x_spin)
+        self.form.addRow(self.hold_lbl_y, self.hold_y_spin)
         self.form.addItem(QSpacerItem(0, 16))
         
         # Combat widgets (hidden for structures)
@@ -278,12 +426,17 @@ class PhysicsPanel(BasePanel):
         self.state_combo.currentIndexChanged.connect(self._on_state_combo_changed)
         self.frame_spin.valueChanged.connect(self.load_data)
         self.zoom_spin.valueChanged.connect(self.canvas.set_zoom)
+        self.canvas.zoom_changed.connect(self.zoom_spin.setValue)
+        self.reset_view_btn.clicked.connect(self.canvas.reset_view)
         
         self.copy_btn.clicked.connect(self._on_copy)
         self.paste_btn.clicked.connect(self._on_paste)
         
         self.canvas.physics_changed.connect(self._on_canvas_dragged)
         self.apply_base_btn.clicked.connect(self._apply_to_base)
+        self.hold_check.stateChanged.connect(self._on_hold_check_toggled)
+        self.hold_x_spin.valueChanged.connect(self._on_spinbox_changed)
+        self.hold_y_spin.valueChanged.connect(self._on_spinbox_changed)
         self.attack_frame_check.stateChanged.connect(self._on_spinbox_changed)
         self.show_range_check.stateChanged.connect(self._on_show_range_toggled)
         self.magic_btn.clicked.connect(self._on_magic_propagate)
@@ -294,6 +447,18 @@ class PhysicsPanel(BasePanel):
             self.atkw_spin, self.atkh_spin
         ]:
             spin.valueChanged.connect(self._on_spinbox_changed)
+
+    def _on_hold_check_toggled(self, state: int) -> None:
+        is_checked: bool = bool(state)
+        self.hold_x_spin.setEnabled(is_checked)
+        self.hold_y_spin.setEnabled(is_checked)
+        if not self._is_loading:
+            if is_checked and self.hold_x_spin.value() == 0 and self.hold_y_spin.value() == 0:
+                pixmap = self.canvas.frame_pixmap
+                if not pixmap.isNull():
+                    self.hold_x_spin.setValue(pixmap.width() // 2)
+                    self.hold_y_spin.setValue(max(0, int(pixmap.height() * 0.2)))
+            self._on_spinbox_changed()
 
     def _sync_states_dropdown(self) -> None:
         """Populates the combo box from the active animations dictionary keys."""
@@ -344,6 +509,7 @@ class PhysicsPanel(BasePanel):
         is_combat_entity: bool = self.controller.manager.entity_type not in (
             EntityType.STRUCTURE, EntityType.ITEM
         )
+        is_living: bool = self.controller.manager.entity_type == EntityType.ENTITY
         is_static: bool = self.controller.manager.is_static
         
         # Toggle static indicators vs per-state controls
@@ -356,6 +522,14 @@ class PhysicsPanel(BasePanel):
         self.magic_btn.setVisible(not is_static)
         self.static_indicator.setVisible(is_static)
         
+        # Toggle hold inputs
+        self.hold_header.setVisible(is_living)
+        self.hold_check.setVisible(is_living)
+        self.hold_lbl_x.setVisible(is_living)
+        self.hold_x_spin.setVisible(is_living)
+        self.hold_lbl_y.setVisible(is_living)
+        self.hold_y_spin.setVisible(is_living)
+
         # Toggle combat inputs according to entity type
         self.attack_frame_check.setVisible(is_combat_entity)
         self.show_range_check.setVisible(is_combat_entity)
@@ -368,9 +542,15 @@ class PhysicsPanel(BasePanel):
         frame_idx: int = self.frame_spin.value()
         is_attack: bool = False
         atk_hitbox: QRect = QRect(0, 0, 0, 0)
+        has_hold: bool = False
+        hold_x: int = 0
+        hold_y: int = 0
         
         meta: Optional[AnimationMeta] = self.controller.manager.animations.get(state)
         if meta is not None:
+            has_hold = meta.has_hold_point
+            hold_x = meta.hold_x
+            hold_y = meta.hold_y
             total_frames: int = max(1, (meta.end_frame - meta.start_frame) + 1)
             self.frame_spin.setMaximum(total_frames - 1)
             self.frame_spin.setSuffix(f"/{total_frames - 1}")
@@ -388,6 +568,10 @@ class PhysicsPanel(BasePanel):
                     overrides.get("attack_w", 0),
                     overrides.get("attack_h", 0)
                 )
+                if "has_hold_point" in overrides:
+                    has_hold = bool(overrides["has_hold_point"])
+                hold_x = overrides.get("hold_x", hold_x)
+                hold_y = overrides.get("hold_y", hold_y)
         
         pixmap: Optional[QPixmap] = self.controller.manager.get_frame(state, frame_idx)
         if pixmap is None:
@@ -408,17 +592,37 @@ class PhysicsPanel(BasePanel):
         self.atky_spin.setValue(atk_hitbox.y())
         self.atkw_spin.setValue(atk_hitbox.width())
         self.atkh_spin.setValue(atk_hitbox.height())
+
+        self.hold_check.blockSignals(True)
+        self.hold_check.setChecked(has_hold)
+        self.hold_check.blockSignals(False)
+        self.hold_x_spin.setEnabled(has_hold)
+        self.hold_y_spin.setEnabled(has_hold)
+        self.hold_x_spin.setValue(hold_x)
+        self.hold_y_spin.setValue(hold_y)
         
         self.attack_frame_check.blockSignals(True)
         self.attack_frame_check.setChecked(is_attack)
         self.attack_frame_check.blockSignals(False)
         self.canvas.attack_range = self.controller.manager.attack_range if is_combat_entity else 0
         
-        self.canvas.update_data(pixmap, anchor, hitbox, atk_hitbox if is_combat_entity else QRect())
+        self.canvas.update_data(
+            pixmap,
+            anchor,
+            hitbox,
+            atk_hitbox if is_combat_entity else QRect(),
+            QPoint(hold_x, hold_y) if is_living else None,
+            has_hold if is_living else False
+        )
         self._is_loading = False
 
     def _on_canvas_dragged(
-        self, anchor: QPoint, hitbox: QRect, atk_hitbox: QRect
+        self,
+        anchor: QPoint,
+        hitbox: QRect,
+        atk_hitbox: QRect,
+        hold_anchor: QPoint,
+        has_hold_point: bool
     ) -> None:
         self._is_loading = True
         self.ax_spin.setValue(anchor.x())
@@ -429,6 +633,12 @@ class PhysicsPanel(BasePanel):
         
         self.atkx_spin.setValue(atk_hitbox.x())
         self.atky_spin.setValue(atk_hitbox.y())
+
+        self.hold_check.setChecked(has_hold_point)
+        self.hold_x_spin.setEnabled(has_hold_point)
+        self.hold_y_spin.setEnabled(has_hold_point)
+        self.hold_x_spin.setValue(hold_anchor.x())
+        self.hold_y_spin.setValue(hold_anchor.y())
         self._is_loading = False
         
         self._save_to_override()
@@ -442,14 +652,26 @@ class PhysicsPanel(BasePanel):
             self.hw_spin.value(), self.hh_spin.value()
         )
         is_structure: bool = self.controller.manager.entity_type == EntityType.STRUCTURE.value
+        is_living: bool = self.controller.manager.entity_type == EntityType.ENTITY
         atk_hitbox = QRect(0, 0, 0, 0) if is_structure else QRect(
             self.atkx_spin.value(), self.atky_spin.value(),
             self.atkw_spin.value(), self.atkh_spin.value()
         )
-        self.canvas.update_data(self.canvas.frame_pixmap, anchor, hitbox, atk_hitbox)
+        has_hold: bool = self.hold_check.isChecked() if is_living else False
+        hold_anchor = QPoint(self.hold_x_spin.value(), self.hold_y_spin.value()) if is_living else QPoint(0, 0)
+
+        self.canvas.update_data(
+            self.canvas.frame_pixmap,
+            anchor,
+            hitbox,
+            atk_hitbox,
+            hold_anchor,
+            has_hold
+        )
         self._save_to_override()
 
     def _save_to_override(self) -> None:
+        is_living: bool = self.controller.manager.entity_type == EntityType.ENTITY
         if self.controller.manager.is_static:
             ax: int = self.ax_spin.value()
             ay: int = self.ay_spin.value()
@@ -457,6 +679,9 @@ class PhysicsPanel(BasePanel):
             hy: int = self.hy_spin.value()
             hw: int = self.hw_spin.value()
             hh: int = self.hh_spin.value()
+            has_hold: bool = self.hold_check.isChecked() if is_living else False
+            hold_x: int = self.hold_x_spin.value()
+            hold_y: int = self.hold_y_spin.value()
             for static_meta in self.controller.manager.animations.values():
                 static_meta.anchor_x = ax
                 static_meta.anchor_y = ay
@@ -464,6 +689,9 @@ class PhysicsPanel(BasePanel):
                 static_meta.hitbox_y = hy
                 static_meta.hitbox_w = hw
                 static_meta.hitbox_h = hh
+                static_meta.has_hold_point = has_hold
+                static_meta.hold_x = hold_x
+                static_meta.hold_y = hold_y
                 static_meta.frame_overrides.clear()
             self.controller.manager._static_physics_cache = None
             return
@@ -487,7 +715,7 @@ class PhysicsPanel(BasePanel):
             
         frame_key: str = str(mapped_index)
 
-        meta.frame_overrides[frame_key] = {
+        override_dict: dict[str, Any] = {
             "anchor_x": self.ax_spin.value(),
             "anchor_y": self.ay_spin.value(),
             "hitbox_x": self.hx_spin.value(),
@@ -498,10 +726,17 @@ class PhysicsPanel(BasePanel):
             "attack_x": self.atkx_spin.value(),
             "attack_y": self.atky_spin.value(),
             "attack_w": self.atkw_spin.value(),
-            "attack_h": self.atkh_spin.value()
+            "attack_h": self.atkh_spin.value(),
         }
+        if is_living:
+            override_dict["has_hold_point"] = self.hold_check.isChecked()
+            override_dict["hold_x"] = self.hold_x_spin.value()
+            override_dict["hold_y"] = self.hold_y_spin.value()
+
+        meta.frame_overrides[frame_key] = override_dict
 
     def _apply_to_base(self) -> None:
+        is_living: bool = self.controller.manager.entity_type == EntityType.ENTITY
         if self.controller.manager.is_static:
             ax: int = self.ax_spin.value()
             ay: int = self.ay_spin.value()
@@ -509,6 +744,9 @@ class PhysicsPanel(BasePanel):
             hy: int = self.hy_spin.value()
             hw: int = self.hw_spin.value()
             hh: int = self.hh_spin.value()
+            has_hold: bool = self.hold_check.isChecked() if is_living else False
+            hold_x: int = self.hold_x_spin.value()
+            hold_y: int = self.hold_y_spin.value()
             for static_meta in self.controller.manager.animations.values():
                 static_meta.anchor_x = ax
                 static_meta.anchor_y = ay
@@ -516,6 +754,9 @@ class PhysicsPanel(BasePanel):
                 static_meta.hitbox_y = hy
                 static_meta.hitbox_w = hw
                 static_meta.hitbox_h = hh
+                static_meta.has_hold_point = has_hold
+                static_meta.hold_x = hold_x
+                static_meta.hold_y = hold_y
                 static_meta.frame_overrides.clear()
             self.controller.manager._static_physics_cache = None
             self.load_data()
@@ -533,6 +774,10 @@ class PhysicsPanel(BasePanel):
         meta.hitbox_y = self.hy_spin.value()
         meta.hitbox_w = self.hw_spin.value()
         meta.hitbox_h = self.hh_spin.value()
+        if is_living:
+            meta.has_hold_point = self.hold_check.isChecked()
+            meta.hold_x = self.hold_x_spin.value()
+            meta.hold_y = self.hold_y_spin.value()
         meta.frame_overrides.clear()
 
         self.load_data()
@@ -549,7 +794,10 @@ class PhysicsPanel(BasePanel):
             "atk_x": self.atkx_spin.value(),
             "atk_y": self.atky_spin.value(),
             "atk_w": self.atkw_spin.value(),
-            "atk_h": self.atkh_spin.value()
+            "atk_h": self.atkh_spin.value(),
+            "has_hold": self.hold_check.isChecked(),
+            "hold_x": self.hold_x_spin.value(),
+            "hold_y": self.hold_y_spin.value(),
         }
         self.paste_btn.setEnabled(True)
 
@@ -566,6 +814,10 @@ class PhysicsPanel(BasePanel):
         self.atky_spin.setValue(self._copied_physics["atk_y"])
         self.atkw_spin.setValue(self._copied_physics["atk_w"])
         self.atkh_spin.setValue(self._copied_physics["atk_h"])
+        if "has_hold" in self._copied_physics:
+            self.hold_check.setChecked(self._copied_physics["has_hold"])
+            self.hold_x_spin.setValue(self._copied_physics["hold_x"])
+            self.hold_y_spin.setValue(self._copied_physics["hold_y"])
     
     def _on_magic_propagate(self) -> None:
         state: Optional[str] = self.state_combo.currentData()

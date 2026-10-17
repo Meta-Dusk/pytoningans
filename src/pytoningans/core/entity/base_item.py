@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING, cast, Any
-from PySide6.QtCore import QPointF, QRectF, Qt
+from typing import Optional, TYPE_CHECKING, cast
+from PySide6.QtCore import QPointF, QRectF, Qt, QPoint
 from PySide6.QtWidgets import QGraphicsSceneMouseEvent
 
 from pytoningans.core.api import (
@@ -126,8 +126,13 @@ class BaseItem(BaseEntity):
         iw: int = self.width()
         ih: int = self.height()
 
-        target_x: float = hx + (hw - iw) / 2.0
-        target_y: float = hy - ih + (hh * 0.2)
+        hold_offset: Optional[QPoint] = self.holder.current_hold_offset
+        if hold_offset is not None:
+            target_x: float = hx + hold_offset.x() - (iw / 2.0)
+            target_y: float = hy + hold_offset.y() - (ih / 2.0)
+        else:
+            target_x: float = hx + (hw - iw) / 2.0
+            target_y: float = hy - ih + (hh * 0.2)
 
         if self.world is not None:
             bounds: QRectF = self.world.scene.sceneRect()
@@ -136,6 +141,11 @@ class BaseItem(BaseEntity):
 
         self.setPos(target_x, target_y)
         self.setZValue(self.holder.zValue() + 0.05)
+
+        if self.facing_left != self.holder.facing_left:
+            self.facing_left = self.holder.facing_left
+            if self.anim_sys is not None:
+                self.anim_sys.refresh_frame()
 
     def drop(self, entity: Optional[Entity] = None) -> None:
         """

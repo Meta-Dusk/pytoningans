@@ -5,7 +5,7 @@ from typing import Optional, TYPE_CHECKING, cast, Any, Union
 from PySide6.QtWidgets import (
     QGraphicsPixmapItem, QGraphicsColorizeEffect
 )
-from PySide6.QtCore import QPointF, QRect, QVariantAnimation
+from PySide6.QtCore import QPoint, QPointF, QRect, QVariantAnimation
 from PySide6.QtGui import QColor, QPixmap, QTransform
 
 from pytoningans.core.constants import EntityState, SystemLocks
@@ -61,6 +61,7 @@ class BaseEntity(
         self.is_physics_enabled: bool = True
         self.velocity_y: float = 0.0
         self._target_pos: Optional[QPointF] = None
+        self.current_hold_offset: Optional[QPoint] = None
         
         self.current_hitbox: QRect = QRect()
         self.current_attack_hitbox: QRect = QRect()
@@ -152,6 +153,13 @@ class BaseEntity(
             self._target_pos = QPointF(pos.x, pos.y)
         else:
             self._target_pos = None
+
+    @property
+    def current_hold_pos(self) -> Optional[QPointF]:
+        """Returns the world scene coordinates where held items should be positioned, or None."""
+        if self.current_hold_offset is None:
+            return None
+        return QPointF(self.x() + self.current_hold_offset.x(), self.y() + self.current_hold_offset.y())
 
     @property
     def is_force_idle(self) -> bool:

@@ -83,6 +83,11 @@ class AnimationMeta:
     hitbox_y: int = 0
     hitbox_w: int = 0
     hitbox_h: int = 0
+
+    # Item Hold Anchor (2nd anchor for held items)
+    has_hold_point: bool = False
+    hold_x: int = 0
+    hold_y: int = 0
     
     frame_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
     """Dictionary mapping string frame indices (for JSON) to override data dicts"""

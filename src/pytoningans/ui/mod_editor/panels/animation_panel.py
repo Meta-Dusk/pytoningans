@@ -3,7 +3,7 @@ from typing import Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox, QPushButton,
-    QLabel, QFormLayout, QFrame, QMessageBox
+    QLabel, QFormLayout, QFrame, QMessageBox, QSpinBox
 )
 from PySide6.QtCore import Qt, QTimer, QRect
 
@@ -83,11 +83,23 @@ class AnimationSubsystem(BasePanel):
         self.preview_label.setMinimumHeight(150)
         self.preview_label.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Sunken)
         
+        preview_ctrls = QHBoxLayout()
+        self.preview_zoom_spin = QSpinBox()
+        self.preview_zoom_spin.setPrefix("Zoom: ")
+        self.preview_zoom_spin.setSuffix("x")
+        self.preview_zoom_spin.setRange(1, 20)
+        self.preview_zoom_spin.setValue(self.preview_label.zoom)
+
+        self.preview_reset_btn = QPushButton("Reset View")
         self.restart_btn = QPushButton("Restart Animation")
-        
+
+        preview_ctrls.addWidget(self.preview_zoom_spin)
+        preview_ctrls.addWidget(self.preview_reset_btn)
+        preview_ctrls.addWidget(self.restart_btn)
+
         layout.addWidget(title)
         layout.addWidget(self.preview_label)
-        layout.addWidget(self.restart_btn)
+        layout.addLayout(preview_ctrls)
 
     def _build_debug_panel(self) -> None:
         self.debug_panel = QWidget()
@@ -244,6 +256,9 @@ class AnimationSubsystem(BasePanel):
         self.paste_btn.clicked.connect(self._on_paste)
         self.swap_btn.clicked.connect(self._on_swap)
         self.restart_btn.clicked.connect(self._restart_preview)
+        self.preview_zoom_spin.valueChanged.connect(self.preview_label.set_zoom)
+        self.preview_label.zoom_changed.connect(self.preview_zoom_spin.setValue)
+        self.preview_reset_btn.clicked.connect(self.preview_label.reset_view)
         
         self.borders_check.stateChanged.connect(self._on_borders_toggled)
         self.range_check.stateChanged.connect(self._on_range_toggled)

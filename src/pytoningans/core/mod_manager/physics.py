@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Any
 
 from PySide6.QtCore import QPoint, QRect
 
@@ -72,4 +72,55 @@ def get_frame_physics(
         hh = anim_meta.computed_h
 
     return QPoint(ax, ay), QRect(hx, hy, hw, hh)
+
+
+def get_frame_hold_point(
+    animations: dict[str, AnimationMeta],
+    state: str,
+    tick_index: int,
+    is_static: bool = False,
+    entity_type: str = EntityType.ENTITY,
+) -> Optional[QPoint]:
+    """Returns the custom Item Hold Anchor Point for the current frame if configured, or None."""
+    anim_meta: Optional[AnimationMeta] = animations.get(state)
+    if is_static:
+        if anim_meta is None:
+            anim_meta = (
+                animations.get(ItemState.IDLE)
+                or animations.get("idle")
+                or animations.get("default")
+                or next(iter(animations.values()), None)
+            )
+        if anim_meta is None or not anim_meta.has_hold_point:
+            return None
+        return QPoint(anim_meta.hold_x, anim_meta.hold_y)
+
+    if anim_meta is None:
+        return None
+
+    total_play_frames: int = max(1, (anim_meta.end_frame - anim_meta.start_frame) + 1)
+    mapped_index: int = (
+        tick_index % total_play_frames
+        if anim_meta.loop else
+        min(tick_index, total_play_frames - 1)
+    )
+    if anim_meta.reverse:
+        mapped_index = (total_play_frames - 1) - mapped_index
+
+    has_hold: bool = anim_meta.has_hold_point
+    hx, hy = anim_meta.hold_x, anim_meta.hold_y
+
+    frame_key: str = str(mapped_index)
+    if frame_key in anim_meta.frame_overrides:
+        override: dict[str, Any] = anim_meta.frame_overrides[frame_key]
+        if "has_hold_point" in override:
+            has_hold = bool(override["has_hold_point"])
+        hx = override.get("hold_x", hx)
+        hy = override.get("hold_y", hy)
+
+    if not has_hold:
+        return None
+
+    return QPoint(hx, hy)
+
 

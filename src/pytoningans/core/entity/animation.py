@@ -145,6 +145,18 @@ class AnimationSystem(QObject):
         self.entity.current_attack_hitbox = atk_rect
         self.entity.current_hitbox = current_hitbox
 
+        # Item Hold Anchor Extraction & Transformation
+        raw_hold: Optional[QPoint] = self.entity.mod_manager.get_frame_hold_point(
+            self.entity.state, self.current_frame
+        )
+        if raw_hold is not None:
+            final_hold_pt: QPoint = transform.map(raw_hold)
+            final_hx: int = final_hold_pt.x() - mapped_rect.x()
+            final_hy: int = final_hold_pt.y() - mapped_rect.y()
+            self.entity.current_hold_offset = QPoint(final_hx, final_hy)
+        else:
+            self.entity.current_hold_offset = None
+
         # Calculate New Item Position (Returns float in QGraphicsItem)
         new_x: float = self.entity.x()
         new_y: float = self.entity.y()
@@ -173,5 +185,9 @@ class AnimationSystem(QObject):
         # Apply Position and Pixmap to the Item
         self.entity.setPos(new_x, new_y)
         self.entity.setPixmap(frame)
+
+        held_item = getattr(self.entity, "held_item", None)
+        if held_item is not None:
+            held_item._update_held_position()
         
         if is_attack and advance: self.attack_frame_hit.emit()

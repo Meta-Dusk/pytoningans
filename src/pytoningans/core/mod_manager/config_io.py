@@ -80,6 +80,9 @@ def sync_static_physics(animations: dict[str, AnimationMeta]) -> None:
         meta.hitbox_y = base_meta.hitbox_y
         meta.hitbox_w = base_meta.hitbox_w
         meta.hitbox_h = base_meta.hitbox_h
+        meta.has_hold_point = base_meta.has_hold_point
+        meta.hold_x = base_meta.hold_x
+        meta.hold_y = base_meta.hold_y
         meta.frame_overrides.clear()
 
 

@@ -1,8 +1,8 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QPushButton, QSizeGrip, QHBoxLayout, QSpinBox, QDoubleSpinBox
 )
-from PySide6.QtCore import Qt, QRect, Signal, QPoint
-from PySide6.QtGui import QPaintEvent, QPainter, QPen, QColor, QMouseEvent
+from PySide6.QtCore import Qt, QRect, Signal, QPoint, QPointF
+from PySide6.QtGui import QImage, QPaintEvent, QPainter, QPen, QColor, QMouseEvent, QWheelEvent, QPixmap, QResizeEvent
 
 from pytoningans.ui.tool_tip import ToolTipLabel
 
@@ -39,10 +39,12 @@ def create_double_spinbox(
     return spin
 
 class PreviewLabel(QLabel):
-    """Custom label that draws debug borders and interactive cropping overlays."""
+    """Custom label that draws debug borders, interactive cropping overlays, and supports pan/zoom."""
     
-    crop_updated = Signal(int, int, int, int) 
+    crop_updated = Signal(int, int, int, int)
     """Emits the raw coordinates whenever the red box is dragged"""
+    
+    zoom_changed = Signal(int)
 
     def __init__(self) -> None:
         super().__init__()
@@ -50,6 +52,13 @@ class PreviewLabel(QLabel):
         self.show_crop: bool = False
         self.crop_rect: QRect = QRect()
         
+        # Pan and Zoom variables
+        self.zoom: int = 2
+        self.pan_offset: QPoint = QPoint(0, 0)
+        self._is_panning: bool = False
+        self._pan_start: QPoint = QPoint()
+        self._first_load: bool = True
+
         # Mouse tracking variables
         self.setMouseTracking(True) 
         self._drag_edge: str = ""
@@ -62,114 +71,174 @@ class PreviewLabel(QLabel):
         self.attack_range: int = 0
         self.current_hitbox: QRect = QRect()
 
-    def paintEvent(self, event: QPaintEvent) -> None:
-        super().paintEvent(event)
-        if not self.pixmap(): return
-        
+    def setPixmap(self, pixmapOrImage: QPixmap | QImage) -> None:
+        super().setPixmap(pixmapOrImage)
+        if (
+            (self.pixmap().isNull() or self._first_load) and
+            not pixmapOrImage.isNull() and self.width() > 10
+        ):
+            self._first_load = False
+            self.reset_view()
+        else:
+            self.update()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if self._first_load and not self.pixmap().isNull() and self.width() > 10:
+            self._first_load = False
+            self.reset_view()
+
+    def reset_view(self) -> None:
+        """Centers the preview pixmap in the viewport."""
+        if not self.pixmap().isNull():
+            sw: int = self.pixmap().width() * self.zoom
+            sh: int = self.pixmap().height() * self.zoom
+            self.pan_offset = QPoint((self.width() - sw) // 2, (self.height() - sh) // 2)
+        else:
+            self.pan_offset = QPoint(0, 0)
+        self.update()
+
+    def paintEvent(self, _: QPaintEvent) -> None:
+        if self.pixmap().isNull():
+            painter = QPainter(self)
+            painter.fillRect(self.rect(), self.palette().base().color())
+            painter.setPen(self.palette().shadow().color())
+            painter.drawRect(0, 0, self.width() - 1, self.height() - 1)
+            painter.setPen(self.palette().text().color())
+            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "No Preview")
+            painter.end()
+            return
+
         painter = QPainter(self)
+        painter.fillRect(self.rect(), self.palette().base().color())
+        painter.setPen(self.palette().shadow().color())
+        painter.drawRect(0, 0, self.width() - 1, self.height() - 1)
+
+        painter.setClipRect(self.rect().adjusted(1, 1, -1, -1))
+
         px_w: int = self.pixmap().width()
         px_h: int = self.pixmap().height()
-        
-        offset_x: int = (self.width() - px_w) // 2
-        offset_y: int = (self.height() - px_h) // 2
-        
+        scaled_w: int = px_w * self.zoom
+        scaled_h: int = px_h * self.zoom
+
+        pan_x: int = self.pan_offset.x()
+        pan_y: int = self.pan_offset.y()
+
+        # Draw frame pixmap scaled with nearest neighbor for crisp pixel art
+        painter.drawPixmap(pan_x, pan_y, scaled_w, scaled_h, self.pixmap())
+
         if self.show_borders:
             painter.setPen(QPen(QColor(0, 150, 255), 2, Qt.PenStyle.DashLine))
-            painter.drawRect(offset_x, offset_y, px_w - 1, px_h - 1)
-            
+            painter.drawRect(pan_x, pan_y, scaled_w - 1, scaled_h - 1)
+
         if self.show_crop and not self.crop_rect.isNull():
             painter.setPen(QPen(QColor(255, 0, 0), 2, Qt.PenStyle.SolidLine))
-            cx: int = offset_x + self.crop_rect.x()
-            cy: int = offset_y + self.crop_rect.y()
-            cw: int = self.crop_rect.width()
-            ch: int = self.crop_rect.height()
-            
+            cx: int = pan_x + int(self.crop_rect.x() * self.zoom)
+            cy: int = pan_y + int(self.crop_rect.y() * self.zoom)
+            cw: int = int(self.crop_rect.width() * self.zoom)
+            ch: int = int(self.crop_rect.height() * self.zoom)
+
             painter.drawRect(cx, cy, cw - 1, ch - 1)
-            
+
             # Dim the cropped-out areas to make the red box pop
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QColor(0, 0, 0, 120))
-            
+
+            crop_top_scaled: int = int(self.crop_rect.y() * self.zoom)
+            crop_left_scaled: int = int(self.crop_rect.x() * self.zoom)
+
             # Top
-            painter.drawRect(
-                offset_x, offset_y,
-                px_w, self.crop_rect.y()
-            )
+            painter.drawRect(pan_x, pan_y, scaled_w, crop_top_scaled)
             # Bottom
             painter.drawRect(
-                offset_x, offset_y + self.crop_rect.y() + ch,
-                px_w, px_h - self.crop_rect.y() - ch
+                pan_x, cy + ch,
+                scaled_w, max(0, scaled_h - (crop_top_scaled + ch))
             )
             # Left
-            painter.drawRect(
-                offset_x, offset_y + self.crop_rect.y(),
-                self.crop_rect.x(), ch
-            )
+            painter.drawRect(pan_x, cy, crop_left_scaled, ch)
             # Right
             painter.drawRect(
-                offset_x + self.crop_rect.x() + cw, offset_y + self.crop_rect.y(),
-                px_w - self.crop_rect.x() - cw, ch
+                cx + cw, cy,
+                max(0, scaled_w - (crop_left_scaled + cw)), ch
             )
-        
-        if self.show_attack_range and self.attack_range > 0 and self.pixmap():
-            # Calculate the offset to center the drawing over the pixmap
-            pixmap_rect: QRect = self.pixmap().rect()
-            pixmap_rect.moveCenter(self.rect().center())
-            
-            # Map the center of the hitbox to the UI scale
-            hx: int = pixmap_rect.x() + self.current_hitbox.center().x()
-            hy: int = pixmap_rect.y() + self.current_hitbox.center().y()
-            
-            # Draw a semi-transparent dashed red circle
+
+        if self.show_attack_range and self.attack_range > 0 and not self.current_hitbox.isEmpty():
+            center_x: float = pan_x + (self.current_hitbox.x() + self.current_hitbox.width() / 2.0) * self.zoom
+            center_y: float = pan_y + (self.current_hitbox.y() + self.current_hitbox.height() / 2.0) * self.zoom
+            scaled_range: float = self.attack_range * self.zoom
+
             pen = QPen(QColor(255, 50, 50, 180), 2, Qt.PenStyle.DashLine)
             painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawEllipse(QPoint(hx, hy), self.attack_range, self.attack_range)
-            
+            painter.drawEllipse(QPointF(center_x, center_y), scaled_range, scaled_range)
+
         painter.end()
 
     # --- Interactive Mouse Controls ---
-    def _get_pixmap_offset(self) -> tuple[int, int]:
-        if not self.pixmap(): return 0, 0
-        return (self.width() - self.pixmap().width()) // 2, (self.height() - self.pixmap().height()) // 2
-
     def _get_edge_under_mouse(self, pos: QPoint) -> str:
         """Determines if the mouse is hovering over an edge, corner, or the center of the crop rect."""
         if not self.show_crop or self.crop_rect.isNull(): return ""
-        
-        ox, oy = self._get_pixmap_offset()
-        rect = QRect(
-            ox + self.crop_rect.x(), oy + self.crop_rect.y(),
-            self.crop_rect.width(), self.crop_rect.height()
-        )
-        
+
+        cx: int = self.pan_offset.x() + int(self.crop_rect.x() * self.zoom)
+        cy: int = self.pan_offset.y() + int(self.crop_rect.y() * self.zoom)
+        cw: int = int(self.crop_rect.width() * self.zoom)
+        ch: int = int(self.crop_rect.height() * self.zoom)
+        rect = QRect(cx, cy, cw, ch)
+
         margin: int = 6
         edges: str = ""
         if abs(pos.y() - rect.top()) <= margin: edges += "t"
         elif abs(pos.y() - rect.bottom()) <= margin: edges += "b"
-        
+
         if abs(pos.x() - rect.left()) <= margin: edges += "l"
         elif abs(pos.x() - rect.right()) <= margin: edges += "r"
-        
+
         if not edges and rect.contains(pos): edges = "c" # Center drag
         return edges
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton and self.show_crop:
-            self._drag_edge = self._get_edge_under_mouse(event.pos())
-            if self._drag_edge:
-                self._drag_start_pos = event.pos()
-                self._original_rect = QRect(self.crop_rect)
+        if self.pixmap().isNull(): return
+
+        # Middle or Right mouse button drag pans the viewport
+        if event.button() in (
+            Qt.MouseButton.MiddleButton, Qt.MouseButton.RightButton
+        ):
+            self._is_panning = True
+            self._pan_start = event.pos()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            return
+
+        if event.button() == Qt.MouseButton.LeftButton:
+            if event.modifiers() & (
+                Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.ControlModifier
+            ):
+                self._is_panning = True
+                self._pan_start = event.pos()
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+                return
+
+            if self.show_crop:
+                self._drag_edge = self._get_edge_under_mouse(event.pos())
+                if self._drag_edge:
+                    self._drag_start_pos = event.pos()
+                    self._original_rect = QRect(self.crop_rect)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if self._is_panning:
+            delta: QPoint = event.pos() - self._pan_start
+            self._pan_start = event.pos()
+            self.pan_offset += delta
+            self.update()
+            return
+
         if not self.show_crop:
             self.unsetCursor()
             return
 
         if self._drag_edge:
-            # Apply translations based on the starting drag position
-            dx: int = event.pos().x() - self._drag_start_pos.x()
-            dy: int = event.pos().y() - self._drag_start_pos.y()
+            # Apply translations based on the starting drag position and zoom
+            dx: int = int((event.pos().x() - self._drag_start_pos.x()) / self.zoom)
+            dy: int = int((event.pos().y() - self._drag_start_pos.y()) / self.zoom)
             new_rect = QRect(self._original_rect)
 
             if "c" in self._drag_edge:
@@ -184,7 +253,7 @@ class PreviewLabel(QLabel):
             if new_rect.width() >= 1 and new_rect.height() >= 1:
                 self.crop_rect = new_rect
                 self.update() # Force instant visual refresh
-                
+
                 # Broadcast the new math back to the UI panel
                 self.crop_updated.emit(new_rect.x(), new_rect.y(), new_rect.width(), new_rect.height())
         else:
@@ -198,7 +267,46 @@ class PreviewLabel(QLabel):
             else: self.unsetCursor()
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if (
+            event.button() in (
+                Qt.MouseButton.MiddleButton, Qt.MouseButton.RightButton
+            ) or self._is_panning
+        ):
+            self._is_panning = False
+            self.unsetCursor()
         self._drag_edge = ""
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        angle: int = event.angleDelta().y()
+        if angle == 0: return
+        old_zoom: int = self.zoom
+        delta: int = 1 if angle > 0 else -1
+        new_zoom: int = max(1, min(20, self.zoom + delta))
+        if new_zoom != old_zoom:
+            cursor_pos: QPoint = event.position().toPoint()
+            fx: float = (cursor_pos.x() - self.pan_offset.x()) / float(old_zoom)
+            fy: float = (cursor_pos.y() - self.pan_offset.y()) / float(old_zoom)
+            self.zoom = new_zoom
+            self.pan_offset = QPoint(
+                int(cursor_pos.x() - fx * new_zoom),
+                int(cursor_pos.y() - fy * new_zoom)
+            )
+            self.zoom_changed.emit(self.zoom)
+            self.update()
+
+    def set_zoom(self, zoom: int) -> None:
+        if self.zoom == zoom: return
+        old_zoom: int = self.zoom
+        center_x: float = self.width() / 2.0
+        center_y: float = self.height() / 2.0
+        fx: float = (center_x - self.pan_offset.x()) / float(old_zoom)
+        fy: float = (center_y - self.pan_offset.y()) / float(old_zoom)
+        self.zoom = zoom
+        self.pan_offset = QPoint(
+            int(center_x - fx * self.zoom),
+            int(center_y - fy * self.zoom)
+        )
+        self.update()
 
 class CollapsibleSection(QWidget):
     """A reusable UI component that expands and collapses its contents."""
