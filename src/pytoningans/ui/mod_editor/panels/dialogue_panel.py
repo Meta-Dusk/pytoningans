@@ -273,12 +273,11 @@ class DialoguePanel(BasePanel):
 
     def _save_dialogue_state(self) -> None:
         """Extracts all plain dialogue items and updates the engine manager."""
-        if getattr(self, '_is_updating_ui', False): return
+        if self._is_updating_ui: return
         new_dialogue: list[str] = [
             self.plain_dialogue_list.item(i).text() for i in range(self.plain_dialogue_list.count())
         ]
-        if self.controller.manager.plain_dialogue:
-            self.controller.manager.plain_dialogue = new_dialogue
+        self.controller.manager.plain_dialogue = new_dialogue
 
     # --- Death Dialogue Actions ---
     def _on_add_death_dialogue(self) -> None:
@@ -317,12 +316,11 @@ class DialoguePanel(BasePanel):
 
     def _save_death_dialogue_state(self) -> None:
         """Extracts all death dialogue items and updates the engine manager."""
-        if getattr(self, '_is_updating_ui', False): return
+        if self._is_updating_ui: return
         new_death_dialogue: list[str] = [
             self.death_dialogue_list.item(i).text() for i in range(self.death_dialogue_list.count())
         ]
-        if self.controller.manager.death_dialogue:
-            self.controller.manager.death_dialogue = new_death_dialogue
+        self.controller.manager.death_dialogue = new_death_dialogue
 
     # --- Window Triggers Actions ---
     def _on_add_window_trigger(self) -> None:
@@ -345,14 +343,14 @@ class DialoguePanel(BasePanel):
 
     def _save_trigger_state(self) -> None:
         """Extracts all trigger dictionaries from the table items and updates the engine manager."""
-        if getattr(self, '_is_updating_ui', False): return
+        if self._is_updating_ui: return
         new_triggers: list[dict[str, Any]] = []
         for row in range(self.window_triggers_table.rowCount()):
-            item0 = self.window_triggers_table.item(row, 0)
-            if item0:
-                data = item0.data(Qt.ItemDataRole.UserRole)
-                if data:
-                    new_triggers.append(data)
+            item_0: Optional[QTableWidgetItem] = self.window_triggers_table.item(row, 0)
+            if item_0 is None: continue
+            data = item_0.data(Qt.ItemDataRole.UserRole)
+            if data:
+                new_triggers.append(data)
         self.controller.manager.window_triggers = new_triggers
 
     def _on_edit_window_trigger(self) -> None:

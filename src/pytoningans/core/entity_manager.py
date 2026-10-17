@@ -110,11 +110,14 @@ class EntityManager:
     def spawn_entity(
         self, x: float, y: float, mod_folder: str, 
         target_world: Optional[WorldOverlay] = None,
-        instance_name: Optional[str] = None
+        instance_name: Optional[str] = None,
+        fade_in: Optional[bool] = None,
     ) -> Optional[BaseEntity]:
         """Dynamically spawns a living Entity or a static Structure based on mod config."""
         mod_manager = ModManager(self.mod_manager.mods_dir)
         mod_manager.load_mod(mod_folder)
+        if fade_in is not None:
+            mod_manager.fade_in_on_spawn = fade_in
         
         # Fallback to the first world if no specific world is provided
         world: Optional[WorldOverlay] = (

@@ -23,7 +23,7 @@ def tick_movement(entity: BaseEntity, current_move_speed: float) -> None:
     ):
         return
 
-    target_pos: Optional[QPointF] = getattr(entity, "_target_pos", None)
+    target_pos: Optional[QPointF] = entity.target_pos
     if entity.state != EntityState.MOVING or target_pos is None:
         return
 
@@ -36,12 +36,7 @@ def tick_movement(entity: BaseEntity, current_move_speed: float) -> None:
 
     if dist < max(current_move_speed, 5.0):
         entity.setPos(target_x, target_y)
-
-        if hasattr(entity, "target_pos"):
-            setattr(entity, "target_pos", None)
-        else:
-            setattr(entity, "_target_pos", None)
-
+        entity.target_pos = None
         entity.sprite_rotation = 0.0
         entity.anim_sys.set_state(EntityState.IDLE)
     else:
@@ -64,12 +59,12 @@ def tick_movement(entity: BaseEntity, current_move_speed: float) -> None:
             if step_x <= min_step_x:
                 step_x = min_step_x
                 entity.facing_left = False
-                entity._target_pos = None
+                entity.target_pos = None
                 entity.anim_sys.set_state(EntityState.IDLE)
             elif step_x >= max_step_x:
                 step_x = max_step_x
                 entity.facing_left = True
-                entity._target_pos = None
+                entity.target_pos = None
                 entity.anim_sys.set_state(EntityState.IDLE)
 
         entity.setPos(step_x, step_y)

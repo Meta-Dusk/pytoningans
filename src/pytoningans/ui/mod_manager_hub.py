@@ -68,8 +68,8 @@ class ModManagerHub(QWidget):
         
         self.type_filter = QComboBox()
         self.type_filter.addItem("All Types", "all")
-        self.type_filter.addItem("Entities Only", EntityType.ENTITY.value)
-        self.type_filter.addItem("Structures Only", EntityType.STRUCTURE.value)
+        self.type_filter.addItem("Entities Only", EntityType.ENTITY)
+        self.type_filter.addItem("Structures Only", EntityType.STRUCTURE)
         self.type_filter.currentIndexChanged.connect(self._apply_filter)
         
         filter_layout.addWidget(self.search_input, stretch=2)

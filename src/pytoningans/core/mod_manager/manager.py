@@ -98,6 +98,7 @@ class ModManager:
 
         self.death_animation: DeathAnimation = DeathAnimation.SPRITE
         self.auto_close_on_death: bool = False
+        self.fade_in_on_spawn: bool = False
         self.instance_names: list[str] = []
         self.tags: list[str] = []
 
@@ -202,6 +203,7 @@ class ModManager:
             self.death_animation = DeathAnimation.SPRITE
 
         self.auto_close_on_death = behavior_data.get("auto_close_on_death", False)
+        self.fade_in_on_spawn = behavior_data.get("fade_in_on_spawn", False)
         self.instance_names = list(behavior_data.get("instance_names", []))
 
         anim_data: dict[str, Any] = data.get("animations", {})
@@ -260,7 +262,7 @@ class ModManager:
             columns=self.global_columns,
             rows=self.global_rows,
             behavior=BehaviorConfig(
-                type=BehaviorType(self.behavior_type).value,
+                type=self.behavior_type,
                 can_fly=self.can_fly,
                 can_climb_walls=self.can_climb_walls,
                 can_move_windows=self.can_move_windows,
@@ -276,6 +278,7 @@ class ModManager:
                 max_targets=self.max_targets,
                 death_animation=self.death_animation,
                 auto_close_on_death=self.auto_close_on_death,
+                fade_in_on_spawn=self.fade_in_on_spawn,
                 instance_names=self.instance_names,
             ),
             animations={str(state): meta for state, meta in self.animations.items()},

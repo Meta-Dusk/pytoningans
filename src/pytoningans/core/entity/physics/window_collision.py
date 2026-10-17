@@ -75,7 +75,7 @@ def _try_trigger_attack(entity: BaseEntity, facing_left: bool) -> bool:
     entity.anim_sys.set_state(EntityState.ATTACK)
     ai_sys.attack_time_left = 800
     ai_sys.attack_cooldown = 1500
-    entity._target_pos = None
+    entity.target_pos = None
     return True
 
 
@@ -84,7 +84,7 @@ def _block_and_turn(
 ) -> tuple[float, bool]:
     """Stops the entity at the window wall, turns it around, and enters IDLE state."""
     entity.facing_left = facing_left
-    entity._target_pos = None
+    entity.target_pos = None
     if entity.anim_sys is not None:
         entity.anim_sys.set_state(EntityState.IDLE)
     return adjusted_x, True
@@ -149,12 +149,12 @@ def _eject_laterally(
         if eject_x < min_x or eject_x > max_x:
             clamped_x: float = max(min_x, min(eject_x, max_x))
             entity.setPos(clamped_x, entity.y())
-            entity._target_pos = None
+            entity.target_pos = None
             _trigger_squish_death(entity, is_dead)
             return True, None
 
     entity.setPos(eject_x, entity.y())
-    entity._target_pos = None
+    entity.target_pos = None
     if not is_dead and entity.anim_sys is not None:
         entity.anim_sys.set_state(EntityState.IDLE)
     return True, None
@@ -296,10 +296,10 @@ def find_candidate_platforms(
     Finds the highest applicable platform floor beneath or crossed by the entity during this frame.
     Returns (effective_ground_y, matched_platform_rect).
     """
-    if entity.world is None or not getattr(entity, "should_use_window_physics", True):
+    if entity.world is None or not entity.should_use_window_physics:
         return ground_y, None
 
-    window_rects: list[QRect] = getattr(entity.world, "active_window_rects", [])
+    window_rects: list[QRect] = entity.world.active_window_rects
     if not window_rects:
         return ground_y, None
 
@@ -336,7 +336,7 @@ def check_window_ceiling_collision(entity: BaseEntity, new_y: float) -> tuple[fl
     if (
         entity.velocity_y >= 0 or
         entity.world is None or
-        not getattr(entity, "should_use_window_physics", True)
+        not entity.should_use_window_physics
     ):
         return new_y, False
 

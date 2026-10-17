@@ -194,7 +194,7 @@ class SpawnPanel(QWidget):
 
     def _on_area_changed(self, _: int) -> None:
         mode: str = self.area_combo.currentData()
-        self.custom_region_frame.setVisible(mode == SpawnAreaMode.CUSTOM.value)
+        self.custom_region_frame.setVisible(mode == SpawnAreaMode.CUSTOM)
         SettingsManager.get().update_settings(spawn_area_mode=mode)
         self.size_change_requested.emit()
 
@@ -270,8 +270,7 @@ class SpawnPanel(QWidget):
         avoid_win: bool = self.avoid_windows_chk.isChecked()
         custom_rect: Optional[QRect] = (
             self.manager.spawning_system.custom_region
-            if area_mode == SpawnAreaMode.CUSTOM.value
-            else None
+            if area_mode == SpawnAreaMode.CUSTOM else None
         )
 
         target_world: Optional[WorldOverlay]

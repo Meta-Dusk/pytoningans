@@ -47,7 +47,7 @@ class EntityDragMixin:
             if (
                 self.anim_sys is not None and
                 self.mod_manager is not None and
-                self.mod_manager.entity_type == EntityType.ENTITY.value and
+                self.mod_manager.entity_type == EntityType.ENTITY and
                 EntityState.DRAG in self.mod_manager.animations
             ):
                 self.anim_sys.set_state(EntityState.DRAG)
@@ -77,7 +77,7 @@ class EntityDragMixin:
             if (
                 self.anim_sys is not None and
                 self.mod_manager is not None and
-                self.mod_manager.entity_type == EntityType.ENTITY.value and
+                self.mod_manager.entity_type == EntityType.ENTITY and
                 EntityState.IDLE in self.mod_manager.animations
             ):
                 self.anim_sys.set_state(EntityState.IDLE)

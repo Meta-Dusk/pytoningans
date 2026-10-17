@@ -196,6 +196,7 @@ class BehaviorScriptPanel(BaseBehaviorPanel):
         self.death_anim_combo.addItem("Rotate Right 90°", DeathAnimation.ROTATE_RIGHT)
         self.death_anim_combo.addItem("Rotate 90° or -90°", DeathAnimation.ROTATE_LEFT_OR_RIGHT)
         
+        self.fade_in_check = QCheckBox("Fade In on Spawn")
         self.auto_close_check = QCheckBox("Fade Out and Close on Death")
         
         form.addWidget(self.add_btn)
@@ -204,6 +205,7 @@ class BehaviorScriptPanel(BaseBehaviorPanel):
         form.addItem(QSpacerItem(0, 16))
         
         form.addRow("Death Animation:", self.death_anim_combo)
+        form.addRow(self.fade_in_check)
         form.addRow(self.auto_close_check)
         
         self.section.content_layout.addLayout(form)
@@ -214,6 +216,7 @@ class BehaviorScriptPanel(BaseBehaviorPanel):
         self.edit_btn.clicked.connect(self._open_script)
         self.delete_btn.clicked.connect(self._delete_script)
         self.death_anim_combo.currentIndexChanged.connect(self._on_death_anim_changed)
+        self.fade_in_check.stateChanged.connect(self._on_fade_in_changed)
         self.auto_close_check.stateChanged.connect(self._on_auto_close_changed)
 
     def load_data(self) -> None:
@@ -225,10 +228,14 @@ class BehaviorScriptPanel(BaseBehaviorPanel):
         idx: int = self.death_anim_combo.findData(self.controller.manager.death_animation)
         if idx >= 0: self.death_anim_combo.setCurrentIndex(idx)
             
+        self.fade_in_check.setChecked(self.controller.manager.fade_in_on_spawn)
         self.auto_close_check.setChecked(self.controller.manager.auto_close_on_death)
     
     def _on_death_anim_changed(self) -> None:
         self.controller.manager.death_animation = self.death_anim_combo.currentData()
+
+    def _on_fade_in_changed(self, state: int) -> None:
+        self.controller.manager.fade_in_on_spawn = bool(state)
 
     def _on_auto_close_changed(self, state: int) -> None:
         self.controller.manager.auto_close_on_death = bool(state)

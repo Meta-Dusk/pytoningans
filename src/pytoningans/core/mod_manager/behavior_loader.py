@@ -40,9 +40,9 @@ def compile_behavior_mod(
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
-        if entity_type == EntityType.STRUCTURE.value:
+        if entity_type == EntityType.STRUCTURE:
             target_base_name: str = "BaseStructureBehavior"
-        elif entity_type == EntityType.ITEM.value:
+        elif entity_type == EntityType.ITEM:
             target_base_name: str = "BaseItemBehavior"
         else:
             target_base_name: str = "BaseEntityBehavior"

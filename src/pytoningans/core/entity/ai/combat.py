@@ -79,7 +79,7 @@ def default_combat_logic(ai: AISystem, my_center: QPointF, other_center: QPointF
     if ai.entity.mod_manager.can_fly:
         ai.entity.sprite_rotation = math.degrees(math.atan2(dy, abs(dx) if dx != 0 else 0.1))
             
-    ai.entity._target_pos = None
+    ai.entity.target_pos = None
     ai.attack_time_left = 800 
     ai.attack_cooldown = 2000 
     ai.entity.anim_sys.set_state(EntityState.ATTACK)

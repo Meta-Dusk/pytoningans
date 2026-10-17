@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 def build_structure_actions(menu: EntityContextMenu, layout: QVBoxLayout, structure: BaseStructure) -> None:
     """Builds interactive control buttons and portal link pickers for a structure."""
     status_text: str = (
-        "Deactivate" if structure.state == StructureState.ACTIVE.value else "Activate"
+        "Deactivate" if structure.state == StructureState.ACTIVE else "Activate"
     )
     row_quick = QHBoxLayout()
     row_quick.setSpacing(6)

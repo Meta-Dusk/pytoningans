@@ -35,7 +35,7 @@ class BaseItem(BaseEntity):
         self.is_physics_enabled = not can_fly
         self.locks.physics = self.is_physics_enabled
 
-        self._state: str = ItemState.IDLE.value
+        self._state: str = ItemState.IDLE
         self.holder: Optional[Entity] = None
         self._pickup_cooldown: int = 0
         self._last_holder: Optional[Entity] = None
@@ -43,10 +43,7 @@ class BaseItem(BaseEntity):
     @property
     def is_interactable(self) -> bool:
         """Returns True if the item can be interacted with by entities in the world."""
-        return (
-            super().is_interactable and
-            not self.is_held
-        )
+        return super().is_interactable and not self.is_held
 
     @property
     def is_held(self) -> bool:
@@ -56,14 +53,10 @@ class BaseItem(BaseEntity):
     @property
     def is_static(self) -> bool:
         """Returns True if the item is a stateless / single-sprite item."""
-        if self.mod_manager is not None:
-            return getattr(self.mod_manager, "is_static", False)
-        return False
+        return self.mod_manager.is_static if self.mod_manager is not None else False
 
     @BaseEntity.state.setter
     def state(self, value: str) -> None:
-        if getattr(self, "_state", None) == value:
-            return
         old_state: str = self._state
         self._state = value
         if not self.is_static and self.anim_sys is not None:
@@ -118,7 +111,7 @@ class BaseItem(BaseEntity):
         # Disable physics simulation while held
         self.locks.physics = False
         self.velocity_y = 0.0
-        self.state = ItemState.HELD.value
+        self.state = ItemState.HELD
         self._update_held_position()
         return True
 
@@ -159,7 +152,7 @@ class BaseItem(BaseEntity):
             prev_holder.held_item = None
 
         self.locks.physics = self.is_physics_enabled
-        self.state = ItemState.DROPPED.value
+        self.state = ItemState.DROPPED
 
         behavior: Optional[BaseBehavior] = self.behavior
         if isinstance(behavior, BaseItemBehavior):
@@ -184,7 +177,7 @@ class BaseItem(BaseEntity):
                 print(f"Custom Item on_use Error: {e}")
                 handled = False
 
-        if handled: self.state = ItemState.USED.value
+        if handled: self.state = ItemState.USED
         return handled
 
     def update_systems(
@@ -199,7 +192,7 @@ class BaseItem(BaseEntity):
 
         # If held, stick to the holder
         if self.holder is not None:
-            if getattr(self.holder, "is_dead", False) or self.holder.scene() is None:
+            if self.holder.is_dead or self.holder.scene() is None:
                 self.drop()
             else:
                 self._update_held_position()
@@ -281,7 +274,7 @@ class BaseItem(BaseEntity):
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_dragged = False
             if not self.is_held:
-                self.state = ItemState.DROPPED.value
+                self.state = ItemState.DROPPED
             self.locks.physics = self.is_physics_enabled
             if not self.is_physics_enabled:
                 self.velocity_y = 0.0

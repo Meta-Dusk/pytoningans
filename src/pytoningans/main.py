@@ -57,7 +57,7 @@ def main() -> None:
             (
                 folder for folder,
                 (_, entity_type) in available_mods.items()
-                if entity_type == EntityType.ENTITY.value
+                if entity_type == EntityType.ENTITY
             ),
             next(iter(available_mods))
         )

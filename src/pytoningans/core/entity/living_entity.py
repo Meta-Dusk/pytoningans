@@ -23,8 +23,6 @@ if TYPE_CHECKING:
     from pytoningans.core.entity.base_item import BaseItem
 
 
-type _UniPos2D = Union[Pos2D, QPointF, tuple[float, float], list[float]]
-
 class Entity(BaseEntity):
     """Living entities with AI, health, dialogue, and combat."""
     def __init__(
@@ -36,14 +34,11 @@ class Entity(BaseEntity):
 
         self.is_dead: bool = False
         self.current_health: int = mod_manager.max_health if mod_manager else 100
-        self.regen_rate: float = float(getattr(mod_manager, "regen_rate", 0.0)) if mod_manager is not None else 0.0
+        self.regen_rate: float = mod_manager.regen_rate if mod_manager is not None else 0.0
         self._regen_accumulator: float = 0.0
         self.damage_tint_time_left: int = 0
         self.revive_time_left: int = 0
-        self._target_pos: Optional[QPointF] = None
         self.held_item: Optional[BaseItem] = None
-
-        self._fade_anim: Optional[QVariantAnimation] = None
         self._rot_anim: Optional[QVariantAnimation] = None
 
         self.ai_sys: Optional[AISystem] = AISystem(self)
@@ -70,23 +65,6 @@ class Entity(BaseEntity):
             self.state not in (EntityState.DRAG, EntityState.INTERACT) and
             not self.is_dead
         )
-
-    @property
-    def target_pos(self) -> Optional[QPointF]:
-        return self._target_pos
-
-    @target_pos.setter
-    def target_pos(self, pos: Optional[_UniPos2D]) -> None:
-        if pos is None:
-            self._target_pos = None
-        elif isinstance(pos, QPointF):
-            self._target_pos = pos
-        elif isinstance(pos, (tuple, list)) and len(pos) >= 2:
-            self._target_pos = QPointF(float(pos[0]), float(pos[1]))
-        elif isinstance(pos, Pos2D):
-            self._target_pos = QPointF(pos.x, pos.y)
-        else:
-            self._target_pos = None
 
     def update_systems(self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None) -> None:
         if self.is_paused: return
@@ -239,13 +217,13 @@ class Entity(BaseEntity):
             
         self.sprite_rotation = 0.0
         if self.anim_sys: self.anim_sys.set_state(EntityState.DYING)
-        self._target_pos = None
+        self.target_pos = None
 
         if self.health_bar is not None:
             self.health_bar.on_die()
 
         # Trigger death dialogue, overriding or interrupting any active speech bubble
-        death_lines: list[str] = getattr(self.mod_manager, "death_dialogue", [])
+        death_lines: list[str] = self.mod_manager.death_dialogue
         if death_lines:
             death_text: str = random.choice(death_lines)
             if self.bubble is not None and self.bubble.isVisible():
@@ -284,14 +262,7 @@ class Entity(BaseEntity):
 
         if self.mod_manager.auto_close_on_death:
             fade_duration: int = 3500 if death_lines else 3000
-            self._fade_anim = QVariantAnimation(self.world)
-            self._fade_anim.setDuration(fade_duration)
-            self._fade_anim.setStartValue(1.0)
-            self._fade_anim.setEndValue(0.0)
-
-            self._fade_anim.valueChanged.connect(self.setOpacity)
-            self._fade_anim.finished.connect(self.destroy)
-            self._fade_anim.start()
+            self.fade_out(duration_ms=fade_duration, destroy_on_complete=True)
 
     def revive(self) -> None:
         if self.mod_manager is None or not self.is_dead: return
@@ -350,15 +321,11 @@ class Entity(BaseEntity):
         self.say(text, 4000)
 
         if self.anim_sys: self.anim_sys.set_state(EntityState.IDLE)
-        self._target_pos = None
+        self.target_pos = None
 
     def pause_death_animations(self) -> None:
         """Pauses death fade/rotation animations while context menu is open."""
-        if (
-            self._fade_anim is not None and
-            self._fade_anim.state() == QVariantAnimation.State.Running
-        ):
-            self._fade_anim.pause()
+        super().pause_death_animations()
         if (
             self._rot_anim is not None and
             self._rot_anim.state() == QVariantAnimation.State.Running
@@ -367,11 +334,7 @@ class Entity(BaseEntity):
 
     def resume_death_animations(self) -> None:
         """Resumes death fade/rotation animations when context menu is dismissed."""
-        if (
-            self._fade_anim is not None and
-            self._fade_anim.state() == QVariantAnimation.State.Paused
-        ):
-            self._fade_anim.resume()
+        super().resume_death_animations()
         if (
             self._rot_anim is not None and
             self._rot_anim.state() == QVariantAnimation.State.Paused

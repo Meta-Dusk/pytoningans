@@ -75,6 +75,8 @@ class ModEditorController:
             "move_speed": self.manager.move_speed,
             "regen_rate": self.manager.regen_rate,
             "attack_type": self.manager.attack_type,
+            "auto_close_on_death": self.manager.auto_close_on_death,
+            "fade_in_on_spawn": self.manager.fade_in_on_spawn,
         }
 
     def update_behavior_stats(self, stats: dict[str, Any]) -> None:
@@ -91,6 +93,8 @@ class ModEditorController:
         self.manager.move_speed = float(stats.get("move_speed", self.manager.move_speed))
         self.manager.regen_rate = float(stats.get("regen_rate", self.manager.regen_rate))
         self.manager.attack_type = stats.get("attack_type", self.manager.attack_type)
+        self.manager.auto_close_on_death = bool(stats.get("auto_close_on_death", self.manager.auto_close_on_death))
+        self.manager.fade_in_on_spawn = bool(stats.get("fade_in_on_spawn", self.manager.fade_in_on_spawn))
     
     def get_raw_preview(self, state: str, frame_index: int) -> tuple[Optional[QPixmap], QRect]:
         """Returns the uncropped base tile and the QRect representing the custom crop area."""

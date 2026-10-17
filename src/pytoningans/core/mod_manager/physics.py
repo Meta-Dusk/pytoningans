@@ -22,7 +22,7 @@ def get_frame_physics(
     if is_static:
         if anim_meta is None:
             anim_meta = (
-                animations.get(ItemState.IDLE.value)
+                animations.get(ItemState.IDLE)
                 or animations.get("idle")
                 or animations.get("default")
                 or next(iter(animations.values()), None)

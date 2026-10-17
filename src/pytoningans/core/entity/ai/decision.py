@@ -28,7 +28,7 @@ def ai_decision_tick(ai: AISystem) -> None:
         return
     if on_ai_decision_tick(ai):
         return
-    if getattr(ai.entity, "is_following_cursor", False):
+    if ai.entity.is_following_cursor:
         return
     if check_item_seeking(ai):
         return
@@ -106,9 +106,9 @@ def default_ai_decision(ai: AISystem) -> None:
         else:
             dest_y = ai.entity.y()
 
-        ai.entity._target_pos = QPointF(dest_x, dest_y)
+        ai.entity.target_pos = QPointF(dest_x, dest_y)
         ai.entity.anim_sys.set_state(EntityState.MOVING)
     else:
-        ai.entity._target_pos = None
+        ai.entity.target_pos = None
         ai.entity.anim_sys.set_state(EntityState.IDLE)
 

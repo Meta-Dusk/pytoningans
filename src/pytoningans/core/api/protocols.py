@@ -41,6 +41,7 @@ class IModInfo(Protocol):
     death_dialogue: list[str]
     death_animation: DeathAnimation
     auto_close_on_death: bool
+    fade_in_on_spawn: bool
     instance_names: list[str]
 
 
@@ -58,7 +59,8 @@ class IEntityManager(Protocol):
         y: float,
         mod_folder: str,
         target_world: Optional[IWorld] = None,
-        instance_name: Optional[str] = None
+        instance_name: Optional[str] = None,
+        fade_in: Optional[bool] = None,
     ) -> Optional[IBaseEntity]:
         """Spawns an entity or structure into the game world."""
         ...
@@ -95,6 +97,7 @@ class IBaseEntity(Protocol):
     sprite_rotation: float
     velocity_y: float
     move_speed: float
+    fade_in_on_spawn: bool
     can_climb_walls: bool
     can_move_windows: bool
     ignore_window_physics: bool
@@ -102,6 +105,7 @@ class IBaseEntity(Protocol):
     is_climbing: bool
     is_cursor_grabbed: bool
     is_following_cursor: bool
+    target_pos: Optional[Any]
     components: dict[str, IComponent]
 
     @property
@@ -144,6 +148,14 @@ class IBaseEntity(Protocol):
 
     def destroy(self) -> None:
         """Removes the entity from the world, detaches components, and cleans up memory."""
+        ...
+
+    def fade_in(self, duration_ms: int = 1000) -> None:
+        """Smoothly fades in the entity from current opacity to 1.0."""
+        ...
+
+    def fade_out(self, duration_ms: int = 1000, destroy_on_complete: bool = False) -> None:
+        """Smoothly fades out the entity from current opacity to 0.0."""
         ...
 
     def flip(self) -> None:

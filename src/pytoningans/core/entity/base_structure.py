@@ -36,14 +36,14 @@ class BaseStructure(BaseEntity):
     def toggle_active(self) -> None:
         """Toggles between IDLE and ACTIVE operational states, updating components."""
         new_state: str = (
-            StructureState.IDLE.value
-            if self.state == StructureState.ACTIVE.value else
-            StructureState.ACTIVE.value
+            StructureState.IDLE
+            if self.state == StructureState.ACTIVE else
+            StructureState.ACTIVE
         )
         self.state = new_state
         teleport_comp: Optional[BaseComponent] = self.get_component("teleportation")
         if isinstance(teleport_comp, TeleportationComponent):
-            teleport_comp.enabled = (new_state == StructureState.ACTIVE.value)
+            teleport_comp.enabled = (new_state == StructureState.ACTIVE)
 
     def _set_linked_portal(self, target: Optional[BaseStructure]) -> None:
         teleport_comp: Optional[BaseComponent] = self.get_component("teleportation")

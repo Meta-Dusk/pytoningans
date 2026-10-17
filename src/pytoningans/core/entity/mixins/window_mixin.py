@@ -31,16 +31,12 @@ class EntityWindowMixin:
     @property
     def can_climb_walls(self) -> bool:
         """Returns True if the entity is configured to climb desktop window walls."""
-        if self.mod_manager is not None:
-            return getattr(self.mod_manager, "can_climb_walls", False)
-        return False
+        return self.mod_manager.can_climb_walls if self.mod_manager is not None else False
 
     @property
     def can_move_windows(self) -> bool:
         """Returns True if the entity is configured to push or attack desktop windows."""
-        if self.mod_manager is not None:
-            return getattr(self.mod_manager, "can_move_windows", False)
-        return False
+        return self.mod_manager.can_move_windows if self.mod_manager is not None else False
 
     def move_window(self, win: QRect, dx: int, dy: int) -> bool:
         """Moves the desktop window by (dx, dy) pixels."""
@@ -53,9 +49,7 @@ class EntityWindowMixin:
         """Returns True if this entity is configured to ignore desktop window physics."""
         if self._ignore_window_physics_override is not None:
             return self._ignore_window_physics_override
-        if self.mod_manager is not None:
-            return getattr(self.mod_manager, "ignore_window_physics", False)
-        return False
+        return self.mod_manager.ignore_window_physics if self.mod_manager is not None else False
 
     @ignore_window_physics.setter
     def ignore_window_physics(self, value: Optional[bool]) -> None:

@@ -80,7 +80,7 @@ def start_interaction(ai: AISystem) -> None:
     """Puts entity into interaction state with cooldown."""
     if ai.entity is None or ai.entity.anim_sys is None:
         return
-    ai.entity._target_pos = None
+    ai.entity.target_pos = None
     ai.interact_time_left = 3000 
     ai.interaction_cooldown = 6000
     ai.entity.anim_sys.set_state(EntityState.INTERACT)

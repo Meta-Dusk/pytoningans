@@ -76,11 +76,7 @@ class PhysicsSystem:
         self.climbing_side = side
         self.current_platform_rect = None
         self.entity.velocity_y = 0.0
-
-        if hasattr(self.entity, "target_pos"):
-            self.entity.target_pos = None
-        else:
-            self.entity._target_pos = None
+        self.entity.target_pos = None
 
         self.entity.facing_left = False if side == "left" else True
         self.entity.sprite_rotation = -90.0
@@ -157,11 +153,7 @@ class PhysicsSystem:
             self.entity.sprite_rotation = 0.0
             self.entity.velocity_y = 0.0
             self.entity.anim_sys.refresh_frame()
-
-            if hasattr(self.entity, "target_pos"):
-                self.entity.target_pos = None
-            else:
-                self.entity._target_pos = None
+            self.entity.target_pos = None
 
             upright_hitbox: QRect = get_effective_hitbox(self.entity)
             hitbox_bottom_offset: int = upright_hitbox.y() + upright_hitbox.height()

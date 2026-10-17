@@ -40,7 +40,7 @@ def build_item_actions(menu: EntityContextMenu, layout: QVBoxLayout, item: BaseI
         )
 
         alive_entities: list[Entity] = []
-        if item.world is not None and getattr(item.world, "active_entities", None):
+        if item.world is not None and item.world.active_entities:
             alive_entities = [e for e in item.world.active_entities if not e.is_dead]
 
         target_row = QHBoxLayout()

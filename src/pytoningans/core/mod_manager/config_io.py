@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from pytoningans.core.config_schema import ModConfig
 from pytoningans.core.constants import (
@@ -21,7 +21,7 @@ def parse_animations(
 
     for state_key, raw_meta in anim_data.items():
         # For item entities, ignore legacy living entity animation states
-        if entity_type == EntityType.ITEM.value and str(state_key) not in item_valid_keys:
+        if entity_type == EntityType.ITEM and state_key not in item_valid_keys:
             continue
         meta_dict: dict[str, Any] = dict(raw_meta)
         if "frames" in meta_dict:
@@ -40,16 +40,16 @@ def ensure_fallback_animations(
     global_columns: int,
 ) -> None:
     """Ensures standard enum states exist as fallbacks for the entity type."""
-    if entity_type == EntityType.STRUCTURE.value:
+    if entity_type == EntityType.STRUCTURE:
         state_enum = StructureState
-    elif entity_type == EntityType.ITEM.value:
+    elif entity_type == EntityType.ITEM:
         state_enum = ItemState
     else:
         state_enum = EntityState
 
     cols: int = max(1, global_columns)
     for state in state_enum:
-        key_str: str = str(state.value)
+        key_str: str = state.value
         if key_str in animations: continue
         animations[key_str] = AnimationMeta(
             row=0,
@@ -61,10 +61,9 @@ def ensure_fallback_animations(
 
 def sync_static_physics(animations: dict[str, AnimationMeta]) -> None:
     """For static entities/items/structures, ensures baseline physics match across all states and clears overrides."""
-    if not animations:
-        return
-    base_meta = (
-        animations.get(ItemState.IDLE.value)
+    if not animations: return
+    base_meta: Optional[AnimationMeta] = (
+        animations.get(ItemState.IDLE)
         or animations.get("idle")
         or animations.get("default")
         or next(iter(animations.values()), None)

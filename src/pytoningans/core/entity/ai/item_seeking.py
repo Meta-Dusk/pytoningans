@@ -19,18 +19,17 @@ def check_item_seeking(ai: AISystem) -> bool:
         ai.entity is None or
         ai.entity.world is None or
         ai.entity.mod_manager is None or
-        ai.entity.anim_sys is None or
-        getattr(ai.entity, "is_dead", False)
+        ai.entity.anim_sys is None
     ):
         return False
 
     # Gather ground items available in the world (excluding held, dragged, or cooldown items)
-    world_items: list[BaseItem] = getattr(ai.entity.world, "active_items", [])
+    world_items: list[BaseItem] = ai.entity.world.active_items
     ground_items: list[IItem] = [
         cast(IItem, item) for item in world_items
         if item.is_interactable and not (
-            getattr(item, "_last_holder", None) is ai.entity and
-            getattr(item, "_pickup_cooldown", 0) > 0
+            item._last_holder is ai.entity and
+            item._pickup_cooldown > 0
         )
     ]
 
@@ -103,6 +102,6 @@ def navigate_towards_item(ai: AISystem, item: IItem) -> None:
         else ai.entity.y()
     )
 
-    ai.entity._target_pos = QPointF(target_x, target_y)
+    ai.entity.target_pos = QPointF(target_x, target_y)
     ai.entity.anim_sys.set_state(EntityState.MOVING)
 

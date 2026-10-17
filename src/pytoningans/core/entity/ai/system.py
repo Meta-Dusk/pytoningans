@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from PySide6.QtCore import QPointF
+from PySide6.QtCore import QPointF, QRect
 
 from pytoningans.core.constants import EntityState
 from .combat import check_combat as _do_check_combat
@@ -65,10 +65,14 @@ class AISystem:
             if self.attack_time_left <= 0:
                 self.entity.anim_sys.set_state(EntityState.IDLE)
                 # Ensure ground/platform snapping after attack finishes
-                if self.entity.world is not None and not getattr(self.entity.mod_manager, "can_fly", False):
-                    hitbox = get_effective_hitbox(self.entity)
-                    hitbox_bottom_offset = hitbox.y() + hitbox.height()
-                    ground_y = self.entity.world.scene.sceneRect().bottom()
+                if (
+                    self.entity.world is not None and
+                    self.entity.mod_manager is not None and
+                    not self.entity.mod_manager.can_fly
+                ):
+                    hitbox: QRect = get_effective_hitbox(self.entity)
+                    hitbox_bottom_offset: int = hitbox.y() + hitbox.height()
+                    ground_y: float = self.entity.world.scene.sceneRect().bottom()
                     effective_ground_y, _ = find_candidate_platforms(self.entity, ground_y, 0.0)
                     if self.entity.y() + hitbox_bottom_offset > effective_ground_y:
                         self.entity.setPos(self.entity.x(), effective_ground_y - hitbox_bottom_offset)

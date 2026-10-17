@@ -44,7 +44,7 @@ class TeleportationComponent(BaseComponent):
 
         portal_rect: QRectF = self.owner.sceneBoundingRect()
         for entity in list(self.owner.world.active_entities):
-            if entity.is_dead or entity.state == EntityState.DRAG.value:
+            if entity.is_dead or entity.state == EntityState.DRAG:
                 continue
             if portal_rect.intersects(entity.sceneBoundingRect()):
                 self.teleport_entity(entity)

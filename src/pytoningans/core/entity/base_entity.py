@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING, cast, Any
+from typing import Optional, TYPE_CHECKING, cast, Any, Union
 
 from PySide6.QtWidgets import (
     QGraphicsPixmapItem, QGraphicsColorizeEffect
 )
-from PySide6.QtCore import QPointF, QRect
+from PySide6.QtCore import QPointF, QRect, QVariantAnimation
 from PySide6.QtGui import QColor, QPixmap, QTransform
 
 from pytoningans.core.constants import EntityState, SystemLocks
@@ -14,7 +14,7 @@ from pytoningans.core.entity.physics import PhysicsSystem
 from pytoningans.core.entity.indicators import HighlightOutlineItem
 from pytoningans.core.api import (
     IEntity, BaseEntityBehavior, BaseBehavior, BaseStructureBehavior, IStructure,
-    BaseItemBehavior, IItem
+    BaseItemBehavior, IItem, Pos2D
 )
 from pytoningans.core.entity.mixins import (
     EntityCursorMixin,
@@ -28,7 +28,10 @@ from pytoningans.core.entity.mixins import (
 if TYPE_CHECKING:
     from pytoningans.core.mod_manager import ModManager
     from pytoningans.core.world import WorldOverlay
+    from pytoningans.ui.context_menu import EntityContextMenu
 
+
+type _UniPos2D = Union[Pos2D, QPointF, tuple[float, float], list[float]]
 
 class BaseEntity(
     EntityCursorMixin,
@@ -57,6 +60,7 @@ class BaseEntity(
         self._is_force_idle: bool = False
         self.is_physics_enabled: bool = True
         self.velocity_y: float = 0.0
+        self._target_pos: Optional[QPointF] = None
         
         self.current_hitbox: QRect = QRect()
         self.current_attack_hitbox: QRect = QRect()
@@ -65,8 +69,12 @@ class BaseEntity(
         self.anim_sys: Optional[AnimationSystem] = AnimationSystem(self)
         self.physics_sys: Optional[PhysicsSystem] = PhysicsSystem(self)
         
-        self._highlight_item: Optional[Any] = None
-        self._active_context_menu: Optional[Any] = None
+        self.fade_in_on_spawn: bool = (
+            mod_manager.fade_in_on_spawn if mod_manager is not None else False
+        )
+        self._fade_anim: Optional[QVariantAnimation] = None
+        self._highlight_item: Optional[HighlightOutlineItem] = None
+        self._active_context_menu: Optional[EntityContextMenu] = None
 
         # Initialize modular mixins
         self._init_tags()
@@ -79,12 +87,20 @@ class BaseEntity(
         self._setup_ui(start_x, start_y)
 
     def pause_death_animations(self) -> None:
-        """Hook for subclasses to pause death animations while context menu is open."""
-        pass
+        """Pauses active fade/death animations while context menu is open."""
+        if (
+            self._fade_anim is not None and
+            self._fade_anim.state() == QVariantAnimation.State.Running
+        ):
+            self._fade_anim.pause()
 
     def resume_death_animations(self) -> None:
-        """Hook for subclasses to resume death animations when context menu is closed."""
-        pass
+        """Resumes active fade/death animations when context menu is closed."""
+        if (
+            self._fade_anim is not None and
+            self._fade_anim.state() == QVariantAnimation.State.Paused
+        ):
+            self._fade_anim.resume()
 
     def set_highlighted(self, enabled: bool) -> None:
         """Toggles visual selection highlight outline around this entity."""
@@ -98,9 +114,7 @@ class BaseEntity(
     @property
     def is_static(self) -> bool:
         """Returns whether this entity is static (single-sprite / non-animated)."""
-        if self.mod_manager is not None:
-            return getattr(self.mod_manager, "is_static", False)
-        return False
+        return self.mod_manager.is_static if self.mod_manager is not None else False
 
     @property
     def behavior(self) -> Optional[BaseBehavior]:
@@ -112,7 +126,7 @@ class BaseEntity(
 
     @state.setter
     def state(self, value: str) -> None:
-        if getattr(self, "_state", None) == value:
+        if self._state == value:
             return
         old_state: str = self._state
         if self.anim_sys is not None:
@@ -120,6 +134,24 @@ class BaseEntity(
         else:
             self._state = value
         self._on_state_change(old_state, value)
+
+    @property
+    def target_pos(self) -> Optional[QPointF]:
+        """Destination point the entity is currently moving towards, or None."""
+        return self._target_pos
+
+    @target_pos.setter
+    def target_pos(self, pos: Optional[_UniPos2D]) -> None:
+        if pos is None:
+            self._target_pos = None
+        elif isinstance(pos, QPointF):
+            self._target_pos = pos
+        elif isinstance(pos, (tuple, list)) and len(pos) >= 2:
+            self._target_pos = QPointF(float(pos[0]), float(pos[1]))
+        elif isinstance(pos, Pos2D):
+            self._target_pos = QPointF(pos.x, pos.y)
+        else:
+            self._target_pos = None
 
     @property
     def is_force_idle(self) -> bool:
@@ -130,10 +162,7 @@ class BaseEntity(
         self._is_force_idle = value
         if not value: return
         self.velocity_y = 0.0
-        if hasattr(self, "_target_pos"):
-            self._target_pos = None
-        if hasattr(self, "target_pos"):
-            self.target_pos = None
+        self.target_pos = None
         if not getattr(self, "is_dead", False) and self.anim_sys:
             self.anim_sys.set_state(EntityState.IDLE)
 
@@ -147,7 +176,7 @@ class BaseEntity(
         if self.physics_sys is not None:
             return self.physics_sys.move_speed
         if self.mod_manager is not None:
-            return getattr(self.mod_manager, "move_speed", 2.0)
+            return self.mod_manager.move_speed
         return 2.0
 
     @move_speed.setter
@@ -204,7 +233,57 @@ class BaseEntity(
         self.tint_effect.setColor(QColor(255, 0, 0)) 
         self.tint_effect.setEnabled(False)
         self.setGraphicsEffect(self.tint_effect)
+        if self.fade_in_on_spawn:
+            self.fade_in()
         
+    def fade_in(self, duration_ms: int = 1000) -> None:
+        """Smoothly fades in the entity from current opacity (or 0.0) to 1.0."""
+        if self._fade_anim is not None:
+            self._fade_anim.stop()
+            self._fade_anim = None
+
+        start_val: float = self.opacity()
+        if start_val >= 1.0:
+            start_val = 0.0
+            self.setOpacity(0.0)
+
+        anim = QVariantAnimation(self.world if self.world is not None else None)
+        anim.setDuration(duration_ms)
+        anim.setStartValue(start_val)
+        anim.setEndValue(1.0)
+        anim.valueChanged.connect(self.setOpacity)
+
+        def _on_finish() -> None:
+            self.setOpacity(1.0)
+            self._fade_anim = None
+
+        anim.finished.connect(_on_finish)
+        self._fade_anim = anim
+        anim.start()
+
+    def fade_out(self, duration_ms: int = 1000, destroy_on_complete: bool = False) -> None:
+        """Smoothly fades out the entity from current opacity to 0.0."""
+        if self._fade_anim is not None:
+            self._fade_anim.stop()
+            self._fade_anim = None
+
+        start_val: float = self.opacity()
+        anim = QVariantAnimation(self.world if self.world is not None else None)
+        anim.setDuration(duration_ms)
+        anim.setStartValue(start_val)
+        anim.setEndValue(0.0)
+        anim.valueChanged.connect(self.setOpacity)
+
+        def _on_finish() -> None:
+            self.setOpacity(0.0)
+            self._fade_anim = None
+            if destroy_on_complete:
+                self.destroy()
+
+        anim.finished.connect(_on_finish)
+        self._fade_anim = anim
+        anim.start()
+
     def width(self) -> int:
         return int(self.boundingRect().width())
         
@@ -243,6 +322,10 @@ class BaseEntity(
         self.is_dragged = False
         self._hide_hover_tooltip()
         self._destroy_components()
+
+        if self._fade_anim is not None:
+            self._fade_anim.stop()
+            self._fade_anim = None
         
         if self.scene():
             self.scene().removeItem(self)

@@ -254,13 +254,13 @@ class ModEditorWindow(QWidget):
             else:
                 self.anim_sys.state_panel.show()
 
-            if entity_type == EntityType.STRUCTURE.value:
+            if entity_type == EntityType.STRUCTURE:
                 self.dialogue_panel.hide()
                 self.behavior_script.hide()
                 self.behavior_stats.hide()
                 self.structure_behavior.show()
                 self.item_behavior.hide()
-            elif entity_type == EntityType.ITEM.value:
+            elif entity_type == EntityType.ITEM:
                 self.dialogue_panel.hide()
                 self.behavior_script.hide()
                 self.behavior_stats.hide()

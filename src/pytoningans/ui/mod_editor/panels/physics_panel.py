@@ -342,9 +342,9 @@ class PhysicsPanel(BasePanel):
             return
             
         is_combat_entity: bool = self.controller.manager.entity_type not in (
-            EntityType.STRUCTURE.value, EntityType.ITEM.value
+            EntityType.STRUCTURE, EntityType.ITEM
         )
-        is_static: bool = getattr(self.controller.manager, "is_static", False)
+        is_static: bool = self.controller.manager.is_static
         
         # Toggle static indicators vs per-state controls
         self.state_label.setVisible(not is_static)

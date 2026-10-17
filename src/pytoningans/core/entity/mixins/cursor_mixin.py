@@ -32,8 +32,6 @@ class EntityCursorMixin:
     world: Optional[WorldOverlay]
     anim_sys: Optional[AnimationSystem]
     facing_left: bool
-    target_pos: Optional[Any]
-    _target_pos: Optional[QPointF]
 
     def _entity(self) -> BaseEntity:
         return cast("BaseEntity", self)
@@ -137,8 +135,7 @@ class EntityCursorMixin:
         self._is_following_cursor = enabled
         self._follow_cursor_min_dist = max(5.0, min_distance)
         if enabled: return
-        self.target_pos = None
-        self._target_pos = None
+        self._entity().target_pos = None
         if self._entity().state == EntityState.MOVING and self.anim_sys is not None:
             self.anim_sys.set_state(EntityState.IDLE)
 
@@ -183,7 +180,7 @@ class EntityCursorMixin:
             entity_center_x: float = entity.x() + hitbox_center_x
             entity_center_y: float = entity.y() + hitbox_center_y
 
-            can_fly = bool(self.mod_manager is not None and getattr(self.mod_manager, "can_fly", False))
+            can_fly: bool = self.mod_manager is not None and self.mod_manager.can_fly
             dist: float = abs(cx - entity_center_x)
             if can_fly:
                 dist = math.hypot(cx - entity_center_x, cy - entity_center_y)
@@ -198,8 +195,7 @@ class EntityCursorMixin:
             if should_move:
                 target_x: float = cx - hitbox_center_x
                 target_y: float = cy - hitbox_center_y if can_fly else entity.y()
-                self.target_pos = (target_x, target_y)
-                self._target_pos = QPointF(target_x, target_y)
+                entity.target_pos = QPointF(target_x, target_y)
 
                 if (
                     self.anim_sys is not None and
@@ -213,11 +209,8 @@ class EntityCursorMixin:
             else:
                 if abs(cx - entity_center_x) > 1:
                     self.facing_left = (cx < entity_center_x)
-                if entity.state == EntityState.MOVING and (
-                    self.target_pos is not None or self._target_pos is not None
-                ):
-                    self.target_pos = None
-                    self._target_pos = None
+                if entity.state == EntityState.MOVING and entity.target_pos is not None:
+                    entity.target_pos = None
                     if self.anim_sys is not None:
                         self.anim_sys.set_state(EntityState.IDLE)
 

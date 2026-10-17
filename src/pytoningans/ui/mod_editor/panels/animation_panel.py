@@ -279,16 +279,16 @@ class AnimationSubsystem(BasePanel):
         self.swap_combo.blockSignals(True)
         self.swap_combo.clear()
 
-        if self.controller.manager.entity_type == EntityType.STRUCTURE.value:
+        if self.controller.manager.entity_type == EntityType.STRUCTURE:
             state_enum = StructureState
-        elif self.controller.manager.entity_type == EntityType.ITEM.value:
+        elif self.controller.manager.entity_type == EntityType.ITEM:
             state_enum = ItemState
         else:
             state_enum = EntityState
 
         target_idx: int = 0
         for i, state in enumerate(state_enum):
-            state_val: str = str(state.value)
+            state_val: str = state.value
             exists, row = self.controller.has_mapped_row(state_val)
             display_name: str = (
                 f"{state_val.capitalize()} [{'Row ' + str(row) if exists else 'Unmapped'}]"

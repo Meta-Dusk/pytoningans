@@ -71,9 +71,9 @@ class CombatSettingsDialog(QDialog):
         mode_layout = QHBoxLayout()
         mode_layout.addWidget(QLabel("Display Mode:"))
         self.mode_combo = QComboBox()
-        self.mode_combo.addItem("Show On Damage Only (Default)", HealthBarMode.ON_DAMAGE.value)
-        self.mode_combo.addItem("Always Visible", HealthBarMode.ALWAYS.value)
-        self.mode_combo.addItem("Hidden / Disabled", HealthBarMode.HIDDEN.value)
+        self.mode_combo.addItem("Show On Damage Only (Default)", HealthBarMode.ON_DAMAGE)
+        self.mode_combo.addItem("Always Visible", HealthBarMode.ALWAYS)
+        self.mode_combo.addItem("Hidden / Disabled", HealthBarMode.HIDDEN)
         self.mode_combo.currentIndexChanged.connect(self._on_values_changed)
         mode_layout.addWidget(self.mode_combo, stretch=1)
         layout.addLayout(mode_layout)
@@ -161,7 +161,7 @@ class CombatSettingsDialog(QDialog):
 
         # Delay
         self.hide_delay_spin.setValue(max(1, settings.auto_hide_delay_ms // 1000))
-        self.hide_delay_spin.setEnabled(settings.health_bar_mode == HealthBarMode.ON_DAMAGE.value)
+        self.hide_delay_spin.setEnabled(settings.health_bar_mode == HealthBarMode.ON_DAMAGE)
 
         # Checkboxes
         self.damage_numbers_cb.setChecked(settings.show_damage_numbers)
@@ -173,7 +173,7 @@ class CombatSettingsDialog(QDialog):
         if self._is_loading: return
 
         selected_mode: str = self.mode_combo.currentData()
-        self.hide_delay_spin.setEnabled(selected_mode == HealthBarMode.ON_DAMAGE.value)
+        self.hide_delay_spin.setEnabled(selected_mode == HealthBarMode.ON_DAMAGE)
 
         self.settings_mgr.update_settings(
             health_bar_mode=selected_mode,

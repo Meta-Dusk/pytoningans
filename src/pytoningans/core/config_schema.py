@@ -9,7 +9,7 @@ CURRENT_CONFIG_VERSION = 10
 
 @dataclass
 class BehaviorConfig:
-    type: str = BehaviorType.NEUTRAL.value
+    type: str = BehaviorType.NEUTRAL
     can_fly: bool = False
     can_climb_walls: bool = False
     can_move_windows: bool = False
@@ -21,13 +21,14 @@ class BehaviorConfig:
     jump_height: int = 15
     move_speed: float = 2.0
     regen_rate: float = 0.0
-    attack_type: str = AttackType.SINGLE.value
+    attack_type: str = AttackType.SINGLE
     
     max_targets: int = 1
     """Used if `attack_type` is \"multi\""""
     
     death_animation: DeathAnimation = DeathAnimation.SPRITE
     auto_close_on_death: bool = False
+    fade_in_on_spawn: bool = False
     instance_names: list[str] = field(default_factory=list)
 
 @dataclass
@@ -56,7 +57,7 @@ class DialogueConfig:
 @dataclass
 class ModConfig:
     name: str
-    entity_type: str = EntityType.ENTITY.value
+    entity_type: str = EntityType.ENTITY
     is_static: bool = False
     tags: list[str] = field(default_factory=list)
     version: int = CURRENT_CONFIG_VERSION

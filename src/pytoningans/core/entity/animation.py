@@ -36,7 +36,7 @@ class AnimationSystem(QObject):
         self._update_frame(advance=False)
 
     def update(self, dt: int) -> None:
-        if self.entity is not None and getattr(self.entity, "is_static", False):
+        if self.entity is not None and self.entity.is_static:
             return
 
         self.time_since_last_frame += dt

@@ -55,7 +55,7 @@ def build_living_actions(menu: EntityContextMenu, layout: QVBoxLayout, entity: E
             )
 
             unheld_items: list[BaseItem] = []
-            if entity.world is not None and getattr(entity.world, "active_items", None):
+            if entity.world is not None and entity.world.active_items:
                 unheld_items = [
                     it for it in entity.world.active_items
                     if it.is_interactable and not it.is_held

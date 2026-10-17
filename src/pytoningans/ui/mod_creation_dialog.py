@@ -231,20 +231,19 @@ class ModCreationDialog(QDialog):
         self, display_name: str, config_path: Path,
         *, cols: int = 4, rows: int = len(EntityState)
     ) -> None:
-        selected_data = self.type_combo.currentData()
-        is_static: bool = (selected_data in ("static_item", "static_structure"))
+        selected_data: str = self.type_combo.currentData()
+        is_static: bool = selected_data in ("static_item", "static_structure")
         
         if selected_data in ("static_item", "animated_item", EntityType.ITEM):
-            entity_type = EntityType.ITEM.value
+            entity_type = EntityType.ITEM
             state_enum = ItemState
-        elif (
-            selected_data in ("static_structure", "animated_structure", EntityType.STRUCTURE)
-            or getattr(selected_data, "value", str(selected_data)) == EntityType.STRUCTURE.value
+        elif selected_data in (
+            "static_structure", "animated_structure", EntityType.STRUCTURE
         ):
-            entity_type = EntityType.STRUCTURE.value
+            entity_type = EntityType.STRUCTURE
             state_enum = StructureState
         else:
-            entity_type = EntityType.ENTITY.value
+            entity_type = EntityType.ENTITY
             state_enum = EntityState
 
         if is_static:
