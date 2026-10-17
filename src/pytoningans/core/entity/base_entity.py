@@ -1,41 +1,54 @@
 from __future__ import annotations
 
-import math
 from typing import Optional, TYPE_CHECKING, cast, Any
 
 from PySide6.QtWidgets import (
-    QGraphicsPixmapItem, QGraphicsColorizeEffect, QGraphicsSceneMouseEvent,
-    QGraphicsSceneHoverEvent, QGraphicsSceneContextMenuEvent
+    QGraphicsPixmapItem, QGraphicsColorizeEffect
 )
-from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt
-from PySide6.QtGui import QColor, QPixmap, QTransform, QCursor
+from PySide6.QtCore import QPointF, QRect
+from PySide6.QtGui import QColor, QPixmap, QTransform
 
-from pytoningans.core.constants import EntityState, SystemLocks, EntityType
+from pytoningans.core.constants import EntityState, SystemLocks
 from pytoningans.core.entity.animation import AnimationSystem
 from pytoningans.core.entity.physics import PhysicsSystem
-from pytoningans.core.entity.physics.helpers import get_effective_hitbox
 from pytoningans.core.entity.indicators import HighlightOutlineItem
 from pytoningans.core.api import (
     IEntity, BaseEntityBehavior, BaseBehavior, BaseStructureBehavior, IStructure,
     BaseItemBehavior, IItem
 )
-from pytoningans.core.components.base_component import BaseComponent
+from pytoningans.core.entity.mixins import (
+    EntityCursorMixin,
+    EntityDragMixin,
+    EntityWindowMixin,
+    EntityTooltipMixin,
+    EntityTagMixin,
+    EntityComponentMixin,
+)
 
 if TYPE_CHECKING:
     from pytoningans.core.mod_manager import ModManager
     from pytoningans.core.world import WorldOverlay
 
 
-class BaseEntity(QGraphicsPixmapItem):
+class BaseEntity(
+    EntityCursorMixin,
+    EntityDragMixin,
+    EntityWindowMixin,
+    EntityTooltipMixin,
+    EntityTagMixin,
+    EntityComponentMixin,
+    QGraphicsPixmapItem,
+):
     """The foundational class for all rendered objects in the game world."""
+
     def __init__(
         self, start_x: float, start_y: float,
         mod_manager: Optional[ModManager] = None,
         world: Optional[WorldOverlay] = None
     ) -> None:
         super().__init__()
-        self.mod_manager = mod_manager
-        self.world = world
+        self.mod_manager: Optional[ModManager] = mod_manager
+        self.world: Optional[WorldOverlay] = world
         
         self._state: str = EntityState.IDLE
         self.facing_left: bool = False
@@ -43,10 +56,7 @@ class BaseEntity(QGraphicsPixmapItem):
         self.is_paused: bool = False
         self._is_force_idle: bool = False
         self.is_physics_enabled: bool = True
-        self.is_dragged: bool = False
         self.velocity_y: float = 0.0
-        
-        self.components: dict[str, BaseComponent] = {}
         
         self.current_hitbox: QRect = QRect()
         self.current_attack_hitbox: QRect = QRect()
@@ -55,25 +65,18 @@ class BaseEntity(QGraphicsPixmapItem):
         self.anim_sys: Optional[AnimationSystem] = AnimationSystem(self)
         self.physics_sys: Optional[PhysicsSystem] = PhysicsSystem(self)
         
-        self._instance_name: Optional[str] = None
-        self.tags: set[str] = (
-            set(self.mod_manager.tags) if self.mod_manager is not None else set()
-        )
-        self.is_hovered: bool = False
-        self.setAcceptHoverEvents(True)
-        
-        self._setup_ui(start_x, start_y)
-        self.update_tooltip()
         self._highlight_item: Optional[Any] = None
         self._active_context_menu: Optional[Any] = None
-        self._ignore_window_physics_override: Optional[bool] = None
-        self._is_cursor_grabbed: bool = False
-        self._cursor_grab_offset: tuple[int, int] = (0, 0)
-        self._cursor_grab_duration: Optional[int] = None
-        self._cursor_grab_time_left: int = 0
-        self._last_synced_global_cursor: Optional[tuple[int, int]] = None
-        self._is_following_cursor: bool = False
-        self._follow_cursor_min_dist: float = 30.0
+
+        # Initialize modular mixins
+        self._init_tags()
+        self._init_components()
+        self._init_tooltip()
+        self._init_window_physics()
+        self._init_cursor()
+        self._init_drag()
+
+        self._setup_ui(start_x, start_y)
 
     def pause_death_animations(self) -> None:
         """Hook for subclasses to pause death animations while context menu is open."""
@@ -100,319 +103,9 @@ class BaseEntity(QGraphicsPixmapItem):
         return False
 
     @property
-    def can_climb_walls(self) -> bool:
-        """Returns True if the entity is configured to climb desktop window walls."""
-        if self.mod_manager is not None:
-            return getattr(self.mod_manager, "can_climb_walls", False)
-        return False
-
-    @property
-    def can_move_windows(self) -> bool:
-        """Returns True if the entity is configured to push or attack desktop windows."""
-        if self.mod_manager is not None:
-            return getattr(self.mod_manager, "can_move_windows", False)
-        return False
-
-    def move_window(self, win: QRect, dx: int, dy: int) -> bool:
-        """Moves the desktop window by (dx, dy) pixels."""
-        if self.world is not None and hasattr(self.world, "move_window"):
-            return self.world.move_window(win, dx, dy)
-        return False
-
-    @property
-    def ignore_window_physics(self) -> bool:
-        """Returns True if this entity is configured to ignore desktop window physics."""
-        if self._ignore_window_physics_override is not None:
-            return self._ignore_window_physics_override
-        if self.mod_manager is not None:
-            return getattr(self.mod_manager, "ignore_window_physics", False)
-        return False
-
-    @ignore_window_physics.setter
-    def ignore_window_physics(self, value: Optional[bool]) -> None:
-        self._ignore_window_physics_override = value
-
-    @property
-    def should_use_window_physics(self) -> bool:
-        """Returns True if desktop window physics should affect this entity."""
-        if self.ignore_window_physics:
-            return False
-        from pytoningans.core.settings import SettingsManager
-        return SettingsManager.get().settings.enable_window_physics
-
-    #? Cursor Interaction API
-    @property
-    def is_cursor_grabbed(self) -> bool:
-        """Returns True if this entity is currently grabbing the OS mouse cursor."""
-        return self._is_cursor_grabbed
-
-    @property
-    def is_following_cursor(self) -> bool:
-        """Returns True if this entity is automatically pathfinding towards the mouse cursor."""
-        return self._is_following_cursor
-
-    def get_cursor_pos(self) -> tuple[float, float]:
-        """Returns the current OS mouse cursor coordinates mapped into this entity's world scene space."""
-        global_pos: QPoint = QCursor.pos()
-        if self.world is not None and hasattr(self.world, "view"):
-            local_pt = self.world.view.mapFromGlobal(global_pos)
-            scene_pt = self.world.view.mapToScene(local_pt)
-            return float(scene_pt.x()), float(scene_pt.y())
-        return float(global_pos.x()), float(global_pos.y())
-
-    def get_global_cursor_pos(self) -> tuple[int, int]:
-        """Returns the current OS mouse cursor coordinates in virtual desktop space."""
-        global_pos: QPoint = QCursor.pos()
-        return global_pos.x(), global_pos.y()
-
-    def set_cursor_pos(self, scene_x: float, scene_y: float) -> None:
-        """Moves the OS mouse cursor to the specified position in this entity's world scene space."""
-        if self.world is not None and hasattr(self.world, "view"):
-            view_pt = self.world.view.mapFromScene(QPointF(scene_x, scene_y))
-            global_pt = self.world.view.mapToGlobal(view_pt)
-            QCursor.setPos(global_pt)
-        else:
-            QCursor.setPos(QPoint(int(round(scene_x)), int(round(scene_y))))
-
-    def grab_cursor(
-        self,
-        offset_x: Optional[int] = None,
-        offset_y: Optional[int] = None,
-        duration_ms: Optional[int] = None,
-    ) -> None:
-        """
-        Grabs the OS mouse cursor, locking it to the entity's position (+ offset) as it moves.
-
-        Args:
-            offset_x: Optional X pixel offset from the entity root.
-                      If omitted, grabs at current cursor offset.
-            offset_y: Optional Y pixel offset from the entity root.
-                      If omitted, grabs at current cursor offset.
-            duration_ms: Optional duration in milliseconds before automatically releasing the cursor.
-                         If None, stays grabbed until release_cursor() is called or the user breaks free.
-        """
-        if getattr(self, "is_dead", False) or self.is_dragged:
-            return
-        cx, cy = self.get_cursor_pos()
-        ox = int(round(cx - self.x())) if offset_x is None else offset_x
-        oy = int(round(cy - self.y())) if offset_y is None else offset_y
-        self._is_cursor_grabbed = True
-        self._cursor_grab_offset = (ox, oy)
-        self._cursor_grab_duration = duration_ms
-        self._cursor_grab_time_left = duration_ms if duration_ms is not None else -1
-        self._last_synced_global_cursor = None
-        self._sync_grabbed_cursor()
-
-        behavior: Optional[BaseBehavior] = self.behavior
-        if isinstance(behavior, BaseEntityBehavior):
-            try:
-                behavior.on_cursor_grabbed(cast(IEntity, self))
-            except Exception as e:
-                print(f"Custom Behavior on_cursor_grabbed Error: {e}")
-
-    def release_cursor(self) -> None:
-        """Releases the OS mouse cursor if currently grabbed by this entity."""
-        if not self._is_cursor_grabbed:
-            return
-        self._is_cursor_grabbed = False
-        self._cursor_grab_offset = (0, 0)
-        self._cursor_grab_duration = None
-        self._cursor_grab_time_left = 0
-        self._last_synced_global_cursor = None
-
-        behavior: Optional[BaseBehavior] = self.behavior
-        if isinstance(behavior, BaseEntityBehavior):
-            try:
-                behavior.on_cursor_released(cast(IEntity, self))
-            except Exception as e:
-                print(f"Custom Behavior on_cursor_released Error: {e}")
-
-    def follow_cursor(self, enabled: bool = True, min_distance: float = 30.0) -> None:
-        """Configures the entity to automatically follow / pathfind towards the mouse cursor."""
-        self._is_following_cursor = enabled
-        self._follow_cursor_min_dist = max(5.0, min_distance)
-        if not enabled:
-            if hasattr(self, "_target_pos"):
-                self._target_pos = None
-            if hasattr(self, "target_pos"):
-                self.target_pos = None
-            if self.state == EntityState.MOVING and self.anim_sys is not None:
-                self.anim_sys.set_state(EntityState.IDLE)
-
-    def _sync_grabbed_cursor(self) -> None:
-        """Positions the OS mouse cursor at the entity's grab anchor point."""
-        if not self._is_cursor_grabbed or getattr(self, "is_dead", False):
-            return
-
-        # Physical struggle / breakout check: if the user jerks their mouse away (> 120px) from where
-        # it was last placed, release the cursor so users are never permanently locked.
-        if self._last_synced_global_cursor is not None:
-            curr_gx, curr_gy = self.get_global_cursor_pos()
-            last_gx, last_gy = self._last_synced_global_cursor
-            pull_dist: float = math.hypot(curr_gx - last_gx, curr_gy - last_gy)
-            if pull_dist > 120.0:
-                self.release_cursor()
-                return
-
-        target_scene_x: float = self.x() + self._cursor_grab_offset[0]
-        target_scene_y: float = self.y() + self._cursor_grab_offset[1]
-        self.set_cursor_pos(target_scene_x, target_scene_y)
-        self._last_synced_global_cursor = self.get_global_cursor_pos()
-
-    @property
-    def is_climbing(self) -> bool:
-        """Returns True if the entity is currently climbing a window wall."""
-        if self.physics_sys is not None:
-            return getattr(self.physics_sys, "is_climbing", False)
-        return False
-
-    @property
     def behavior(self) -> Optional[BaseBehavior]:
         return self.mod_manager.custom_behavior if self.mod_manager is not None else None
-    
-    @property
-    def instance_name(self) -> Optional[str]:
-        return self._instance_name
 
-    @instance_name.setter
-    def instance_name(self, value: Optional[str]) -> None:
-        self.set_instance_name(value)
-
-    def set_instance_name(self, name: Optional[str]) -> None:
-        """Sets a custom instance name for this entity and updates HUD and tooltip."""
-        self._instance_name = name
-        self.update_tooltip()
-        self.on_instance_name_changed()
-        if self.is_hovered:
-            self._show_hover_tooltip(QCursor.pos())
-
-    def on_instance_name_changed(self) -> None:
-        """Hook for subclasses to react to instance name updates (e.g. updating HUD elements)."""
-        pass
-
-    @property
-    def display_name(self) -> str:
-        if self._instance_name:
-            return self._instance_name
-        if self.mod_manager is not None:
-            if self.mod_manager.current_mod_name:
-                return self.mod_manager.current_mod_name
-            if self.mod_manager.current_mod_folder:
-                return self.mod_manager.current_mod_folder
-        return "Entity"
-
-    @property
-    def identification(self) -> str:
-        """Formatted identification string for the entity: '<entity_type> from <mod_name>'."""
-        type_str: str = "Entity"
-        if self.mod_manager is not None and self.mod_manager.entity_type:
-            type_str = str(self.mod_manager.entity_type).capitalize()
-        else:
-            cls_name: str = self.__class__.__name__
-            if "Structure" in cls_name:
-                type_str = "Structure"
-            elif "Item" in cls_name:
-                type_str = "Item"
-            else:
-                type_str = "Entity"
-
-        mod_name: str = "Unknown"
-        if self.mod_manager is not None:
-            if self.mod_manager.current_mod_name:
-                mod_name = self.mod_manager.current_mod_name
-            elif self.mod_manager.current_mod_folder:
-                mod_name = self.mod_manager.current_mod_folder
-
-        return f"{type_str} from \"{mod_name}\""
-
-    def update_tooltip(self) -> None:
-        """Updates the item tooltip to match its identification."""
-        self.setToolTip(self.identification)
-
-    #? Entity Tags API
-    def has_tag(self, tag: str) -> bool:
-        """Returns True if the entity has the specified tag (case-insensitive)."""
-        return tag.lower().strip() in self.tags
-
-    def has_all_tags(self, *tags: str) -> bool:
-        """Returns True if the entity contains every specified tag."""
-        return all(t.lower().strip() in self.tags for t in tags)
-
-    def has_any_tag(self, *tags: str) -> bool:
-        """Returns True if the entity contains at least one of the specified tags."""
-        return any(t.lower().strip() in self.tags for t in tags)
-
-    def add_tag(self, tag: str) -> None:
-        """Dynamically adds a tag to the entity at runtime."""
-        clean_tag: str = tag.lower().strip()
-        if clean_tag:
-            self.tags.add(clean_tag)
-
-    def remove_tag(self, tag: str) -> None:
-        """Removes a tag from the entity at runtime."""
-        self.tags.discard(tag.lower().strip())
-
-    def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent) -> None:
-        self.on_hover_enter()
-        self._show_hover_tooltip(event.screenPos())
-        super().hoverEnterEvent(event)
-
-    def hoverMoveEvent(self, event: QGraphicsSceneHoverEvent) -> None:
-        if self.is_hovered:
-            self._show_hover_tooltip(event.screenPos())
-        super().hoverMoveEvent(event)
-
-    def hoverLeaveEvent(self, event: QGraphicsSceneHoverEvent) -> None:
-        self.on_hover_leave()
-        self._hide_hover_tooltip()
-        super().hoverLeaveEvent(event)
-
-    def _show_hover_tooltip(self, screen_pos: QPoint) -> None:
-        tip_text: str = self.identification
-        if tip_text:
-            from pytoningans.ui.tool_tip import CustomToolTipManager
-            CustomToolTipManager.get().show_tip(None, tip_text, screen_pos)
-
-    def _hide_hover_tooltip(self) -> None:
-        from pytoningans.ui.tool_tip import CustomToolTipManager
-        CustomToolTipManager.get().hide_tip()
-
-    def on_hover_enter(self) -> None:
-        """Hook called when the mouse cursor enters the entity's bounding area."""
-        self.is_hovered = True
-        self._on_hover_enter()
-
-    def on_hover_leave(self) -> None:
-        """Hook called when the mouse cursor leaves the entity's bounding area."""
-        self.is_hovered = False
-        self._on_hover_leave()
-
-    def _on_hover_enter(self) -> None:
-        behavior: Optional[BaseBehavior] = self.behavior
-        if behavior is None: return
-        try:
-            if isinstance(behavior, BaseEntityBehavior):
-                behavior.on_hover_enter(cast(IEntity, self))
-            elif isinstance(behavior, BaseStructureBehavior):
-                behavior.on_hover_enter(cast(IStructure, self))
-            elif isinstance(behavior, BaseItemBehavior):
-                behavior.on_hover_enter(cast(IItem, self))
-        except Exception as e:
-            print(f"Custom Behavior on_hover_enter Error: {e}")
-
-    def _on_hover_leave(self) -> None:
-        behavior: Optional[BaseBehavior] = self.behavior
-        if behavior is None: return
-        try:
-            if isinstance(behavior, BaseEntityBehavior):
-                behavior.on_hover_leave(cast(IEntity, self))
-            elif isinstance(behavior, BaseStructureBehavior):
-                behavior.on_hover_leave(cast(IStructure, self))
-            elif isinstance(behavior, BaseItemBehavior):
-                behavior.on_hover_leave(cast(IItem, self))
-        except Exception as e:
-            print(f"Custom Behavior on_hover_leave Error: {e}")
-    
     @property
     def state(self) -> str:
         return self._state
@@ -506,86 +199,14 @@ class BaseEntity(QGraphicsPixmapItem):
         
     def toFront(self) -> None:
         self.setZValue(self.zValue() + 0.1)
-    
-    # --- Component Management API ---
-    def add_component(self, component: BaseComponent) -> BaseComponent:
-        component.owner = self
-        self.components[component.name] = component
-        component.on_attach()
-        return component
-
-    def get_component(self, name: str) -> Optional[BaseComponent]:
-        return self.components.get(name)
-
-    def has_component(self, name: str) -> bool:
-        return name in self.components
-
-    def remove_component(self, name: str) -> Optional[BaseComponent]:
-        comp: Optional[BaseComponent] = self.components.pop(name, None)
-        if comp is not None:
-            comp.on_detach()
-            comp.owner = None
-        return comp
 
     def update_systems(
         self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None
     ) -> None:
-        if self.is_paused: return
-        
-        # Cursor following logic
-        if (
-            self._is_following_cursor and
-            not self._is_cursor_grabbed and
-            not getattr(self, "is_dead", False) and
-            not self.is_dragged and
-            not self.is_force_idle
-        ):
-            cx, cy = self.get_cursor_pos()
-            
-            hitbox: QRect = get_effective_hitbox(self)
-            hitbox_center_x: float = hitbox.x() + hitbox.width() / 2.0
-            hitbox_center_y: float = hitbox.y() + hitbox.height() / 2.0
-            entity_center_x: float = self.x() + hitbox_center_x
-            entity_center_y: float = self.y() + hitbox_center_y
+        if self.is_paused:
+            return
 
-            can_fly = bool(self.mod_manager is not None and getattr(self.mod_manager, "can_fly", False))
-            if can_fly:
-                dist = math.hypot(cx - entity_center_x, cy - entity_center_y)
-            else:
-                dist = abs(cx - entity_center_x)
-
-            stop_dist: float = max(10.0, self._follow_cursor_min_dist)
-            start_dist: float = stop_dist + max(12.0, stop_dist * 0.35)
-            
-            should_move: bool = dist > start_dist
-            if self.state == EntityState.MOVING:
-                should_move = dist > stop_dist
-
-            if should_move:
-                target_x: float = cx - hitbox_center_x
-                target_y: float = cy - hitbox_center_y if can_fly else self.y()
-                if hasattr(self, "target_pos"):
-                    self.target_pos = (target_x, target_y)
-                else:
-                    self._target_pos = QPointF(target_x, target_y)
-
-                if (
-                    self.anim_sys is not None and
-                    self.state not in (EntityState.DRAG, EntityState.DYING, EntityState.CLIMBING, EntityState.ATTACK) and
-                    not self.is_climbing and
-                    self.state != EntityState.MOVING
-                ):
-                    self.anim_sys.set_state(EntityState.MOVING)
-            else:
-                if abs(cx - entity_center_x) > 1:
-                    self.facing_left = (cx < entity_center_x)
-                if self.state == EntityState.MOVING and getattr(self, "target_pos", None) is not None:
-                    if hasattr(self, "target_pos"):
-                        self.target_pos = None
-                    else:
-                        self._target_pos = None
-                    if self.anim_sys is not None:
-                        self.anim_sys.set_state(EntityState.IDLE)
+        self._update_cursor_interaction(dt)
 
         if (
             self.locks.physics and
@@ -593,38 +214,21 @@ class BaseEntity(QGraphicsPixmapItem):
             self.physics_sys is not None
         ):
             self.physics_sys.update(dt, centers)
+
         if (
             self.locks.animation and
             self.anim_sys is not None
         ):
             self.anim_sys.update(dt)
 
-        # Sync grabbed cursor with entity's current position
-        if self._is_cursor_grabbed:
-            if getattr(self, "is_dead", False) or self.is_dragged:
-                self.release_cursor()
-            elif self._cursor_grab_time_left > 0:
-                self._cursor_grab_time_left -= dt
-                if self._cursor_grab_time_left <= 0:
-                    self.release_cursor()
-                else:
-                    self._sync_grabbed_cursor()
-            else:
-                self._sync_grabbed_cursor()
-
-        # Dispatch ticks to all active components
-        for comp in list(self.components.values()):
-            if comp.enabled: comp.update(dt)
+        self._update_components(dt)
 
     def destroy(self) -> None:
         self.release_cursor()
         self.follow_cursor(False)
         self.is_dragged = False
         self._hide_hover_tooltip()
-        for comp in list(self.components.values()):
-            comp.on_detach()
-            comp.owner = None
-        self.components.clear()
+        self._destroy_components()
         
         if self.scene():
             self.scene().removeItem(self)
@@ -649,115 +253,3 @@ class BaseEntity(QGraphicsPixmapItem):
         self.tint_effect = None
         self.world = None
         self.mod_manager = None
-
-    # Universal Drag Logic
-    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        self._hide_hover_tooltip()
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.release_cursor()
-            self.is_dragged = True
-            if self.physics_sys is not None and getattr(self.physics_sys, "is_climbing", False):
-                self.physics_sys.stop_climb()
-            self.sprite_rotation = 0.0
-            if (
-                self.anim_sys is not None and
-                self.mod_manager is not None and
-                self.mod_manager.entity_type == EntityType.ENTITY.value and
-                EntityState.DRAG in self.mod_manager.animations
-            ):
-                self.anim_sys.set_state(EntityState.DRAG)
-            self.locks.physics = False
-            self.velocity_y = 0.0
-            event.accept()
-
-    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        delta: QPointF = event.scenePos() - event.lastScenePos()
-        new_x: float = self.x() + delta.x()
-        new_y: float = self.y() + delta.y()
-        
-        if self.world is not None:
-            bounds: QRectF = self.world.scene.sceneRect()
-            new_x = max(bounds.left(), min(new_x, bounds.right() - self.width()))
-            new_y = max(bounds.top(), min(new_y, bounds.bottom() - self.height()))
-        
-        self.setPos(new_x, new_y)
-        
-        # Give subclasses a chance to react to moving
-        self.on_moved()
-        event.accept()
-
-    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.is_dragged = False
-            if (
-                self.anim_sys is not None and
-                self.mod_manager is not None and
-                self.mod_manager.entity_type == EntityType.ENTITY.value and
-                EntityState.IDLE in self.mod_manager.animations
-            ):
-                self.anim_sys.set_state(EntityState.IDLE)
-            self.locks.physics = self.is_physics_enabled
-            if not self.is_physics_enabled:
-                self.velocity_y = 0.0
-            else:
-                self._check_window_drop_seat()
-            event.accept()
-        if self.is_hovered:
-            self._show_hover_tooltip(event.screenPos())
-
-    def _check_window_drop_seat(self) -> None:
-        """
-        If dropped onto or inside an active desktop window,
-        seat entity on the window's top ledge.
-        """
-        if self.world is None or not self.should_use_window_physics:
-            return
-
-        window_rects: list[QRect] = getattr(self.world, "active_window_rects", [])
-        if not window_rects:
-            return
-
-        hitbox: QRect = self.current_hitbox
-        if hitbox.width() <= 0 or hitbox.height() <= 0:
-            b_rect: QRectF = self.boundingRect()
-            bw: int = int(b_rect.width()) if b_rect.width() > 0 else 50
-            bh: int = int(b_rect.height()) if b_rect.height() > 0 else 50
-            hitbox = QRect(0, 0, bw, bh)
-
-        scene_box = QRect(
-            int(self.x() + hitbox.x()),
-            int(self.y() + hitbox.y()),
-            hitbox.width(),
-            hitbox.height(),
-        )
-
-        for win in window_rects:
-            if not scene_box.intersects(win): continue
-            new_x: float = 0.0
-            new_y = float(win.top() - hitbox.y() - hitbox.height())
-            world_bounds: QRectF = self.world.scene.sceneRect()
-            world_min_x: float = float(world_bounds.left() - hitbox.x())
-            world_max_x: float = float(world_bounds.right() - hitbox.x() - hitbox.width())
-            min_x = max(world_min_x, float(win.left() - hitbox.x() + 4))
-            max_x = min(world_max_x, float(win.right() - hitbox.x() - hitbox.width() - 4))
-            if min_x < max_x:
-                new_x = max(min_x, min(float(self.x()), max_x))
-            else:
-                new_x = max(world_min_x, min(float(win.left() - hitbox.x()), world_max_x))
-
-            self.setPos(new_x, new_y)
-            self.velocity_y = 0.0
-            if self.physics_sys is not None:
-                self.physics_sys.current_platform_rect = win
-            self.on_moved()
-            break
-            
-    def on_moved(self) -> None:
-        """Hook for subclasses to update attached items (like speech bubbles) when dragged."""
-        if self._is_cursor_grabbed:
-            self._sync_grabbed_cursor()
-
-    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
-        from pytoningans.ui.context_menu import EntityContextMenu
-        EntityContextMenu.show_for_entity(self, event.screenPos())
-        event.accept()

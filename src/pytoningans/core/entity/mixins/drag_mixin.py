@@ -1,0 +1,101 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional, cast, Any
+
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtWidgets import (
+    QGraphicsSceneMouseEvent, QGraphicsSceneContextMenuEvent
+)
+
+from pytoningans.core.constants import EntityState, EntityType, SystemLocks
+
+if TYPE_CHECKING:
+    from pytoningans.core.mod_manager import ModManager
+    from pytoningans.core.world import WorldOverlay
+    from pytoningans.core.entity.animation import AnimationSystem
+    from pytoningans.core.entity.physics import PhysicsSystem
+    from pytoningans.core.entity.base_entity import BaseEntity
+
+
+class EntityDragMixin:
+    """Encapsulates mouse dragging, positioning bounds clamping, and context menu events."""
+
+    is_dragged: bool
+    sprite_rotation: float
+    velocity_y: float
+    is_physics_enabled: bool
+    locks: SystemLocks
+    mod_manager: Optional[ModManager]
+    world: Optional[WorldOverlay]
+    anim_sys: Optional[AnimationSystem]
+    physics_sys: Optional[PhysicsSystem]
+
+    def _init_drag(self) -> None:
+        self.is_dragged = False
+
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        if hasattr(self, "_hide_hover_tooltip"):
+            getattr(self, "_hide_hover_tooltip")()
+        if event.button() == Qt.MouseButton.LeftButton:
+            if hasattr(self, "release_cursor"):
+                getattr(self, "release_cursor")()
+            self.is_dragged = True
+            if self.physics_sys is not None and getattr(self.physics_sys, "is_climbing", False):
+                self.physics_sys.stop_climb()
+            self.sprite_rotation = 0.0
+            if (
+                self.anim_sys is not None and
+                self.mod_manager is not None and
+                self.mod_manager.entity_type == EntityType.ENTITY.value and
+                EntityState.DRAG in self.mod_manager.animations
+            ):
+                self.anim_sys.set_state(EntityState.DRAG)
+            self.locks.physics = False
+            self.velocity_y = 0.0
+            event.accept()
+
+    def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        delta: QPointF = event.scenePos() - event.lastScenePos()
+        new_x: float = cast(Any, self).x() + delta.x()
+        new_y: float = cast(Any, self).y() + delta.y()
+        
+        if self.world is not None:
+            bounds: QRectF = self.world.scene.sceneRect()
+            new_x = max(bounds.left(), min(new_x, bounds.right() - cast(Any, self).width()))
+            new_y = max(bounds.top(), min(new_y, bounds.bottom() - cast(Any, self).height()))
+        
+        cast(Any, self).setPos(new_x, new_y)
+        self.on_moved()
+        event.accept()
+
+    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.is_dragged = False
+            if (
+                self.anim_sys is not None and
+                self.mod_manager is not None and
+                self.mod_manager.entity_type == EntityType.ENTITY.value and
+                EntityState.IDLE in self.mod_manager.animations
+            ):
+                self.anim_sys.set_state(EntityState.IDLE)
+            self.locks.physics = self.is_physics_enabled
+            if not self.is_physics_enabled:
+                self.velocity_y = 0.0
+            else:
+                if hasattr(self, "_check_window_drop_seat"):
+                    getattr(self, "_check_window_drop_seat")()
+            event.accept()
+        if getattr(self, "is_hovered", False):
+            if hasattr(self, "_show_hover_tooltip"):
+                getattr(self, "_show_hover_tooltip")(event.screenPos())
+
+    def on_moved(self) -> None:
+        """Hook for subclasses to update attached items (like speech bubbles) when dragged."""
+        if getattr(self, "_is_cursor_grabbed", False) and hasattr(self, "_sync_grabbed_cursor"):
+            getattr(self, "_sync_grabbed_cursor")()
+
+    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
+        from pytoningans.ui.context_menu import EntityContextMenu
+        EntityContextMenu.show_for_entity(cast(Any, self), event.screenPos())
+        event.accept()
+
