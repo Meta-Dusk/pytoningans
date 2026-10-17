@@ -533,25 +533,25 @@ class BaseEntity(QGraphicsPixmapItem):
         )
 
         for win in window_rects:
-            if scene_box.intersects(win):
-                new_x: float = 0.0
-                new_y = float(win.top() - hitbox.y() - hitbox.height())
-                world_bounds: QRectF = self.world.scene.sceneRect()
-                world_min_x: float = float(world_bounds.left() - hitbox.x())
-                world_max_x: float = float(world_bounds.right() - hitbox.x() - hitbox.width())
-                min_x = max(world_min_x, float(win.left() - hitbox.x() + 4))
-                max_x = min(world_max_x, float(win.right() - hitbox.x() - hitbox.width() - 4))
-                if min_x < max_x:
-                    new_x = max(min_x, min(float(self.x()), max_x))
-                else:
-                    new_x = max(world_min_x, min(float(win.left() - hitbox.x()), world_max_x))
+            if not scene_box.intersects(win): continue
+            new_x: float = 0.0
+            new_y = float(win.top() - hitbox.y() - hitbox.height())
+            world_bounds: QRectF = self.world.scene.sceneRect()
+            world_min_x: float = float(world_bounds.left() - hitbox.x())
+            world_max_x: float = float(world_bounds.right() - hitbox.x() - hitbox.width())
+            min_x = max(world_min_x, float(win.left() - hitbox.x() + 4))
+            max_x = min(world_max_x, float(win.right() - hitbox.x() - hitbox.width() - 4))
+            if min_x < max_x:
+                new_x = max(min_x, min(float(self.x()), max_x))
+            else:
+                new_x = max(world_min_x, min(float(win.left() - hitbox.x()), world_max_x))
 
-                self.setPos(new_x, new_y)
-                self.velocity_y = 0.0
-                if self.physics_sys is not None:
-                    self.physics_sys.current_platform_rect = win
-                self.on_moved()
-                break
+            self.setPos(new_x, new_y)
+            self.velocity_y = 0.0
+            if self.physics_sys is not None:
+                self.physics_sys.current_platform_rect = win
+            self.on_moved()
+            break
             
     def on_moved(self) -> None:
         """Hook for subclasses to update attached items (like speech bubbles) when dragged."""

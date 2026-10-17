@@ -22,11 +22,12 @@ def build_living_actions(menu: EntityContextMenu, layout: QVBoxLayout, entity: E
         talk_btn.setToolTip("Prompt the entity to speak a random dialogue line immediately.")
         talk_btn.clicked.connect(lambda: menu.execute_action(entity.force_talk))
         row1.addWidget(talk_btn)
-
-        jump_btn = QPushButton("Force Jump")
-        jump_btn.setToolTip("Make the entity perform an upward jump.")
-        jump_btn.clicked.connect(lambda: menu.execute_action(entity.jump))
-        row1.addWidget(jump_btn)
+        
+        if entity.mod_manager is not None and not entity.mod_manager.can_fly:
+            jump_btn = QPushButton("Force Jump")
+            jump_btn.setToolTip("Make the entity perform an upward jump.")
+            jump_btn.clicked.connect(lambda: menu.execute_action(entity.jump))
+            row1.addWidget(jump_btn)
 
         layout.addLayout(row1)
 

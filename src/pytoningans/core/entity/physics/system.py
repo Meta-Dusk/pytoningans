@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from pytoningans.core.entity.base_entity import BaseEntity
 
 
-type _ClimbingSide = Literal["left", "right"]
+type _ClimbingSide = Literal["left", "right"] | str
 
 class PhysicsSystem:
     """
@@ -28,7 +28,7 @@ class PhysicsSystem:
         self.current_platform_rect: Optional[QRect] = None
         self.is_climbing: bool = False
         self.climbing_window: Optional[QRect] = None
-        self.climbing_side: _ClimbingSide | str = ""
+        self.climbing_side: _ClimbingSide = ""
 
     def update(self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None) -> None:
         """Processes physics calculations based on elapsed time."""
