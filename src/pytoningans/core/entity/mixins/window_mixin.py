@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from pytoningans.core.mod_manager import ModManager
     from pytoningans.core.world import WorldOverlay
     from pytoningans.core.entity.physics import PhysicsSystem
+    from pytoningans.core.entity.base_entity import BaseEntity
 
 
 class EntityWindowMixin:
@@ -20,6 +21,9 @@ class EntityWindowMixin:
     physics_sys: Optional[PhysicsSystem]
     current_hitbox: QRect
     velocity_y: float
+
+    def _entity(self) -> BaseEntity:
+        return cast("BaseEntity", self)
 
     def _init_window_physics(self) -> None:
         self._ignore_window_physics_override = None
@@ -68,7 +72,7 @@ class EntityWindowMixin:
     def is_climbing(self) -> bool:
         """Returns True if the entity is currently climbing a window wall."""
         if self.physics_sys is not None:
-            return getattr(self.physics_sys, "is_climbing", False)
+            return self.physics_sys.is_climbing
         return False
 
     def _check_window_drop_seat(self) -> None:
@@ -79,20 +83,21 @@ class EntityWindowMixin:
         if self.world is None or not self.should_use_window_physics:
             return
 
-        window_rects: list[QRect] = getattr(self.world, "active_window_rects", [])
+        window_rects: list[QRect] = self.world.active_window_rects
         if not window_rects:
             return
 
+        entity = self._entity()
         hitbox: QRect = self.current_hitbox
         if hitbox.width() <= 0 or hitbox.height() <= 0:
-            b_rect: QRectF = cast(Any, self).boundingRect()
+            b_rect: QRectF = entity.boundingRect()
             bw: int = int(b_rect.width()) if b_rect.width() > 0 else 50
             bh: int = int(b_rect.height()) if b_rect.height() > 0 else 50
             hitbox = QRect(0, 0, bw, bh)
 
         scene_box = QRect(
-            int(cast(Any, self).x() + hitbox.x()),
-            int(cast(Any, self).y() + hitbox.y()),
+            int(entity.x() + hitbox.x()),
+            int(entity.y() + hitbox.y()),
             hitbox.width(),
             hitbox.height(),
         )
@@ -107,15 +112,13 @@ class EntityWindowMixin:
             min_x = max(world_min_x, float(win.left() - hitbox.x() + 4))
             max_x = min(world_max_x, float(win.right() - hitbox.x() - hitbox.width() - 4))
             if min_x < max_x:
-                new_x = max(min_x, min(float(cast(Any, self).x()), max_x))
+                new_x = max(min_x, min(float(entity.x()), max_x))
             else:
                 new_x = max(world_min_x, min(float(win.left() - hitbox.x()), world_max_x))
 
-            cast(Any, self).setPos(new_x, new_y)
+            entity.setPos(new_x, new_y)
             self.velocity_y = 0.0
             if self.physics_sys is not None:
                 self.physics_sys.current_platform_rect = win
-            if hasattr(self, "on_moved"):
-                getattr(self, "on_moved")()
+            entity.on_moved()
             break
-

@@ -30,17 +30,18 @@ class EntityDragMixin:
     anim_sys: Optional[AnimationSystem]
     physics_sys: Optional[PhysicsSystem]
 
+    def _entity(self) -> BaseEntity:
+        return cast("BaseEntity", self)
+
     def _init_drag(self) -> None:
         self.is_dragged = False
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        if hasattr(self, "_hide_hover_tooltip"):
-            getattr(self, "_hide_hover_tooltip")()
+        self._entity()._hide_hover_tooltip()
         if event.button() == Qt.MouseButton.LeftButton:
-            if hasattr(self, "release_cursor"):
-                getattr(self, "release_cursor")()
+            self._entity().release_cursor()
             self.is_dragged = True
-            if self.physics_sys is not None and getattr(self.physics_sys, "is_climbing", False):
+            if self.physics_sys is not None and self.physics_sys.is_climbing:
                 self.physics_sys.stop_climb()
             self.sprite_rotation = 0.0
             if (
@@ -55,20 +56,22 @@ class EntityDragMixin:
             event.accept()
 
     def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        entity = self._entity()
         delta: QPointF = event.scenePos() - event.lastScenePos()
-        new_x: float = cast(Any, self).x() + delta.x()
-        new_y: float = cast(Any, self).y() + delta.y()
-        
+        new_x: float = entity.x() + delta.x()
+        new_y: float = entity.y() + delta.y()
+
         if self.world is not None:
             bounds: QRectF = self.world.scene.sceneRect()
-            new_x = max(bounds.left(), min(new_x, bounds.right() - cast(Any, self).width()))
-            new_y = max(bounds.top(), min(new_y, bounds.bottom() - cast(Any, self).height()))
-        
-        cast(Any, self).setPos(new_x, new_y)
+            new_x = max(bounds.left(), min(new_x, bounds.right() - entity.width()))
+            new_y = max(bounds.top(), min(new_y, bounds.bottom() - entity.height()))
+
+        entity.setPos(new_x, new_y)
         self.on_moved()
         event.accept()
 
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        entity = self._entity()
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_dragged = False
             if (
@@ -82,20 +85,19 @@ class EntityDragMixin:
             if not self.is_physics_enabled:
                 self.velocity_y = 0.0
             else:
-                if hasattr(self, "_check_window_drop_seat"):
-                    getattr(self, "_check_window_drop_seat")()
+                entity._check_window_drop_seat()
             event.accept()
-        if getattr(self, "is_hovered", False):
-            if hasattr(self, "_show_hover_tooltip"):
-                getattr(self, "_show_hover_tooltip")(event.screenPos())
+
+        if entity.is_hovered:
+            entity._show_hover_tooltip(event.screenPos())
 
     def on_moved(self) -> None:
         """Hook for subclasses to update attached items (like speech bubbles) when dragged."""
-        if getattr(self, "_is_cursor_grabbed", False) and hasattr(self, "_sync_grabbed_cursor"):
-            getattr(self, "_sync_grabbed_cursor")()
+        entity = self._entity()
+        if entity.is_cursor_grabbed:
+            entity._sync_grabbed_cursor()
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         from pytoningans.ui.context_menu import EntityContextMenu
-        EntityContextMenu.show_for_entity(cast(Any, self), event.screenPos())
+        EntityContextMenu.show_for_entity(self._entity(), event.screenPos())
         event.accept()
-

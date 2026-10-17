@@ -14,6 +14,7 @@ from pytoningans.ui.tool_tip import CustomToolTipManager
 
 if TYPE_CHECKING:
     from pytoningans.core.mod_manager import ModManager
+    from pytoningans.core.entity.base_entity import BaseEntity
 
 
 class EntityTooltipMixin:
@@ -23,15 +24,14 @@ class EntityTooltipMixin:
     is_hovered: bool
     mod_manager: Optional[ModManager]
 
+    def _entity(self) -> BaseEntity:
+        return cast("BaseEntity", self)
+
     def _init_tooltip(self) -> None:
         self._instance_name = None
         self.is_hovered = False
-        cast(Any, self).setAcceptHoverEvents(True)
+        self._entity().setAcceptHoverEvents(True)
         self.update_tooltip()
-
-    @property
-    def behavior(self) -> Optional[BaseBehavior]:
-        return self.mod_manager.custom_behavior if self.mod_manager is not None else None
 
     @property
     def instance_name(self) -> Optional[str]:
@@ -90,7 +90,7 @@ class EntityTooltipMixin:
 
     def update_tooltip(self) -> None:
         """Updates the item tooltip to match its identification."""
-        cast(Any, self).setToolTip(self.identification)
+        self._entity().setToolTip(self.identification)
 
     def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         self.on_hover_enter()
@@ -126,7 +126,7 @@ class EntityTooltipMixin:
         self._on_hover_leave()
 
     def _on_hover_enter(self) -> None:
-        behavior: Optional[BaseBehavior] = self.behavior
+        behavior: Optional[BaseBehavior] = self._entity().behavior
         if behavior is None: return
         try:
             if isinstance(behavior, BaseEntityBehavior):
@@ -139,7 +139,7 @@ class EntityTooltipMixin:
             print(f"Custom Behavior on_hover_enter Error: {e}")
 
     def _on_hover_leave(self) -> None:
-        behavior: Optional[BaseBehavior] = self.behavior
+        behavior: Optional[BaseBehavior] = self._entity().behavior
         if behavior is None: return
         try:
             if isinstance(behavior, BaseEntityBehavior):
@@ -150,4 +150,3 @@ class EntityTooltipMixin:
                 behavior.on_hover_leave(cast(IItem, self))
         except Exception as e:
             print(f"Custom Behavior on_hover_leave Error: {e}")
-

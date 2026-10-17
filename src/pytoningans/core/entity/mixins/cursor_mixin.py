@@ -32,6 +32,11 @@ class EntityCursorMixin:
     world: Optional[WorldOverlay]
     anim_sys: Optional[AnimationSystem]
     facing_left: bool
+    target_pos: Optional[Any]
+    _target_pos: Optional[QPointF]
+
+    def _entity(self) -> BaseEntity:
+        return cast("BaseEntity", self)
 
     def _init_cursor(self) -> None:
         self._is_cursor_grabbed = False
@@ -55,7 +60,7 @@ class EntityCursorMixin:
     def get_cursor_pos(self) -> tuple[float, float]:
         """Returns the current OS mouse cursor coordinates mapped into this entity's world scene space."""
         global_pos: QPoint = QCursor.pos()
-        if self.world is not None and hasattr(self.world, "view"):
+        if self.world is not None and self.world.view is not None:
             local_pt = self.world.view.mapFromGlobal(global_pos)
             scene_pt = self.world.view.mapToScene(local_pt)
             return float(scene_pt.x()), float(scene_pt.y())
@@ -68,7 +73,7 @@ class EntityCursorMixin:
 
     def set_cursor_pos(self, scene_x: float, scene_y: float) -> None:
         """Moves the OS mouse cursor to the specified position in this entity's world scene space."""
-        if self.world is not None and hasattr(self.world, "view"):
+        if self.world is not None and self.world.view is not None:
             view_pt = self.world.view.mapFromScene(QPointF(scene_x, scene_y))
             global_pt = self.world.view.mapToGlobal(view_pt)
             QCursor.setPos(global_pt)
@@ -90,11 +95,12 @@ class EntityCursorMixin:
             duration_ms: Optional duration in milliseconds before automatically releasing the cursor.
                          If None, stays grabbed until release_cursor() is called or the user breaks free.
         """
-        if getattr(self, "is_dead", False) or getattr(self, "is_dragged", False):
+        entity = self._entity()
+        if getattr(entity, "is_dead", False) or entity.is_dragged:
             return
         cx, cy = self.get_cursor_pos()
-        ox = int(round(cx - cast(Any, self).x())) if offset_x is None else offset_x
-        oy = int(round(cy - cast(Any, self).y())) if offset_y is None else offset_y
+        ox = int(round(cx - entity.x())) if offset_x is None else offset_x
+        oy = int(round(cy - entity.y())) if offset_y is None else offset_y
         self._is_cursor_grabbed = True
         self._cursor_grab_offset = (ox, oy)
         self._cursor_grab_duration = duration_ms
@@ -102,7 +108,7 @@ class EntityCursorMixin:
         self._last_synced_global_cursor = None
         self._sync_grabbed_cursor()
 
-        behavior: Optional[BaseBehavior] = getattr(self, "behavior", None)
+        behavior: Optional[BaseBehavior] = entity.behavior
         if isinstance(behavior, BaseEntityBehavior):
             try:
                 behavior.on_cursor_grabbed(cast(IEntity, self))
@@ -119,7 +125,7 @@ class EntityCursorMixin:
         self._cursor_grab_time_left = 0
         self._last_synced_global_cursor = None
 
-        behavior: Optional[BaseBehavior] = getattr(self, "behavior", None)
+        behavior: Optional[BaseBehavior] = self._entity().behavior
         if isinstance(behavior, BaseEntityBehavior):
             try:
                 behavior.on_cursor_released(cast(IEntity, self))
@@ -131,16 +137,15 @@ class EntityCursorMixin:
         self._is_following_cursor = enabled
         self._follow_cursor_min_dist = max(5.0, min_distance)
         if not enabled:
-            if hasattr(self, "_target_pos"):
-                self._target_pos = None
-            if hasattr(self, "target_pos"):
-                self.target_pos = None
-            if getattr(self, "state", None) == EntityState.MOVING and self.anim_sys is not None:
+            self.target_pos = None
+            self._target_pos = None
+            if self._entity().state == EntityState.MOVING and self.anim_sys is not None:
                 self.anim_sys.set_state(EntityState.IDLE)
 
     def _sync_grabbed_cursor(self) -> None:
         """Positions the OS mouse cursor at the entity's grab anchor point."""
-        if not self._is_cursor_grabbed or getattr(self, "is_dead", False):
+        entity = self._entity()
+        if not self._is_cursor_grabbed or getattr(entity, "is_dead", False):
             return
 
         # Physical struggle / breakout check: if the user jerks their mouse away (> 120px) from where
@@ -153,29 +158,30 @@ class EntityCursorMixin:
                 self.release_cursor()
                 return
 
-        target_scene_x: float = cast(Any, self).x() + self._cursor_grab_offset[0]
-        target_scene_y: float = cast(Any, self).y() + self._cursor_grab_offset[1]
+        target_scene_x: float = entity.x() + self._cursor_grab_offset[0]
+        target_scene_y: float = entity.y() + self._cursor_grab_offset[1]
         self.set_cursor_pos(target_scene_x, target_scene_y)
         self._last_synced_global_cursor = self.get_global_cursor_pos()
 
     def _update_cursor_interaction(self, dt: int) -> None:
         """Ticks cursor-following pathfinding and synchronizes grabbed cursor with duration timeout."""
-        # Cursor following pathfinding logic
+        entity = self._entity()
+        # 1. Cursor following pathfinding logic
         if (
             self._is_following_cursor and
             not self._is_cursor_grabbed and
-            not getattr(self, "is_dead", False) and
-            not getattr(self, "is_dragged", False) and
-            not getattr(self, "is_force_idle", False)
+            not getattr(entity, "is_dead", False) and
+            not entity.is_dragged and
+            not entity.is_force_idle
         ):
             cx, cy = self.get_cursor_pos()
             
             from pytoningans.core.entity.physics.helpers import get_effective_hitbox
-            hitbox: QRect = get_effective_hitbox(cast(Any, self))
+            hitbox: QRect = get_effective_hitbox(entity)
             hitbox_center_x: float = hitbox.x() + hitbox.width() / 2.0
             hitbox_center_y: float = hitbox.y() + hitbox.height() / 2.0
-            entity_center_x: float = cast(Any, self).x() + hitbox_center_x
-            entity_center_y: float = cast(Any, self).y() + hitbox_center_y
+            entity_center_x: float = entity.x() + hitbox_center_x
+            entity_center_y: float = entity.y() + hitbox_center_y
 
             can_fly = bool(self.mod_manager is not None and getattr(self.mod_manager, "can_fly", False))
             dist: float = abs(cx - entity_center_x)
@@ -186,40 +192,36 @@ class EntityCursorMixin:
             start_dist: float = stop_dist + max(12.0, stop_dist * 0.35)
             
             should_move: bool = dist > start_dist
-            if getattr(self, "state", None) == EntityState.MOVING:
+            if entity.state == EntityState.MOVING:
                 should_move = dist > stop_dist
 
             if should_move:
                 target_x: float = cx - hitbox_center_x
-                target_y: float = cy - hitbox_center_y if can_fly else cast(Any, self).y()
-                if hasattr(self, "target_pos"):
-                    self.target_pos = (target_x, target_y)
-                else:
-                    self._target_pos = QPointF(target_x, target_y)
+                target_y: float = cy - hitbox_center_y if can_fly else entity.y()
+                self.target_pos = (target_x, target_y)
+                self._target_pos = QPointF(target_x, target_y)
 
                 if (
                     self.anim_sys is not None and
-                    getattr(self, "state", None) not in (
+                    entity.state not in (
                         EntityState.DRAG, EntityState.DYING, EntityState.CLIMBING, EntityState.ATTACK
                     ) and
-                    not getattr(self, "is_climbing", False) and
-                    getattr(self, "state", None) != EntityState.MOVING
+                    not entity.is_climbing and
+                    entity.state != EntityState.MOVING
                 ):
                     self.anim_sys.set_state(EntityState.MOVING)
             else:
                 if abs(cx - entity_center_x) > 1:
                     self.facing_left = (cx < entity_center_x)
-                if getattr(self, "state", None) == EntityState.MOVING and getattr(self, "target_pos", None) is not None:
-                    if hasattr(self, "target_pos"):
-                        self.target_pos = None
-                    else:
-                        self._target_pos = None
+                if entity.state == EntityState.MOVING and (self.target_pos is not None or self._target_pos is not None):
+                    self.target_pos = None
+                    self._target_pos = None
                     if self.anim_sys is not None:
                         self.anim_sys.set_state(EntityState.IDLE)
 
-        # Sync grabbed cursor with entity position and check timeout / breakout
+        # 2. Sync grabbed cursor with entity position and check timeout / breakout
         if self._is_cursor_grabbed:
-            if getattr(self, "is_dead", False) or getattr(self, "is_dragged", False):
+            if getattr(entity, "is_dead", False) or entity.is_dragged:
                 self.release_cursor()
             elif self._cursor_grab_time_left > 0:
                 self._cursor_grab_time_left -= dt
@@ -229,4 +231,3 @@ class EntityCursorMixin:
                     self._sync_grabbed_cursor()
             else:
                 self._sync_grabbed_cursor()
-
