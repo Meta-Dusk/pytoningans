@@ -290,7 +290,9 @@ class AnimationSubsystem(BasePanel):
         for i, state in enumerate(state_enum):
             state_val: str = str(state.value)
             exists, row = self.controller.has_mapped_row(state_val)
-            display_name: str = f"{state_val.capitalize()} [{'Row ' + str(row) if exists else 'Unmapped'}]"
+            display_name: str = (
+                f"{state_val.capitalize()} [{'Row ' + str(row) if exists else 'Unmapped'}]"
+            )
             
             # Store pure string keys in both combo boxes
             self.state_combo.addItem(display_name, userData=state_val)
@@ -320,11 +322,10 @@ class AnimationSubsystem(BasePanel):
         self._update_preview()
 
     def _on_state_changed(self, *_) -> None:
-        raw_data = self.state_combo.currentData()
-        if not raw_data: return
-        state_key = str(raw_data)
+        state_data = self.state_combo.currentData()
+        if state_data is None: return
         
-        meta: AnimationMeta = self.controller.get_meta(state_key)
+        meta: AnimationMeta = self.controller.get_meta(state_data)
         
         self._is_updating_ui = True
         self.row_spin.setValue(meta.row)
@@ -344,8 +345,8 @@ class AnimationSubsystem(BasePanel):
 
     def _on_meta_edited(self, *_) -> None:
         if self._is_updating_ui: return
-        state: str = self.state_combo.currentData()
-        if not state: return
+        state: Optional[str] = self.state_combo.currentData()
+        if state is None: return
         
         new_meta = AnimationMeta(
             row=self.row_spin.value(),
@@ -389,22 +390,21 @@ class AnimationSubsystem(BasePanel):
         self._restart_preview()
 
     def _update_preview(self) -> None:
-        state_data = self.state_combo.currentData()
-        if not state_data: return
-        state_key: str = state_data.value if hasattr(state_data, "value") else str(state_data)
+        state: Optional[str] = self.state_combo.currentData()
+        if state is None: return
         
         self._preview_frame += 1
         
-        anchor, hitbox = self.controller.manager.get_frame_physics(state_key, self._preview_frame)
+        anchor, hitbox = self.controller.manager.get_frame_physics(state, self._preview_frame)
         self.preview_label.current_anchor = anchor
         self.preview_label.current_hitbox = hitbox
         self.preview_label.attack_range = self.controller.manager.attack_range
         
         if self.preview_label.show_crop:
-            frame, crop_rect = self.controller.get_raw_preview(state_key, self._preview_frame)
+            frame, crop_rect = self.controller.get_raw_preview(state, self._preview_frame)
             self.preview_label.crop_rect = crop_rect
         else:
-            frame = self.controller.get_frame(state_key, self._preview_frame)
+            frame = self.controller.get_frame(state, self._preview_frame)
             
         self.preview_label.setPixmap(frame) if frame else self.preview_label.setText("No Image")
 
@@ -465,7 +465,7 @@ class AnimationSubsystem(BasePanel):
         self.bake_btn.setEnabled(True)
     
     def _on_apply_all_clicked(self) -> None:
-        state: Optional[EntityState] = self.state_combo.currentData()
+        state: Optional[str] = self.state_combo.currentData()
         if state is None: return
         
         reply: QMessageBox.StandardButton = QMessageBox.question(

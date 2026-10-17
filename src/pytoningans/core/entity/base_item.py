@@ -61,15 +61,14 @@ class BaseItem(BaseEntity):
         return False
 
     @BaseEntity.state.setter
-    def state(self, value: Any) -> None:
-        val_str = value.value if hasattr(value, "value") else str(value)
-        if getattr(self, "_state", None) == val_str:
+    def state(self, value: str) -> None:
+        if getattr(self, "_state", None) == value:
             return
-        old_state: str = getattr(self, "_state", "")
-        self._state = val_str
+        old_state: str = self._state
+        self._state = value
         if not self.is_static and self.anim_sys is not None:
-            self.anim_sys.set_state(val_str)
-        self._on_state_change(old_state, val_str)
+            self.anim_sys.set_state(value)
+        self._on_state_change(old_state, value)
 
     def set_physics_enabled(self, enabled: bool) -> None:
         """Sets whether the item is affected by gravity when dropped on the ground."""

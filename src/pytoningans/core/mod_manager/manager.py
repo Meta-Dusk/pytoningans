@@ -81,6 +81,8 @@ class ModManager:
         self.attack_damage: int = 10
         self.attack_range: int = 50
         self.jump_height: int = 150
+        self.move_speed: float = 2.0
+        self.regen_rate: float = 0.0
         self.behavior_type: BehaviorType = BehaviorType.NEUTRAL
         self.attack_type: AttackType = AttackType.SINGLE
         self.max_targets: int = 1
@@ -138,27 +140,21 @@ class ModManager:
         with open(config_path, "r", encoding="utf-8") as f:
             data: dict[str, Any] = json.load(f)
 
-        raw_entity_type = data.get("entity_type", EntityType.ENTITY.value)
-        entity_type_str: str = (
-            raw_entity_type.value
-            if hasattr(raw_entity_type, "value")
-            else str(raw_entity_type)
-        )
-
+        entity_type = data.get("entity_type", EntityType.ENTITY)
         behavior_data: dict[str, Any] = data.get("behavior", {})
         raw_tags: list[Any] = data.get("tags", behavior_data.get("tags", []))
         self.tags = [str(t).lower().strip() for t in raw_tags if str(t).strip()]
 
         self._static_physics_cache = None
         self.is_static = data.get("is_static", False)
-        if not self.is_static and entity_type_str in (EntityType.ITEM.value, EntityType.STRUCTURE.value):
+        if not self.is_static and entity_type in (EntityType.ITEM, EntityType.STRUCTURE):
             if data.get("columns", 1) == 1 and data.get("rows", 1) == 1:
                 self.is_static = True
 
         # Instantiate the config to store the entity type
         self.config = ModConfig(
             name=data.get("name", mod_folder_name),
-            entity_type=entity_type_str,
+            entity_type=entity_type,
             is_static=self.is_static,
             tags=self.tags,
             version=data.get("version", CURRENT_CONFIG_VERSION),
@@ -182,6 +178,8 @@ class ModManager:
         self.attack_damage = behavior_data.get("attack_damage", 10)
         self.attack_range = behavior_data.get("attack_range", 50)
         self.jump_height = behavior_data.get("jump_height", 15)
+        self.move_speed = float(behavior_data.get("move_speed", 2.0))
+        self.regen_rate = float(behavior_data.get("regen_rate", 0.0))
 
         raw_behavior_type = behavior_data.get("type", "neutral")
         try:
@@ -272,6 +270,8 @@ class ModManager:
                 attack_damage=self.attack_damage,
                 attack_range=self.attack_range,
                 jump_height=self.jump_height,
+                move_speed=self.move_speed,
+                regen_rate=self.regen_rate,
                 attack_type=self.attack_type,
                 max_targets=self.max_targets,
                 death_animation=self.death_animation,

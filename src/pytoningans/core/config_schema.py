@@ -19,6 +19,8 @@ class BehaviorConfig:
     attack_damage: int = 10
     attack_range: int = 50
     jump_height: int = 15
+    move_speed: float = 2.0
+    regen_rate: float = 0.0
     attack_type: str = AttackType.SINGLE.value
     
     max_targets: int = 1

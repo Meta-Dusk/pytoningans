@@ -101,7 +101,7 @@ class EntityManager:
                 for world in self.active_worlds:
                     if world.active_window_rects:
                         world.active_window_rects.clear()
-                    if hasattr(world, "active_windows") and world.active_windows:
+                    if world.active_windows:
                         world.active_windows.clear()
 
         for world in self.active_worlds:

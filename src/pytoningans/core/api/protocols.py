@@ -28,6 +28,8 @@ class IModInfo(Protocol):
     attack_damage: int
     attack_range: int
     jump_height: int
+    move_speed: float
+    regen_rate: float
     can_fly: bool
     can_climb_walls: bool
     can_move_windows: bool
@@ -92,6 +94,7 @@ class IBaseEntity(Protocol):
     facing_left: bool
     sprite_rotation: float
     velocity_y: float
+    move_speed: float
     can_climb_walls: bool
     can_move_windows: bool
     ignore_window_physics: bool
@@ -252,6 +255,7 @@ class IEntity(IBaseEntity, Protocol):
     """Living desktop entity with health, AI, combat, and dialogue."""
     is_dead: bool
     current_health: int
+    regen_rate: float
     target_pos: Optional[Pos2D]
     behavior_type: BehaviorType
     entity_manager: Optional[IEntityManager]

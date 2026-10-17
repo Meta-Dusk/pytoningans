@@ -111,16 +111,15 @@ class BaseEntity(
         return self._state
 
     @state.setter
-    def state(self, value: Any) -> None:
-        val_str = value.value if hasattr(value, "value") else str(value)
-        if getattr(self, "_state", None) == val_str:
+    def state(self, value: str) -> None:
+        if getattr(self, "_state", None) == value:
             return
-        old_state: str = getattr(self, "_state", "")
+        old_state: str = self._state
         if self.anim_sys is not None:
-            self.anim_sys.set_state(val_str)
+            self.anim_sys.set_state(value)
         else:
-            self._state = val_str
-        self._on_state_change(old_state, val_str)
+            self._state = value
+        self._on_state_change(old_state, value)
 
     @property
     def is_force_idle(self) -> bool:
@@ -141,6 +140,21 @@ class BaseEntity(
     def set_force_idle(self, enabled: bool) -> None:
         """Toggles force-idle state where the entity plays idle animations but disables AI and gravity."""
         self.is_force_idle = enabled
+
+    @property
+    def move_speed(self) -> float:
+        """Entity movement speed in pixels per frame."""
+        if self.physics_sys is not None:
+            return self.physics_sys.move_speed
+        if self.mod_manager is not None:
+            return getattr(self.mod_manager, "move_speed", 2.0)
+        return 2.0
+
+    @move_speed.setter
+    def move_speed(self, value: float) -> None:
+        val = float(value)
+        if self.physics_sys is not None:
+            self.physics_sys.move_speed = val
 
     @property
     def is_interactable(self) -> bool:
@@ -242,7 +256,7 @@ class BaseEntity(
             self._highlight_item.setVisible(False)
             if self.scene() and self._highlight_item.scene():
                 self.scene().removeItem(self._highlight_item)
-        if hasattr(self, "_active_context_menu") and self._active_context_menu is not None:
+        if self._active_context_menu is not None:
             menu = self._active_context_menu
             self._active_context_menu = None
             try:

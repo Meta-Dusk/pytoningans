@@ -72,6 +72,8 @@ class ModEditorController:
             "attack_damage": self.manager.attack_damage,
             "attack_range": self.manager.attack_range,
             "jump_height": self.manager.jump_height,
+            "move_speed": self.manager.move_speed,
+            "regen_rate": self.manager.regen_rate,
             "attack_type": self.manager.attack_type,
         }
 
@@ -86,6 +88,8 @@ class ModEditorController:
         self.manager.attack_damage = stats.get("attack_damage", self.manager.attack_damage)
         self.manager.attack_range = stats.get("attack_range", self.manager.attack_range)
         self.manager.jump_height = stats.get("jump_height", self.manager.jump_height)
+        self.manager.move_speed = float(stats.get("move_speed", self.manager.move_speed))
+        self.manager.regen_rate = float(stats.get("regen_rate", self.manager.regen_rate))
         self.manager.attack_type = stats.get("attack_type", self.manager.attack_type)
     
     def get_raw_preview(self, state: str, frame_index: int) -> tuple[Optional[QPixmap], QRect]:

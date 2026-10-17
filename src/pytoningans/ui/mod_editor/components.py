@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QPushButton, QSizeGrip, QHBoxLayout, QSpinBox
+    QWidget, QVBoxLayout, QLabel, QPushButton, QSizeGrip, QHBoxLayout, QSpinBox, QDoubleSpinBox
 )
 from PySide6.QtCore import Qt, QRect, Signal, QPoint
 from PySide6.QtGui import QPaintEvent, QPainter, QPen, QColor, QMouseEvent
@@ -27,6 +27,15 @@ def create_info_widget(widget: QWidget, tooltip_text: str) -> QWidget:
 def create_spinbox(min_val: int, max_val: int) -> QSpinBox:
     spin = QSpinBox()
     spin.setRange(min_val, max_val)
+    return spin
+
+def create_double_spinbox(
+    min_val: float, max_val: float, step: float = 0.1, decimals: int = 1
+) -> QDoubleSpinBox:
+    spin = QDoubleSpinBox()
+    spin.setRange(min_val, max_val)
+    spin.setSingleStep(step)
+    spin.setDecimals(decimals)
     return spin
 
 class PreviewLabel(QLabel):

@@ -71,12 +71,11 @@ class EntityContextMenu(QDialog):
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
-        if hasattr(self, "grip"):
-            self.grip.move(
-                self.width() - self.grip.width(),
-                self.height() - self.grip.height()
-            )
-            self.grip.raise_()
+        self.grip.move(
+            self.width() - self.grip.width(),
+            self.height() - self.grip.height()
+        )
+        self.grip.raise_()
 
     def _build_ui(self) -> None:
         if self.entity is None:

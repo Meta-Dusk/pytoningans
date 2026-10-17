@@ -5,7 +5,9 @@ from PySide6.QtWidgets import (
 
 from pytoningans.core.constants import BehaviorType, AttackType, DeathAnimation
 from pytoningans.ui.mod_editor.controller import ModEditorController
-from pytoningans.ui.mod_editor.components import CollapsibleSection, create_spinbox, create_info_label
+from pytoningans.ui.mod_editor.components import (
+    CollapsibleSection, create_spinbox, create_double_spinbox, create_info_label
+)
 from .base_panel import BasePanel, BaseBehaviorPanel
 
 class BehaviorStatsPanel(BasePanel):
@@ -34,6 +36,8 @@ class BehaviorStatsPanel(BasePanel):
         self.atk_dmg_spin = create_spinbox(0, 9999)
         self.atk_range_spin = create_spinbox(0, 2000)
         self.jump_height_spin = create_spinbox(0, 100)
+        self.move_speed_spin = create_double_spinbox(0.1, 50.0, step=0.5, decimals=1)
+        self.regen_rate_spin = create_double_spinbox(0.0, 1000.0, step=0.5, decimals=1)
         
         self.atk_type_combo = QComboBox()
         for atk_type in AttackType:
@@ -54,6 +58,8 @@ class BehaviorStatsPanel(BasePanel):
         form.addRow(create_info_label("Attack Range (px):", "Maximum distance to strike."), self.atk_range_spin)
         form.addRow(create_info_label("Attack Type:", "How many entities can be damaged."), self.atk_type_combo)
         form.addRow(create_info_label("Jump Height:", "Initial vertical velocity."), self.jump_height_spin)
+        form.addRow(create_info_label("Move Speed (px):", "Base movement speed in pixels per tick."), self.move_speed_spin)
+        form.addRow(create_info_label("Passive Regen (HP/s):", "Passive health regeneration rate per second. 0 to disable."), self.regen_rate_spin)
         
         self.section.content_layout.addLayout(form)
         layout.addWidget(self.section)
@@ -65,7 +71,10 @@ class BehaviorStatsPanel(BasePanel):
         self.can_climb_walls_check.stateChanged.connect(self._on_edited)
         self.can_move_windows_check.stateChanged.connect(self._on_can_move_windows_toggled)
         self.window_move_mode_combo.currentIndexChanged.connect(self._on_edited)
-        for spin in (self.max_health_spin, self.atk_dmg_spin, self.atk_range_spin, self.jump_height_spin):
+        for spin in (
+            self.max_health_spin, self.atk_dmg_spin, self.atk_range_spin,
+            self.jump_height_spin, self.move_speed_spin, self.regen_rate_spin
+        ):
             spin.valueChanged.connect(self._on_edited)
 
     def _on_ignore_window_physics_toggled(self, *_) -> None:
@@ -92,6 +101,8 @@ class BehaviorStatsPanel(BasePanel):
             "attack_damage": self.atk_dmg_spin.value(),
             "attack_range": self.atk_range_spin.value(),
             "jump_height": self.jump_height_spin.value(),
+            "move_speed": self.move_speed_spin.value(),
+            "regen_rate": self.regen_rate_spin.value(),
             "attack_type": self.atk_type_combo.currentData(),
         }
         self.controller.update_behavior_stats(stats)
@@ -118,6 +129,8 @@ class BehaviorStatsPanel(BasePanel):
         self.atk_dmg_spin.setValue(stats["attack_damage"])
         self.atk_range_spin.setValue(stats["attack_range"])
         self.jump_height_spin.setValue(stats["jump_height"])
+        self.move_speed_spin.setValue(float(stats.get("move_speed", 2.0)))
+        self.regen_rate_spin.setValue(float(stats.get("regen_rate", 0.0)))
         
         current_type = stats.get("type", BehaviorType.NEUTRAL)
         self.behavior_type_combo.setCurrentIndex(self.behavior_type_combo.findData(current_type))

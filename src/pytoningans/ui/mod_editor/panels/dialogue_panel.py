@@ -155,17 +155,17 @@ class DialoguePanel(BasePanel):
         
         # Populate Plain Dialogue
         self.plain_dialogue_list.clear()
-        if hasattr(self.controller.manager, 'plain_dialogue'):
+        if self.controller.manager.plain_dialogue:
             self.plain_dialogue_list.addItems(self.controller.manager.plain_dialogue)
             
         # Populate Death Dialogue
         self.death_dialogue_list.clear()
-        if hasattr(self.controller.manager, 'death_dialogue'):
+        if self.controller.manager.death_dialogue:
             self.death_dialogue_list.addItems(self.controller.manager.death_dialogue)
             
         # Populate Window Triggers Table
         self.window_triggers_table.setRowCount(0)
-        if hasattr(self.controller.manager, 'window_triggers'):
+        if self.controller.manager.window_triggers:
             for trigger in self.controller.manager.window_triggers:
                 self._add_trigger_row(trigger)
                 
@@ -277,7 +277,7 @@ class DialoguePanel(BasePanel):
         new_dialogue: list[str] = [
             self.plain_dialogue_list.item(i).text() for i in range(self.plain_dialogue_list.count())
         ]
-        if hasattr(self.controller.manager, 'plain_dialogue'):
+        if self.controller.manager.plain_dialogue:
             self.controller.manager.plain_dialogue = new_dialogue
 
     # --- Death Dialogue Actions ---
@@ -321,7 +321,7 @@ class DialoguePanel(BasePanel):
         new_death_dialogue: list[str] = [
             self.death_dialogue_list.item(i).text() for i in range(self.death_dialogue_list.count())
         ]
-        if hasattr(self.controller.manager, 'death_dialogue'):
+        if self.controller.manager.death_dialogue:
             self.controller.manager.death_dialogue = new_death_dialogue
 
     # --- Window Triggers Actions ---

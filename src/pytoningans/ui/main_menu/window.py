@@ -12,11 +12,9 @@ from pytoningans.ui.mod_manager_hub import ModManagerHub
 from pytoningans.ui.combat_settings_dialog import CombatSettingsDialog
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_editor.components import CustomSizeGrip
-from pytoningans.ui.panels import (
-    SpawnPanel,
-    LiveControlsPanel,
-    SystemControlsPanel,
-)
+from pytoningans.ui.main_menu.spawn_panel import SpawnPanel
+from pytoningans.ui.main_menu.live_controls_panel import LiveControlsPanel
+from pytoningans.ui.main_menu.system_controls_panel import SystemControlsPanel
 from pytoningans.utils.assets import get_main_icon
 
 if TYPE_CHECKING:
@@ -153,3 +151,4 @@ class MainMenu(QWidget):
 
     def _on_combat_settings_destroyed(self) -> None:
         self.combat_settings_dialog = None
+

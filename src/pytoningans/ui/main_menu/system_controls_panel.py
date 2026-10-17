@@ -6,7 +6,6 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QApplication, QLabel, QFrame, QHBoxLayout
 )
 from PySide6.QtCore import Signal
-from PySide6.QtGui import QGuiApplication
 
 from pytoningans.ui.theme import LIGHT_THEME, DARK_THEME
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, cast, Any
+from typing import TYPE_CHECKING, Optional, cast
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtWidgets import (
@@ -71,7 +71,7 @@ class EntityDragMixin:
         event.accept()
 
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        entity = self._entity()
+        entity: BaseEntity = self._entity()
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_dragged = False
             if (

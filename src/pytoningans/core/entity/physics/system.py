@@ -11,6 +11,7 @@ from .repulsion import apply_soft_repulsion
 
 if TYPE_CHECKING:
     from pytoningans.core.entity.base_entity import BaseEntity
+    from pytoningans.core.mod_manager import ModManager
 
 
 type _ClimbingSide = Literal["left", "right"] | str
@@ -24,7 +25,9 @@ class PhysicsSystem:
     def __init__(self, entity: Optional[BaseEntity] = None) -> None:
         self.entity = entity
         self.gravity: float = 0.8
-        self.move_speed: float = 2.0
+        mod_manager: Optional[ModManager] = entity.mod_manager if entity is not None else None
+        if mod_manager is not None:
+            self.move_speed: float = mod_manager.move_speed
         self.current_platform_rect: Optional[QRect] = None
         self.is_climbing: bool = False
         self.climbing_window: Optional[QRect] = None
@@ -117,7 +120,7 @@ class PhysicsSystem:
             self.stop_climb()
             return
 
-        window_rects: list[QRect] = getattr(self.entity.world, "active_window_rects", [])
+        window_rects: list[QRect] = self.entity.world.active_window_rects
         active_win: Optional[QRect] = None
         for win in window_rects:
             if win == self.climbing_window or win.intersects(self.climbing_window):

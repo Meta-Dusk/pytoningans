@@ -95,8 +95,7 @@ class CustomTitleBar(QWidget):
                 
                 # Restore the window
                 self.parent_window.showNormal()
-                if hasattr(self, "maximize_btn"):
-                    self.maximize_btn.setText("[+]")
+                self.maximize_btn.setText("[+]")
 
             # Move the window
             self.parent_window.move(event.globalPosition().toPoint() - self._drag_offset)
@@ -109,14 +108,11 @@ class CustomTitleBar(QWidget):
     
     # --- Other Window Events ---
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
-        if hasattr(self, "maximize_btn") and event.button() == Qt.MouseButton.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self._toggle_maximize()
             event.accept()
     
     def _toggle_maximize(self) -> None:
-        if not hasattr(self, "maximize_btn"):
-            return
-            
         # Get the top-level parent widget
         window: QWidget = self.window()
         if window.isMaximized():

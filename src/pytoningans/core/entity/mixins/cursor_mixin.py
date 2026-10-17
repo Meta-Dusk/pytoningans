@@ -61,8 +61,8 @@ class EntityCursorMixin:
         """Returns the current OS mouse cursor coordinates mapped into this entity's world scene space."""
         global_pos: QPoint = QCursor.pos()
         if self.world is not None and self.world.view is not None:
-            local_pt = self.world.view.mapFromGlobal(global_pos)
-            scene_pt = self.world.view.mapToScene(local_pt)
+            local_pt: QPoint = self.world.view.mapFromGlobal(global_pos)
+            scene_pt: QPointF = self.world.view.mapToScene(local_pt)
             return float(scene_pt.x()), float(scene_pt.y())
         return float(global_pos.x()), float(global_pos.y())
 
@@ -95,7 +95,7 @@ class EntityCursorMixin:
             duration_ms: Optional duration in milliseconds before automatically releasing the cursor.
                          If None, stays grabbed until release_cursor() is called or the user breaks free.
         """
-        entity = self._entity()
+        entity: BaseEntity = self._entity()
         if getattr(entity, "is_dead", False) or entity.is_dragged:
             return
         cx, cy = self.get_cursor_pos()
@@ -136,15 +136,15 @@ class EntityCursorMixin:
         """Configures the entity to automatically follow / pathfind towards the mouse cursor."""
         self._is_following_cursor = enabled
         self._follow_cursor_min_dist = max(5.0, min_distance)
-        if not enabled:
-            self.target_pos = None
-            self._target_pos = None
-            if self._entity().state == EntityState.MOVING and self.anim_sys is not None:
-                self.anim_sys.set_state(EntityState.IDLE)
+        if enabled: return
+        self.target_pos = None
+        self._target_pos = None
+        if self._entity().state == EntityState.MOVING and self.anim_sys is not None:
+            self.anim_sys.set_state(EntityState.IDLE)
 
     def _sync_grabbed_cursor(self) -> None:
         """Positions the OS mouse cursor at the entity's grab anchor point."""
-        entity = self._entity()
+        entity: BaseEntity = self._entity()
         if not self._is_cursor_grabbed or getattr(entity, "is_dead", False):
             return
 
@@ -165,8 +165,8 @@ class EntityCursorMixin:
 
     def _update_cursor_interaction(self, dt: int) -> None:
         """Ticks cursor-following pathfinding and synchronizes grabbed cursor with duration timeout."""
-        entity = self._entity()
-        # 1. Cursor following pathfinding logic
+        entity: BaseEntity = self._entity()
+        # Cursor following pathfinding logic
         if (
             self._is_following_cursor and
             not self._is_cursor_grabbed and
@@ -213,13 +213,15 @@ class EntityCursorMixin:
             else:
                 if abs(cx - entity_center_x) > 1:
                     self.facing_left = (cx < entity_center_x)
-                if entity.state == EntityState.MOVING and (self.target_pos is not None or self._target_pos is not None):
+                if entity.state == EntityState.MOVING and (
+                    self.target_pos is not None or self._target_pos is not None
+                ):
                     self.target_pos = None
                     self._target_pos = None
                     if self.anim_sys is not None:
                         self.anim_sys.set_state(EntityState.IDLE)
 
-        # 2. Sync grabbed cursor with entity position and check timeout / breakout
+        # Sync grabbed cursor with entity position and check timeout / breakout
         if self._is_cursor_grabbed:
             if getattr(entity, "is_dead", False) or entity.is_dragged:
                 self.release_cursor()

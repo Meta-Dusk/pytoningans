@@ -271,8 +271,7 @@ class SpeechBubble(QGraphicsItem):
         x: float = entity_width / 2.0
         y: float = -10.0
         if (
-            hasattr(self.entity, "health_bar")
-            and self.entity.health_bar is not None
+            self.entity.health_bar is not None
             and self.entity.health_bar.isVisible()
             and self.entity.health_bar.opacity() > 0.1
         ):
@@ -285,7 +284,7 @@ class SpeechBubble(QGraphicsItem):
         self.setParentItem(cast(Any, None))
         if self.scene():
             self.scene().removeItem(self)
-        if hasattr(self, "text_item") and self.text_item is not None:
+        if self.text_item is not None:
             self.text_item.setParentItem(cast(Any, None))
             self.text_item = None
         self.entity = None

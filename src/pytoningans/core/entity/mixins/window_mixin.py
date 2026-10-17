@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, cast, Any
+from typing import TYPE_CHECKING, Optional, cast
 
 from PySide6.QtCore import QRect, QRectF
 from pytoningans.core.settings import SettingsManager
@@ -44,7 +44,7 @@ class EntityWindowMixin:
 
     def move_window(self, win: QRect, dx: int, dy: int) -> bool:
         """Moves the desktop window by (dx, dy) pixels."""
-        if self.world is not None and hasattr(self.world, "move_window"):
+        if self.world is not None:
             return self.world.move_window(win, dx, dy)
         return False
 
@@ -87,7 +87,7 @@ class EntityWindowMixin:
         if not window_rects:
             return
 
-        entity = self._entity()
+        entity: BaseEntity = self._entity()
         hitbox: QRect = self.current_hitbox
         if hitbox.width() <= 0 or hitbox.height() <= 0:
             b_rect: QRectF = entity.boundingRect()
@@ -109,8 +109,8 @@ class EntityWindowMixin:
             world_bounds: QRectF = self.world.scene.sceneRect()
             world_min_x: float = float(world_bounds.left() - hitbox.x())
             world_max_x: float = float(world_bounds.right() - hitbox.x() - hitbox.width())
-            min_x = max(world_min_x, float(win.left() - hitbox.x() + 4))
-            max_x = min(world_max_x, float(win.right() - hitbox.x() - hitbox.width() - 4))
+            min_x: float = max(world_min_x, float(win.left() - hitbox.x() + 4))
+            max_x: float = min(world_max_x, float(win.right() - hitbox.x() - hitbox.width() - 4))
             if min_x < max_x:
                 new_x = max(min_x, min(float(entity.x()), max_x))
             else:

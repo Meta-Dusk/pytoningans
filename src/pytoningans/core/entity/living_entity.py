@@ -36,6 +36,8 @@ class Entity(BaseEntity):
 
         self.is_dead: bool = False
         self.current_health: int = mod_manager.max_health if mod_manager else 100
+        self.regen_rate: float = float(getattr(mod_manager, "regen_rate", 0.0)) if mod_manager is not None else 0.0
+        self._regen_accumulator: float = 0.0
         self.damage_tint_time_left: int = 0
         self.revive_time_left: int = 0
         self._target_pos: Optional[QPointF] = None
@@ -113,6 +115,17 @@ class Entity(BaseEntity):
         if self.is_dead:
             super().update_systems(dt, centers)
             return
+
+        if self.regen_rate > 0.0:
+            max_hp: int = self.mod_manager.max_health if self.mod_manager else 100
+            if self.current_health < max_hp:
+                self._regen_accumulator += self.regen_rate * (dt / 1000.0)
+                if self._regen_accumulator >= 1.0:
+                    heal_amt: int = int(self._regen_accumulator)
+                    self._regen_accumulator -= heal_amt
+                    self.heal(heal_amt)
+            else:
+                self._regen_accumulator = 0.0
 
         if (
             not self.is_force_idle and
@@ -218,6 +231,7 @@ class Entity(BaseEntity):
         self.release_cursor()
         self.follow_cursor(False)
         self.current_health = 0
+        self._regen_accumulator = 0.0
         self.is_dead = True
         
         if self.held_item is not None:
@@ -283,6 +297,7 @@ class Entity(BaseEntity):
         if self.mod_manager is None or not self.is_dead: return
 
         self.current_health = self.mod_manager.max_health
+        self._regen_accumulator = 0.0
         self.is_dead = False
 
         if self.health_bar is not None:
