@@ -168,7 +168,12 @@ class IBaseEntity(Protocol):
         """Moves the OS mouse cursor to the given position in world scene coordinates."""
         ...
 
-    def grab_cursor(self, offset_x: Optional[int] = None, offset_y: Optional[int] = None) -> None:
+    def grab_cursor(
+        self,
+        offset_x: Optional[int] = None,
+        offset_y: Optional[int] = None,
+        duration_ms: Optional[int] = None,
+    ) -> None:
         """Grabs the OS mouse cursor, locking it to the entity's position (+ offset) as it moves."""
         ...
 

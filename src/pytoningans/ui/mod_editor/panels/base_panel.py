@@ -31,8 +31,8 @@ class BaseBehaviorPanel(BasePanel):
             boilerplate_script (str, optional): The generated script on create. Defaults to "".
         """
         super().__init__(controller)
-        if override: return
         self.boilerplate_script: str = boilerplate_script
+        if override: return
         self.section_name: str = section_name
         
         self._build_ui()

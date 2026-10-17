@@ -70,7 +70,6 @@ class AnimationSystem(QObject):
         self.entity._state = val_str
         self.current_frame = 0
         self.time_since_last_frame = 0
-        self._last_anchor = None
         self._update_frame(advance=False)
 
     def _update_frame(self, advance: bool = True) -> None:

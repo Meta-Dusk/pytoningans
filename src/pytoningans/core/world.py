@@ -49,6 +49,10 @@ class WorldView(QGraphicsView):
         return super().eventFilter(watched, event)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() == Qt.Key.Key_Escape:
+            for entity in self.overlay.active_entities:
+                if not entity.is_cursor_grabbed: continue
+                entity.release_cursor()
         if self.overlay.manager.spawning_system.handle_key_press(self.overlay, event):
             event.accept()
             return

@@ -13,6 +13,7 @@ from PySide6.QtGui import QColor, QPixmap, QTransform, QCursor
 from pytoningans.core.constants import EntityState, SystemLocks, EntityType
 from pytoningans.core.entity.animation import AnimationSystem
 from pytoningans.core.entity.physics import PhysicsSystem
+from pytoningans.core.entity.physics.helpers import get_effective_hitbox
 from pytoningans.core.entity.indicators import HighlightOutlineItem
 from pytoningans.core.api import (
     IEntity, BaseEntityBehavior, BaseBehavior, BaseStructureBehavior, IStructure,
@@ -68,6 +69,9 @@ class BaseEntity(QGraphicsPixmapItem):
         self._ignore_window_physics_override: Optional[bool] = None
         self._is_cursor_grabbed: bool = False
         self._cursor_grab_offset: tuple[int, int] = (0, 0)
+        self._cursor_grab_duration: Optional[int] = None
+        self._cursor_grab_time_left: int = 0
+        self._last_synced_global_cursor: Optional[tuple[int, int]] = None
         self._is_following_cursor: bool = False
         self._follow_cursor_min_dist: float = 30.0
 
@@ -170,8 +174,23 @@ class BaseEntity(QGraphicsPixmapItem):
         else:
             QCursor.setPos(QPoint(int(round(scene_x)), int(round(scene_y))))
 
-    def grab_cursor(self, offset_x: Optional[int] = None, offset_y: Optional[int] = None) -> None:
-        """Grabs the OS mouse cursor, locking it to the entity's position (+ offset) as it moves."""
+    def grab_cursor(
+        self,
+        offset_x: Optional[int] = None,
+        offset_y: Optional[int] = None,
+        duration_ms: Optional[int] = None,
+    ) -> None:
+        """
+        Grabs the OS mouse cursor, locking it to the entity's position (+ offset) as it moves.
+
+        Args:
+            offset_x: Optional X pixel offset from the entity root.
+                      If omitted, grabs at current cursor offset.
+            offset_y: Optional Y pixel offset from the entity root.
+                      If omitted, grabs at current cursor offset.
+            duration_ms: Optional duration in milliseconds before automatically releasing the cursor.
+                         If None, stays grabbed until release_cursor() is called or the user breaks free.
+        """
         if getattr(self, "is_dead", False) or self.is_dragged:
             return
         cx, cy = self.get_cursor_pos()
@@ -179,6 +198,9 @@ class BaseEntity(QGraphicsPixmapItem):
         oy = int(round(cy - self.y())) if offset_y is None else offset_y
         self._is_cursor_grabbed = True
         self._cursor_grab_offset = (ox, oy)
+        self._cursor_grab_duration = duration_ms
+        self._cursor_grab_time_left = duration_ms if duration_ms is not None else -1
+        self._last_synced_global_cursor = None
         self._sync_grabbed_cursor()
 
         behavior: Optional[BaseBehavior] = self.behavior
@@ -194,6 +216,9 @@ class BaseEntity(QGraphicsPixmapItem):
             return
         self._is_cursor_grabbed = False
         self._cursor_grab_offset = (0, 0)
+        self._cursor_grab_duration = None
+        self._cursor_grab_time_left = 0
+        self._last_synced_global_cursor = None
 
         behavior: Optional[BaseBehavior] = self.behavior
         if isinstance(behavior, BaseEntityBehavior):
@@ -211,14 +236,28 @@ class BaseEntity(QGraphicsPixmapItem):
                 self._target_pos = None
             if hasattr(self, "target_pos"):
                 self.target_pos = None
+            if self.state == EntityState.MOVING and self.anim_sys is not None:
+                self.anim_sys.set_state(EntityState.IDLE)
 
     def _sync_grabbed_cursor(self) -> None:
         """Positions the OS mouse cursor at the entity's grab anchor point."""
         if not self._is_cursor_grabbed or getattr(self, "is_dead", False):
             return
-        target_scene_x = self.x() + self._cursor_grab_offset[0]
-        target_scene_y = self.y() + self._cursor_grab_offset[1]
+
+        # Physical struggle / breakout check: if the user jerks their mouse away (> 120px) from where
+        # it was last placed, release the cursor so users are never permanently locked.
+        if self._last_synced_global_cursor is not None:
+            curr_gx, curr_gy = self.get_global_cursor_pos()
+            last_gx, last_gy = self._last_synced_global_cursor
+            pull_dist: float = math.hypot(curr_gx - last_gx, curr_gy - last_gy)
+            if pull_dist > 120.0:
+                self.release_cursor()
+                return
+
+        target_scene_x: float = self.x() + self._cursor_grab_offset[0]
+        target_scene_y: float = self.y() + self._cursor_grab_offset[1]
         self.set_cursor_pos(target_scene_x, target_scene_y)
+        self._last_synced_global_cursor = self.get_global_cursor_pos()
 
     @property
     def is_climbing(self) -> bool:
@@ -496,15 +535,18 @@ class BaseEntity(QGraphicsPixmapItem):
         # Cursor following logic
         if (
             self._is_following_cursor and
+            not self._is_cursor_grabbed and
             not getattr(self, "is_dead", False) and
             not self.is_dragged and
             not self.is_force_idle
         ):
             cx, cy = self.get_cursor_pos()
-            half_w = self.width() / 2.0
-            half_h = self.height() / 2.0
-            entity_center_x = self.x() + half_w
-            entity_center_y = self.y() + half_h
+            
+            hitbox: QRect = get_effective_hitbox(self)
+            hitbox_center_x: float = hitbox.x() + hitbox.width() / 2.0
+            hitbox_center_y: float = hitbox.y() + hitbox.height() / 2.0
+            entity_center_x: float = self.x() + hitbox_center_x
+            entity_center_y: float = self.y() + hitbox_center_y
 
             can_fly = bool(self.mod_manager is not None and getattr(self.mod_manager, "can_fly", False))
             if can_fly:
@@ -512,9 +554,16 @@ class BaseEntity(QGraphicsPixmapItem):
             else:
                 dist = abs(cx - entity_center_x)
 
-            if dist > self._follow_cursor_min_dist:
-                target_x = cx - half_w
-                target_y = cy - half_h if can_fly else self.y()
+            stop_dist: float = max(10.0, self._follow_cursor_min_dist)
+            start_dist: float = stop_dist + max(12.0, stop_dist * 0.35)
+            
+            should_move: bool = dist > start_dist
+            if self.state == EntityState.MOVING:
+                should_move = dist > stop_dist
+
+            if should_move:
+                target_x: float = cx - hitbox_center_x
+                target_y: float = cy - hitbox_center_y if can_fly else self.y()
                 if hasattr(self, "target_pos"):
                     self.target_pos = (target_x, target_y)
                 else:
@@ -554,6 +603,12 @@ class BaseEntity(QGraphicsPixmapItem):
         if self._is_cursor_grabbed:
             if getattr(self, "is_dead", False) or self.is_dragged:
                 self.release_cursor()
+            elif self._cursor_grab_time_left > 0:
+                self._cursor_grab_time_left -= dt
+                if self._cursor_grab_time_left <= 0:
+                    self.release_cursor()
+                else:
+                    self._sync_grabbed_cursor()
             else:
                 self._sync_grabbed_cursor()
 
