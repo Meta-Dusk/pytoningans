@@ -28,6 +28,8 @@ def ai_decision_tick(ai: AISystem) -> None:
         return
     if on_ai_decision_tick(ai):
         return
+    if getattr(ai.entity, "is_following_cursor", False):
+        return
     if check_item_seeking(ai):
         return
     default_ai_decision(ai)

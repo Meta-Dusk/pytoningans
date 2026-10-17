@@ -25,11 +25,6 @@ class _SideCollision:
     atk_facing_left: bool
     block_facing_left: bool
 
-@dataclass(frozen=True, slots=True)
-class _WindowCeilingCollision:
-    adjusted_new_y: float
-    did_collide: bool
-
 def _detect_side_collision(
     dx: float,
     win: QRect,
@@ -254,9 +249,7 @@ def resolve_window_side_collisions(
     return step_x, False
 
 
-def resolve_window_depenetration(
-    entity: BaseEntity, is_dead: bool
-) -> tuple[bool, Optional[QRect]]:
+def resolve_window_depenetration(entity: BaseEntity, is_dead: bool) -> tuple[bool, Optional[QRect]]:
     """
     Handles auto-scoop (near top edge) and lateral ejection for entities caught inside a window.
     Triggers squish death if lateral ejection pushes the entity out of the monitor boundaries.\n
@@ -265,7 +258,7 @@ def resolve_window_depenetration(
     if (
         entity.world is None or
         (entity.physics_sys and entity.physics_sys.is_climbing) or
-        not getattr(entity, "should_use_window_physics", True)
+        not entity.should_use_window_physics
     ):
         return False, None
 
@@ -335,9 +328,7 @@ def find_candidate_platforms(
     return effective_ground_y, floor_to_win.get(effective_ground_y, None)
 
 
-def check_window_ceiling_collision(
-    entity: BaseEntity, new_y: float
-) -> _WindowCeilingCollision:
+def check_window_ceiling_collision(entity: BaseEntity, new_y: float) -> tuple[float, bool]:
     """
     Checks if an upward moving entity hits the bottom of an active desktop window.
     Returns (adjusted_new_y, did_collide).
@@ -347,11 +338,11 @@ def check_window_ceiling_collision(
         entity.world is None or
         not getattr(entity, "should_use_window_physics", True)
     ):
-        return _WindowCeilingCollision(new_y, False)
+        return new_y, False
 
-    window_rects: list[QRect] = getattr(entity.world, "active_window_rects", [])
+    window_rects: list[QRect] = entity.world.active_window_rects
     if not window_rects:
-        return _WindowCeilingCollision(new_y, False)
+        return new_y, False
 
     hitbox: QRect = get_effective_hitbox(entity)
     entity_top: float = entity.y() + hitbox.y()
@@ -365,6 +356,6 @@ def check_window_ceiling_collision(
         win_bottom: float = float(win.bottom())
         if win_bottom - 6 <= entity_top and (entity_top + entity.velocity_y) <= win_bottom:
             adjusted_new_y: float = win_bottom - hitbox.y()
-            return _WindowCeilingCollision(adjusted_new_y, True)
+            return adjusted_new_y, True
 
-    return _WindowCeilingCollision(new_y, False)
+    return new_y, False

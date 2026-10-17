@@ -97,6 +97,8 @@ class IBaseEntity(Protocol):
     ignore_window_physics: bool
     should_use_window_physics: bool
     is_climbing: bool
+    is_cursor_grabbed: bool
+    is_following_cursor: bool
     components: dict[str, IComponent]
 
     @property
@@ -151,6 +153,31 @@ class IBaseEntity(Protocol):
 
     def move_window(self, win: IRect, dx: int, dy: int) -> bool:
         """Moves the specified desktop window by (dx, dy) pixels."""
+        ...
+
+    #? Cursor Interaction API
+    def get_cursor_pos(self) -> tuple[float, float]:
+        """Returns the current OS mouse cursor position mapped into this entity's world scene coordinates."""
+        ...
+
+    def get_global_cursor_pos(self) -> tuple[int, int]:
+        """Returns the current OS mouse cursor coordinates in virtual desktop space."""
+        ...
+
+    def set_cursor_pos(self, scene_x: float, scene_y: float) -> None:
+        """Moves the OS mouse cursor to the given position in world scene coordinates."""
+        ...
+
+    def grab_cursor(self, offset_x: Optional[int] = None, offset_y: Optional[int] = None) -> None:
+        """Grabs the OS mouse cursor, locking it to the entity's position (+ offset) as it moves."""
+        ...
+
+    def release_cursor(self) -> None:
+        """Releases the OS mouse cursor if currently grabbed by this entity."""
+        ...
+
+    def follow_cursor(self, enabled: bool = True, min_distance: float = 30.0) -> None:
+        """Configures the entity to automatically follow / pathfind towards the mouse cursor."""
         ...
 
     #? Component Management

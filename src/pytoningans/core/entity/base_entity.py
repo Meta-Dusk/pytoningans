@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Optional, TYPE_CHECKING, cast, Any
 
 from PySide6.QtWidgets import (
@@ -65,6 +66,10 @@ class BaseEntity(QGraphicsPixmapItem):
         self._highlight_item: Optional[Any] = None
         self._active_context_menu: Optional[Any] = None
         self._ignore_window_physics_override: Optional[bool] = None
+        self._is_cursor_grabbed: bool = False
+        self._cursor_grab_offset: tuple[int, int] = (0, 0)
+        self._is_following_cursor: bool = False
+        self._follow_cursor_min_dist: float = 30.0
 
     def pause_death_animations(self) -> None:
         """Hook for subclasses to pause death animations while context menu is open."""
@@ -130,6 +135,90 @@ class BaseEntity(QGraphicsPixmapItem):
             return False
         from pytoningans.core.settings import SettingsManager
         return SettingsManager.get().settings.enable_window_physics
+
+    #? Cursor Interaction API
+    @property
+    def is_cursor_grabbed(self) -> bool:
+        """Returns True if this entity is currently grabbing the OS mouse cursor."""
+        return self._is_cursor_grabbed
+
+    @property
+    def is_following_cursor(self) -> bool:
+        """Returns True if this entity is automatically pathfinding towards the mouse cursor."""
+        return self._is_following_cursor
+
+    def get_cursor_pos(self) -> tuple[float, float]:
+        """Returns the current OS mouse cursor coordinates mapped into this entity's world scene space."""
+        global_pos: QPoint = QCursor.pos()
+        if self.world is not None and hasattr(self.world, "view"):
+            local_pt = self.world.view.mapFromGlobal(global_pos)
+            scene_pt = self.world.view.mapToScene(local_pt)
+            return float(scene_pt.x()), float(scene_pt.y())
+        return float(global_pos.x()), float(global_pos.y())
+
+    def get_global_cursor_pos(self) -> tuple[int, int]:
+        """Returns the current OS mouse cursor coordinates in virtual desktop space."""
+        global_pos: QPoint = QCursor.pos()
+        return global_pos.x(), global_pos.y()
+
+    def set_cursor_pos(self, scene_x: float, scene_y: float) -> None:
+        """Moves the OS mouse cursor to the specified position in this entity's world scene space."""
+        if self.world is not None and hasattr(self.world, "view"):
+            view_pt = self.world.view.mapFromScene(QPointF(scene_x, scene_y))
+            global_pt = self.world.view.mapToGlobal(view_pt)
+            QCursor.setPos(global_pt)
+        else:
+            QCursor.setPos(QPoint(int(round(scene_x)), int(round(scene_y))))
+
+    def grab_cursor(self, offset_x: Optional[int] = None, offset_y: Optional[int] = None) -> None:
+        """Grabs the OS mouse cursor, locking it to the entity's position (+ offset) as it moves."""
+        if getattr(self, "is_dead", False) or self.is_dragged:
+            return
+        cx, cy = self.get_cursor_pos()
+        ox = int(round(cx - self.x())) if offset_x is None else offset_x
+        oy = int(round(cy - self.y())) if offset_y is None else offset_y
+        self._is_cursor_grabbed = True
+        self._cursor_grab_offset = (ox, oy)
+        self._sync_grabbed_cursor()
+
+        behavior: Optional[BaseBehavior] = self.behavior
+        if isinstance(behavior, BaseEntityBehavior):
+            try:
+                behavior.on_cursor_grabbed(cast(IEntity, self))
+            except Exception as e:
+                print(f"Custom Behavior on_cursor_grabbed Error: {e}")
+
+    def release_cursor(self) -> None:
+        """Releases the OS mouse cursor if currently grabbed by this entity."""
+        if not self._is_cursor_grabbed:
+            return
+        self._is_cursor_grabbed = False
+        self._cursor_grab_offset = (0, 0)
+
+        behavior: Optional[BaseBehavior] = self.behavior
+        if isinstance(behavior, BaseEntityBehavior):
+            try:
+                behavior.on_cursor_released(cast(IEntity, self))
+            except Exception as e:
+                print(f"Custom Behavior on_cursor_released Error: {e}")
+
+    def follow_cursor(self, enabled: bool = True, min_distance: float = 30.0) -> None:
+        """Configures the entity to automatically follow / pathfind towards the mouse cursor."""
+        self._is_following_cursor = enabled
+        self._follow_cursor_min_dist = max(5.0, min_distance)
+        if not enabled:
+            if hasattr(self, "_target_pos"):
+                self._target_pos = None
+            if hasattr(self, "target_pos"):
+                self.target_pos = None
+
+    def _sync_grabbed_cursor(self) -> None:
+        """Positions the OS mouse cursor at the entity's grab anchor point."""
+        if not self._is_cursor_grabbed or getattr(self, "is_dead", False):
+            return
+        target_scene_x = self.x() + self._cursor_grab_offset[0]
+        target_scene_y = self.y() + self._cursor_grab_offset[1]
+        self.set_cursor_pos(target_scene_x, target_scene_y)
 
     @property
     def is_climbing(self) -> bool:
@@ -404,6 +493,51 @@ class BaseEntity(QGraphicsPixmapItem):
     ) -> None:
         if self.is_paused: return
         
+        # Cursor following logic
+        if (
+            self._is_following_cursor and
+            not getattr(self, "is_dead", False) and
+            not self.is_dragged and
+            not self.is_force_idle
+        ):
+            cx, cy = self.get_cursor_pos()
+            half_w = self.width() / 2.0
+            half_h = self.height() / 2.0
+            entity_center_x = self.x() + half_w
+            entity_center_y = self.y() + half_h
+
+            can_fly = bool(self.mod_manager is not None and getattr(self.mod_manager, "can_fly", False))
+            if can_fly:
+                dist = math.hypot(cx - entity_center_x, cy - entity_center_y)
+            else:
+                dist = abs(cx - entity_center_x)
+
+            if dist > self._follow_cursor_min_dist:
+                target_x = cx - half_w
+                target_y = cy - half_h if can_fly else self.y()
+                if hasattr(self, "target_pos"):
+                    self.target_pos = (target_x, target_y)
+                else:
+                    self._target_pos = QPointF(target_x, target_y)
+
+                if (
+                    self.anim_sys is not None and
+                    self.state not in (EntityState.DRAG, EntityState.DYING, EntityState.CLIMBING, EntityState.ATTACK) and
+                    not self.is_climbing and
+                    self.state != EntityState.MOVING
+                ):
+                    self.anim_sys.set_state(EntityState.MOVING)
+            else:
+                if abs(cx - entity_center_x) > 1:
+                    self.facing_left = (cx < entity_center_x)
+                if self.state == EntityState.MOVING and getattr(self, "target_pos", None) is not None:
+                    if hasattr(self, "target_pos"):
+                        self.target_pos = None
+                    else:
+                        self._target_pos = None
+                    if self.anim_sys is not None:
+                        self.anim_sys.set_state(EntityState.IDLE)
+
         if (
             self.locks.physics and
             not self.is_force_idle and
@@ -415,12 +549,21 @@ class BaseEntity(QGraphicsPixmapItem):
             self.anim_sys is not None
         ):
             self.anim_sys.update(dt)
-        
+
+        # Sync grabbed cursor with entity's current position
+        if self._is_cursor_grabbed:
+            if getattr(self, "is_dead", False) or self.is_dragged:
+                self.release_cursor()
+            else:
+                self._sync_grabbed_cursor()
+
         # Dispatch ticks to all active components
         for comp in list(self.components.values()):
             if comp.enabled: comp.update(dt)
 
     def destroy(self) -> None:
+        self.release_cursor()
+        self.follow_cursor(False)
         self.is_dragged = False
         self._hide_hover_tooltip()
         for comp in list(self.components.values()):
@@ -456,6 +599,7 @@ class BaseEntity(QGraphicsPixmapItem):
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         self._hide_hover_tooltip()
         if event.button() == Qt.MouseButton.LeftButton:
+            self.release_cursor()
             self.is_dragged = True
             if self.physics_sys is not None and getattr(self.physics_sys, "is_climbing", False):
                 self.physics_sys.stop_climb()
@@ -555,7 +699,8 @@ class BaseEntity(QGraphicsPixmapItem):
             
     def on_moved(self) -> None:
         """Hook for subclasses to update attached items (like speech bubbles) when dragged."""
-        pass
+        if self._is_cursor_grabbed:
+            self._sync_grabbed_cursor()
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         from pytoningans.ui.context_menu import EntityContextMenu

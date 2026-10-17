@@ -52,9 +52,9 @@ def tick_gravity_and_collisions(
 
         # Ceiling collision check
         if entity.velocity_y < 0:
-            win_ceil_col = check_window_ceiling_collision(entity, new_y)
-            if win_ceil_col.did_collide:
-                new_y = win_ceil_col.adjusted_new_y
+            adjusted_new_y, did_collide = check_window_ceiling_collision(entity, new_y)
+            if did_collide:
+                new_y = adjusted_new_y
                 entity.velocity_y = 0.0
 
         # Landing collision check

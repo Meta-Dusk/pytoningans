@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from typing import Optional, cast, TYPE_CHECKING
+from typing import Optional, cast, TYPE_CHECKING, Union
 
 from PySide6.QtCore import QEasingCurve, QPointF, QVariantAnimation
 from PySide6.QtWidgets import QGraphicsSceneContextMenuEvent
@@ -22,6 +22,8 @@ if TYPE_CHECKING:
     from pytoningans.core.entity_manager import EntityManager
     from pytoningans.core.entity.base_item import BaseItem
 
+
+type _UniPos2D = Union[Pos2D, QPointF, tuple[float, float], list[float]]
 
 class Entity(BaseEntity):
     """Living entities with AI, health, dialogue, and combat."""
@@ -72,11 +74,17 @@ class Entity(BaseEntity):
         return self._target_pos
 
     @target_pos.setter
-    def target_pos(self, pos: Optional[Pos2D]) -> None:
+    def target_pos(self, pos: Optional[_UniPos2D]) -> None:
         if pos is None:
             self._target_pos = None
-        else:
+        elif isinstance(pos, QPointF):
+            self._target_pos = pos
+        elif isinstance(pos, (tuple, list)) and len(pos) >= 2:
+            self._target_pos = QPointF(float(pos[0]), float(pos[1]))
+        elif isinstance(pos, Pos2D):
             self._target_pos = QPointF(pos.x, pos.y)
+        else:
+            self._target_pos = None
 
     def update_systems(self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None) -> None:
         if self.is_paused: return
@@ -124,6 +132,7 @@ class Entity(BaseEntity):
                     print(f"Custom Entity on_update Error: {e}")
 
     def on_moved(self) -> None:
+        super().on_moved()
         if self.health_bar is not None: self.health_bar.update_position()
         if self.bubble is not None: self.bubble.update_position()
         if self.held_item is not None: self.held_item._update_held_position()
@@ -206,6 +215,8 @@ class Entity(BaseEntity):
 
     def die(self) -> None:
         if self.is_dead or self.mod_manager is None: return
+        self.release_cursor()
+        self.follow_cursor(False)
         self.current_health = 0
         self.is_dead = True
         
