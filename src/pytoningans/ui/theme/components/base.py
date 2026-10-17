@@ -16,18 +16,18 @@ QWidget {{
     font-size: {p.font_size};
 }}
 
-QComboBox, QSpinBox, QLineEdit {{
+QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit {{
     background-color: {p.input_bg};
     border: 1px solid {p.input_border};
     border-radius: 4px;
     padding: 4px 8px;
 }}
 
-QComboBox:hover, QSpinBox:hover, QLineEdit:hover {{
+QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover, QLineEdit:hover {{
     border: 1px solid {p.accent};
 }}
 
-QLineEdit:focus {{
+QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QLineEdit:focus {{
     border: 1px solid {p.accent};
 }}
 

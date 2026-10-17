@@ -47,19 +47,40 @@ class BehaviorStatsPanel(BasePanel):
         for b_type in BehaviorType:
             self.behavior_type_combo.addItem(b_type.value.capitalize(), userData=b_type)
             
-        form.addRow(create_info_label("Behavior Type:", "Determines engine AI logic."), self.behavior_type_combo)
+        form.addRow(
+            create_info_label("Behavior Type:", "Determines engine AI logic."), self.behavior_type_combo
+        )
         form.addRow("", self.can_fly_check)
         form.addRow("", self.ignore_window_physics_check)
         form.addRow("", self.can_climb_walls_check)
         form.addRow("", self.can_move_windows_check)
-        form.addRow(create_info_label("Window Move Mode:", "How the entity moves desktop windows."), self.window_move_mode_combo)
-        form.addRow(create_info_label("Max Health:", "Total health points."), self.max_health_spin)
-        form.addRow(create_info_label("Attack Damage:", "Damage dealt per hit."), self.atk_dmg_spin)
-        form.addRow(create_info_label("Attack Range (px):", "Maximum distance to strike."), self.atk_range_spin)
-        form.addRow(create_info_label("Attack Type:", "How many entities can be damaged."), self.atk_type_combo)
-        form.addRow(create_info_label("Jump Height:", "Initial vertical velocity."), self.jump_height_spin)
-        form.addRow(create_info_label("Move Speed (px):", "Base movement speed in pixels per tick."), self.move_speed_spin)
-        form.addRow(create_info_label("Passive Regen (HP/s):", "Passive health regeneration rate per second. 0 to disable."), self.regen_rate_spin)
+        form.addRow(
+            create_info_label("Window Move Mode:", "How the entity moves desktop windows."), self.window_move_mode_combo
+        )
+        form.addRow(
+            create_info_label("Max Health:", "Total health points."), self.max_health_spin
+        )
+        form.addRow(
+            create_info_label("Attack Damage:", "Damage dealt per hit."), self.atk_dmg_spin
+        )
+        form.addRow(
+            create_info_label("Attack Range (px):", "Maximum distance to strike."), self.atk_range_spin
+        )
+        form.addRow(
+            create_info_label("Attack Type:", "How many entities can be damaged."), self.atk_type_combo
+        )
+        form.addRow(
+            create_info_label("Jump Height:", "Initial vertical velocity."), self.jump_height_spin
+        )
+        form.addRow(
+            create_info_label("Move Speed (px):", "Base movement speed in pixels per tick."), self.move_speed_spin
+        )
+        form.addRow(
+            create_info_label(
+                "Passive Regen (HP/s):",
+                "Passive health regeneration rate per second. 0 to disable."
+            ), self.regen_rate_spin
+        )
         
         self.section.content_layout.addLayout(form)
         layout.addWidget(self.section)
@@ -109,14 +130,14 @@ class BehaviorStatsPanel(BasePanel):
 
     def load_data(self) -> None:
         self._is_updating_ui = True
-        stats = self.controller.get_behavior_stats()
+        stats: dict[str, Any] = self.controller.get_behavior_stats()
         self.can_fly_check.setChecked(stats.get("can_fly", False))
         self.ignore_window_physics_check.setChecked(stats.get("ignore_window_physics", False))
         self.can_climb_walls_check.setChecked(stats.get("can_climb_walls", False))
         self.can_move_windows_check.setChecked(stats.get("can_move_windows", False))
         
-        mode = stats.get("window_move_mode", "attack")
-        mode_idx = self.window_move_mode_combo.findData(mode)
+        mode: str = stats.get("window_move_mode", "attack")
+        mode_idx: int = self.window_move_mode_combo.findData(mode)
         if mode_idx >= 0:
             self.window_move_mode_combo.setCurrentIndex(mode_idx)
         
@@ -132,10 +153,10 @@ class BehaviorStatsPanel(BasePanel):
         self.move_speed_spin.setValue(float(stats.get("move_speed", 2.0)))
         self.regen_rate_spin.setValue(float(stats.get("regen_rate", 0.0)))
         
-        current_type = stats.get("type", BehaviorType.NEUTRAL)
+        current_type: str = stats.get("type", BehaviorType.NEUTRAL)
         self.behavior_type_combo.setCurrentIndex(self.behavior_type_combo.findData(current_type))
         
-        atk_type = stats.get("attack_type", AttackType.SINGLE)
+        atk_type: str = stats.get("attack_type", AttackType.SINGLE)
         self.atk_type_combo.setCurrentIndex(self.atk_type_combo.findData(atk_type))
         
         self._is_updating_ui = False
