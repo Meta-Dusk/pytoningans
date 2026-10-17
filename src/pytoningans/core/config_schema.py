@@ -12,6 +12,8 @@ class BehaviorConfig:
     type: str = BehaviorType.NEUTRAL.value
     can_fly: bool = False
     can_climb_walls: bool = False
+    can_move_windows: bool = False
+    window_move_mode: str = "attack"
     max_health: int = 100
     attack_damage: int = 10
     attack_range: int = 50

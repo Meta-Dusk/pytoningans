@@ -37,6 +37,13 @@ def resolve_window_side_collisions(
         not getattr(entity, "is_dragged", False)
     )
 
+    can_move_win: bool = (
+        getattr(entity.mod_manager, "can_move_windows", False) and
+        not getattr(entity, "is_dead", False) and
+        not getattr(entity, "is_dragged", False)
+    )
+    move_mode: str = getattr(entity.mod_manager, "window_move_mode", "attack")
+
     for win in window_rects:
         if feet_y <= win.top() + 8 or top_y >= win.bottom() - 4:
             continue
@@ -51,6 +58,23 @@ def resolve_window_side_collisions(
                 entity.physics_sys.start_climb(win, side="left")
                 return float(win.left() - hitbox.x() - hitbox.width()), True
 
+            if can_move_win and hasattr(entity.world, "move_window"):
+                if move_mode in ("push", "both"):
+                    push_step = max(1, int(round(dx)))
+                    if entity.world.move_window(win, push_step, 0):
+                        return step_x, False
+                if move_mode in ("attack", "both"):
+                    if entity.anim_sys is not None and entity.anim_sys.has_state(EntityState.ATTACK):
+                        ai_sys = getattr(entity, "ai_sys", None)
+                        if ai_sys is not None and ai_sys.attack_cooldown <= 0:
+                            entity.facing_left = False
+                            entity.anim_sys.set_state(EntityState.ATTACK)
+                            ai_sys.attack_time_left = 800
+                            ai_sys.attack_cooldown = 1500
+                            entity._target_pos = None
+                            adjusted_x = float(win.left() - hitbox.x() - hitbox.width() - 1)
+                            return adjusted_x, True
+
             adjusted_x = float(win.left() - hitbox.x() - hitbox.width() - 1)
             entity.facing_left = True
             entity._target_pos = None
@@ -64,6 +88,23 @@ def resolve_window_side_collisions(
             if can_climb and entity.physics_sys is not None:
                 entity.physics_sys.start_climb(win, side="right")
                 return float(win.right() - hitbox.x()), True
+
+            if can_move_win and hasattr(entity.world, "move_window"):
+                if move_mode in ("push", "both"):
+                    push_step = min(-1, int(round(dx)))
+                    if entity.world.move_window(win, push_step, 0):
+                        return step_x, False
+                if move_mode in ("attack", "both"):
+                    if entity.anim_sys is not None and entity.anim_sys.has_state(EntityState.ATTACK):
+                        ai_sys = getattr(entity, "ai_sys", None)
+                        if ai_sys is not None and ai_sys.attack_cooldown <= 0:
+                            entity.facing_left = True
+                            entity.anim_sys.set_state(EntityState.ATTACK)
+                            ai_sys.attack_time_left = 800
+                            ai_sys.attack_cooldown = 1500
+                            entity._target_pos = None
+                            adjusted_x = float(win.right() - hitbox.x() + 1)
+                            return adjusted_x, True
 
             adjusted_x = float(win.right() - hitbox.x() + 1)
             entity.facing_left = False

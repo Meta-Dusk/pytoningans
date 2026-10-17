@@ -30,6 +30,8 @@ class IModInfo(Protocol):
     jump_height: int
     can_fly: bool
     can_climb_walls: bool
+    can_move_windows: bool
+    window_move_mode: str
     behavior_type: BehaviorType
     attack_type: AttackType
     plain_dialogue: list[str]
@@ -70,6 +72,11 @@ class IWorld(Protocol):
     active_entities: list[IEntity]
     active_structures: list[IStructure]
     active_items: list[IItem]
+    active_window_rects: list[IRect]
+
+    def move_window(self, win_rect: IRect, dx: int, dy: int) -> bool:
+        """Moves the desktop window associated with win_rect by (dx, dy) pixels."""
+        ...
 
 
 # =============================================================================
@@ -85,6 +92,7 @@ class IBaseEntity(Protocol):
     sprite_rotation: float
     velocity_y: float
     can_climb_walls: bool
+    can_move_windows: bool
     is_climbing: bool
     components: dict[str, IComponent]
 
@@ -136,6 +144,10 @@ class IBaseEntity(Protocol):
 
     def sceneBoundingRect(self) -> IRect:
         """Returns the absolute scene bounding box of the entity."""
+        ...
+
+    def move_window(self, win: IRect, dx: int, dy: int) -> bool:
+        """Moves the specified desktop window by (dx, dy) pixels."""
         ...
 
     #? Component Management

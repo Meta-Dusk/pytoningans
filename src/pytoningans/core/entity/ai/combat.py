@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Optional, cast
 
-from PySide6.QtCore import QPointF, QRectF
+from PySide6.QtCore import QPointF, QRectF, QRect
 
 from pytoningans.core.api import BaseBehavior, BaseEntityBehavior, IEntity
 from pytoningans.core.constants import AttackType, BehaviorType, EntityState
@@ -107,13 +107,43 @@ def process_combat(ai: AISystem) -> None:
         ai.entity is None or
         ai.entity.entity_manager is None or
         ai.entity.mod_manager is None or
-        ai.entity.is_dead or
-        ai.entity.current_attack_hitbox.isEmpty()
+        ai.entity.is_dead
     ):
         return
 
+    atk_hitbox: QRect = ai.entity.current_attack_hitbox
+    if atk_hitbox.isEmpty():
+        base_hitbox = ai.entity.current_hitbox
+        if not base_hitbox.isEmpty():
+            range_px: int = ai.entity.mod_manager.attack_range
+            if ai.entity.facing_left:
+                atk_hitbox = QRect(base_hitbox.x() - range_px, base_hitbox.y(), range_px, base_hitbox.height())
+            else:
+                atk_hitbox = QRect(base_hitbox.x() + base_hitbox.width(), base_hitbox.y(), range_px, base_hitbox.height())
+        else:
+            return
+
     # Translate using QRectF for floating-point precision
-    global_attack_rect: QRectF = QRectF(ai.entity.current_attack_hitbox).translated(ai.entity.pos())
+    global_attack_rect: QRectF = QRectF(atk_hitbox).translated(ai.entity.pos())
+
+    # Check desktop window hits if entity is configured to move windows
+    if (
+        ai.entity.world is not None and
+        ai.entity.mod_manager.can_move_windows and
+        ai.entity.mod_manager.window_move_mode in ("attack", "both")
+    ):
+        knockback: int = max(20, min(60, ai.entity.mod_manager.attack_damage * 2))
+        knock_dir: int = -knockback if ai.entity.facing_left else knockback
+
+        for win in list(ai.entity.world.active_window_rects):
+            if not global_attack_rect.intersects(QRectF(win)): continue
+            if not ai.entity.world.move_window(win, knock_dir, 0): continue
+            
+            damage: int = ai.entity.mod_manager.attack_damage or 10
+            hit_x: float = global_attack_rect.center().x()
+            hit_y: float = max(float(win.top()), min(global_attack_rect.center().y(), float(win.bottom())))
+            ai.entity.world.spawn_damage_number(damage, QPointF(hit_x, hit_y))
+
     targets: list[tuple[float, Entity]] = []
     
     for other_entity in ai.entity.entity_manager.active_entities:

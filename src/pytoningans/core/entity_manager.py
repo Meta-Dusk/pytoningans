@@ -95,11 +95,14 @@ class EntityManager:
                 self.window_tracker.update()
                 for world in self.active_worlds:
                     screen_geom: QRect = world.geometry()
-                    world.active_window_rects = self.window_tracker.get_local_window_rects_for_screen(screen_geom)
+                    world.active_windows = self.window_tracker.get_local_windows_for_screen(screen_geom)
+                    world.active_window_rects = [lr for _, lr in world.active_windows]
             else:
                 for world in self.active_worlds:
                     if world.active_window_rects:
                         world.active_window_rects.clear()
+                    if hasattr(world, "active_windows") and world.active_windows:
+                        world.active_windows.clear()
 
         for world in self.active_worlds:
             world.update_systems(dt)

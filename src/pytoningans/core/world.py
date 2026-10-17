@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ctypes
 from ctypes import wintypes
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast, Optional
 
 from PySide6.QtCore import QRect, Qt, QPoint, QPointF, QEvent, QObject
 from PySide6.QtGui import QScreen, QMouseEvent, QKeyEvent, QColor, QBrush
@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QMainWindow, QGraphicsView, QGraphicsScene, QAppli
 
 from pytoningans.core.entity.indicators import DamageNumberItem
 from pytoningans.core.vision_worker import HTCLIENT, HTTRANSPARENT
+from pytoningans.core.window_tracker import TrackedWindow
 
 if TYPE_CHECKING:
     from pytoningans.core.entity_manager import EntityManager
@@ -67,6 +68,7 @@ class WorldOverlay(QMainWindow):
         self.active_items: list[BaseItem] = []
         self.active_damage_numbers: list[DamageNumberItem] = []
         self.active_window_rects: list[QRect] = []
+        self.active_windows: list[tuple[TrackedWindow, QRect]] = []
         
         flags: Qt.WindowType = (
             Qt.WindowType.FramelessWindowHint | 
@@ -131,6 +133,45 @@ class WorldOverlay(QMainWindow):
         indicator = DamageNumberItem(amount, scene_pos, is_heal)
         self.scene.addItem(indicator)
         self.active_damage_numbers.append(indicator)
+
+    def move_window(self, win_rect: QRect, dx: int, dy: int) -> bool:
+        """
+        Moves the desktop window associated with win_rect by (dx, dy).
+        Updates local collision rects immediately and carries any entities standing on it.
+        """
+        if self.manager.window_tracker is None:
+            return False
+
+        target_entry: Optional[tuple[TrackedWindow, QRect]] = None
+        for tw, lr in self.active_windows:
+            if lr is win_rect or lr == win_rect or lr.intersects(win_rect):
+                target_entry = (tw, lr)
+                break
+
+        if target_entry is None:
+            return False
+
+        tw, lr = target_entry
+        success, actual_dx, actual_dy = self.manager.window_tracker.move_window(tw.hwnd, dx, dy)
+        if success and (actual_dx != 0 or actual_dy != 0):
+            lr.translate(actual_dx, actual_dy)
+            if win_rect is not lr:
+                win_rect.translate(actual_dx, actual_dy)
+
+            # Carry any entities currently standing on top of this window platform
+            for entity in self.active_entities:
+                if entity.physics_sys is None: continue
+                current_platform_rect: Optional[QRect] = entity.physics_sys.current_platform_rect
+                if current_platform_rect is None: continue
+                if (
+                    current_platform_rect is win_rect or 
+                    current_platform_rect is lr or 
+                    current_platform_rect == win_rect
+                ):
+                    entity.setPos(entity.x() + actual_dx, entity.y() + actual_dy)
+
+            return True
+        return False
 
     def update_systems(self, dt: int) -> None:
         # Tick static/interactive structures first

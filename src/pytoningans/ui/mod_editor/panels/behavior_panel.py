@@ -23,6 +23,12 @@ class BehaviorStatsPanel(BasePanel):
         
         self.can_fly_check = QCheckBox("Enable Flight (Ignores Gravity)")
         self.can_climb_walls_check = QCheckBox("Allow Wall Climbing (Runs up Window Sides)")
+        self.can_move_windows_check = QCheckBox("Allow Moving Windows (Pushes / Attacks Windows)")
+        self.window_move_mode_combo = QComboBox()
+        self.window_move_mode_combo.addItem("Attack (Knock back on strike)", "attack")
+        self.window_move_mode_combo.addItem("Push (Shove while walking)", "push")
+        self.window_move_mode_combo.addItem("Both (Push and attack)", "both")
+
         self.max_health_spin = create_spinbox(1, 9999)
         self.atk_dmg_spin = create_spinbox(0, 9999)
         self.atk_range_spin = create_spinbox(0, 2000)
@@ -39,6 +45,8 @@ class BehaviorStatsPanel(BasePanel):
         form.addRow(create_info_label("Behavior Type:", "Determines engine AI logic."), self.behavior_type_combo)
         form.addRow("", self.can_fly_check)
         form.addRow("", self.can_climb_walls_check)
+        form.addRow("", self.can_move_windows_check)
+        form.addRow(create_info_label("Window Move Mode:", "How the entity moves desktop windows."), self.window_move_mode_combo)
         form.addRow(create_info_label("Max Health:", "Total health points."), self.max_health_spin)
         form.addRow(create_info_label("Attack Damage:", "Damage dealt per hit."), self.atk_dmg_spin)
         form.addRow(create_info_label("Attack Range (px):", "Maximum distance to strike."), self.atk_range_spin)
@@ -52,8 +60,14 @@ class BehaviorStatsPanel(BasePanel):
         self.behavior_type_combo.currentIndexChanged.connect(self._on_edited)
         self.can_fly_check.stateChanged.connect(self._on_edited)
         self.can_climb_walls_check.stateChanged.connect(self._on_edited)
+        self.can_move_windows_check.stateChanged.connect(self._on_can_move_windows_toggled)
+        self.window_move_mode_combo.currentIndexChanged.connect(self._on_edited)
         for spin in (self.max_health_spin, self.atk_dmg_spin, self.atk_range_spin, self.jump_height_spin):
             spin.valueChanged.connect(self._on_edited)
+
+    def _on_can_move_windows_toggled(self, *_) -> None:
+        self.window_move_mode_combo.setEnabled(self.can_move_windows_check.isChecked())
+        self._on_edited()
 
     def _on_edited(self, *_) -> None:
         if self._is_updating_ui: return
@@ -61,6 +75,8 @@ class BehaviorStatsPanel(BasePanel):
             "type": self.behavior_type_combo.currentData(),
             "can_fly": self.can_fly_check.isChecked(),
             "can_climb_walls": self.can_climb_walls_check.isChecked(),
+            "can_move_windows": self.can_move_windows_check.isChecked(),
+            "window_move_mode": self.window_move_mode_combo.currentData() or "attack",
             "max_health": self.max_health_spin.value(),
             "attack_damage": self.atk_dmg_spin.value(),
             "attack_range": self.atk_range_spin.value(),
@@ -74,6 +90,14 @@ class BehaviorStatsPanel(BasePanel):
         stats = self.controller.get_behavior_stats()
         self.can_fly_check.setChecked(stats.get("can_fly", False))
         self.can_climb_walls_check.setChecked(stats.get("can_climb_walls", False))
+        self.can_move_windows_check.setChecked(stats.get("can_move_windows", False))
+        
+        mode = stats.get("window_move_mode", "attack")
+        mode_idx = self.window_move_mode_combo.findData(mode)
+        if mode_idx >= 0:
+            self.window_move_mode_combo.setCurrentIndex(mode_idx)
+        self.window_move_mode_combo.setEnabled(self.can_move_windows_check.isChecked())
+
         self.max_health_spin.setValue(stats["max_health"])
         self.atk_dmg_spin.setValue(stats["attack_damage"])
         self.atk_range_spin.setValue(stats["attack_range"])

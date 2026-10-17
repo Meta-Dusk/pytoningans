@@ -55,6 +55,13 @@ class AnimationSystem(QObject):
             self.time_since_last_frame -= frame_duration 
             self._update_frame(advance=True)
 
+    def has_state(self, state: Any) -> bool:
+        """Returns True if the entity's mod defines an animation for the given state."""
+        if self.entity is None or self.entity.mod_manager is None:
+            return False
+        val_str = state.value if hasattr(state, "value") else str(state)
+        return val_str in self.entity.mod_manager.animations or state in self.entity.mod_manager.animations
+
     def set_state(self, new_state: Any) -> None:
         if self.entity is None: return
         val_str = new_state.value if hasattr(new_state, "value") else str(new_state)

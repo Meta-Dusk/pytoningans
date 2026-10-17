@@ -97,6 +97,19 @@ class BaseEntity(QGraphicsPixmapItem):
         return False
 
     @property
+    def can_move_windows(self) -> bool:
+        """Returns True if the entity is configured to push or attack desktop windows."""
+        if self.mod_manager is not None:
+            return getattr(self.mod_manager, "can_move_windows", False)
+        return False
+
+    def move_window(self, win: QRect, dx: int, dy: int) -> bool:
+        """Moves the desktop window by (dx, dy) pixels."""
+        if self.world is not None and hasattr(self.world, "move_window"):
+            return self.world.move_window(win, dx, dy)
+        return False
+
+    @property
     def is_climbing(self) -> bool:
         """Returns True if the entity is currently climbing a window wall."""
         if self.physics_sys is not None:
