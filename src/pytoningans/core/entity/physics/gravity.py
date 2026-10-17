@@ -66,6 +66,8 @@ def tick_gravity_and_collisions(
         entity.setPos(entity.x(), new_y)
     else:
         entity.velocity_y = 0.0
+        if entity_bottom > effective_ground_y:
+            entity.setPos(entity.x(), effective_ground_y - hitbox_bottom_offset)
         if entity.state == EntityState.JUMPING and not is_dead and entity.anim_sys is not None:
             entity.anim_sys.set_state(EntityState.IDLE)
 

@@ -64,6 +64,7 @@ class BaseEntity(QGraphicsPixmapItem):
         self.update_tooltip()
         self._highlight_item: Optional[Any] = None
         self._active_context_menu: Optional[Any] = None
+        self._ignore_window_physics_override: Optional[bool] = None
 
     def pause_death_animations(self) -> None:
         """Hook for subclasses to pause death animations while context menu is open."""
@@ -108,6 +109,27 @@ class BaseEntity(QGraphicsPixmapItem):
         if self.world is not None and hasattr(self.world, "move_window"):
             return self.world.move_window(win, dx, dy)
         return False
+
+    @property
+    def ignore_window_physics(self) -> bool:
+        """Returns True if this entity is configured to ignore desktop window physics."""
+        if self._ignore_window_physics_override is not None:
+            return self._ignore_window_physics_override
+        if self.mod_manager is not None:
+            return getattr(self.mod_manager, "ignore_window_physics", False)
+        return False
+
+    @ignore_window_physics.setter
+    def ignore_window_physics(self, value: Optional[bool]) -> None:
+        self._ignore_window_physics_override = value
+
+    @property
+    def should_use_window_physics(self) -> bool:
+        """Returns True if desktop window physics should affect this entity."""
+        if self.ignore_window_physics:
+            return False
+        from pytoningans.core.settings import SettingsManager
+        return SettingsManager.get().settings.enable_window_physics
 
     @property
     def is_climbing(self) -> bool:
@@ -489,10 +511,7 @@ class BaseEntity(QGraphicsPixmapItem):
         If dropped onto or inside an active desktop window,
         seat entity on the window's top ledge.
         """
-        if self.world is None:
-            return
-        from pytoningans.core.settings import SettingsManager
-        if not SettingsManager.get().settings.enable_window_physics:
+        if self.world is None or not self.should_use_window_physics:
             return
 
         window_rects: list[QRect] = getattr(self.world, "active_window_rects", [])

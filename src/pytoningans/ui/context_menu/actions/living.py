@@ -95,7 +95,19 @@ def build_living_actions(menu: EntityContextMenu, layout: QVBoxLayout, entity: E
         revive_btn = QPushButton("Revive Entity")
         revive_btn.setToolTip("Bring this entity back to life with full health.")
         revive_btn.clicked.connect(lambda: menu.execute_action(entity.revive))
-        layout.addWidget(revive_btn)
+        # Toggle Window Physics (entity-specific override)
+        phys_text: str = "Enable Window Physics" if entity.ignore_window_physics else "Ignore Window Physics"
+        phys_tip: str = (
+            "Re-enable window collision and platforms for this entity."
+            if entity.ignore_window_physics else
+            "Make this entity ghost through desktop windows (overrides global setting)."
+        )
+        win_phys_btn = QPushButton(phys_text)
+        win_phys_btn.setToolTip(phys_tip)
+        def toggle_win_phys() -> None:
+            entity.ignore_window_physics = not entity.ignore_window_physics
+        win_phys_btn.clicked.connect(lambda: menu.execute_action(toggle_win_phys))
+        layout.addWidget(win_phys_btn)
 
     layout.addWidget(create_separator())
 

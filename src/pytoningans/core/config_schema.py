@@ -14,6 +14,7 @@ class BehaviorConfig:
     can_climb_walls: bool = False
     can_move_windows: bool = False
     window_move_mode: str = "attack"
+    ignore_window_physics: bool = False
     max_health: int = 100
     attack_damage: int = 10
     attack_range: int = 50

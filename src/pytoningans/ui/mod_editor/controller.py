@@ -67,6 +67,7 @@ class ModEditorController:
             "can_climb_walls": self.manager.can_climb_walls,
             "can_move_windows": self.manager.can_move_windows,
             "window_move_mode": self.manager.window_move_mode,
+            "ignore_window_physics": self.manager.ignore_window_physics,
             "max_health": self.manager.max_health,
             "attack_damage": self.manager.attack_damage,
             "attack_range": self.manager.attack_range,
@@ -80,6 +81,7 @@ class ModEditorController:
         self.manager.can_climb_walls = stats.get("can_climb_walls", self.manager.can_climb_walls)
         self.manager.can_move_windows = stats.get("can_move_windows", self.manager.can_move_windows)
         self.manager.window_move_mode = stats.get("window_move_mode", self.manager.window_move_mode)
+        self.manager.ignore_window_physics = stats.get("ignore_window_physics", self.manager.ignore_window_physics)
         self.manager.max_health = stats.get("max_health", self.manager.max_health)
         self.manager.attack_damage = stats.get("attack_damage", self.manager.attack_damage)
         self.manager.attack_range = stats.get("attack_range", self.manager.attack_range)

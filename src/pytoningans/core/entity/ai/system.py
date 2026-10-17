@@ -21,6 +21,8 @@ from .interaction import start_interaction as _do_start_interaction
 from .item_seeking import check_item_seeking as _do_check_item_seeking
 from .item_seeking import default_survival_seeking as _do_default_survival_seeking
 from .item_seeking import navigate_towards_item as _do_navigate_towards_item
+from pytoningans.core.entity.physics.helpers import get_effective_hitbox
+from pytoningans.core.entity.physics.window_collision import find_candidate_platforms
 
 if TYPE_CHECKING:
     from pytoningans.core.api import IItem
@@ -62,6 +64,14 @@ class AISystem:
             self.attack_time_left -= dt
             if self.attack_time_left <= 0:
                 self.entity.anim_sys.set_state(EntityState.IDLE)
+                # Ensure ground/platform snapping after attack finishes
+                if self.entity.world is not None and not getattr(self.entity.mod_manager, "can_fly", False):
+                    hitbox = get_effective_hitbox(self.entity)
+                    hitbox_bottom_offset = hitbox.y() + hitbox.height()
+                    ground_y = self.entity.world.scene.sceneRect().bottom()
+                    effective_ground_y, _ = find_candidate_platforms(self.entity, ground_y, 0.0)
+                    if self.entity.y() + hitbox_bottom_offset > effective_ground_y:
+                        self.entity.setPos(self.entity.x(), effective_ground_y - hitbox_bottom_offset)
             return
 
         if self.decision_accumulator >= 2500:

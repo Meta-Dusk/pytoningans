@@ -32,6 +32,7 @@ class IModInfo(Protocol):
     can_climb_walls: bool
     can_move_windows: bool
     window_move_mode: str
+    ignore_window_physics: bool
     behavior_type: BehaviorType
     attack_type: AttackType
     plain_dialogue: list[str]
@@ -93,6 +94,8 @@ class IBaseEntity(Protocol):
     velocity_y: float
     can_climb_walls: bool
     can_move_windows: bool
+    ignore_window_physics: bool
+    should_use_window_physics: bool
     is_climbing: bool
     components: dict[str, IComponent]
 

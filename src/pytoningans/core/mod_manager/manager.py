@@ -76,6 +76,7 @@ class ModManager:
         self.can_climb_walls: bool = False
         self.can_move_windows: bool = False
         self.window_move_mode: str = "attack"
+        self.ignore_window_physics: bool = False
         self.max_health: int = 100
         self.attack_damage: int = 10
         self.attack_range: int = 50
@@ -175,6 +176,7 @@ class ModManager:
         self.can_climb_walls = behavior_data.get("can_climb_walls", False)
         self.can_move_windows = behavior_data.get("can_move_windows", False)
         self.window_move_mode = behavior_data.get("window_move_mode", "attack")
+        self.ignore_window_physics = behavior_data.get("ignore_window_physics", False)
 
         self.max_health = behavior_data.get("max_health", 100)
         self.attack_damage = behavior_data.get("attack_damage", 10)
@@ -265,6 +267,7 @@ class ModManager:
                 can_climb_walls=self.can_climb_walls,
                 can_move_windows=self.can_move_windows,
                 window_move_mode=self.window_move_mode,
+                ignore_window_physics=self.ignore_window_physics,
                 max_health=self.max_health,
                 attack_damage=self.attack_damage,
                 attack_range=self.attack_range,

@@ -22,6 +22,7 @@ class BehaviorStatsPanel(BasePanel):
         form = QFormLayout()
         
         self.can_fly_check = QCheckBox("Enable Flight (Ignores Gravity)")
+        self.ignore_window_physics_check = QCheckBox("Ignore Window Physics (Ghost Through Windows)")
         self.can_climb_walls_check = QCheckBox("Allow Wall Climbing (Runs up Window Sides)")
         self.can_move_windows_check = QCheckBox("Allow Moving Windows (Pushes / Attacks Windows)")
         self.window_move_mode_combo = QComboBox()
@@ -44,6 +45,7 @@ class BehaviorStatsPanel(BasePanel):
             
         form.addRow(create_info_label("Behavior Type:", "Determines engine AI logic."), self.behavior_type_combo)
         form.addRow("", self.can_fly_check)
+        form.addRow("", self.ignore_window_physics_check)
         form.addRow("", self.can_climb_walls_check)
         form.addRow("", self.can_move_windows_check)
         form.addRow(create_info_label("Window Move Mode:", "How the entity moves desktop windows."), self.window_move_mode_combo)
@@ -59,11 +61,19 @@ class BehaviorStatsPanel(BasePanel):
     def _connect_signals(self) -> None:
         self.behavior_type_combo.currentIndexChanged.connect(self._on_edited)
         self.can_fly_check.stateChanged.connect(self._on_edited)
+        self.ignore_window_physics_check.stateChanged.connect(self._on_ignore_window_physics_toggled)
         self.can_climb_walls_check.stateChanged.connect(self._on_edited)
         self.can_move_windows_check.stateChanged.connect(self._on_can_move_windows_toggled)
         self.window_move_mode_combo.currentIndexChanged.connect(self._on_edited)
         for spin in (self.max_health_spin, self.atk_dmg_spin, self.atk_range_spin, self.jump_height_spin):
             spin.valueChanged.connect(self._on_edited)
+
+    def _on_ignore_window_physics_toggled(self, *_) -> None:
+        is_ignoring = self.ignore_window_physics_check.isChecked()
+        self.can_climb_walls_check.setEnabled(not is_ignoring)
+        self.can_move_windows_check.setEnabled(not is_ignoring)
+        self.window_move_mode_combo.setEnabled(not is_ignoring and self.can_move_windows_check.isChecked())
+        self._on_edited()
 
     def _on_can_move_windows_toggled(self, *_) -> None:
         self.window_move_mode_combo.setEnabled(self.can_move_windows_check.isChecked())
@@ -74,6 +84,7 @@ class BehaviorStatsPanel(BasePanel):
         stats: dict[str, Any] = {
             "type": self.behavior_type_combo.currentData(),
             "can_fly": self.can_fly_check.isChecked(),
+            "ignore_window_physics": self.ignore_window_physics_check.isChecked(),
             "can_climb_walls": self.can_climb_walls_check.isChecked(),
             "can_move_windows": self.can_move_windows_check.isChecked(),
             "window_move_mode": self.window_move_mode_combo.currentData() or "attack",
@@ -89,6 +100,7 @@ class BehaviorStatsPanel(BasePanel):
         self._is_updating_ui = True
         stats = self.controller.get_behavior_stats()
         self.can_fly_check.setChecked(stats.get("can_fly", False))
+        self.ignore_window_physics_check.setChecked(stats.get("ignore_window_physics", False))
         self.can_climb_walls_check.setChecked(stats.get("can_climb_walls", False))
         self.can_move_windows_check.setChecked(stats.get("can_move_windows", False))
         
@@ -96,7 +108,11 @@ class BehaviorStatsPanel(BasePanel):
         mode_idx = self.window_move_mode_combo.findData(mode)
         if mode_idx >= 0:
             self.window_move_mode_combo.setCurrentIndex(mode_idx)
-        self.window_move_mode_combo.setEnabled(self.can_move_windows_check.isChecked())
+        
+        is_ignoring = self.ignore_window_physics_check.isChecked()
+        self.can_climb_walls_check.setEnabled(not is_ignoring)
+        self.can_move_windows_check.setEnabled(not is_ignoring)
+        self.window_move_mode_combo.setEnabled(not is_ignoring and self.can_move_windows_check.isChecked())
 
         self.max_health_spin.setValue(stats["max_health"])
         self.atk_dmg_spin.setValue(stats["attack_damage"])
