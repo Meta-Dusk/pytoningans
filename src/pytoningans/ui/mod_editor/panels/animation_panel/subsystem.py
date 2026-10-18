@@ -1,25 +1,29 @@
-import copy
-from typing import Optional
+from __future__ import annotations
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox, QPushButton,
-    QLabel, QFormLayout, QFrame, QMessageBox, QSpinBox
-)
-from PySide6.QtCore import Qt, QTimer, QRect
+import copy
+from typing import Optional, TYPE_CHECKING
+
+from PySide6.QtWidgets import QLabel, QMessageBox
+from PySide6.QtCore import QTimer, QRect
 
 from pytoningans.core.constants import (
     EntityState, AnimationMeta, EntityType, StructureState, ItemState
 )
-from pytoningans.ui.mod_editor.controller import ModEditorController
-from pytoningans.ui.mod_editor.components import (
-    CollapsibleSection, PreviewLabel, create_info_label, create_spinbox, create_info_widget
-)
-from .base_panel import BasePanel
+from ..base_panel import BasePanel
+from .preview_panel import AnimationPreviewPanel
+from .settings_panel import GridSettingsPanel, DebugSettingsPanel
+from .state_panel import StateConfigPanel
 
-# TODO: Refactor; make it modular
+if TYPE_CHECKING:
+    from pytoningans.ui.mod_editor.controller import ModEditorController
+
+
 class AnimationSubsystem(BasePanel):
     """Manages all animation-related UI panels, timers, and state bridging."""
-    def __init__(self, controller: ModEditorController, dynamic_info_label: QLabel) -> None:
+
+    def __init__(
+        self, controller: ModEditorController, dynamic_info_label: QLabel
+    ) -> None:
         super().__init__(controller)
         self.info_label: QLabel = dynamic_info_label
         self._is_updating_ui: bool = False
@@ -36,10 +40,44 @@ class AnimationSubsystem(BasePanel):
         self._preview_timer.start()
     
     def _setup_ui(self) -> None:
-        self._build_grid_panel()
-        self._build_preview_panel()
-        self._build_debug_panel()
-        self._build_state_panel()
+        self.grid_panel = GridSettingsPanel()
+        self.preview_panel = AnimationPreviewPanel()
+        self.debug_panel = DebugSettingsPanel()
+        self.state_panel = StateConfigPanel()
+
+        # Backward-compatible attribute aliases
+        self.cols_spin = self.grid_panel.cols_spin
+        self.rows_spin = self.grid_panel.rows_spin
+        self.grid_section = self.grid_panel.grid_section
+
+        self.preview_label = self.preview_panel.preview_label
+        self.preview_zoom_spin = self.preview_panel.preview_zoom_spin
+        self.preview_reset_btn = self.preview_panel.preview_reset_btn
+        self.restart_btn = self.preview_panel.restart_btn
+
+        self.debug_section = self.debug_panel.debug_section
+        self.borders_check = self.debug_panel.borders_check
+        self.range_check = self.debug_panel.range_check
+
+        self.state_section = self.state_panel.state_section
+        self.state_combo = self.state_panel.state_combo
+        self.copy_btn = self.state_panel.copy_btn
+        self.paste_btn = self.state_panel.paste_btn
+        self.swap_combo = self.state_panel.swap_combo
+        self.swap_btn = self.state_panel.swap_btn
+        self.row_spin = self.state_panel.row_spin
+        self.start_spin = self.state_panel.start_spin
+        self.end_spin = self.state_panel.end_spin
+        self.loop_check = self.state_panel.loop_check
+        self.reverse_check = self.state_panel.reverse_check
+        self.crop_check = self.state_panel.crop_check
+        self.apply_all_btn = self.state_panel.apply_all_btn
+        self.bake_btn = self.state_panel.bake_btn
+        self.width_spin = self.state_panel.width_spin
+        self.height_spin = self.state_panel.height_spin
+        self.offset_x_spin = self.state_panel.offset_x_spin
+        self.offset_y_spin = self.state_panel.offset_y_spin
+        self.fps_spin = self.state_panel.fps_spin
 
     def load_data(self) -> None:
         self._is_updating_ui = True
@@ -55,199 +93,6 @@ class AnimationSubsystem(BasePanel):
         self._refresh_dynamic_info()
         self._refresh_state_dropdown()
 
-    def _build_grid_panel(self) -> None:
-        self.grid_panel = QWidget()
-        layout = QVBoxLayout(self.grid_panel)
-        layout.setContentsMargins(0,0,0,0)
-        self.grid_section = CollapsibleSection("Grid and Extraction Settings")
-        form = QFormLayout()
-        
-        self.cols_spin = create_spinbox(1, 100)
-        self.rows_spin = create_spinbox(1, 100)
-        
-        form.addRow(create_info_label("Columns:", "Total columns."), self.cols_spin)
-        form.addRow(create_info_label("Rows:", "Total rows."), self.rows_spin)
-        self.grid_section.content_layout.addLayout(form)
-        layout.addWidget(self.grid_section)
-
-    def _build_preview_panel(self) -> None:
-        self.preview_panel = QWidget()
-        layout = QVBoxLayout(self.preview_panel)
-        layout.setContentsMargins(0,0,0,0)
-        
-        title = QLabel("Live Animation Preview")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setObjectName("PreviewTitle")
-        
-        self.preview_label = PreviewLabel()
-        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview_label.setMinimumHeight(150)
-        self.preview_label.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Sunken)
-        
-        preview_ctrls = QHBoxLayout()
-        self.preview_zoom_spin = QSpinBox()
-        self.preview_zoom_spin.setPrefix("Zoom: ")
-        self.preview_zoom_spin.setSuffix("x")
-        self.preview_zoom_spin.setRange(1, 20)
-        self.preview_zoom_spin.setValue(self.preview_label.zoom)
-
-        self.preview_reset_btn = QPushButton("Reset View")
-        self.restart_btn = QPushButton("Restart Animation")
-
-        preview_ctrls.addWidget(self.preview_zoom_spin)
-        preview_ctrls.addWidget(self.preview_reset_btn)
-        preview_ctrls.addWidget(self.restart_btn)
-
-        layout.addWidget(title)
-        layout.addWidget(self.preview_label)
-        layout.addLayout(preview_ctrls)
-
-    def _build_debug_panel(self) -> None:
-        self.debug_panel = QWidget()
-        layout = QVBoxLayout(self.debug_panel)
-        layout.setContentsMargins(0,0,0,0)
-        section = CollapsibleSection("Debug Settings")
-        sec_layout = QVBoxLayout()
-        
-        self.borders_check = QCheckBox("Show Sprite Borders (Blue)")
-        self.range_check = QCheckBox("Show Attack Range (Red Circle)")
-        
-        sec_layout.addWidget(self.borders_check)
-        sec_layout.addWidget(self.range_check)
-        section.content_layout.addLayout(sec_layout)
-        layout.addWidget(section)
-
-    def _build_state_panel(self) -> None:
-        self.state_panel = QWidget()
-        layout = QVBoxLayout(self.state_panel)
-        layout.setContentsMargins(0,0,0,0)
-        section = CollapsibleSection("Animation State Config")
-        
-        h_layout = QHBoxLayout()
-        h_layout.addWidget(
-            create_info_label(
-                "State:",
-                "The State of the Entity to edit the values for."
-            )
-        )
-        
-        self.state_combo = QComboBox()
-        h_layout.addWidget(self.state_combo, stretch=1)
-        
-        self.copy_btn = QPushButton("Copy")
-        self.paste_btn = QPushButton("Paste"); self.paste_btn.setEnabled(False)
-        
-        h_layout.addWidget(self.copy_btn)
-        h_layout.addWidget(self.paste_btn)
-        section.content_layout.addLayout(h_layout)
-        
-        swap_layout = QHBoxLayout()
-        swap_layout.addWidget(
-            create_info_label(
-                "Swap State Data With:",
-                "Swaps all the data between the two selected States "
-                "(the top and bottom combo boxes)."
-            )
-        )
-        self.swap_combo = QComboBox()
-        self.swap_btn = QPushButton("Swap")
-        swap_layout.addWidget(self.swap_combo)
-        swap_layout.addWidget(self.swap_btn)
-        section.content_layout.addLayout(swap_layout)
-        
-        form = QFormLayout()
-        self.row_spin = create_spinbox(0, 100)
-        self.start_spin = create_spinbox(0, 100)
-        self.end_spin = create_spinbox(0, 100)
-        self.loop_check = QCheckBox("Loop Animation")
-        self.reverse_check = QCheckBox("Play in Reverse")
-        self.crop_check = QCheckBox("Interactive Cropping")
-        
-        crop_layout = QHBoxLayout()
-        self.crop_check = QCheckBox("Interactive Crop")
-        self.crop_check.setStyleSheet("font-weight: bold; color: #ff4444;")
-        crop_check_info = create_info_widget(
-            self.crop_check,
-            "Shows a red outline as the cropping area. Resizeable by dragging its borders."
-        )
-        
-        self.apply_all_btn = QPushButton("Apply to All")
-        self.apply_all_btn.setStyleSheet("font-weight: bold;")
-        
-        self.bake_btn = QPushButton("Bake to File")
-        self.bake_btn.setStyleSheet("background-color: #aa0000; color: white; font-weight: bold;")
-        
-        crop_layout.addWidget(self.apply_all_btn)
-        crop_layout.addWidget(self.bake_btn)
-        
-        self.width_spin = create_spinbox(0, 2048)
-        self.height_spin = create_spinbox(0, 2048)
-        self.offset_x_spin = create_spinbox(-2048, 2048)
-        self.offset_y_spin = create_spinbox(-2048, 2048)
-        self.fps_spin = create_spinbox(1, 60)
-        
-        form.addRow(
-            create_info_label(
-                "Mapped Row Index:",
-                "The row index (from 0) where the animation frames are sourced from."
-            ),
-            self.row_spin
-        )
-        form.addRow(
-            create_info_label(
-                "Start Frame Index:",
-                "The column index (from 0) where the animation begins."
-            ),
-            self.start_spin
-        )
-        form.addRow(
-            create_info_label(
-                "End Frame Index:",
-                "The column index (from 0) where the animation ends."
-            ),
-            self.end_spin
-        )
-        form.addRow(self.loop_check, self.reverse_check)
-        form.addRow(crop_check_info, crop_layout)
-        form.addRow(
-            create_info_label(
-                "Override Width (px):",
-                "Set above 0 to manually define this frame's width, ignoring the global grid."
-            ),
-            self.width_spin
-        )
-        form.addRow(
-            create_info_label(
-                "Override Height (px):",
-                "Set above 0 to manually define this frame's height, ignoring the global grid."
-            ),
-            self.height_spin
-        )
-        form.addRow(
-            create_info_label(
-                "Offset X (px):",
-                "Nudge the frame extraction boundary horizontally."
-            ),
-            self.offset_x_spin
-        )
-        form.addRow(
-            create_info_label(
-                "Offset Y (px):",
-                "Nudge the frame extraction boundary vertically."
-            ),
-            self.offset_y_spin
-        )
-        form.addRow(
-            create_info_label(
-                "Playback Speed (FPS):",
-                "How fast the animation plays. Higher means faster."
-            ),
-            self.fps_spin
-        )
-        
-        section.content_layout.addLayout(form)
-        layout.addWidget(section)
-    
     def _connect_signals(self) -> None:
         self.cols_spin.valueChanged.connect(self._on_global_edited)
         self.rows_spin.valueChanged.connect(self._on_global_edited)
@@ -502,3 +347,4 @@ class AnimationSubsystem(BasePanel):
     def _on_range_toggled(self, checked: bool) -> None:
         self.preview_label.show_attack_range = checked
         self.preview_label.update()
+
