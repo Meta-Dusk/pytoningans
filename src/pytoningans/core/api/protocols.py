@@ -6,7 +6,7 @@ worlds, entity managers, entities, and structures on the desktop.
 """
 from __future__ import annotations
 
-from typing import Protocol, Optional, Union, runtime_checkable
+from typing import Protocol, Optional, Union, runtime_checkable, Any
 
 from .types import (
     Pos2D, IRect, EntityState, StructureState, ItemState, BehaviorType, AttackType, DeathAnimation

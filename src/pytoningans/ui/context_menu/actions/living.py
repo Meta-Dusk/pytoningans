@@ -110,6 +110,28 @@ def build_living_actions(menu: EntityContextMenu, layout: QVBoxLayout, entity: E
         win_phys_btn.clicked.connect(lambda: menu.execute_action(toggle_win_phys))
         layout.addWidget(win_phys_btn)
 
+    # Debug Visualization Toggles (Hitbox & Range)
+    row_debug = QHBoxLayout()
+    row_debug.setSpacing(6)
+
+    hitbox_btn = QPushButton("Hide Hitbox" if entity.is_debug_hitbox_visible else "Show Hitbox")
+    hitbox_btn.setToolTip("Toggle on-screen visualization of physics collision and attack hitboxes.")
+    def toggle_hitbox() -> None:
+        entity.toggle_debug_hitboxes()
+        hitbox_btn.setText("Hide Hitbox" if entity.is_debug_hitbox_visible else "Show Hitbox")
+    hitbox_btn.clicked.connect(lambda: menu.execute_action(toggle_hitbox))
+    row_debug.addWidget(hitbox_btn)
+
+    range_btn = QPushButton("Hide Range" if entity.is_debug_attack_range_visible else "Show Range")
+    range_btn.setToolTip("Toggle on-screen visualization of entity attack / aggro range circle.")
+    def toggle_range() -> None:
+        entity.toggle_debug_attack_range()
+        range_btn.setText("Hide Range" if entity.is_debug_attack_range_visible else "Show Range")
+    range_btn.clicked.connect(lambda: menu.execute_action(toggle_range))
+    row_debug.addWidget(range_btn)
+
+    layout.addLayout(row_debug)
+
     layout.addWidget(create_separator())
 
     # Close / Despawn

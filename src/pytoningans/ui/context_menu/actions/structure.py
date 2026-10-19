@@ -97,6 +97,15 @@ def build_structure_actions(menu: EntityContextMenu, layout: QVBoxLayout, struct
         )
         layout.addWidget(add_tele_btn)
 
+    # Debug Visualization Toggle (Hitbox)
+    hitbox_btn = QPushButton("Hide Hitbox" if structure.is_debug_hitbox_visible else "Show Hitbox")
+    hitbox_btn.setToolTip("Toggle on-screen visualization of physics collision hitbox.")
+    def toggle_hitbox() -> None:
+        structure.toggle_debug_hitboxes()
+        hitbox_btn.setText("Hide Hitbox" if structure.is_debug_hitbox_visible else "Show Hitbox")
+    hitbox_btn.clicked.connect(lambda: menu.execute_action(toggle_hitbox))
+    layout.addWidget(hitbox_btn)
+
     layout.addWidget(create_separator())
 
     # Close structure

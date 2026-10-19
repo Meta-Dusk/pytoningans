@@ -72,6 +72,7 @@ def _try_trigger_attack(entity: BaseEntity, facing_left: bool) -> bool:
         return False
 
     entity.facing_left = facing_left
+    entity.sprite_rotation = 0.0
     entity.anim_sys.set_state(EntityState.ATTACK)
     ai_sys.attack_time_left = 800
     ai_sys.attack_cooldown = 1500
@@ -85,6 +86,7 @@ def _block_and_turn(
     """Stops the entity at the window wall, turns it around, and enters IDLE state."""
     entity.facing_left = facing_left
     entity.target_pos = None
+    entity.sprite_rotation = 0.0
     if entity.anim_sys is not None:
         entity.anim_sys.set_state(EntityState.IDLE)
     return adjusted_x, True
@@ -107,7 +109,11 @@ def _scoop_to_roof(
 
     entity.setPos(scoop_x, scoop_y)
     entity.velocity_y = 0.0
+    entity.target_pos = None
+    entity.sprite_rotation = 0.0
     if entity.state == EntityState.JUMPING and not is_dead and entity.anim_sys is not None:
+        entity.anim_sys.set_state(EntityState.IDLE)
+    elif entity.mod_manager is not None and entity.mod_manager.can_fly and entity.anim_sys is not None:
         entity.anim_sys.set_state(EntityState.IDLE)
     return True, win
 
@@ -155,6 +161,7 @@ def _eject_laterally(
 
     entity.setPos(eject_x, entity.y())
     entity.target_pos = None
+    entity.sprite_rotation = 0.0
     if not is_dead and entity.anim_sys is not None:
         entity.anim_sys.set_state(EntityState.IDLE)
     return True, None
@@ -168,13 +175,12 @@ def resolve_window_side_collisions(
     entity: BaseEntity, curr_x: float, step_x: float, dx: float
 ) -> tuple[float, bool]:
     """
-    Checks horizontal movement against active desktop windows for ground entities.
+    Checks horizontal movement against active desktop windows.
     Returns (adjusted_step_x, did_collide).
     """
     if (
         dx == 0 or
         entity.mod_manager is None or
-        entity.mod_manager.can_fly or
         entity.world is None or
         not entity.should_use_window_physics
     ):
@@ -191,6 +197,7 @@ def resolve_window_side_collisions(
 
     can_climb: bool = (
         entity.mod_manager.can_climb_walls and
+        not entity.mod_manager.can_fly and
         entity.physics_sys is not None and
         not getattr(entity, "is_dead", False) and
         not getattr(entity, "is_dragged", False)
@@ -359,3 +366,97 @@ def check_window_ceiling_collision(entity: BaseEntity, new_y: float) -> tuple[fl
             return adjusted_new_y, True
 
     return new_y, False
+
+
+def resolve_window_vertical_collisions(
+    entity: BaseEntity,
+    curr_y: float,
+    step_y: float,
+    dy: float,
+    step_x: Optional[float] = None,
+) -> tuple[float, bool]:
+    """
+    Checks vertical movement against active desktop windows for flying entities.
+    Returns (adjusted_step_y, did_collide).
+    """
+    if (
+        dy == 0 or
+        entity.mod_manager is None or
+        entity.world is None or
+        not entity.should_use_window_physics
+    ):
+        return step_y, False
+
+    window_rects: list[QRect] = entity.world.active_window_rects
+    if not window_rects:
+        return step_y, False
+
+    hitbox: QRect = get_effective_hitbox(entity)
+    curr_top: float = curr_y + hitbox.y()
+    curr_bottom: float = curr_top + hitbox.height()
+    ref_x: float = step_x if step_x is not None else entity.x()
+    left_x: float = ref_x + hitbox.x()
+    right_x: float = left_x + hitbox.width()
+
+    step_top: float = step_y + hitbox.y()
+    step_bottom: float = step_top + hitbox.height()
+
+    can_move_win: bool = (
+        entity.mod_manager.can_move_windows and
+        not getattr(entity, "is_dead", False) and
+        not getattr(entity, "is_dragged", False)
+    )
+    move_mode: str = entity.mod_manager.window_move_mode
+
+    for win in window_rects:
+        # Ignore window if entity is strictly to the left or right of the window
+        if right_x <= win.left() + 4 or left_x >= win.right() - 4:
+            continue
+
+        # Moving DOWN: entering window top from outside
+        if dy > 0 and curr_bottom <= win.top() + 6:
+            if step_bottom < win.top():
+                continue
+            aligned_y = float(win.top() - hitbox.y() - hitbox.height())
+            adjusted_y: float = aligned_y - 1.0
+            push_step: int = max(1, int(round(step_bottom - win.top())))
+
+            if can_move_win and move_mode in ("push", "both"):
+                if entity.world.move_window(win, 0, push_step):
+                    new_aligned_y = float(win.top() - hitbox.y() - hitbox.height())
+                    return new_aligned_y, False
+
+            if can_move_win and move_mode in ("attack", "both"):
+                if _try_trigger_attack(entity, entity.facing_left):
+                    return adjusted_y, True
+
+            entity.target_pos = None
+            entity.sprite_rotation = 0.0
+            if entity.anim_sys is not None:
+                entity.anim_sys.set_state(EntityState.IDLE)
+            return adjusted_y, True
+
+        # Moving UP: entering window bottom from outside
+        if dy < 0 and curr_top >= win.bottom() - 6:
+            if step_top > win.bottom():
+                continue
+            aligned_y = float(win.bottom() - hitbox.y())
+            adjusted_y: float = aligned_y + 1.0
+            push_step: int = min(-1, int(round(step_top - win.bottom())))
+
+            if can_move_win and move_mode in ("push", "both"):
+                if entity.world.move_window(win, 0, push_step):
+                    new_aligned_y = float(win.bottom() - hitbox.y())
+                    return new_aligned_y, False
+
+            if can_move_win and move_mode in ("attack", "both"):
+                if _try_trigger_attack(entity, entity.facing_left):
+                    return adjusted_y, True
+
+            entity.target_pos = None
+            entity.sprite_rotation = 0.0
+            if entity.anim_sys is not None:
+                entity.anim_sys.set_state(EntityState.IDLE)
+            return adjusted_y, True
+
+    return step_y, False

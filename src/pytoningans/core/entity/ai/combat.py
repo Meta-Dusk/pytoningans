@@ -77,7 +77,8 @@ def default_combat_logic(ai: AISystem, my_center: QPointF, other_center: QPointF
     ai.entity.facing_left = (dx < 0)
             
     if ai.entity.mod_manager.can_fly:
-        ai.entity.sprite_rotation = math.degrees(math.atan2(dy, abs(dx) if dx != 0 else 0.1))
+        pitch = math.degrees(math.atan2(dy, abs(dx) if dx != 0 else 0.1))
+        ai.entity.sprite_rotation = -pitch if ai.entity.facing_left else pitch
             
     ai.entity.target_pos = None
     ai.attack_time_left = 800 
@@ -113,13 +114,19 @@ def process_combat(ai: AISystem) -> None:
 
     atk_hitbox: QRect = ai.entity.current_attack_hitbox
     if atk_hitbox.isEmpty():
-        base_hitbox = ai.entity.current_hitbox
+        base_hitbox: QRect = ai.entity.current_hitbox
         if not base_hitbox.isEmpty():
             range_px: int = ai.entity.mod_manager.attack_range
             if ai.entity.facing_left:
-                atk_hitbox = QRect(base_hitbox.x() - range_px, base_hitbox.y(), range_px, base_hitbox.height())
+                atk_hitbox = QRect(
+                    base_hitbox.x() - range_px, base_hitbox.y(),
+                    range_px, base_hitbox.height()
+                )
             else:
-                atk_hitbox = QRect(base_hitbox.x() + base_hitbox.width(), base_hitbox.y(), range_px, base_hitbox.height())
+                atk_hitbox = QRect(
+                    base_hitbox.x() + base_hitbox.width(),
+                    base_hitbox.y(), range_px, base_hitbox.height()
+                )
         else:
             return
 

@@ -11,7 +11,7 @@ from PySide6.QtGui import QColor, QPixmap, QTransform
 from pytoningans.core.constants import EntityState, SystemLocks
 from pytoningans.core.entity.animation import AnimationSystem
 from pytoningans.core.entity.physics import PhysicsSystem
-from pytoningans.core.entity.indicators import HighlightOutlineItem
+from pytoningans.core.entity.indicators import HighlightOutlineItem, DebugHitboxOverlayItem
 from pytoningans.core.api import (
     IEntity, BaseEntityBehavior, BaseBehavior, BaseStructureBehavior, IStructure,
     BaseItemBehavior, IItem, Pos2D
@@ -75,6 +75,7 @@ class BaseEntity(
         )
         self._fade_anim: Optional[QVariantAnimation] = None
         self._highlight_item: Optional[HighlightOutlineItem] = None
+        self._debug_overlay: Optional[DebugHitboxOverlayItem] = None
         self._active_context_menu: Optional[EntityContextMenu] = None
 
         # Initialize modular mixins
@@ -112,6 +113,38 @@ class BaseEntity(
         elif self._highlight_item is not None:
             self._highlight_item.setVisible(False)
     
+    @property
+    def is_debug_hitbox_visible(self) -> bool:
+        """Returns whether physics/attack hitboxes are visually displayed."""
+        return self._debug_overlay is not None and self._debug_overlay.show_hitboxes
+
+    @property
+    def is_debug_attack_range_visible(self) -> bool:
+        """Returns whether the aggro/attack range circle is visually displayed."""
+        return self._debug_overlay is not None and self._debug_overlay.show_attack_range
+
+    def toggle_debug_hitboxes(self) -> None:
+        """Toggles visual debug display for physics collision and attack hitboxes."""
+        if self._debug_overlay is None:
+            self._debug_overlay = DebugHitboxOverlayItem(self)
+        
+        self._debug_overlay.show_hitboxes = not self._debug_overlay.show_hitboxes
+        is_active = self._debug_overlay.show_hitboxes or self._debug_overlay.show_attack_range
+        self._debug_overlay.setVisible(is_active)
+        if is_active:
+            self._debug_overlay.update_overlay()
+
+    def toggle_debug_attack_range(self) -> None:
+        """Toggles visual debug display for attack/aggro range circle."""
+        if self._debug_overlay is None:
+            self._debug_overlay = DebugHitboxOverlayItem(self)
+        
+        self._debug_overlay.show_attack_range = not self._debug_overlay.show_attack_range
+        is_active = self._debug_overlay.show_hitboxes or self._debug_overlay.show_attack_range
+        self._debug_overlay.setVisible(is_active)
+        if is_active:
+            self._debug_overlay.update_overlay()
+
     @property
     def is_static(self) -> bool:
         """Returns whether this entity is static (single-sprite / non-animated)."""
@@ -347,6 +380,12 @@ class BaseEntity(
             self._highlight_item.setVisible(False)
             if self.scene() and self._highlight_item.scene():
                 self.scene().removeItem(self._highlight_item)
+            self._highlight_item = None
+        if self._debug_overlay is not None:
+            self._debug_overlay.setVisible(False)
+            if self.scene() and self._debug_overlay.scene():
+                self.scene().removeItem(self._debug_overlay)
+            self._debug_overlay = None
         if self._active_context_menu is not None:
             menu = self._active_context_menu
             self._active_context_menu = None

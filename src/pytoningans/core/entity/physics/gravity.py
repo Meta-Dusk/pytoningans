@@ -28,14 +28,15 @@ def tick_gravity_and_collisions(
         return
 
     is_dead: bool = getattr(entity, "is_dead", False)
-    if entity.mod_manager.can_fly and not is_dead:
-        return
 
-    # Check window penetration & auto-scoop
+    # Check window penetration & auto-scoop (runs for all entities)
     was_handled, platform_rect = resolve_window_depenetration(entity, is_dead)
     if was_handled:
         if platform_rect is not None:
             system.current_platform_rect = platform_rect
+        return
+
+    if entity.mod_manager.can_fly and not is_dead:
         return
 
     hitbox: QRect = get_effective_hitbox(entity)

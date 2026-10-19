@@ -83,6 +83,15 @@ def build_item_actions(menu: EntityContextMenu, layout: QVBoxLayout, item: BaseI
     gravity_check.toggled.connect(item.set_physics_enabled)
     layout.addWidget(gravity_check)
 
+    # Debug Visualization Toggle (Hitbox)
+    hitbox_btn = QPushButton("Hide Hitbox" if item.is_debug_hitbox_visible else "Show Hitbox")
+    hitbox_btn.setToolTip("Toggle on-screen visualization of physics collision hitbox.")
+    def toggle_hitbox() -> None:
+        item.toggle_debug_hitboxes()
+        hitbox_btn.setText("Hide Hitbox" if item.is_debug_hitbox_visible else "Show Hitbox")
+    hitbox_btn.clicked.connect(lambda: menu.execute_action(toggle_hitbox))
+    layout.addWidget(hitbox_btn)
+
     layout.addWidget(create_separator())
 
     # Destroy item
