@@ -77,17 +77,12 @@ class PublishModDialog(QDialog):
         user: Optional[UserProfile] = self.auth.current_user
         author_name: str = user.username if user else "GuestCreator"
         user_banner = QLabel(f"Publishing as verified creator: <b>{author_name}</b>")
-        user_banner.setStyleSheet(
-            "background-color: rgba(59, 130, 246, 0.15); color: #93c5fd; "
-            "border: 1px solid #3b82f6; border-radius: 4px; padding: 6px 10px; font-size: 11px;"
-        )
+        user_banner.setObjectName("UserBanner")
         layout.addWidget(user_banner)
 
         # Mode Indicator Banner (New vs Update)
         self.mode_banner = QLabel("Publishing Mode: New Mod")
-        self.mode_banner.setStyleSheet(
-            "background-color: #1e1e2e; color: #a6adc8; border-radius: 4px; padding: 4px 8px; font-size: 11px;"
-        )
+        self.mode_banner.setObjectName("ModeBanner")
         layout.addWidget(self.mode_banner)
 
         # Target Mod Selector
@@ -155,11 +150,10 @@ class PublishModDialog(QDialog):
         btn_layout.addWidget(cancel_btn)
 
         self.publish_btn = QPushButton("Package and Publish")
-        self.publish_btn.setStyleSheet(
-            "background-color: #10b981; color: white; font-weight: bold; padding: 6px 14px;"
-        )
+        self.publish_btn.setObjectName("SuccessBtn")
         self.publish_btn.clicked.connect(self._on_publish_clicked)
         btn_layout.addWidget(self.publish_btn)
+
 
         layout.addLayout(btn_layout)
         main_layout.addWidget(content)
@@ -201,10 +195,7 @@ class PublishModDialog(QDialog):
             self.mode_banner.setText(
                 f"Release Update Mode: Publishing new release for existing catalog item '{existing_item.name}'"
             )
-            self.mode_banner.setStyleSheet(
-                "background-color: rgba(14, 165, 233, 0.2); color: #38bdf8; "
-                "border: 1px solid #0284c7; border-radius: 4px; padding: 4px 8px; font-weight: bold; font-size: 11px;"
-            )
+            self.mode_banner.setObjectName("ModeBannerActive")
             self.desc_input.setPlainText(existing_item.description)
 
             # Suggest version bump (e.g. 1.0.0 -> 1.0.1)
@@ -213,50 +204,49 @@ class PublishModDialog(QDialog):
             self.version_input.setText(suggested_ver)
             self.ver_hint_label.setText(f"(Current catalog version: v{existing_item.version})")
             self.publish_btn.setText(f"Publish Release Update (v{suggested_ver})")
-            self.publish_btn.setStyleSheet(
-                "background-color: #0284c7; color: white; font-weight: bold; padding: 6px 14px;"
-            )
+            self.publish_btn.setObjectName("InfoBtn")
         else:
             self.mode_banner.setText("Publishing Mode: New Mod Listing")
-            self.mode_banner.setStyleSheet(
-                "background-color: #1e1e2e; color: #a6adc8; border-radius: 4px; padding: 4px 8px; font-size: 11px;"
-            )
+            self.mode_banner.setObjectName("ModeBanner")
             self.version_input.setText("1.0.0")
             self.ver_hint_label.setText("(Initial release)")
             self.publish_btn.setText("Package and Publish")
-            self.publish_btn.setStyleSheet(
-                "background-color: #10b981; color: white; font-weight: bold; padding: 6px 14px;"
-            )
+            self.publish_btn.setObjectName("SuccessBtn")
+
+        self.mode_banner.style().unpolish(self.mode_banner)
+        self.mode_banner.style().polish(self.mode_banner)
+        self.publish_btn.style().unpolish(self.publish_btn)
+        self.publish_btn.style().polish(self.publish_btn)
 
         if target_dir and target_dir.exists():
             report: SecurityReport = scan_mod_or_pack(target_dir)
             if report.risk_level == SecurityRiskLevel.DANGEROUS:
-                self.security_frame.setStyleSheet(
-                    "background-color: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; border-radius: 4px;"
-                )
+                self.security_frame.setObjectName("SecurityDangerous")
                 self.security_status_label.setText(
                     "Prohibited: Dangerous operations detected (network or process execution). Cannot publish."
                 )
-                self.security_status_label.setStyleSheet("color: #f87171; font-weight: bold;")
+                self.security_status_label.setObjectName("BadgeDanger")
                 self.publish_btn.setEnabled(False)
             elif report.risk_level == SecurityRiskLevel.MEDIUM:
-                self.security_frame.setStyleSheet(
-                    "background-color: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; border-radius: 4px;"
-                )
+                self.security_frame.setObjectName("SecurityWarning")
                 self.security_status_label.setText(
                     "Warning: File write operations detected. Proceed with caution."
                 )
-                self.security_status_label.setStyleSheet("color: #fbbf24; font-weight: bold;")
+                self.security_status_label.setObjectName("BadgeWarning")
                 self.publish_btn.setEnabled(True)
             else:
-                self.security_frame.setStyleSheet(
-                    "background-color: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; border-radius: 4px;"
-                )
+                self.security_frame.setObjectName("SecurityClean")
                 self.security_status_label.setText(
                     "Security Verified: Clean AST scan. Approved for community publication."
                 )
-                self.security_status_label.setStyleSheet("color: #34d399; font-weight: bold;")
+                self.security_status_label.setObjectName("BadgeSuccess")
                 self.publish_btn.setEnabled(True)
+
+            self.security_frame.style().unpolish(self.security_frame)
+            self.security_frame.style().polish(self.security_frame)
+            self.security_status_label.style().unpolish(self.security_status_label)
+            self.security_status_label.style().polish(self.security_status_label)
+
 
     def _on_publish_clicked(self) -> None:
         target_id: Optional[str] = self.mod_combo.currentData()

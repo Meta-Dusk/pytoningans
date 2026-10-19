@@ -49,8 +49,7 @@ class RatingDialog(QDialog):
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, 0); main_layout.setSpacing(0)
 
         self.title_bar = CustomTitleBar(self, f"Rate Mod: {self.item.name}")
         main_layout.addWidget(self.title_bar)
@@ -91,10 +90,7 @@ class RatingDialog(QDialog):
         btn_layout.addWidget(cancel_btn)
 
         submit_btn = QPushButton("Submit Rating")
-        submit_btn.setStyleSheet(
-            "background-color: #10b981; color: white; font-weight: bold; padding: 6px 14px;"
-        )
-        submit_btn.clicked.connect(self._on_submit)
+        submit_btn.setObjectName("SuccessBtn"); submit_btn.clicked.connect(self._on_submit)
         btn_layout.addWidget(submit_btn)
 
         layout.addLayout(btn_layout)

@@ -33,22 +33,10 @@ class ModCardWidget(QFrame):
 
     def _setup_ui(self) -> None:
         self.setFrameShape(QFrame.Shape.StyledPanel)
-        self.setStyleSheet("""
-            ModCardWidget {
-                background-color: #1e1e2e;
-                border: 1px solid #313244;
-                border-radius: 8px;
-                padding: 4px;
-            }
-            ModCardWidget:hover {
-                border: 1px solid #585b70;
-                background-color: #24253a;
-            }
-        """)
+        self.setObjectName("ModCardWidget")
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(8)
+        layout.setContentsMargins(12, 12, 12, 12); layout.setSpacing(8)
 
         # --- Top Header: Type Badge, Name, Outdated Indicator, Installed status ---
         header_layout = QHBoxLayout(); header_layout.setSpacing(8)
@@ -57,25 +45,13 @@ class ModCardWidget(QFrame):
         type_text: str = "PACK" if self.item.is_pack else self.item.entity_type.upper()
         type_badge = QLabel(f" {type_text} ")
         if self.item.is_pack:
-            type_badge.setStyleSheet(
-                "background-color: #0891b2; color: white; font-weight: bold; "
-                "font-size: 11px; border-radius: 4px; padding: 2px 4px;"
-            )
+            type_badge.setObjectName("BadgePack")
         elif self.item.entity_type == EntityType.STRUCTURE:
-            type_badge.setStyleSheet(
-                "background-color: #7c3aed; color: white; font-weight: bold; "
-                "font-size: 11px; border-radius: 4px; padding: 2px 4px;"
-            )
+            type_badge.setObjectName("BadgeStructure")
         elif self.item.entity_type == EntityType.ITEM:
-            type_badge.setStyleSheet(
-                "background-color: #d97706; color: white; font-weight: bold; "
-                "font-size: 11px; border-radius: 4px; padding: 2px 4px;"
-            )
+            type_badge.setObjectName("BadgeItem")
         else:
-            type_badge.setStyleSheet(
-                "background-color: #2563eb; color: white; font-weight: bold; "
-                "font-size: 11px; border-radius: 4px; padding: 2px 4px;"
-            )
+            type_badge.setObjectName("BadgeEntity")
         header_layout.addWidget(type_badge)
 
         # Mod Name
@@ -86,13 +62,9 @@ class ModCardWidget(QFrame):
         # Outdated warning badge
         if self.item.is_outdated:
             reasons_text = "\n• ".join(self.item.outdated_reasons)
-            outdated_badge = QLabel("⚠️ Outdated")
+            outdated_badge = QLabel("Outdated")
             outdated_badge.setToolTip(f"Outdated Compatibility Warning:\n• {reasons_text}")
-            outdated_badge.setStyleSheet(
-                "background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; "
-                "font-weight: bold; font-size: 11px; border: 1px solid #f59e0b; "
-                "border-radius: 4px; padding: 2px 6px;"
-            )
+            outdated_badge.setObjectName("BadgeWarning")
             header_layout.addWidget(outdated_badge)
 
         # Installation / Update Status Badges
@@ -102,20 +74,12 @@ class ModCardWidget(QFrame):
                 update_badge.setToolTip(
                     f"Installed: v{self.item.installed_version} → Latest: v{self.item.version}"
                 )
-                update_badge.setStyleSheet(
-                    "color: #38bdf8; font-weight: bold; font-size: 11px; "
-                    "background-color: rgba(56, 189, 248, 0.15); "
-                    "border: 1px solid #38bdf8; border-radius: 4px; padding: 2px 6px;"
-                )
+                update_badge.setObjectName("BadgeInfo")
                 header_layout.addWidget(update_badge)
             else:
                 ver_display = self.item.installed_version or self.item.version
                 installed_badge = QLabel(f"✓ Installed (v{ver_display})")
-                installed_badge.setStyleSheet(
-                    "color: #10b981; font-weight: bold; font-size: 11px; "
-                    "background-color: rgba(16, 185, 129, 0.15); "
-                    "border-radius: 4px; padding: 2px 6px;"
-                )
+                installed_badge.setObjectName("BadgeSuccess")
                 header_layout.addWidget(installed_badge)
 
         layout.addLayout(header_layout)
@@ -190,34 +154,26 @@ class ModCardWidget(QFrame):
             if self.item.has_update:
                 update_btn = QPushButton(f"Update (v{self.item.version})")
                 update_btn.setToolTip(f"Upgrade to version {self.item.version}")
-                update_btn.setStyleSheet(
-                    "background-color: #0284c7; color: white; padding: 4px 12px; "
-                    "font-size: 11px; font-weight: bold; border-radius: 4px;"
-                )
+                update_btn.setObjectName("InfoBtn")
                 update_btn.clicked.connect(lambda: self.update_requested.emit(self.item))
                 footer_layout.addWidget(update_btn)
 
             uninstall_btn = QPushButton("Uninstall")
-            uninstall_btn.setStyleSheet(
-                "background-color: #ef4444; color: white; padding: 4px 10px; "
-                "font-size: 11px; font-weight: bold; border-radius: 4px;"
-            )
+            uninstall_btn.setObjectName("DangerBtn")
             uninstall_btn.clicked.connect(lambda: self.uninstall_requested.emit(self.item))
             footer_layout.addWidget(uninstall_btn)
         else:
             install_btn = QPushButton("Install")
-            install_btn.setStyleSheet(
-                "background-color: #10b981; color: white; padding: 4px 14px; "
-                "font-size: 11px; font-weight: bold; border-radius: 4px;"
-            )
+            install_btn.setObjectName("SuccessBtn")
             install_btn.clicked.connect(lambda: self.install_requested.emit(self.item))
             footer_layout.addWidget(install_btn)
+
 
         layout.addLayout(footer_layout)
 
     def _show_changelog(self) -> None:
         """Displays release notes in an information dialog."""
-        lines = [f"<b>Release History for {self.item.name}</b><br>"]
+        lines: list[str] = [f"<b>Release History for {self.item.name}</b><br>"]
         for r in self.item.releases:
             lines.append(f"<b>Version {r.version}</b> ({r.created_at}):<br>• {r.changelog}<br>")
         QMessageBox.information(self, f"{self.item.name} - Changelog", "<br>".join(lines))

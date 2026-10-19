@@ -2,196 +2,33 @@
 PyToNingans Mod Browser - Client and Data Provider
 ================================================
 Handles catalog fetching, search filtering, download orchestration,
-package extraction, local installation tracking, release updates, and rating submissions.
+package caching, release updates, and rating submissions.
 Integrates with Supabase Cloud REST & Storage backend with complete offline-first caching.
+Delegates disk installation, scaffolding, and uninstallation to installer_service.
 """
 from __future__ import annotations
 
-import json, shutil, tempfile, time
+import json, time
 from pathlib import Path
 from typing import Any, Optional
 
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
 from pytoningans.core.mod_manager import (
-    resolve_mod_path, get_available_mods_with_type, get_available_packs,
-    extract_mod_or_pack_from_zip,
+    get_available_mods_with_type, get_available_packs,
 )
 from pytoningans.utils.paths import get_app_version, get_settings_path
+from .catalog_seed import DEFAULT_CATALOG_DATA
+from .installer_service import (
+    install_catalog_item,
+    update_installed_mod,
+    uninstall_installed_mod,
+    create_placeholder_sprite,
+)
 from .models import CommunityModItem, ModRelease, parse_semver
 from .supabase_client import SupabaseClient
 
-
-DEFAULT_CATALOG_DATA: list[dict[str, Any]] = [
-    {
-        "id": "vocaloid_crew_pack",
-        "name": "Vocaloid Desktop Companions",
-        "entity_type": "pack",
-        "version": "1.2.0",
-        "author": "MikuFan99",
-        "description": (
-            "A delightful bundle containing Hatsune Miku, Kagamine Rin, and Len! "
-            "Features custom singing animations and shared stage energy state."
-        ),
-        "tags": ["anime", "music", "modpack", "companions"],
-        "rating": 9.8,
-        "rating_count": 84,
-        "downloads": 3420,
-        "size_bytes": 142000,
-        "is_pack": True,
-        "contained_entities": ["Hatsune Miku", "Kagamine Rin", "Kagamine Len"],
-        "config_version": CURRENT_CONFIG_VERSION,
-        "target_app_version": "0.8.0",
-        "releases": [
-            {
-                "version": "1.2.0",
-                "changelog": "Added Kagamine Len dual-singing interaction routine.",
-                "created_at": "2026-10-18",
-            },
-            {
-                "version": "1.0.0",
-                "changelog": "Initial release with Hatsune Miku and Rin.",
-                "created_at": "2026-10-10",
-            },
-        ],
-    },
-    {
-        "id": "pixel_slime_knight",
-        "name": "Bouncing Slime Knight",
-        "entity_type": EntityType.ENTITY,
-        "version": "1.0.4",
-        "author": "RetroGamer",
-        "description": (
-            "A brave tiny slime equipped with a tiny sword and shield. "
-            "Bounces playfully around window borders and protects your screen."
-        ),
-        "tags": ["rpg", "cute", "interactive", "slime"],
-        "rating": 9.3,
-        "rating_count": 52,
-        "downloads": 1890,
-        "size_bytes": 48000,
-        "is_pack": False,
-        "contained_entities": [],
-        "config_version": CURRENT_CONFIG_VERSION,
-        "target_app_version": "0.8.0",
-        "releases": [
-            {
-                "version": "1.0.4",
-                "changelog": "Fine-tuned border bounce physics.",
-                "created_at": "2026-10-17",
-            }
-        ],
-    },
-    {
-        "id": "coffee_brewer_structure",
-        "name": "Desktop Espresso Bar",
-        "entity_type": EntityType.STRUCTURE,
-        "version": "1.1.0",
-        "author": "BaristaBot",
-        "description": (
-            "An interactive coffee station for your desktop. "
-            "Entities can gather around to brew coffee and recover energy."
-        ),
-        "tags": ["decor", "cozy", "interactive", "structure"],
-        "rating": 9.6,
-        "rating_count": 41,
-        "downloads": 2150,
-        "size_bytes": 62000,
-        "is_pack": False,
-        "contained_entities": [],
-        "config_version": CURRENT_CONFIG_VERSION,
-        "target_app_version": "0.8.0",
-        "releases": [
-            {
-                "version": "1.1.0",
-                "changelog": "Added steaming coffee particles.",
-                "created_at": "2026-10-15",
-            }
-        ],
-    },
-    {
-        "id": "energy_crystal_item",
-        "name": "Mystic Energy Crystal",
-        "entity_type": EntityType.ITEM,
-        "version": "1.0.0",
-        "author": "CrystalMage",
-        "description": (
-            "A glowing celestial gem that entities can pick up and carry on their "
-            "heads or item anchors to boost movement speed."
-        ),
-        "tags": ["magic", "item", "carryable", "boost"],
-        "rating": 8.9,
-        "rating_count": 27,
-        "downloads": 980,
-        "size_bytes": 28000,
-        "is_pack": False,
-        "contained_entities": [],
-        "config_version": CURRENT_CONFIG_VERSION,
-        "target_app_version": "0.8.0",
-        "releases": [
-            {
-                "version": "1.0.0",
-                "changelog": "Initial crystal release.",
-                "created_at": "2026-10-12",
-            }
-        ],
-    },
-    {
-        "id": "cyber_drone_flying",
-        "name": "Autonomous Patrol Drone",
-        "entity_type": EntityType.ENTITY,
-        "version": "2.0.1",
-        "author": "NeoTech",
-        "description": (
-            "High-tech hovering drone with smooth window collision and searchlight "
-            "scanning routines. Can push loose windows when aggressive."
-        ),
-        "tags": ["sci-fi", "flying", "drone", "physics"],
-        "rating": 9.1,
-        "rating_count": 63,
-        "downloads": 2740,
-        "size_bytes": 75000,
-        "is_pack": False,
-        "contained_entities": [],
-        "config_version": CURRENT_CONFIG_VERSION,
-        "target_app_version": "0.8.0",
-        "releases": [
-            {
-                "version": "2.0.1",
-                "changelog": "Improved flying window collision angle detection.",
-                "created_at": "2026-10-19",
-            }
-        ],
-    },
-    {
-        "id": "retro_companion_legacy",
-        "name": "Vintage Desktop Golem",
-        "entity_type": EntityType.ENTITY,
-        "version": "0.9.0",
-        "author": "OldSchoolModder",
-        "description": (
-            "A slow stone golem from the early alpha versions. "
-            "Note: Designed for config schema v1 and app v0.7.0."
-        ),
-        "tags": ["retro", "legacy", "rock"],
-        "rating": 8.2,
-        "rating_count": 15,
-        "downloads": 620,
-        "size_bytes": 31000,
-        "is_pack": False,
-        "contained_entities": [],
-        "config_version": 1,  # Legacy config version to demonstrate Outdated badge
-        "target_app_version": "0.7.0",
-        "releases": [
-            {
-                "version": "0.9.0",
-                "changelog": "Legacy build.",
-                "created_at": "2026-08-01",
-            }
-        ],
-    },
-]
-"""Seed catalog: Realistic community creations demonstrating diverse entity types, modpacks, and release versions"""
+__all__ = ["ModBrowserClient", "DEFAULT_CATALOG_DATA"]
 
 
 class ModBrowserClient:
@@ -454,170 +291,20 @@ class ModBrowserClient:
     def install_mod(self, item: CommunityModItem) -> tuple[bool, str]:
         """
         Installs a community mod or modpack into self.mods_dir.
-        If package_url is present, downloads the real archive and extracts it safely.
-        Otherwise falls back to generating a valid local scaffold.
+        Delegates package extraction and local scaffolding to installer_service.
         """
-        self.mods_dir.mkdir(parents=True, exist_ok=True)
-        target_dir: Path = self.mods_dir / item.id
-
-        if target_dir.exists():
-            return False, f"Mod folder '{item.id}' already exists locally."
-
-        # Case 1: Real package download from Cloud Storage
-        if item.package_url:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_zip = Path(temp_dir) / f"{item.id}.zip"
-                dl_ok, dl_msg = self.cloud.download_package(item.package_url, temp_zip)
-                if dl_ok:
-                    ext_ok, ext_msg, _ = extract_mod_or_pack_from_zip(temp_zip, self.mods_dir)
-                    if ext_ok:
-                        item.is_installed = True
-                        item.installed_version = item.version
-                        item.has_update = False
-                        item.downloads += 1
-                        return True, f"Successfully downloaded and installed '{item.name}'."
-
-        # Case 2: Offline scaffold fallback
-        try:
-            target_dir.mkdir(parents=True, exist_ok=True)
-
-            if item.is_pack:
-                manifest_data = {
-                    "id": item.id,
-                    "name": item.name,
-                    "version": item.version,
-                    "author": item.author,
-                    "description": item.description,
-                    "tags": item.tags,
-                    "shared_script": "pack.py",
-                    "sub_mods": [
-                        f"entities/{e.lower().replace(' ', '_')}" 
-                        for e in item.contained_entities
-                    ],
-                }
-                (target_dir / "pack.json").write_text(
-                    json.dumps(manifest_data, indent=2), encoding="utf-8"
-                )
-                (target_dir / "pack.py").write_text(
-                    f'"""Shared controller for {item.name}."""\n'
-                    "from pytoningans.core.api import BaseModPack, PackMenuAction\n\n"
-                    "class PackController(BaseModPack):\n"
-                    "    def on_pack_loaded(self) -> None:\n"
-                    "        self.shared_state['status'] = 'Active'\n"
-                    f"        print('Modpack [{item.name}] loaded successfully.')\n",
-                    encoding="utf-8",
-                )
-
-                for entity_name in item.contained_entities:
-                    slug: str = entity_name.lower().replace(" ", "_")
-                    entity_dir: Path = target_dir / "entities" / slug
-                    entity_dir.mkdir(parents=True, exist_ok=True)
-                    entity_config: dict[str, Any] = {
-                        "name": entity_name,
-                        "entity_type": EntityType.ENTITY,
-                        "version": CURRENT_CONFIG_VERSION,
-                        "columns": 1,
-                        "rows": 1,
-                    }
-                    (entity_dir / "config.json").write_text(
-                        json.dumps(entity_config, indent=2), encoding="utf-8"
-                    )
-                    self._create_placeholder_sprite(entity_dir / "sprite_sheet.png")
-
-            else:
-                config_data: dict[str, Any] = {
-                    "name": item.name,
-                    "entity_type": item.entity_type,
-                    "version": CURRENT_CONFIG_VERSION,
-                    "mod_version": item.version,
-                    "columns": 1,
-                    "rows": 1,
-                    "behavior": {
-                        "can_fly": "flying" in item.tags,
-                        "tags": item.tags,
-                    },
-                }
-                (target_dir / "config.json").write_text(
-                    json.dumps(config_data, indent=2), encoding="utf-8"
-                )
-                self._create_placeholder_sprite(target_dir / "sprite_sheet.png")
-
-            item.is_installed = True
-            item.installed_version = item.version
-            item.has_update = False
-            item.downloads += 1
-            return True, f"Successfully installed '{item.name}'."
-
-        except Exception as e:
-            if target_dir.exists():
-                shutil.rmtree(target_dir, ignore_errors=True)
-            return False, f"Failed to install mod: {e}"
+        return install_catalog_item(item, self.mods_dir, self.cloud)
 
     def update_mod(self, item: CommunityModItem) -> tuple[bool, str]:
         """
         Updates an installed mod or modpack to the latest catalog release version.
-        Downloads the updated package if available, or refreshes manifests cleanly.
+        Delegates package extraction and manifest updating to installer_service.
         """
-        target_dir: Path = self.mods_dir / item.id
-        if not target_dir.exists():
-            resolved, pack_id, _ = resolve_mod_path(self.mods_dir, item.id)
-            if resolved is not None and resolved.exists():
-                target_dir = self.mods_dir / pack_id if pack_id else resolved
-            else:
-                return False, f"Local installation for '{item.name}' not found."
-
-        # If remote package URL exists, perform clean package update
-        if item.package_url:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_zip = Path(temp_dir) / f"{item.id}.zip"
-                dl_ok, _ = self.cloud.download_package(item.package_url, temp_zip)
-                if dl_ok:
-                    ext_ok, _, _ = extract_mod_or_pack_from_zip(temp_zip, self.mods_dir)
-                    if ext_ok:
-                        item.installed_version = item.version
-                        item.has_update = False
-                        return True, f"Successfully upgraded '{item.name}' to v{item.version}!"
-
-        try:
-            if item.is_pack:
-                pack_json = target_dir / "pack.json"
-                if pack_json.exists():
-                    p_data = json.loads(pack_json.read_text(encoding="utf-8"))
-                    p_data["version"] = item.version
-                    p_data["description"] = item.description
-                    pack_json.write_text(json.dumps(p_data, indent=2), encoding="utf-8")
-            else:
-                cfg_file = target_dir / "config.json"
-                if cfg_file.exists():
-                    c_data = json.loads(cfg_file.read_text(encoding="utf-8"))
-                    c_data["mod_version"] = item.version
-                    c_data["version"] = CURRENT_CONFIG_VERSION
-                    cfg_file.write_text(json.dumps(c_data, indent=2), encoding="utf-8")
-
-            item.installed_version = item.version
-            item.has_update = False
-            return True, f"Successfully updated '{item.name}' to v{item.version}!"
-        except Exception as e:
-            return False, f"Failed to update '{item.name}': {e}"
+        return update_installed_mod(item, self.mods_dir, self.cloud)
 
     def uninstall_mod(self, item: CommunityModItem) -> tuple[bool, str]:
         """Safely removes an installed mod or modpack from self.mods_dir."""
-        target_dir: Path = self.mods_dir / item.id
-        if not target_dir.exists():
-            resolved, pack_id, _ = resolve_mod_path(self.mods_dir, item.id)
-            if resolved is not None and resolved.exists():
-                target_dir = self.mods_dir / pack_id if pack_id else resolved
-            else:
-                return False, f"Could not find installed folder for '{item.id}'."
-
-        try:
-            shutil.rmtree(target_dir)
-            item.is_installed = False
-            item.installed_version = None
-            item.has_update = False
-            return True, f"Successfully uninstalled '{item.name}'."
-        except Exception as e:
-            return False, f"Failed to delete mod folder: {e}"
+        return uninstall_installed_mod(item, self.mods_dir)
 
     def publish_or_update(
         self,
@@ -791,7 +478,4 @@ class ModBrowserClient:
 
     def _create_placeholder_sprite(self, path: Path) -> None:
         """Generates a valid 32x32 transparent colored PNG sprite sheet placeholder."""
-        from PySide6.QtGui import QImage, QColor
-        img = QImage(32, 32, QImage.Format.Format_ARGB32)
-        img.fill(QColor(99, 102, 241, 255))
-        img.save(str(path))
+        create_placeholder_sprite(path)

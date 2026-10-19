@@ -76,38 +76,20 @@ class ModBrowserDialog(QDialog):
         top_bar = QHBoxLayout(); top_bar.setSpacing(10)
 
         # Online Status Indicator
+        self.status_badge = QLabel()
         if self.auth.is_cloud_configured:
-            self.status_badge = QLabel("● Cloud Sync Active")
-            self.status_badge.setStyleSheet(
-                "color: #10b981; font-weight: bold; font-size: 11px; "
-                "background-color: rgba(16, 185, 129, 0.15); border-radius: 4px; padding: 4px 8px;"
-            )
+            self.status_badge.setText("● Cloud Sync Active")
+            self.status_badge.setObjectName("StatusBadgeOnline")
         else:
-            self.status_badge = QLabel("● Offline Catalog")
-            self.status_badge.setStyleSheet(
-                "color: #38bdf8; font-weight: bold; font-size: 11px; "
-                "background-color: rgba(56, 189, 248, 0.15); border-radius: 4px; padding: 4px 8px;"
-            )
+            self.status_badge.setText("● Offline Catalog")
+            self.status_badge.setObjectName("StatusBadgeOffline")
         top_bar.addWidget(self.status_badge)
 
         top_bar.addStretch()
 
         # Creator Account / Sign-in Pill Button
         self.auth_btn = QPushButton("Sign In / Register")
-        self.auth_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #313244;
-                color: #cdd6f4;
-                border: 1px solid #45475a;
-                border-radius: 4px;
-                padding: 4px 10px;
-                font-size: 11px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #45475a;
-            }
-        """)
+        self.auth_btn.setObjectName("SecondaryBtn")
         self.auth_btn.clicked.connect(self._on_auth_btn_clicked)
         top_bar.addWidget(self.auth_btn)
 
@@ -120,13 +102,12 @@ class ModBrowserDialog(QDialog):
         # Publish Mod button
         self.publish_btn = QPushButton("Publish Mod/Pack")
         self.publish_btn.setToolTip("Package and publish your local mod or pack to the community")
-        self.publish_btn.setStyleSheet(
-            "background-color: #3b82f6; color: white; font-weight: bold; padding: 4px 12px;"
-        )
+        self.publish_btn.setObjectName("PrimaryBtn")
         self.publish_btn.clicked.connect(self._on_publish_clicked)
         top_bar.addWidget(self.publish_btn)
 
         content_layout.addLayout(top_bar)
+
 
         # --- Search and Filter Bar ---
         self.filter_bar = FilterBarWidget(self)
@@ -210,22 +191,10 @@ class ModBrowserDialog(QDialog):
 
     def _on_auth_btn_clicked(self) -> None:
         """Opens user account options menu or launches AuthDialog."""
-        user = self.auth.current_user
+        user: Optional[UserProfile] = self.auth.current_user
         if user is not None:
             menu = QMenu(self)
-            menu.setStyleSheet("""
-                QMenu {
-                    background-color: #1e1e2e;
-                    color: #cdd6f4;
-                    border: 1px solid #313244;
-                    border-radius: 6px;
-                    padding: 4px;
-                }
-                QMenu::item:selected {
-                    background-color: #313244;
-                }
-            """)
-            info_action = menu.addAction(f"Signed in as @{user.username} ({user.email})")
+            info_action: QAction = menu.addAction(f"Signed in as {user.username} ({user.email})")
             info_action.setEnabled(False)
             menu.addSeparator()
 
@@ -265,16 +234,13 @@ class ModBrowserDialog(QDialog):
         """Updates the status badge to reflect live cloud sync or offline mode."""
         if self.client.is_online and self.client.cloud.is_configured:
             self.status_badge.setText("● Cloud Sync Active")
-            self.status_badge.setStyleSheet(
-                "color: #10b981; font-weight: bold; font-size: 11px; "
-                "background-color: rgba(16, 185, 129, 0.15); border-radius: 4px; padding: 4px 8px;"
-            )
+            self.status_badge.setObjectName("StatusBadgeOnline")
         else:
             self.status_badge.setText("● Offline Catalog")
-            self.status_badge.setStyleSheet(
-                "color: #38bdf8; font-weight: bold; font-size: 11px; "
-                "background-color: rgba(56, 189, 248, 0.15); border-radius: 4px; padding: 4px 8px;"
-            )
+            self.status_badge.setObjectName("StatusBadgeOffline")
+        self.status_badge.style().unpolish(self.status_badge)
+        self.status_badge.style().polish(self.status_badge)
+
 
     def _refresh_catalog(self) -> None:
         """Fetches items and refreshes the card list according to active filters."""

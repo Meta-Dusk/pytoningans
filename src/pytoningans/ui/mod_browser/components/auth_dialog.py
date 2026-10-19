@@ -51,27 +51,6 @@ class AuthDialog(QDialog):
 
         # Tab Widget for Sign In / Create Account / Cloud Config
         self.tabs = QTabWidget()
-        self.tabs.setStyleSheet("""
-            QTabWidget::pane {
-                border: 1px solid #313244;
-                border-radius: 6px;
-                background-color: #181825;
-                padding: 10px;
-            }
-            QTabBar::tab {
-                background: #1e1e2e;
-                color: #a6adc8;
-                padding: 8px 16px;
-                border-top-left-radius: 4px;
-                border-top-right-radius: 4px;
-                margin-right: 2px;
-            }
-            QTabBar::tab:selected {
-                background: #313244;
-                color: #cdd6f4;
-                font-weight: bold;
-            }
-        """)
 
         # Tab 1: Sign In
         sign_in_tab = QWidget()
@@ -95,38 +74,26 @@ class AuthDialog(QDialog):
         si_layout.addWidget(self.si_status_lbl)
 
         self.si_submit_btn = QPushButton("Sign In")
-        self.si_submit_btn.setStyleSheet(
-            "background-color: #3b82f6; color: white; font-weight: bold; padding: 7px;"
-        )
+        self.si_submit_btn.setObjectName("PrimaryBtn")
         self.si_submit_btn.clicked.connect(self._on_sign_in_clicked)
         si_layout.addWidget(self.si_submit_btn)
 
         # Separator
         sep_layout = QHBoxLayout(); sep_layout.setSpacing(8)
-        line1 = QFrame(); line1.setFrameShape(QFrame.Shape.HLine); line1.setStyleSheet("color: #313244;")
+        line1 = QFrame(); line1.setFrameShape(QFrame.Shape.HLine)
         sep_layout.addWidget(line1)
         sep_layout.addWidget(QLabel("OR"))
-        line2 = QFrame(); line2.setFrameShape(QFrame.Shape.HLine); line2.setStyleSheet("color: #313244;")
+        line2 = QFrame(); line2.setFrameShape(QFrame.Shape.HLine)
         sep_layout.addWidget(line2)
         si_layout.addLayout(sep_layout)
 
         # Google Sign-In Button
         self.google_btn = QPushButton("Continue with Google")
         self.google_btn.setToolTip("Sign in via Google account in default browser")
-        self.google_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #45475a;
-                color: #cdd6f4;
-                font-weight: bold;
-                padding: 7px;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #585b70;
-            }
-        """)
+        self.google_btn.setObjectName("SecondaryBtn")
         self.google_btn.clicked.connect(self._on_google_clicked)
         si_layout.addWidget(self.google_btn)
+
 
         si_layout.addStretch()
         self.tabs.addTab(sign_in_tab, "Sign In")
@@ -164,9 +131,7 @@ class AuthDialog(QDialog):
         su_layout.addWidget(self.su_status_lbl)
 
         self.su_submit_btn = QPushButton("Create Account")
-        self.su_submit_btn.setStyleSheet(
-            "background-color: #10b981; color: white; font-weight: bold; padding: 7px;"
-        )
+        self.su_submit_btn.setObjectName("SuccessBtn")
         self.su_submit_btn.clicked.connect(self._on_sign_up_clicked)
         su_layout.addWidget(self.su_submit_btn)
 
@@ -197,9 +162,7 @@ class AuthDialog(QDialog):
         cfg_layout.addWidget(self.cfg_key_input)
 
         self.cfg_save_btn = QPushButton("Save Cloud Configuration")
-        self.cfg_save_btn.setStyleSheet(
-            "background-color: #89b4fa; color: #11111b; font-weight: bold; padding: 6px;"
-        )
+        self.cfg_save_btn.setObjectName("InfoBtn")
         self.cfg_save_btn.clicked.connect(self._on_save_config_clicked)
         cfg_layout.addWidget(self.cfg_save_btn)
 
@@ -214,25 +177,14 @@ class AuthDialog(QDialog):
         self.server_btn.setToolTip(
             "Configure a custom self-hosted Supabase server URL and anon key"
         )
-        self.server_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                color: #6c7086;
-                border: none;
-                font-size: 11px;
-                text-decoration: underline;
-                padding: 4px;
-            }
-            QPushButton:hover {
-                color: #a6adc8;
-            }
-        """)
+        self.server_btn.setObjectName("LinkBtn")
         self.server_btn.clicked.connect(self.show_server_settings)
         btn_layout.addWidget(self.server_btn)
 
         btn_layout.addStretch()
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
+
         btn_layout.addWidget(cancel_btn)
         content_layout.addLayout(btn_layout)
         main_layout.addWidget(content)

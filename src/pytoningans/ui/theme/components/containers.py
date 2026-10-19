@@ -1,0 +1,196 @@
+"""Container, Tab, Card, and Badge theme style generators."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..tokens import ThemePalette
+
+
+def get_container_styles(p: ThemePalette) -> str:
+    """Returns QSS styles for tabs, cards, status badges, and notification banners."""
+    return f"""
+/* --- Tab Widget and Bar --- */
+QTabWidget::pane {{
+    border: 1px solid {p.tab_pane_border};
+    border-radius: 6px;
+    background-color: {p.tab_pane_bg};
+    padding: 10px;
+}}
+
+QTabBar::tab {{
+    background: {p.tab_bg};
+    border: 1px solid {p.tab_border};
+    color: {p.tab_text};
+    padding: 8px 16px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    margin-right: 2px;
+}}
+
+QTabBar::tab:selected {{
+    background: {p.tab_selected_bg};
+    color: {p.tab_selected_text};
+    font-weight: bold;
+    border-bottom: 2px solid {p.accent};
+}}
+
+QTabBar::tab:hover {{
+    background: {p.tab_hover_bg};
+}}
+
+/* --- Card Containers --- */
+ModCardWidget, QFrame#CardWidget, QFrame#ModCardWidget {{
+    background-color: {p.card_bg};
+    border: 1px solid {p.card_border};
+    border-radius: 8px;
+    padding: 4px;
+}}
+
+ModCardWidget:hover, QFrame#CardWidget:hover, QFrame#ModCardWidget:hover {{
+    border: 1px solid {p.card_hover_border};
+    background-color: {p.card_hover_bg};
+}}
+
+/* --- Badges and Status Pills --- */
+QLabel#BadgeWarning {{
+    background-color: {p.badge_warning_bg};
+    color: {p.badge_warning_text};
+    border: 1px solid {p.badge_warning_border};
+    font-weight: bold;
+    font-size: 11px;
+    border-radius: 4px;
+    padding: 2px 6px;
+}}
+
+QLabel#BadgeSuccess {{
+    background-color: {p.badge_success_bg};
+    color: {p.badge_success_text};
+    border: 1px solid {p.badge_success_border};
+    font-weight: bold;
+    font-size: 11px;
+    border-radius: 4px;
+    padding: 2px 6px;
+}}
+
+QLabel#BadgeInfo {{
+    background-color: {p.badge_info_bg};
+    color: {p.badge_info_text};
+    border: 1px solid {p.badge_info_border};
+    font-weight: bold;
+    font-size: 11px;
+    border-radius: 4px;
+    padding: 2px 6px;
+}}
+
+QLabel#BadgeDanger {{
+    background-color: {p.badge_danger_bg};
+    color: {p.badge_danger_text};
+    border: 1px solid {p.badge_danger_border};
+    font-weight: bold;
+    font-size: 11px;
+    border-radius: 4px;
+    padding: 2px 6px;
+}}
+
+QLabel#BadgePack {{
+    background-color: {p.badge_pack_bg};
+    color: white;
+    font-weight: bold;
+    font-size: 11px;
+    border-radius: 4px;
+    padding: 2px 5px;
+}}
+
+QLabel#BadgeStructure {{
+    background-color: {p.badge_structure_bg};
+    color: white;
+    font-weight: bold;
+    font-size: 11px;
+    border-radius: 4px;
+    padding: 2px 5px;
+}}
+
+QLabel#BadgeItem {{
+    background-color: {p.badge_item_bg};
+    color: white;
+    font-weight: bold;
+    font-size: 11px;
+    border-radius: 4px;
+    padding: 2px 5px;
+}}
+
+QLabel#BadgeEntity {{
+    background-color: {p.badge_entity_bg};
+    color: white;
+    font-weight: bold;
+    font-size: 11px;
+    border-radius: 4px;
+    padding: 2px 5px;
+}}
+
+QLabel#StatusBadgeOnline {{
+    color: {p.badge_success_text};
+    font-weight: bold;
+    font-size: 11px;
+    background-color: {p.badge_success_bg};
+    border-radius: 4px;
+    padding: 4px 8px;
+}}
+
+QLabel#StatusBadgeOffline {{
+    color: {p.badge_info_text};
+    font-weight: bold;
+    font-size: 11px;
+    background-color: {p.badge_info_bg};
+    border-radius: 4px;
+    padding: 4px 8px;
+}}
+
+/* --- Banners and Verification Frames --- */
+QLabel#UserBanner {{
+    background-color: {p.badge_info_bg};
+    color: {p.badge_info_text};
+    border: 1px solid {p.badge_info_border};
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 11px;
+}}
+
+QLabel#ModeBanner {{
+    background-color: {p.input_bg};
+    color: {p.helper_text};
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+}}
+
+QLabel#ModeBannerActive {{
+    background-color: {p.badge_info_bg};
+    color: {p.badge_info_text};
+    border: 1px solid {p.badge_info_border};
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-weight: bold;
+    font-size: 11px;
+}}
+
+QFrame#SecurityClean {{
+    background-color: {p.badge_success_bg};
+    border: 1px solid {p.badge_success_border};
+    border-radius: 4px;
+}}
+
+QFrame#SecurityWarning {{
+    background-color: {p.badge_warning_bg};
+    border: 1px solid {p.badge_warning_border};
+    border-radius: 4px;
+}}
+
+QFrame#SecurityDangerous {{
+    background-color: {p.badge_danger_bg};
+    border: 1px solid {p.badge_danger_border};
+    border-radius: 4px;
+}}
+"""
+
