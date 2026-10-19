@@ -39,10 +39,13 @@ class ModBrowserClient:
         self.cloud: SupabaseClient = SupabaseClient()
         self._cache_file: Path = get_settings_path().parent / "catalog_cache.json"
         self._user_ratings: dict[str, float] = {}
-        self._catalog_items: list[CommunityModItem] = []
-        self.is_online: bool = self.cloud.is_configured
+        self.is_online: bool = False
         self._load_local_catalog()
-        self.refresh_catalog_from_cloud()
+
+    def go_offline(self) -> None:
+        """Switches client to offline mode and restores local catalog items."""
+        self.is_online = False
+        self._load_local_catalog()
 
     def _load_local_catalog(self) -> None:
         """Initializes catalog data from built-in seed and cached disk entries."""

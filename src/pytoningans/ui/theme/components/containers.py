@@ -192,5 +192,19 @@ QFrame#SecurityDangerous {{
     border: 1px solid {p.badge_danger_border};
     border-radius: 4px;
 }}
+
+/* --- Progress Bar / Loading Indicator --- */
+QProgressBar#IndeterminateBar {{
+    border: none;
+    border-radius: 2px;
+    background-color: {p.input_bg};
+    max-height: 4px;
+    text-align: center;
+}}
+
+QProgressBar#IndeterminateBar::chunk {{
+    background-color: {p.accent};
+    border-radius: 2px;
+}}
 """
 

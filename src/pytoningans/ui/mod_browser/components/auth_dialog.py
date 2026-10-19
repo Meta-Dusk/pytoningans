@@ -11,15 +11,16 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QTabWidget, QWidget, QMessageBox, QFrame
+    QPushButton, QTabWidget, QWidget, QMessageBox, QFrame, QInputDialog
 )
 
 from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.utils.assets import get_main_icon
+from pytoningans.utils.assets import get_main_icon, get_google_icon
 from ..auth import AuthManager, UserProfile
+from ..async_workers import AuthWorker
 
 
 class AuthDialog(QDialog):
@@ -28,6 +29,8 @@ class AuthDialog(QDialog):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.auth: AuthManager = AuthManager.get()
+        self._auth_worker: Optional[AuthWorker] = None
+
 
         self.setWindowTitle("Creator Account")
         self.setWindowIcon(get_main_icon())
@@ -42,7 +45,9 @@ class AuthDialog(QDialog):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0); main_layout.setSpacing(0)
 
-        self.title_bar = CustomTitleBar(self, "Creator Account", can_minimize=False, can_maximize=False)
+        self.title_bar = CustomTitleBar(
+            self, "Creator Account", can_minimize=False, can_maximize=False
+        )
         main_layout.addWidget(self.title_bar)
 
         content = QWidget()
@@ -80,21 +85,20 @@ class AuthDialog(QDialog):
 
         # Separator
         sep_layout = QHBoxLayout(); sep_layout.setSpacing(8)
-        line1 = QFrame(); line1.setFrameShape(QFrame.Shape.HLine)
-        sep_layout.addWidget(line1)
-        sep_layout.addWidget(QLabel("OR"))
-        line2 = QFrame(); line2.setFrameShape(QFrame.Shape.HLine)
-        sep_layout.addWidget(line2)
+        line_1 = QFrame(); line_1.setFrameShape(QFrame.Shape.HLine)
+        sep_layout.addWidget(line_1)
+        sep_layout.addWidget(QLabel("OR", alignment=Qt.AlignmentFlag.AlignCenter))
+        line_2 = QFrame(); line_2.setFrameShape(QFrame.Shape.HLine)
+        sep_layout.addWidget(line_2)
         si_layout.addLayout(sep_layout)
 
         # Google Sign-In Button
-        self.google_btn = QPushButton("Continue with Google")
+        self.google_btn = QPushButton("  Continue with Google")
+        self.google_btn.setIcon(get_google_icon()); self.google_btn.setIconSize(QSize(18, 18))
         self.google_btn.setToolTip("Sign in via Google account in default browser")
         self.google_btn.setObjectName("SecondaryBtn")
         self.google_btn.clicked.connect(self._on_google_clicked)
         si_layout.addWidget(self.google_btn)
-
-
         si_layout.addStretch()
         self.tabs.addTab(sign_in_tab, "Sign In")
 
@@ -171,8 +175,16 @@ class AuthDialog(QDialog):
 
         content_layout.addWidget(self.tabs)
 
-        # Bottom Bar: Advanced Server Settings Link + Cancel
+        # Bottom Bar: Offline Mode / Advanced Server Settings + Cancel
         btn_layout = QHBoxLayout()
+        self.offline_creator_btn = QPushButton("Continue in Offline Mode")
+        self.offline_creator_btn.setToolTip("Set up a local creator profile for offline mod management")
+        self.offline_creator_btn.setObjectName("LinkBtn")
+        self.offline_creator_btn.clicked.connect(self._on_offline_creator_clicked)
+        btn_layout.addWidget(self.offline_creator_btn)
+
+        btn_layout.addSpacing(12)
+
         self.server_btn = QPushButton("Custom Server (Advanced)")
         self.server_btn.setToolTip(
             "Configure a custom self-hosted Supabase server URL and anon key"
@@ -195,18 +207,37 @@ class AuthDialog(QDialog):
             self.tabs.addTab(self.cfg_tab, "Server Settings")
         self.tabs.setCurrentWidget(self.cfg_tab)
 
+    def _on_offline_creator_clicked(self) -> None:
+        """Configures a local offline creator profile without connecting to Supabase."""
+        username, ok = QInputDialog.getText(
+            self,
+            "Offline Creator Profile",
+            "Enter your local creator handle (e.g. PixelArtist):",
+            text="LocalCreator",
+        )
+        if ok and username.strip():
+            user = self.auth.sign_in_locally(username.strip())
+            QMessageBox.information(
+                self, "Offline Mode", f"Operating in offline mode as @{user.username}."
+            )
+            self.accept()
+
     def _on_sign_in_clicked(self) -> None:
         email: str = self.si_email_input.text().strip()
         pwd: str = self.si_password_input.text()
         self.si_status_lbl.setVisible(False)
 
-        success, msg, user = self.auth.sign_in_with_password(email, pwd)
-        if success:
-            QMessageBox.information(self, "Welcome", msg)
-            self.accept()
-        else:
-            self.si_status_lbl.setText(msg)
+        if not email or not pwd:
+            self.si_status_lbl.setText("Please enter both email and password.")
             self.si_status_lbl.setVisible(True)
+            return
+
+        self.si_submit_btn.setEnabled(False)
+        self.si_submit_btn.setText("Signing In...")
+
+        self._auth_worker = AuthWorker(self.auth, "signin", email, pwd, parent=self)
+        self._auth_worker.auth_completed.connect(self._on_auth_completed)
+        self._auth_worker.start()
 
     def _on_sign_up_clicked(self) -> None:
         username: str = self.su_username_input.text().strip()
@@ -215,18 +246,43 @@ class AuthDialog(QDialog):
         confirm: str = self.su_confirm_input.text()
         self.su_status_lbl.setVisible(False)
 
+        if not username or not email or not pwd:
+            self.su_status_lbl.setText("All fields are required.")
+            self.su_status_lbl.setVisible(True)
+            return
+
         if pwd != confirm:
             self.su_status_lbl.setText("Passwords do not match.")
             self.su_status_lbl.setVisible(True)
             return
 
-        success, msg, user = self.auth.sign_up(email, pwd, username)
+        if len(pwd) < 6:
+            self.su_status_lbl.setText("Password must be at least 6 characters.")
+            self.su_status_lbl.setVisible(True)
+            return
+
+        self.su_submit_btn.setEnabled(False)
+        self.su_submit_btn.setText("Creating Account...")
+
+        self._auth_worker = AuthWorker(self.auth, "signup", email, pwd, username=username, parent=self)
+        self._auth_worker.auth_completed.connect(self._on_auth_completed)
+        self._auth_worker.start()
+
+    def _on_auth_completed(self, success: bool, msg: str, user: Optional[UserProfile]) -> None:
+        self.si_submit_btn.setEnabled(True)
+        self.si_submit_btn.setText("Sign In")
+        self.su_submit_btn.setEnabled(True)
+        self.su_submit_btn.setText("Create Account")
+
         if success:
-            QMessageBox.information(self, "Account Created", msg)
+            QMessageBox.information(self, "Welcome", msg)
             self.accept()
         else:
-            self.su_status_lbl.setText(msg)
-            self.su_status_lbl.setVisible(True)
+            is_signup: bool = (self.tabs.currentIndex() == 1)
+            target_lbl = self.su_status_lbl if is_signup else self.si_status_lbl
+            target_lbl.setText(msg)
+            target_lbl.setVisible(True)
+
 
     def _on_google_clicked(self) -> None:
         success, msg = self.auth.start_google_oauth()

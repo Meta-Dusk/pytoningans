@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import json, tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 
-from PySide6.QtCore import Qt, Signal, QRect
-from PySide6.QtGui import QAction, QGuiApplication, QScreen, QResizeEvent
+from PySide6.QtCore import Qt, Signal, QRect, QThread
+from PySide6.QtGui import QAction, QGuiApplication, QScreen, QResizeEvent, QCloseEvent
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
-    QWidget, QMessageBox, QFrame, QMenu
+    QWidget, QMessageBox, QFrame, QMenu, QProgressBar
 )
 
 from pytoningans.core.mod_manager import ModManager
@@ -29,6 +29,7 @@ from pytoningans.utils.assets import get_main_icon
 from .auth import AuthManager, UserProfile
 from .client import ModBrowserClient
 from .models import CommunityModItem
+from .async_workers import CatalogSyncWorker, ModInstallWorker
 from .components.auth_dialog import AuthDialog
 from .components.mod_card import ModCardWidget
 from .components.filter_bar import FilterBarWidget
@@ -46,6 +47,7 @@ class ModBrowserDialog(QDialog):
         self.mod_manager: ModManager = mod_manager
         self.client: ModBrowserClient = ModBrowserClient(self.mod_manager.mods_dir)
         self.auth: AuthManager = AuthManager.get()
+        self._active_workers: list[Any] = []
 
         self.setWindowTitle("Community Mod Browser")
         self.setWindowIcon(get_main_icon())
@@ -57,7 +59,8 @@ class ModBrowserDialog(QDialog):
         self._setup_ui()
         self.auth.auth_state_changed.connect(self._update_auth_ui)
         self._update_auth_ui(self.auth.current_user)
-        self._refresh_catalog()
+        self._update_status_indicator()
+        self._apply_filters()
         self._center_window()
 
     def _setup_ui(self) -> None:
@@ -75,15 +78,16 @@ class ModBrowserDialog(QDialog):
         # --- Top Header and Actions Bar ---
         top_bar = QHBoxLayout(); top_bar.setSpacing(10)
 
-        # Online Status Indicator
-        self.status_badge = QLabel()
-        if self.auth.is_cloud_configured:
-            self.status_badge.setText("● Cloud Sync Active")
-            self.status_badge.setObjectName("StatusBadgeOnline")
-        else:
-            self.status_badge.setText("● Offline Catalog")
-            self.status_badge.setObjectName("StatusBadgeOffline")
+        # Online Status Indicator & Cloud Connect Toggle
+        self.status_badge = QLabel("● Offline Catalog")
+        self.status_badge.setObjectName("StatusBadgeOffline")
         top_bar.addWidget(self.status_badge)
+
+        self.cloud_btn = QPushButton("Connect to Cloud")
+        self.cloud_btn.setObjectName("PrimaryBtn")
+        self.cloud_btn.setToolTip("Connect to Supabase Cloud to view live community catalog")
+        self.cloud_btn.clicked.connect(self._on_cloud_toggle_clicked)
+        top_bar.addWidget(self.cloud_btn)
 
         top_bar.addStretch()
 
@@ -108,11 +112,29 @@ class ModBrowserDialog(QDialog):
 
         content_layout.addLayout(top_bar)
 
-
         # --- Search and Filter Bar ---
         self.filter_bar = FilterBarWidget(self)
         self.filter_bar.filters_changed.connect(self._apply_filters)
         content_layout.addWidget(self.filter_bar)
+
+        # --- Async Loading Indicator Bar ---
+        self.loading_widget = QWidget()
+        loading_layout = QVBoxLayout(self.loading_widget)
+        loading_layout.setContentsMargins(0, 2, 0, 2); loading_layout.setSpacing(4)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setObjectName("IndeterminateBar")
+        self.progress_bar.setRange(0, 0); self.progress_bar.setFixedHeight(4)
+        self.progress_bar.setTextVisible(False)
+        loading_layout.addWidget(self.progress_bar)
+
+        self.loading_status_lbl = QLabel("Connecting to community catalog...")
+        self.loading_status_lbl.setStyleSheet("font-size: 11px; color: #89b4fa; font-style: italic;")
+        loading_layout.addWidget(self.loading_status_lbl)
+
+        self.loading_widget.setVisible(False)
+        content_layout.addWidget(self.loading_widget)
+
 
         # --- Scrollable Mod Cards Area ---
         self.scroll_area = QScrollArea()
@@ -222,6 +244,15 @@ class ModBrowserDialog(QDialog):
             self.height() - self.grip.height()
         )
 
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Ensures all background workers terminate safely when dialog is closed."""
+        for worker in list(self._active_workers):
+            if worker.isRunning():
+                worker.quit()
+                worker.wait(500)
+        self._active_workers.clear()
+        super().closeEvent(event)
+
     def _center_window(self) -> None:
         screen: QScreen = QGuiApplication.primaryScreen()
         if not screen: return
@@ -230,24 +261,86 @@ class ModBrowserDialog(QDialog):
         window_geom.moveCenter(screen_geom.center())
         self.move(window_geom.topLeft())
 
+    def _show_loading(self, text: str = "Loading...") -> None:
+        """Displays the indeterminate loading progress bar and disables action buttons."""
+        self.loading_status_lbl.setText(text)
+        self.loading_widget.setVisible(True)
+        self.refresh_btn.setEnabled(False)
+        self.cloud_btn.setEnabled(False)
+
+    def _hide_loading(self) -> None:
+        """Hides the loading progress bar and re-enables action buttons."""
+        self.loading_widget.setVisible(False)
+        self.refresh_btn.setEnabled(True)
+        self.cloud_btn.setEnabled(True)
+
+    def _cleanup_worker(self, worker: QThread) -> None:
+        """Safely removes finished worker from active workers registry."""
+        if worker in self._active_workers:
+            self._active_workers.remove(worker)
+
     def _update_status_indicator(self) -> None:
-        """Updates the status badge to reflect live cloud sync or offline mode."""
+        """Updates the status badge and cloud toggle button to reflect online/offline mode."""
         if self.client.is_online and self.client.cloud.is_configured:
             self.status_badge.setText("● Cloud Sync Active")
             self.status_badge.setObjectName("StatusBadgeOnline")
+            self.cloud_btn.setText("Work Offline"); self.cloud_btn.setObjectName("SecondaryBtn")
+            self.cloud_btn.setToolTip("Disconnect from cloud and switch to local offline catalog")
         else:
             self.status_badge.setText("● Offline Catalog")
             self.status_badge.setObjectName("StatusBadgeOffline")
+            self.cloud_btn.setText("Connect to Cloud"); self.cloud_btn.setObjectName("PrimaryBtn")
+            self.cloud_btn.setToolTip("Connect to Supabase Cloud to view live community catalog")
+
         self.status_badge.style().unpolish(self.status_badge)
         self.status_badge.style().polish(self.status_badge)
+        self.cloud_btn.style().unpolish(self.cloud_btn)
+        self.cloud_btn.style().polish(self.cloud_btn)
 
+    def _on_cloud_toggle_clicked(self) -> None:
+        """Toggles between Supabase Cloud live catalog and local offline catalog mode."""
+        if self.client.is_online:
+            self.client.go_offline()
+            self._update_status_indicator()
+            self._apply_filters()
+        else:
+            if not self.client.cloud.is_configured:
+                dlg = AuthDialog(self)
+                dlg.show_server_settings()
+                dlg.exec()
+                if not self.client.cloud.is_configured:
+                    return
+            self._start_cloud_sync()
 
-    def _refresh_catalog(self) -> None:
-        """Fetches items and refreshes the card list according to active filters."""
-        if self.client.cloud.is_configured:
-            self.client.refresh_catalog_from_cloud()
+    def _start_cloud_sync(self) -> None:
+        """Asynchronously syncs community catalog from Supabase via background worker."""
+        self._show_loading("Connecting to Supabase Cloud and syncing catalog...")
+        worker = CatalogSyncWorker(self.client, self)
+        self._active_workers.append(worker)
+        worker.sync_completed.connect(self._on_sync_completed)
+        worker.finished.connect(lambda: self._cleanup_worker(worker))
+        worker.start()
+
+    def _on_sync_completed(self, success: bool, message: str, count: int) -> None:
+        """Callback invoked when catalog synchronization completes."""
+        self._hide_loading()
         self._update_status_indicator()
         self._apply_filters()
+        if not success:
+            QMessageBox.warning(
+                self,
+                "Cloud Connection",
+                f"Could not connect to Supabase Cloud:\n{message}\n\nRunning in offline catalog mode.",
+            )
+
+    def _refresh_catalog(self) -> None:
+        """Refreshes catalog entries either from live cloud or local offline storage."""
+        if self.client.is_online and self.client.cloud.is_configured:
+            self._start_cloud_sync()
+        else:
+            self.client.go_offline()
+            self._update_status_indicator()
+            self._apply_filters()
 
     def _apply_filters(self) -> None:
         """Re-queries the client and updates the rendered card widgets."""
@@ -288,24 +381,32 @@ class ModBrowserDialog(QDialog):
         self.count_label.setText(f"Showing {len(items)} mods ({installed_count} installed)")
 
     def _on_install_requested(self, item: CommunityModItem) -> None:
-        """Installs a community mod or modpack package."""
-        success, message = self.client.install_mod(item)
+        """Asynchronously installs a community mod or modpack package."""
+        self._show_loading(f"Downloading and installing '{item.name}'...")
+        worker = ModInstallWorker(self.client, item, action="install", parent=self)
+        self._active_workers.append(worker)
+        worker.install_completed.connect(self._on_install_completed)
+        worker.finished.connect(lambda: self._cleanup_worker(worker))
+        worker.start()
+
+    def _on_update_requested(self, item: CommunityModItem) -> None:
+        """Asynchronously updates an installed mod or modpack to the latest catalog release."""
+        self._show_loading(f"Updating '{item.name}' to version {item.version}...")
+        worker = ModInstallWorker(self.client, item, action="update", parent=self)
+        self._active_workers.append(worker)
+        worker.install_completed.connect(self._on_install_completed)
+        worker.finished.connect(lambda: self._cleanup_worker(worker))
+        worker.start()
+
+    def _on_install_completed(self, success: bool, message: str, item: CommunityModItem) -> None:
+        """Callback invoked when background download/install/update finishes."""
+        self._hide_loading()
         if success:
             QMessageBox.information(self, "Installation Complete", message)
             self._apply_filters()
             self.mods_updated.emit()
         else:
             QMessageBox.critical(self, "Installation Error", message)
-
-    def _on_update_requested(self, item: CommunityModItem) -> None:
-        """Updates an installed mod or modpack to the latest catalog release."""
-        success, message = self.client.update_mod(item)
-        if success:
-            QMessageBox.information(self, "Update Complete", message)
-            self._apply_filters()
-            self.mods_updated.emit()
-        else:
-            QMessageBox.critical(self, "Update Error", message)
 
     def _on_uninstall_requested(self, item: CommunityModItem) -> None:
         """Prompts and removes an installed mod or modpack."""

@@ -195,11 +195,29 @@ class AuthManager(QObject):
         """Clears local authentication session and notifies listeners."""
         self._current_session = None
         self._save_session()
-        self.auth_state_changed.emit(None)
+    def sign_in_locally(self, username: str = "LocalCreator") -> UserProfile:
+        """Sets up a local creator session for offline-first modding without cloud connection."""
+        clean_name: str = username.strip().replace(" ", "_") or "LocalCreator"
+        user = UserProfile(
+            id=f"local_{clean_name}",
+            email=f"{clean_name.lower()}@pytoningans.local",
+            username=clean_name,
+            created_at=time.strftime("%Y-%m-%d"),
+        )
+        self._current_session = AuthSession(
+            access_token="mock_local_token",
+            refresh_token="mock_refresh_token",
+            user=user,
+            expires_at=time.time() + 86400 * 365,
+        )
+        self._save_session()
+        self.auth_state_changed.emit(user)
+        return user
 
     def sign_in_with_password(
         self, email: str, password: str
     ) -> tuple[bool, str, Optional[UserProfile]]:
+
         """Signs in with email and password via Supabase Auth REST or local offline account."""
         email = email.strip()
         if not email or not password:
