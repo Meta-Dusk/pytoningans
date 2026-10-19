@@ -13,11 +13,15 @@ from pytoningans.core.api import (
 from pytoningans.ui.tool_tip import CustomToolTipManager
 
 if TYPE_CHECKING:
+    from PySide6.QtWidgets import QGraphicsPixmapItem
     from pytoningans.core.mod_manager import ModManager
     from pytoningans.core.entity.base_entity import BaseEntity
+    _MixinBase = QGraphicsPixmapItem
+else:
+    _MixinBase = object
 
 
-class EntityTooltipMixin:
+class EntityTooltipMixin(_MixinBase):
     """Encapsulates hover detection, tooltip display, and identification naming for entities."""
 
     _instance_name: Optional[str]

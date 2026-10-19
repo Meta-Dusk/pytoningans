@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QSpinBox, QHBoxLayout, QCheckBox
 )
 from PySide6.QtCore import QRect, Signal
-from PySide6.QtGui import QGuiApplication, QScreen
+from PySide6.QtGui import QGuiApplication, QScreen, QStandardItem, QStandardItemModel
 
 from pytoningans.core.constants import EntityType
 from pytoningans.core.mod_manager.discovery import ModEntryInfo
@@ -201,11 +201,15 @@ class SpawnPanel(QWidget):
             _pack_name: str = e.pack_name or e.pack_id
             by_pack.setdefault(_pack_name, []).append(e)
 
+        model = self.mod_combo.model()
+        is_std_model: bool = isinstance(model, QStandardItemModel)
+
         if standalone:
             if by_pack:
                 self.mod_combo.addItem("── Standalone ──", userData=None)
-                item = self.mod_combo.model().item(self.mod_combo.count() - 1)
-                if item: item.setEnabled(False)
+                if is_std_model:
+                    item: QStandardItem = model.item(self.mod_combo.count() - 1)
+                    if item: item.setEnabled(False)
 
             for entry in standalone:
                 self.mod_combo.addItem(
@@ -215,8 +219,9 @@ class SpawnPanel(QWidget):
 
         for pack_name, pack_entries in by_pack.items():
             self.mod_combo.addItem(f"── Pack: {pack_name} ──", userData=None)
-            item = self.mod_combo.model().item(self.mod_combo.count() - 1)
-            if item: item.setEnabled(False)
+            if is_std_model:
+                item: QStandardItem = model.item(self.mod_combo.count() - 1)
+                if item: item.setEnabled(False)
 
             for entry in pack_entries:
                 self.mod_combo.addItem(

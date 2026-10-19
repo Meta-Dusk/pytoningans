@@ -145,8 +145,13 @@ def compile_pack_controller(
         for _, obj in inspect.getmembers(module, inspect.isclass):
             mro_names: list[str] = [base.__name__ for base in inspect.getmro(obj)]
             if target_base_name in mro_names and obj.__name__ != target_base_name:
-                instance = cast(BaseModPack, obj)
-                instance.__init__(pack_info=manifest)
+                pack_cls = cast(type[BaseModPack], obj)
+                instance: BaseModPack
+                try:
+                    instance = pack_cls(pack_info=manifest)
+                except TypeError:
+                    instance = pack_cls()
+                instance.pack_info = manifest
                 instance.on_pack_loaded()
                 return instance
 
