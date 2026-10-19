@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 def build_item_actions(menu: EntityContextMenu, layout: QVBoxLayout, item: BaseItem) -> None:
     """Builds interactive control buttons and target pickers for an item."""
-    # Quick Actions: Use & Drop
+    # Quick Actions: Use and Drop
     row_quick = QHBoxLayout()
     row_quick.setSpacing(6)
 

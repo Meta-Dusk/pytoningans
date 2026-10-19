@@ -60,7 +60,7 @@ from .modpack import (
 )
 
 __all__ = [
-    # Types & Geometry
+    # Types and Geometry
     "Pos2D",
     "Rect2D",
     "IRect",
@@ -79,7 +79,7 @@ __all__ = [
     "BaseComponent",
     "ITeleportationComponent",
     
-    # Engine & World Protocols
+    # Engine and World Protocols
     "IModInfo",
     "IEntityManager",
     "IWorld",

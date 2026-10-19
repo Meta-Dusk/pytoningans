@@ -239,7 +239,8 @@ class EntityManager:
                     world.scene.removeItem(entity)
                 break
         
-        # If no other remaining active entity or structure uses this mod, prune its sprite sheets & frame cache
+        # If no other remaining active entity or structure uses this mod,
+        # prune its sprite sheets and frame cache
         if mod_folder is not None and mod_folder:
             all_remaining: list[BaseEntity] = (
                 cast(list[BaseEntity], self.active_entities) +

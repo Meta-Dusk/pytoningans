@@ -35,7 +35,7 @@ class ThemePalette:
     header_border: str
     header_hover_bg: str
 
-    # Labels & Headers
+    # Labels and Headers
     helper_text: str
     banner_text: str
     banner_bg: str
@@ -71,7 +71,7 @@ class ThemePalette:
     titlebar_btn_color: str
     titlebar_btn_hover_color: str
 
-    # Tooltip & Speech Bubble
+    # Tooltip and Speech Bubble
     tooltip_bg: str
     tooltip_border: str
     tooltip_text: str
@@ -79,7 +79,7 @@ class ThemePalette:
     speech_bubble_text: str
     speech_bubble_border: str
 
-    # Menus & Action Rows
+    # Menus and Action Rows
     menu_bg: str
     menu_border: str
     menu_item_text: str
@@ -129,7 +129,7 @@ LIGHT_PALETTE = ThemePalette(
     header_border="#dcdcdc",
     header_hover_bg="#e5e5e5",
 
-    # Labels & Headers
+    # Labels and Headers
     helper_text="#666666",
     banner_text="#444444",
     banner_bg="#eeeeee",
@@ -165,7 +165,7 @@ LIGHT_PALETTE = ThemePalette(
     titlebar_btn_color="#666666",
     titlebar_btn_hover_color="black",
 
-    # Tooltip & Speech Bubble
+    # Tooltip and Speech Bubble
     tooltip_bg="#ffffff",
     tooltip_border="#dcdcdc",
     tooltip_text="#1e1e1e",
@@ -173,7 +173,7 @@ LIGHT_PALETTE = ThemePalette(
     speech_bubble_text="#000000",
     speech_bubble_border="#333333",
 
-    # Menus & Action Rows
+    # Menus and Action Rows
     menu_bg="#ffffff",
     menu_border="#d1d1d1",
     menu_item_text="#1e1e1e",
@@ -224,7 +224,7 @@ DARK_PALETTE = ThemePalette(
     header_border="#3d3d3d",
     header_hover_bg="#383838",
 
-    # Labels & Headers
+    # Labels and Headers
     helper_text="#aaaaaa",
     banner_text="#e0e0e0",
     banner_bg="#333333",
@@ -260,7 +260,7 @@ DARK_PALETTE = ThemePalette(
     titlebar_btn_color="#aaaaaa",
     titlebar_btn_hover_color="white",
 
-    # Tooltip & Speech Bubble
+    # Tooltip and Speech Bubble
     tooltip_bg="#2b2b2b",
     tooltip_border="#3d3d3d",
     tooltip_text="#f3f3f3",
@@ -268,7 +268,7 @@ DARK_PALETTE = ThemePalette(
     speech_bubble_text="#FFFFFF",
     speech_bubble_border="#555555",
 
-    # Menus & Action Rows
+    # Menus and Action Rows
     menu_bg="#2b2b2b",
     menu_border="#3d3d3d",
     menu_item_text="#f3f3f3",

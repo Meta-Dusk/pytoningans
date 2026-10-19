@@ -189,7 +189,7 @@ class AnimationSystem(QObject):
             )
         self.entity.current_attack_hitbox = atk_rect
 
-        # Item Hold Anchor Extraction & Transformation
+        # Item Hold Anchor Extraction and Transformation
         raw_hold: Optional[QPoint] = self.entity.mod_manager.get_frame_hold_point(
             self.entity.state, self.current_frame
         )

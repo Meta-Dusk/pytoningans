@@ -1,5 +1,5 @@
 """
-PyToNingans Mod & Modpack Archive Utilities
+PyToNingans Mod and Modpack Archive Utilities
 ===========================================
 Safe export and extraction of .zip packages for mods and modpacks,
 including directory normalization, zip-slip security guards, and manifest detection.

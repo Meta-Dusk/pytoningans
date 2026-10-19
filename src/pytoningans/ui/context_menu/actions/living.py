@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 def build_living_actions(menu: EntityContextMenu, layout: QVBoxLayout, entity: Entity) -> None:
     """Builds interactive control buttons and target pickers for a living entity."""
     if not entity.is_dead:
-        # Action Row 1: Talk & Jump
+        # Action Row 1: Talk and Jump
         row1 = QHBoxLayout()
         row1.setSpacing(6)
 
@@ -110,7 +110,7 @@ def build_living_actions(menu: EntityContextMenu, layout: QVBoxLayout, entity: E
         win_phys_btn.clicked.connect(lambda: menu.execute_action(toggle_win_phys))
         layout.addWidget(win_phys_btn)
 
-    # Debug Visualization Toggles (Hitbox & Range)
+    # Debug Visualization Toggles (Hitbox and Range)
     row_debug = QHBoxLayout()
     row_debug.setSpacing(6)
 
@@ -137,11 +137,11 @@ def build_living_actions(menu: EntityContextMenu, layout: QVBoxLayout, entity: E
         pack_actions = entity.mod_manager.pack.get_context_menu_actions(entity)
         if pack_actions:
             layout.addWidget(create_info_row(f"{entity.mod_manager.pack.name}:", "Pack Actions"))
-            for act in pack_actions:
-                act_btn = QPushButton(act.label)
-                if act.tooltip:
-                    act_btn.setToolTip(act.tooltip)
-                act_cb = act.callback
+            for action in pack_actions:
+                act_btn = QPushButton(action.label)
+                if action.tooltip:
+                    act_btn.setToolTip(action.tooltip)
+                act_cb = action.callback
                 act_btn.clicked.connect(lambda _, c=act_cb: menu.execute_action(c))
                 layout.addWidget(act_btn)
 

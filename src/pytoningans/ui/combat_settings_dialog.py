@@ -135,7 +135,7 @@ class CombatSettingsDialog(QDialog):
         layout.addStretch()
         layout.addWidget(self._create_separator())
 
-        # Bottom Buttons: Reset Defaults & Close
+        # Bottom Buttons: Reset Defaults and Close
         btn_layout = QHBoxLayout()
         self.reset_btn = QPushButton("Reset Defaults")
         self.reset_btn.setToolTip("Restore default visual combat preferences")

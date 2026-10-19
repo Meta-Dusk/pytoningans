@@ -243,7 +243,7 @@ class EntityContextMenu(QDialog):
         return "[Object]"
 
     # =========================================================================
-    # Action Execution & Cleanup
+    # Action Execution and Cleanup
     # =========================================================================
     def execute_action(self, action_fn: Any) -> None:
         """Executes an action and dynamically updates the UI while keeping the window open."""
@@ -296,7 +296,7 @@ class EntityContextMenu(QDialog):
         event.accept()
 
     # =========================================================================
-    # Window Spawning & Management
+    # Window Spawning and Management
     # =========================================================================
     @classmethod
     def show_for_entity(cls, entity: BaseEntity, click_pos: QPoint) -> EntityContextMenu:

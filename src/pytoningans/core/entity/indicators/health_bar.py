@@ -315,7 +315,7 @@ class HealthBarItem(QGraphicsItem):
         inner_h: float = max(0.0, bar_h - (inner_pad * 2.0))
         max_hp: int = max(1, self.entity.mod_manager.max_health if self.entity.mod_manager else 100)
 
-        # Ghost Depletion Bar (shows subtracted chunk flashing & smoothly draining)
+        # Ghost Depletion Bar (shows subtracted chunk flashing and smoothly draining)
         ghost_ratio: float = max(0.0, min(1.0, self.ghost_hp / max_hp))
         if ghost_ratio > 0:
             ghost_w = inner_w * ghost_ratio

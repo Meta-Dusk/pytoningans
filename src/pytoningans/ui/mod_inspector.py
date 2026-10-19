@@ -1,5 +1,5 @@
 """
-PyToNingans Mod & Modpack Inspector Dialog
+PyToNingans Mod and Modpack Inspector Dialog
 =========================================
 Interactive UI for inspecting mod files, reading Python/JSON sources, previewing spritesheets,
 and viewing automated AST Security Scanner audit reports before running or enabling mods.
@@ -73,13 +73,13 @@ class ModInspectorDialog(QDialog):
 
         splitter.addWidget(left_widget)
 
-        # --- Right Panel: Tabs for Security Audit & File Preview ---
+        # --- Right Panel: Tabs for Security Audit and File Preview ---
         self.tabs = QTabWidget()
 
         # Tab 1: Security Audit
         self.security_tab = QWidget()
         self._setup_security_tab_ui()
-        self.tabs.addTab(self.security_tab, "Security & Safety Audit")
+        self.tabs.addTab(self.security_tab, "Security and Safety Audit")
 
         # Tab 2: Code / Media Preview
         self.preview_tab = QWidget()
@@ -127,22 +127,24 @@ class ModInspectorDialog(QDialog):
 
         self.caps_container = QWidget()
         self.caps_layout = QHBoxLayout(self.caps_container)
-        self.caps_layout.setContentsMargins(0, 0, 0, 0)
-        self.caps_layout.setSpacing(6)
+        self.caps_layout.setContentsMargins(0, 0, 0, 0); self.caps_layout.setSpacing(6)
         layout.addWidget(self.caps_container)
 
         # Issues Table
-        issues_header = QLabel("Audit Flags & Security Details:")
+        issues_header = QLabel("Audit Flags and Security Details:")
         issues_header.setStyleSheet("font-weight: bold; font-size: 13px; margin-top: 6px;")
         layout.addWidget(issues_header)
 
         self.issues_table = QTableWidget()
         self.issues_table.setColumnCount(4)
-        self.issues_table.setHorizontalHeaderLabels(["Severity", "Category", "Location", "Description"])
-        self.issues_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.issues_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.issues_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        self.issues_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.issues_table.setHorizontalHeaderLabels(
+            ["Severity", "Category", "Location", "Description"]
+        )
+        horizontalHeader = self.issues_table.horizontalHeader()
+        horizontalHeader.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        horizontalHeader.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        horizontalHeader.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        horizontalHeader.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.issues_table.verticalHeader().setVisible(False)
         self.issues_table.setAlternatingRowColors(True)
         self.issues_table.setShowGrid(True)
@@ -273,7 +275,9 @@ class ModInspectorDialog(QDialog):
         if not file_path.is_file():
             return
 
-        self.preview_header.setText(f"Viewing: {file_path.name} ({file_path.stat().st_size} bytes)")
+        self.preview_header.setText(
+            f"Viewing: {file_path.name} ({file_path.stat().st_size} bytes)"
+        )
 
         # Handle images
         if file_path.suffix.lower() in (".png", ".jpg", ".jpeg", ".bmp"):
@@ -281,7 +285,7 @@ class ModInspectorDialog(QDialog):
             if not pixmap.isNull():
                 self.code_viewer.setVisible(False)
                 self.image_viewer.setVisible(True)
-                scaled = pixmap.scaled(
+                scaled: QPixmap = pixmap.scaled(
                     QSize(500, 350),
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation,

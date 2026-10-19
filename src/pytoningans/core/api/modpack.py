@@ -1,5 +1,5 @@
 """
-PyToNingans Modding API - Modpack Base Classes & Protocols
+PyToNingans Modding API - Modpack Base Classes and Protocols
 ==========================================================
 Enables grouping entities, items, and structures into cohesive modpacks
 with shared runtime state, inter-entity communication, and custom context menus.

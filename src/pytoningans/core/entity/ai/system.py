@@ -121,7 +121,7 @@ class AISystem:
     def _on_check_interactions(self, other_entity: Entity) -> bool:
         return _do_on_check_interactions(self, other_entity)
 
-    # --- Decision & Wandering API ---
+    # --- Decision and Wandering API ---
 
     def _ai_decision_tick(self) -> None:
         _do_ai_decision_tick(self)

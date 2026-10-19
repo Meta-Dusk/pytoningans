@@ -85,7 +85,7 @@ class IWorld(Protocol):
 
 
 # =============================================================================
-#* Entity & Structure Protocols
+#* Entity and Structure Protocols
 # =============================================================================
 
 @runtime_checkable

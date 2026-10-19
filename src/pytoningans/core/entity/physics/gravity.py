@@ -29,7 +29,7 @@ def tick_gravity_and_collisions(
 
     is_dead: bool = getattr(entity, "is_dead", False)
 
-    # Check window penetration & auto-scoop (runs for all entities)
+    # Check window penetration and auto-scoop (runs for all entities)
     was_handled, platform_rect = resolve_window_depenetration(entity, is_dead)
     if was_handled:
         if platform_rect is not None:

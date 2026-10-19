@@ -9,6 +9,7 @@ from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QResizeEvent, QShowEvent, QHideEvent, QKeyEvent
 
 from pytoningans.ui.mod_manager_hub import ModManagerHub
+from pytoningans.ui.mod_browser import ModBrowserDialog
 from pytoningans.ui.combat_settings_dialog import CombatSettingsDialog
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_editor.components import CustomSizeGrip
@@ -26,11 +27,11 @@ class MainMenu(QWidget):
 
     def __init__(self, manager: EntityManager) -> None:
         super().__init__(
-            windowTitle="Control Panel",
-            windowIcon=get_main_icon()
+            windowTitle="Control Panel", windowIcon=get_main_icon()
         )
         self.manager: EntityManager = manager
         self.hub_window: Optional[ModManagerHub] = None
+        self.browser_dialog: Optional[ModBrowserDialog] = None
         self.combat_settings_dialog: Optional[CombatSettingsDialog] = None
         self._setup_ui()
 
@@ -52,10 +53,9 @@ class MainMenu(QWidget):
 
         content_widget = QWidget()
         content_layout = QHBoxLayout(content_widget)
-        content_layout.setContentsMargins(14, 12, 14, 14)
-        content_layout.setSpacing(14)
+        content_layout.setContentsMargins(14, 12, 14, 14); content_layout.setSpacing(14)
 
-        # Left Pane: Spawning & Interactive Placement
+        # Left Pane: Spawning and Interactive Placement
         self.spawn_panel = SpawnPanel(self.manager, self)
         self.spawn_panel.size_change_requested.connect(self._adjust_size_if_needed)
         content_layout.addWidget(self.spawn_panel, stretch=1)
@@ -63,16 +63,16 @@ class MainMenu(QWidget):
         # Vertical Separator Divider
         content_layout.addWidget(self._create_vertical_separator())
 
-        # Right Pane: Live Controls, Global Actions, Management & Settings
+        # Right Pane: Live Controls, Global Actions, Management and Settings
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(8)
+        right_layout.setContentsMargins(0, 0, 0, 0); right_layout.setSpacing(8)
 
         self.live_controls_panel = LiveControlsPanel(self.manager, right_widget)
         right_layout.addWidget(self.live_controls_panel)
 
         self.system_controls_panel = SystemControlsPanel(right_widget)
+        self.system_controls_panel.open_browser_requested.connect(self._open_browser)
         self.system_controls_panel.open_hub_requested.connect(self._open_hub)
         self.system_controls_panel.open_combat_settings_requested.connect(self._open_combat_settings)
         right_layout.addWidget(self.system_controls_panel)
@@ -82,8 +82,7 @@ class MainMenu(QWidget):
 
         main_layout.addWidget(content_widget)
 
-        self.grip = CustomSizeGrip(self)
-        self.grip.setFixedSize(16, 16)
+        self.grip = CustomSizeGrip(self); self.grip.setFixedSize(16, 16)
 
         # Dynamic layout sizing
         self.setMinimumSize(self.minimumSizeHint())
@@ -151,4 +150,17 @@ class MainMenu(QWidget):
 
     def _on_combat_settings_destroyed(self) -> None:
         self.combat_settings_dialog = None
+
+    def _open_browser(self) -> None:
+        if self.browser_dialog is None or not self.browser_dialog.isVisible():
+            self.browser_dialog = ModBrowserDialog(self.manager.mod_manager)
+            self.browser_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            self.browser_dialog.destroyed.connect(self._on_browser_destroyed)
+            self.browser_dialog.mods_updated.connect(self.spawn_panel.refresh_spawn_list)
+            self.browser_dialog.show()
+        else:
+            self.browser_dialog.activateWindow()
+
+    def _on_browser_destroyed(self) -> None:
+        self.browser_dialog = None
 

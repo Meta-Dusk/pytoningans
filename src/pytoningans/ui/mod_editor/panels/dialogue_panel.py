@@ -125,19 +125,19 @@ class DialoguePanel(BasePanel):
 
     def _connect_signals(self) -> None:
         """Binds this panel's buttons and filter inputs to logic."""
-        # Plain dialogue buttons & filter
+        # Plain dialogue buttons and filter
         self.add_plain_btn.clicked.connect(self._on_add_plain_dialogue)
         self.edit_plain_btn.clicked.connect(self._on_edit_plain_dialogue)
         self.del_plain_btn.clicked.connect(self._on_remove_plain_dialogue)
         self.plain_filter_input.textChanged.connect(self._apply_plain_filter)
         
-        # Death dialogue buttons & filter
+        # Death dialogue buttons and filter
         self.add_death_btn.clicked.connect(self._on_add_death_dialogue)
         self.edit_death_btn.clicked.connect(self._on_edit_death_dialogue)
         self.del_death_btn.clicked.connect(self._on_remove_death_dialogue)
         self.death_filter_input.textChanged.connect(self._apply_death_filter)
         
-        # Window triggers table, buttons & filter
+        # Window triggers table, buttons and filter
         self.add_trigger_btn.clicked.connect(self._on_add_window_trigger)
         self.edit_trigger_btn.clicked.connect(self._on_edit_window_trigger)
         self.del_trigger_btn.clicked.connect(self._on_remove_window_trigger)

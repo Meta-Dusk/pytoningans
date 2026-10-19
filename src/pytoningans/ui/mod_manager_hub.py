@@ -20,6 +20,7 @@ from pytoningans.ui.mod_creation_dialog import ModCreationDialog
 from pytoningans.ui.mod_editor import ModEditorWindow
 from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.ui.mod_inspector import ModInspectorDialog
+from pytoningans.ui.mod_browser import ModBrowserDialog
 from pytoningans.utils.assets import get_main_icon
 
 
@@ -42,26 +43,23 @@ class ModManagerHub(QWidget):
     def _setup_ui(self) -> None:
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.resize(800, 480)
-        self.setMinimumSize(600, 340)
+        self.resize(800, 480); self.setMinimumSize(600, 340)
         
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, 0); main_layout.setSpacing(0)
         
         self.title_bar = CustomTitleBar(self, "Mod Manager Hub")
         main_layout.addWidget(self.title_bar)
         
         content_widget = QWidget()
         content_layout = QHBoxLayout(content_widget)
-        content_layout.setContentsMargins(16, 16, 16, 16)
-        content_layout.setSpacing(16)
+        content_layout.setContentsMargins(16, 16, 16, 16); content_layout.setSpacing(16)
         
-        # --- Left Column: Search & Table ---
+        # --- Left Column: Search and Table ---
         table_layout = QVBoxLayout()
         table_layout.setSpacing(8)
         
-        # Filter & Search Bar
+        # Filter and Search Bar
         filter_layout = QHBoxLayout()
         filter_layout.setSpacing(8)
         
@@ -84,8 +82,7 @@ class ModManagerHub(QWidget):
         table_layout.addLayout(filter_layout)
         
         # 4-Column Table
-        self.mod_table = QTableWidget()
-        self.mod_table.setColumnCount(4)
+        self.mod_table = QTableWidget(); self.mod_table.setColumnCount(4)
         self.mod_table.setHorizontalHeaderLabels(["Entity Type", "Entity Name", "Pack", "Folder / ID"])
         
         header = self.mod_table.horizontalHeader()
@@ -96,8 +93,7 @@ class ModManagerHub(QWidget):
         header.setSortIndicatorShown(True)
         header.setSectionsClickable(True)
         header.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.mod_table.setColumnWidth(2, 130)
-        self.mod_table.setColumnWidth(3, 180)
+        self.mod_table.setColumnWidth(2, 130); self.mod_table.setColumnWidth(3, 180)
         
         self.mod_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.mod_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -130,6 +126,12 @@ class ModManagerHub(QWidget):
         actions_header.setObjectName("SectionHeader")
         btn_layout.addWidget(actions_header)
         
+        self.browser_btn = QPushButton("Browse Online Mods")
+        self.browser_btn.setToolTip("Explore, install, and rate community mods and modpacks")
+        self.browser_btn.setStyleSheet("background-color: #3b82f6; color: white; font-weight: bold;")
+        self.browser_btn.clicked.connect(self._on_browser_clicked)
+        btn_layout.addWidget(self.browser_btn)
+
         self.create_btn = QPushButton("Create New Mod")
         self.create_btn.setToolTip("Create a new custom entity, item, or structure mod")
         self.create_btn.clicked.connect(self._on_create_clicked)
@@ -141,7 +143,7 @@ class ModManagerHub(QWidget):
         self.edit_btn.clicked.connect(self._on_edit_clicked)
         btn_layout.addWidget(self.edit_btn)
 
-        self.inspect_btn = QPushButton("Inspect & Audit")
+        self.inspect_btn = QPushButton("Inspect and Audit")
         self.inspect_btn.setToolTip("Inspect package files, view source code, and run AST security audit")
         self.inspect_btn.setEnabled(False)
         self.inspect_btn.clicked.connect(self._on_inspect_clicked)
@@ -213,7 +215,7 @@ class ModManagerHub(QWidget):
                 
         row: int = self.mod_table.currentRow()
         if row >= 0:
-            item = self.mod_table.item(row, 3)
+            item: Optional[QTableWidgetItem] = self.mod_table.item(row, 3)
             if item is not None:
                 return item.data(Qt.ItemDataRole.UserRole) or item.text()
                 
@@ -229,11 +231,10 @@ class ModManagerHub(QWidget):
         self._on_selection_changed()
 
     def _refresh_list(self) -> None:
-        """Reloads mods from disk into the 4-column table, preserving sort & selection."""
+        """Reloads mods from disk into the 4-column table, preserving sort and selection."""
         prev_selected: Optional[str] = self._get_selected_folder()
         
-        self.mod_table.setSortingEnabled(False)
-        self.mod_table.setRowCount(0)
+        self.mod_table.setSortingEnabled(False); self.mod_table.setRowCount(0)
         
         entries: list[ModEntryInfo] = self.mod_manager.get_detailed_mod_list()
         self.mod_table.setRowCount(len(entries))
@@ -296,15 +297,14 @@ class ModManagerHub(QWidget):
                     "Click to reverse sort direction."
                 )
             else:
-                text = base
-                tooltip = f"Click to sort by {base} (A-Z)"
+                text: str = base
+                tooltip: str = f"Click to sort by {base} (A-Z)"
                 
             if item is not None:
                 item.setText(text)
                 item.setToolTip(tooltip)
             else:
-                header_item = QTableWidgetItem(text)
-                header_item.setToolTip(tooltip)
+                header_item = QTableWidgetItem(text); header_item.setToolTip(tooltip)
                 self.mod_table.setHorizontalHeaderItem(col, header_item)
 
     def _apply_filter(self) -> None:
@@ -384,6 +384,12 @@ class ModManagerHub(QWidget):
 
         target_dir: Path = (self.mod_manager.mods_dir / pack_id) if pack_id else resolved_path
         dialog = ModInspectorDialog(target_dir, self)
+        dialog.exec()
+
+    def _on_browser_clicked(self) -> None:
+        dialog = ModBrowserDialog(self.mod_manager, self)
+        dialog.mods_updated.connect(self._refresh_list)
+        dialog.mods_updated.connect(self.mods_updated.emit)
         dialog.exec()
 
     def _on_create_clicked(self) -> None:

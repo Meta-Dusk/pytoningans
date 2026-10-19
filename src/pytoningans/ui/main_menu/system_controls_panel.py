@@ -14,6 +14,7 @@ class SystemControlsPanel(QWidget):
     """Panel managing mod hub, combat settings dialogs, theme toggling, and shutdown."""
 
     open_hub_requested: Signal = Signal()
+    open_browser_requested: Signal = Signal()
     open_combat_settings_requested: Signal = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -32,22 +33,26 @@ class SystemControlsPanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        # Mod Management & Settings Section
-        mod_label = QLabel("Management & Settings:")
+        # Mod Management and Settings Section
+        mod_label = QLabel("Management and Settings:")
         mod_label.setObjectName("SectionHeader")
         layout.addWidget(mod_label)
 
-        mgmt_layout = QHBoxLayout()
-        mgmt_layout.setSpacing(8)
+        mgmt_layout = QHBoxLayout(); mgmt_layout.setSpacing(8)
+
+        self.browse_btn = QPushButton("Mod Browser")
+        self.browse_btn.setToolTip("Explore, install, and rate community mods and modpacks")
+        self.browse_btn.clicked.connect(self.open_browser_requested.emit)
 
         self.manage_btn = QPushButton("Manage Mods")
-        self.manage_btn.setToolTip("Open the Mod Manager Hub")
+        self.manage_btn.setToolTip("Open the local Mod Manager Hub")
         self.manage_btn.clicked.connect(self.open_hub_requested.emit)
 
         self.combat_settings_btn = QPushButton("Combat Settings")
         self.combat_settings_btn.setToolTip("Configure damage indicators and health bar display preferences")
         self.combat_settings_btn.clicked.connect(self.open_combat_settings_requested.emit)
 
+        mgmt_layout.addWidget(self.browse_btn, stretch=1)
         mgmt_layout.addWidget(self.manage_btn, stretch=1)
         mgmt_layout.addWidget(self.combat_settings_btn, stretch=1)
         layout.addLayout(mgmt_layout)

@@ -1,5 +1,5 @@
 """
-PyToNingans Mod & Modpack AST Security Scanner
+PyToNingans Mod and Modpack AST Security Scanner
 =============================================
 Performs Abstract Syntax Tree (AST) static analysis on custom Python scripts
 in mods and modpacks. Detects dangerous behaviors such as arbitrary process execution,
@@ -119,7 +119,7 @@ class ModASTVisitor(ast.NodeVisitor):
             if mod_name.startswith("api") or mod_name.startswith("pytoningans"):
                 self.capabilities.add("PyToNingans Modding API")
             elif mod_name in ("math", "random"):
-                self.capabilities.add("Mathematics & Randomization")
+                self.capabilities.add("Mathematics and Randomization")
             elif mod_name in ("json", "csv"):
                 self.capabilities.add("Structured Data Parsing")
 
@@ -399,7 +399,7 @@ def scan_mod_or_pack(target_dir: Path) -> SecurityReport:
         risk_level = SecurityRiskLevel.SAFE
         is_safe = True
 
-    # Generate summary & detailed explanation
+    # Generate summary and detailed explanation
     summary: str
     detailed_explanation: str
     if not scanned_files:

@@ -87,7 +87,7 @@ class DebugHitboxOverlayItem(QGraphicsItem):
                 painter.setBrush(range_brush)
                 painter.drawEllipse(center, range_radius, range_radius)
 
-        # Physics & Attack Hitboxes
+        # Physics and Attack Hitboxes
         if self.show_hitboxes:
             # Physics Collision Hitbox (Green)
             hitbox: QRect = self.entity.current_hitbox
