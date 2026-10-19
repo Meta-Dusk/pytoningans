@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal, QRect
-from PySide6.QtGui import QGuiApplication, QScreen, QResizeEvent
+from PySide6.QtGui import QAction, QGuiApplication, QScreen, QResizeEvent
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
     QWidget, QMessageBox, QFrame, QMenu
@@ -148,7 +148,9 @@ class ModBrowserDialog(QDialog):
         # Empty state label
         self.empty_label = QLabel("No mods found matching your search criteria.")
         self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.empty_label.setStyleSheet("color: #6c7086; font-size: 13px; font-style: italic; margin-top: 40px;")
+        self.empty_label.setStyleSheet(
+            "color: #6c7086; font-size: 13px; font-style: italic; margin-top: 40px;"
+        )
         self.empty_label.setVisible(False)
         self.cards_layout.addWidget(self.empty_label)
 
@@ -227,10 +229,10 @@ class ModBrowserDialog(QDialog):
             info_action.setEnabled(False)
             menu.addSeparator()
 
-            settings_action = menu.addAction("Cloud Connection Settings")
-            sign_out_action = menu.addAction("Sign Out")
+            settings_action: QAction = menu.addAction("Cloud Connection Settings")
+            sign_out_action: QAction = menu.addAction("Sign Out")
 
-            action = menu.exec(self.auth_btn.mapToGlobal(self.auth_btn.rect().bottomLeft()))
+            action: QAction = menu.exec(self.auth_btn.mapToGlobal(self.auth_btn.rect().bottomLeft()))
             if action == settings_action:
                 dlg = AuthDialog(self)
                 dlg.show_server_settings()

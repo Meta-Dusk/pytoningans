@@ -90,7 +90,7 @@ class AuthManager(QObject):
             return results
         try:
             for line in env_path.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
+                line: str = line.strip()
                 if not line or line.startswith("#") or "=" not in line:
                     continue
                 k, v = line.split("=", 1)
@@ -129,13 +129,13 @@ class AuthManager(QObject):
         self.supabase_anon_key = os.environ.get("SUPABASE_ANON_KEY", self.supabase_anon_key)
 
         # 4. User documents override
-        if self._config_path.is_file():
-            try:
-                data: dict[str, Any] = json.loads(self._config_path.read_text(encoding="utf-8"))
-                self.supabase_url = data.get("supabase_url", self.supabase_url)
-                self.supabase_anon_key = data.get("supabase_anon_key", self.supabase_anon_key)
-            except Exception:
-                pass
+        if not self._config_path.is_file(): return
+        try:
+            data: dict[str, Any] = json.loads(self._config_path.read_text(encoding="utf-8"))
+            self.supabase_url = data.get("supabase_url", self.supabase_url)
+            self.supabase_anon_key = data.get("supabase_anon_key", self.supabase_anon_key)
+        except Exception:
+            pass
 
     def save_config(self, url: str, anon_key: str) -> None:
         self.supabase_url = url.strip()
@@ -222,7 +222,7 @@ class AuthManager(QObject):
             )
             self._save_session()
             self.auth_state_changed.emit(user)
-            return True, f"Signed in locally as @{username} (Offline Mode).", user
+            return True, f"Signed in locally as {username} (Offline Mode).", user
 
         endpoint: str = f"{self.supabase_url.rstrip('/')}/auth/v1/token?grant_type=password"
         payload: bytes = json.dumps({"email": email, "password": password}).encode("utf-8")
@@ -292,7 +292,7 @@ class AuthManager(QObject):
             )
             self._save_session()
             self.auth_state_changed.emit(user)
-            return True, f"Account @{username} created in Offline Mode!", user
+            return True, f"Account '{username}' created in Offline Mode!", user
 
         endpoint: str = f"{self.supabase_url.rstrip('/')}/auth/v1/signup"
         payload: bytes = json.dumps({
@@ -330,7 +330,7 @@ class AuthManager(QObject):
                     )
                     self._save_session()
                     self.auth_state_changed.emit(user)
-                    return True, f"Account @{confirmed_username} registered and signed in!", user
+                    return True, f"Account '{confirmed_username}' registered and signed in!", user
                 else:
                     return True, "Registration successful! Please check your email for confirmation.", user
         except urllib.error.HTTPError as e:
@@ -364,7 +364,7 @@ class AuthManager(QObject):
             )
             self._save_session()
             self.auth_state_changed.emit(user)
-            return True, "Signed in with Google (Offline Mode) as @GoogleCreator."
+            return True, "Signed in with Google (Offline Mode) as 'GoogleCreator'."
 
         redirect_uri: str = f"http://127.0.0.1:{callback_port}/callback"
         auth_url: str = (

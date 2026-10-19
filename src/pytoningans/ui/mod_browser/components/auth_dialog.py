@@ -175,8 +175,7 @@ class AuthDialog(QDialog):
 
         # Tab 3: Cloud / Supabase Settings
         cfg_tab = QWidget()
-        cfg_layout = QVBoxLayout(cfg_tab)
-        cfg_layout.setSpacing(10)
+        cfg_layout = QVBoxLayout(cfg_tab); cfg_layout.setSpacing(10)
 
         info_lbl = QLabel(
             "Connect to your own Supabase project for real-time community sync.\n"
@@ -198,7 +197,9 @@ class AuthDialog(QDialog):
         cfg_layout.addWidget(self.cfg_key_input)
 
         self.cfg_save_btn = QPushButton("Save Cloud Configuration")
-        self.cfg_save_btn.setStyleSheet("background-color: #89b4fa; color: #11111b; font-weight: bold; padding: 6px;")
+        self.cfg_save_btn.setStyleSheet(
+            "background-color: #89b4fa; color: #11111b; font-weight: bold; padding: 6px;"
+        )
         self.cfg_save_btn.clicked.connect(self._on_save_config_clicked)
         cfg_layout.addWidget(self.cfg_save_btn)
 
@@ -209,8 +210,10 @@ class AuthDialog(QDialog):
 
         # Bottom Bar: Advanced Server Settings Link + Cancel
         btn_layout = QHBoxLayout()
-        self.server_btn = QPushButton("⚙️ Custom Server (Advanced)")
-        self.server_btn.setToolTip("Configure a custom self-hosted Supabase server URL and anon key")
+        self.server_btn = QPushButton("Custom Server (Advanced)")
+        self.server_btn.setToolTip(
+            "Configure a custom self-hosted Supabase server URL and anon key"
+        )
         self.server_btn.setStyleSheet("""
             QPushButton {
                 background: transparent;
@@ -241,8 +244,8 @@ class AuthDialog(QDialog):
         self.tabs.setCurrentWidget(self.cfg_tab)
 
     def _on_sign_in_clicked(self) -> None:
-        email = self.si_email_input.text().strip()
-        pwd = self.si_password_input.text()
+        email: str = self.si_email_input.text().strip()
+        pwd: str = self.si_password_input.text()
         self.si_status_lbl.setVisible(False)
 
         success, msg, user = self.auth.sign_in_with_password(email, pwd)
@@ -254,10 +257,10 @@ class AuthDialog(QDialog):
             self.si_status_lbl.setVisible(True)
 
     def _on_sign_up_clicked(self) -> None:
-        username = self.su_username_input.text().strip()
-        email = self.su_email_input.text().strip()
-        pwd = self.su_password_input.text()
-        confirm = self.su_confirm_input.text()
+        username: str = self.su_username_input.text().strip()
+        email: str = self.su_email_input.text().strip()
+        pwd: str = self.su_password_input.text()
+        confirm: str = self.su_confirm_input.text()
         self.su_status_lbl.setVisible(False)
 
         if pwd != confirm:
@@ -281,8 +284,8 @@ class AuthDialog(QDialog):
             QMessageBox.warning(self, "OAuth Error", msg)
 
     def _on_save_config_clicked(self) -> None:
-        url = self.cfg_url_input.text().strip()
-        key = self.cfg_key_input.text().strip()
+        url: str = self.cfg_url_input.text().strip()
+        key: str = self.cfg_key_input.text().strip()
         self.auth.save_config(url, key)
         QMessageBox.information(
             self,

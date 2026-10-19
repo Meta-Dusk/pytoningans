@@ -5,9 +5,7 @@ Reads credentials from local .env or environment variables and generates
 cloud_config.json for bundling into the release installer.
 Does NOT commit secrets to git (cloud_config.json is in .gitignore).
 """
-import json
-import os
-import sys
+import json, os, sys
 from pathlib import Path
 
 ROOT_DIR: Path = Path(__file__).resolve().parent.parent
@@ -27,11 +25,11 @@ def parse_env_file(path: Path) -> dict[str, str]:
 
 
 def main() -> None:
-    env_file = ROOT_DIR / ".env"
-    env_vars = parse_env_file(env_file)
+    env_file: Path = ROOT_DIR / ".env"
+    env_vars: dict[str, str] = parse_env_file(env_file)
 
-    url = os.environ.get("SUPABASE_URL") or env_vars.get("SUPABASE_URL", "")
-    key = os.environ.get("SUPABASE_ANON_KEY") or env_vars.get("SUPABASE_ANON_KEY", "")
+    url: str = os.environ.get("SUPABASE_URL") or env_vars.get("SUPABASE_URL", "")
+    key: str = os.environ.get("SUPABASE_ANON_KEY") or env_vars.get("SUPABASE_ANON_KEY", "")
 
     if not url or not key:
         print("[WARN]  SUPABASE_URL or SUPABASE_ANON_KEY not found in .env or environment variables.")
@@ -41,8 +39,8 @@ def main() -> None:
         print("        3. Re-run this script before compiling the installer.")
         sys.exit(1)
 
-    target = ROOT_DIR / "cloud_config.json"
-    payload = {
+    target: Path = ROOT_DIR / "cloud_config.json"
+    payload: dict[str, str] = {
         "supabase_url": url,
         "supabase_anon_key": key,
     }
