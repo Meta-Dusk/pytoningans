@@ -233,7 +233,7 @@ class ModBrowserDialog(QDialog):
             action = menu.exec(self.auth_btn.mapToGlobal(self.auth_btn.rect().bottomLeft()))
             if action == settings_action:
                 dlg = AuthDialog(self)
-                dlg.tabs.setCurrentIndex(2)  # Open Cloud Settings tab
+                dlg.show_server_settings()
                 dlg.exec()
             elif action == sign_out_action:
                 self.auth.sign_out()
@@ -259,8 +259,26 @@ class ModBrowserDialog(QDialog):
         window_geom.moveCenter(screen_geom.center())
         self.move(window_geom.topLeft())
 
+    def _update_status_indicator(self) -> None:
+        """Updates the status badge to reflect live cloud sync or offline mode."""
+        if self.client.is_online and self.client.cloud.is_configured:
+            self.status_badge.setText("● Cloud Sync Active")
+            self.status_badge.setStyleSheet(
+                "color: #10b981; font-weight: bold; font-size: 11px; "
+                "background-color: rgba(16, 185, 129, 0.15); border-radius: 4px; padding: 4px 8px;"
+            )
+        else:
+            self.status_badge.setText("● Offline Catalog")
+            self.status_badge.setStyleSheet(
+                "color: #38bdf8; font-weight: bold; font-size: 11px; "
+                "background-color: rgba(56, 189, 248, 0.15); border-radius: 4px; padding: 4px 8px;"
+            )
+
     def _refresh_catalog(self) -> None:
         """Fetches items and refreshes the card list according to active filters."""
+        if self.client.cloud.is_configured:
+            self.client.refresh_catalog_from_cloud()
+        self._update_status_indicator()
         self._apply_filters()
 
     def _apply_filters(self) -> None:

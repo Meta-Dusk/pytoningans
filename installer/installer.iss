@@ -52,6 +52,7 @@ Name: "api"; Description: "Modding API Package (api/)"; Types: full custom; Flag
 ; Core Application
 Source: "..\build\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: core
 Source: "..\assets\icon.ico"; DestDir: "{app}"; Flags: ignoreversion; Components: core
+Source: "..\cloud_config.json"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: core
 
 ; Modding API
 Source: "..\src\pytoningans\core\api\*"; DestDir: "{userdocs}\{#MyAppName}\mods\api"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: api

@@ -8,3 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Local secrets & credentials
+.env
+.env.*
+cloud_config.json

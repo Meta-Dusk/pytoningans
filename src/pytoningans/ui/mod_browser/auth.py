@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 from PySide6.QtCore import QObject, Signal
 
-from pytoningans.utils.paths import get_settings_path
+from pytoningans.utils.paths import get_settings_path, get_base_path
 from .oauth_handler import OAuthCallbackServer, OAuthCallbackHandler
 
 
@@ -83,14 +83,59 @@ class AuthManager(QObject):
     def is_cloud_configured(self) -> bool:
         return bool(self.supabase_url and self.supabase_anon_key)
 
-    def _load_config(self) -> None:
-        if not self._config_path.exists(): return
+    def _read_env_file(self, env_path: Path) -> dict[str, str]:
+        """Simple, dependency-free key=value parser for local .env files."""
+        results: dict[str, str] = {}
+        if not env_path.is_file():
+            return results
         try:
-            data: dict[str, Any] = json.loads(self._config_path.read_text(encoding="utf-8"))
-            self.supabase_url = data.get("supabase_url", self.supabase_url)
-            self.supabase_anon_key = data.get("supabase_anon_key", self.supabase_anon_key)
+            for line in env_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                results[k.strip()] = v.strip().strip("'\"")
         except Exception:
             pass
+        return results
+
+    def _load_config(self) -> None:
+        """
+        Loads Supabase configuration in hierarchical priority:
+        1. Bundled cloud_config.json in application folder (packaged by installer)
+        2. Local .env file in project root (for developer convenience)
+        3. OS environment variables (SUPABASE_URL, SUPABASE_ANON_KEY)
+        4. User documents override (if customized via Advanced Server settings)
+        """
+        # 1. Bundled cloud_config.json
+        bundled_config = get_base_path() / "cloud_config.json"
+        if bundled_config.is_file():
+            try:
+                b_data = json.loads(bundled_config.read_text(encoding="utf-8"))
+                self.supabase_url = b_data.get("supabase_url", self.supabase_url)
+                self.supabase_anon_key = b_data.get("supabase_anon_key", self.supabase_anon_key)
+            except Exception:
+                pass
+
+        # 2. Local .env file
+        env_vars = self._read_env_file(get_base_path() / ".env")
+        if "SUPABASE_URL" in env_vars:
+            self.supabase_url = env_vars["SUPABASE_URL"]
+        if "SUPABASE_ANON_KEY" in env_vars:
+            self.supabase_anon_key = env_vars["SUPABASE_ANON_KEY"]
+
+        # 3. Environment variables
+        self.supabase_url = os.environ.get("SUPABASE_URL", self.supabase_url)
+        self.supabase_anon_key = os.environ.get("SUPABASE_ANON_KEY", self.supabase_anon_key)
+
+        # 4. User documents override
+        if self._config_path.is_file():
+            try:
+                data: dict[str, Any] = json.loads(self._config_path.read_text(encoding="utf-8"))
+                self.supabase_url = data.get("supabase_url", self.supabase_url)
+                self.supabase_anon_key = data.get("supabase_anon_key", self.supabase_anon_key)
+            except Exception:
+                pass
 
     def save_config(self, url: str, anon_key: str) -> None:
         self.supabase_url = url.strip()

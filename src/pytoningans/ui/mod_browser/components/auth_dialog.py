@@ -203,19 +203,42 @@ class AuthDialog(QDialog):
         cfg_layout.addWidget(self.cfg_save_btn)
 
         cfg_layout.addStretch()
-        self.tabs.addTab(cfg_tab, "Cloud Settings")
+        self.cfg_tab: QWidget = cfg_tab
 
         content_layout.addWidget(self.tabs)
 
-        # Bottom Close Button
+        # Bottom Bar: Advanced Server Settings Link + Cancel
         btn_layout = QHBoxLayout()
+        self.server_btn = QPushButton("⚙️ Custom Server (Advanced)")
+        self.server_btn.setToolTip("Configure a custom self-hosted Supabase server URL and anon key")
+        self.server_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                color: #6c7086;
+                border: none;
+                font-size: 11px;
+                text-decoration: underline;
+                padding: 4px;
+            }
+            QPushButton:hover {
+                color: #a6adc8;
+            }
+        """)
+        self.server_btn.clicked.connect(self.show_server_settings)
+        btn_layout.addWidget(self.server_btn)
+
         btn_layout.addStretch()
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(cancel_btn)
         content_layout.addLayout(btn_layout)
-
         main_layout.addWidget(content)
+
+    def show_server_settings(self) -> None:
+        """Reveals and switches to the Cloud / Server configuration tab."""
+        if self.tabs.indexOf(self.cfg_tab) == -1:
+            self.tabs.addTab(self.cfg_tab, "Server Settings")
+        self.tabs.setCurrentWidget(self.cfg_tab)
 
     def _on_sign_in_clicked(self) -> None:
         email = self.si_email_input.text().strip()

@@ -326,6 +326,7 @@ class PublishModDialog(QDialog):
                 changelog=changelog,
                 contained_entities=contained_entities,
                 size_bytes=size_bytes,
+                zip_path=out_path,
             )
             if not pub_ok:
                 QMessageBox.warning(self, "Publication Conflict", pub_msg)

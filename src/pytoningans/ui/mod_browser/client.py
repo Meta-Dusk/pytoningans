@@ -3,11 +3,14 @@ PyToNingans Mod Browser - Client and Data Provider
 ================================================
 Handles catalog fetching, search filtering, download orchestration,
 package extraction, local installation tracking, release updates, and rating submissions.
-Designed for offline-first operation with cloud sync readiness.
+Integrates with Supabase Cloud REST & Storage backend with complete offline-first caching.
 """
 from __future__ import annotations
 
-import json, shutil, time
+import json
+import shutil
+import tempfile
+import time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -15,9 +18,11 @@ from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
 from pytoningans.core.mod_manager import (
     resolve_mod_path, get_available_mods_with_type, get_available_packs,
+    extract_mod_or_pack_from_zip,
 )
-from pytoningans.utils.paths import get_app_version
+from pytoningans.utils.paths import get_app_version, get_settings_path
 from .models import CommunityModItem, ModRelease, parse_semver
+from .supabase_client import SupabaseClient
 
 
 # Seed catalog: Realistic community creations demonstrating diverse entity types, modpacks, and release versions
@@ -197,57 +202,141 @@ class ModBrowserClient:
 
     def __init__(self, mods_dir: Path) -> None:
         self.mods_dir: Path = mods_dir.resolve()
+        self.cloud: SupabaseClient = SupabaseClient()
+        self._cache_file: Path = get_settings_path().parent / "catalog_cache.json"
         self._user_ratings: dict[str, float] = {}
         self._catalog_items: list[CommunityModItem] = []
-        self.is_online: bool = True
+        self.is_online: bool = self.cloud.is_configured
         self._load_local_catalog()
+        self.refresh_catalog_from_cloud()
 
     def _load_local_catalog(self) -> None:
-        """Initializes catalog data from built-in seed and cached entries."""
+        """Initializes catalog data from built-in seed and cached disk entries."""
         self._catalog_items = []
-        for entry in DEFAULT_CATALOG_DATA:
-            releases: list[ModRelease] = []
-            for release in entry.get("releases", []):
-                releases.append(
-                    ModRelease(
-                        version=release.get("version", entry["version"]),
-                        changelog=release.get("changelog", ""),
-                        created_at=release.get("created_at", "2026-10-18"),
-                        target_app_version=release.get(
-                            "target_app_version", entry.get("target_app_version", "0.8.0")
-                        ),
-                        config_version=int(
-                            release.get(
-                                "config_version", entry.get("config_version", CURRENT_CONFIG_VERSION)
-                            )
-                        ),
-                    )
-                )
+        catalog_map: dict[str, CommunityModItem] = {}
 
-            item = CommunityModItem(
-                id=entry["id"],
-                name=entry["name"],
-                entity_type=entry["entity_type"],
-                version=entry["version"],
-                author=entry["author"],
-                description=entry["description"],
-                tags=list(entry.get("tags", [])),
-                rating=float(entry.get("rating", 10.0)),
-                rating_count=int(entry.get("rating_count", 0)),
-                downloads=int(entry.get("downloads", 0)),
-                size_bytes=int(entry.get("size_bytes", 32000)),
-                is_pack=bool(entry.get("is_pack", False)),
-                contained_entities=list(entry.get("contained_entities", [])),
-                icon_url=entry.get("icon_url"),
-                preview_image_path=entry.get("preview_image_path"),
-                package_url=entry.get("package_url"),
-                created_at=entry.get("created_at", "2026-10-18"),
-                updated_at=entry.get("updated_at", "2026-10-19"),
-                config_version=int(entry.get("config_version", CURRENT_CONFIG_VERSION)),
-                target_app_version=entry.get("target_app_version", "0.8.0"),
-                releases=releases,
+        # 1. Load built-in seed
+        for entry in DEFAULT_CATALOG_DATA:
+            item = self._dict_to_item(entry)
+            catalog_map[item.id] = item
+
+        # 2. Merge local cache if available
+        if self._cache_file.exists():
+            try:
+                cached_data = json.loads(self._cache_file.read_text(encoding="utf-8"))
+                for entry in cached_data:
+                    item = self._dict_to_item(entry)
+                    catalog_map[item.id] = item
+            except Exception:
+                pass
+
+        self._catalog_items = list(catalog_map.values())
+
+    def _dict_to_item(self, entry: dict[str, Any]) -> CommunityModItem:
+        """Converts raw catalog dictionary data into a CommunityModItem."""
+        releases: list[ModRelease] = []
+        for r in entry.get("releases", []):
+            releases.append(
+                ModRelease(
+                    version=r.get("version", entry.get("version", "1.0.0")),
+                    changelog=r.get("changelog", ""),
+                    created_at=r.get("created_at", "2026-10-18"),
+                    target_app_version=r.get("target_app_version", entry.get("target_app_version", "0.8.0")),
+                    config_version=int(r.get("config_version", entry.get("config_version", CURRENT_CONFIG_VERSION))),
+                    download_url=r.get("download_url"),
+                )
             )
-            self._catalog_items.append(item)
+
+        return CommunityModItem(
+            id=entry["id"],
+            name=entry["name"],
+            entity_type=entry["entity_type"],
+            version=entry["version"],
+            author=entry["author"],
+            description=entry.get("description", ""),
+            tags=list(entry.get("tags") or []),
+            rating=float(entry.get("rating", 10.0)),
+            rating_count=int(entry.get("rating_count", 0)),
+            downloads=int(entry.get("downloads", 0)),
+            size_bytes=int(entry.get("size_bytes", 32000)),
+            is_pack=bool(entry.get("is_pack", False)),
+            contained_entities=list(entry.get("contained_entities") or []),
+            icon_url=entry.get("icon_url"),
+            preview_image_path=entry.get("preview_image_path"),
+            package_url=entry.get("package_url"),
+            created_at=entry.get("created_at", "2026-10-18"),
+            updated_at=entry.get("updated_at", "2026-10-19"),
+            config_version=int(entry.get("config_version", CURRENT_CONFIG_VERSION)),
+            target_app_version=entry.get("target_app_version", "0.8.0"),
+            releases=releases,
+        )
+
+    def _item_to_dict(self, item: CommunityModItem) -> dict[str, Any]:
+        """Serializes a CommunityModItem for JSON caching."""
+        return {
+            "id": item.id,
+            "name": item.name,
+            "entity_type": item.entity_type,
+            "version": item.version,
+            "author": item.author,
+            "description": item.description,
+            "tags": item.tags,
+            "rating": item.rating,
+            "rating_count": item.rating_count,
+            "downloads": item.downloads,
+            "size_bytes": item.size_bytes,
+            "is_pack": item.is_pack,
+            "contained_entities": item.contained_entities,
+            "icon_url": item.icon_url,
+            "package_url": item.package_url,
+            "config_version": item.config_version,
+            "target_app_version": item.target_app_version,
+            "created_at": item.created_at,
+            "updated_at": item.updated_at,
+            "releases": [
+                {
+                    "version": r.version,
+                    "changelog": r.changelog,
+                    "created_at": r.created_at,
+                    "config_version": r.config_version,
+                    "target_app_version": r.target_app_version,
+                    "download_url": r.download_url,
+                }
+                for r in item.releases
+            ],
+        }
+
+    def _save_cache(self) -> None:
+        """Saves current catalog items to local disk cache."""
+        try:
+            data = [self._item_to_dict(item) for item in self._catalog_items]
+            self._cache_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+    def refresh_catalog_from_cloud(self) -> tuple[bool, str]:
+        """
+        Queries live community catalog from Supabase PostgREST if configured.
+        Merges results with local catalog and updates the offline cache.
+        """
+        if not self.cloud.is_configured:
+            return False, "Cloud sync is not configured (Running in Offline Mode)."
+
+        success, msg, cloud_items = self.cloud.fetch_catalog()
+        if not success:
+            self.is_online = False
+            return False, msg
+
+        self.is_online = True
+        existing_map = {item.id: item for item in self._catalog_items}
+
+        for row in cloud_items:
+            cloud_item = self._dict_to_item(row)
+            existing_map[cloud_item.id] = cloud_item
+
+        self._catalog_items = list(existing_map.values())
+        self._save_cache()
+        return True, f"Synchronized {len(cloud_items)} mods with Supabase Cloud!"
 
     def get_mod_by_id(self, mod_id: str) -> Optional[CommunityModItem]:
         """Returns the catalog entry for a given mod ID if present."""
@@ -269,18 +358,15 @@ class ModBrowserClient:
 
         _query: str = query.strip().lower()
         for item in self._catalog_items:
-            # Filter: installed only
             if installed_only and not item.is_installed:
                 continue
 
-            # Filter: category
             if category == "pack" and not item.is_pack:
                 continue
             elif category in (EntityType.ENTITY, EntityType.ITEM, EntityType.STRUCTURE):
                 if item.entity_type != category:
                     continue
 
-            # Filter: search query
             if _query:
                 matches_name: bool = _query in item.name.lower()
                 matches_author: bool = _query in item.author.lower()
@@ -328,12 +414,8 @@ class ModBrowserClient:
                 elif folder.exists() and (folder / "pack.json").exists():
                     item.is_installed = True
                     try:
-                        pack_data: dict[str, Any] = json.loads(
-                            (folder / "pack.json").read_text(encoding="utf-8")
-                        )
-                        item.installed_version = str(
-                            pack_data.get("version", "1.0.0")
-                        )
+                        p_data = json.loads((folder / "pack.json").read_text(encoding="utf-8"))
+                        item.installed_version = str(p_data.get("version", "1.0.0"))
                     except Exception:
                         item.installed_version = "1.0.0"
                 else:
@@ -342,17 +424,11 @@ class ModBrowserClient:
             else:
                 if item.id in installed_standalone or folder.exists():
                     item.is_installed = True
-                    config_file: Path = folder / "config.json"
-                    if config_file.exists():
+                    cfg_file = folder / "config.json"
+                    if cfg_file.exists():
                         try:
-                            config_data: dict[str, Any] = json.loads(
-                                config_file.read_text(encoding="utf-8")
-                            )
-                            item.installed_version = str(
-                                config_data.get(
-                                    "mod_version", config_data.get("version", "1.0.0")
-                                )
-                            )
+                            c_data = json.loads(cfg_file.read_text(encoding="utf-8"))
+                            item.installed_version = str(c_data.get("mod_version", c_data.get("version", "1.0.0")))
                         except Exception:
                             item.installed_version = "1.0.0"
                     else:
@@ -370,7 +446,8 @@ class ModBrowserClient:
     def install_mod(self, item: CommunityModItem) -> tuple[bool, str]:
         """
         Installs a community mod or modpack into self.mods_dir.
-        Simulates remote zip package download and verification, then extracts via archive utilities.
+        If package_url is present, downloads the real archive and extracts it safely.
+        Otherwise falls back to generating a valid local scaffold.
         """
         self.mods_dir.mkdir(parents=True, exist_ok=True)
         target_dir: Path = self.mods_dir / item.id
@@ -378,6 +455,21 @@ class ModBrowserClient:
         if target_dir.exists():
             return False, f"Mod folder '{item.id}' already exists locally."
 
+        # Case 1: Real package download from Cloud Storage
+        if item.package_url:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_zip = Path(temp_dir) / f"{item.id}.zip"
+                dl_ok, dl_msg = self.cloud.download_package(item.package_url, temp_zip)
+                if dl_ok:
+                    ext_ok, ext_msg, _ = extract_mod_or_pack_from_zip(temp_zip, self.mods_dir)
+                    if ext_ok:
+                        item.is_installed = True
+                        item.installed_version = item.version
+                        item.has_update = False
+                        item.downloads += 1
+                        return True, f"Successfully downloaded and installed '{item.name}'."
+
+        # Case 2: Offline scaffold fallback
         try:
             target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -408,7 +500,6 @@ class ModBrowserClient:
                     encoding="utf-8",
                 )
 
-                # Generate child sub-entities
                 for entity_name in item.contained_entities:
                     slug: str = entity_name.lower().replace(" ", "_")
                     entity_dir: Path = target_dir / "entities" / slug
@@ -457,7 +548,7 @@ class ModBrowserClient:
     def update_mod(self, item: CommunityModItem) -> tuple[bool, str]:
         """
         Updates an installed mod or modpack to the latest catalog release version.
-        Refreshes manifests and metadata cleanly without data loss.
+        Downloads the updated package if available, or refreshes manifests cleanly.
         """
         target_dir: Path = self.mods_dir / item.id
         if not target_dir.exists():
@@ -466,6 +557,18 @@ class ModBrowserClient:
                 target_dir = self.mods_dir / pack_id if pack_id else resolved
             else:
                 return False, f"Local installation for '{item.name}' not found."
+
+        # If remote package URL exists, perform clean package update
+        if item.package_url:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_zip = Path(temp_dir) / f"{item.id}.zip"
+                dl_ok, _ = self.cloud.download_package(item.package_url, temp_zip)
+                if dl_ok:
+                    ext_ok, _, _ = extract_mod_or_pack_from_zip(temp_zip, self.mods_dir)
+                    if ext_ok:
+                        item.installed_version = item.version
+                        item.has_update = False
+                        return True, f"Successfully upgraded '{item.name}' to v{item.version}!"
 
         try:
             if item.is_pack:
@@ -521,32 +624,39 @@ class ModBrowserClient:
         changelog: str = "",
         contained_entities: Optional[list[str]] = None,
         size_bytes: int = 0,
+        zip_path: Optional[Path] = None,
     ) -> tuple[bool, str, CommunityModItem]:
         """
-        Publishes a new mod or updates an existing publication with version bump and changelog.
-        Prevents duplicate entries and ensures version history tracking like git releases.
+        Publishes a new mod or updates an existing publication.
+        Uploads package to Supabase Storage and records metadata in database if cloud is connected.
         """
         contained_entities = contained_entities or []
-        today: str = time.strftime("%Y-%m-%d")
+        today = time.strftime("%Y-%m-%d")
+        existing_item = self.get_mod_by_id(mod_id)
 
-        existing_item: Optional[CommunityModItem] = self.get_mod_by_id(mod_id)
+        package_url: Optional[str] = None
+        if zip_path is not None and zip_path.exists() and self.cloud.is_configured:
+            up_ok, up_msg, uploaded_url = self.cloud.upload_package(
+                zip_path, f"{mod_id}_v{version}.zip"
+            )
+            if up_ok:
+                package_url = uploaded_url
+
         if existing_item is not None:
-            # Check version bump
             if parse_semver(version) <= parse_semver(existing_item.version):
                 return (
                     False,
-                    f"New release version (v{version}) must be higher than current catalog version "
-                    f"(v{existing_item.version}).",
+                    f"New release version (v{version}) must be higher than current catalog version (v{existing_item.version}).",
                     existing_item,
                 )
 
-            # Append release
             new_release = ModRelease(
                 version=version,
                 changelog=changelog or f"Updated to v{version}.",
                 created_at=today,
                 target_app_version=get_app_version(),
                 config_version=CURRENT_CONFIG_VERSION,
+                download_url=package_url or existing_item.package_url,
             )
             existing_item.releases.insert(0, new_release)
             existing_item.version = version
@@ -555,11 +665,33 @@ class ModBrowserClient:
             existing_item.size_bytes = size_bytes or existing_item.size_bytes
             existing_item.config_version = CURRENT_CONFIG_VERSION
             existing_item.target_app_version = get_app_version()
+            if package_url:
+                existing_item.package_url = package_url
             if tags:
                 existing_item.tags = list(set(existing_item.tags + tags))
             if contained_entities:
                 existing_item.contained_entities = contained_entities
 
+            if self.cloud.is_configured:
+                mod_update = {
+                    "version": version,
+                    "description": description,
+                    "size_bytes": existing_item.size_bytes,
+                    "updated_at": "now()",
+                    "package_url": existing_item.package_url,
+                }
+                release_data = {
+                    "mod_id": mod_id,
+                    "version": version,
+                    "changelog": changelog or f"Updated to v{version}.",
+                    "download_url": existing_item.package_url,
+                    "size_bytes": existing_item.size_bytes,
+                    "config_version": CURRENT_CONFIG_VERSION,
+                    "target_app_version": get_app_version(),
+                }
+                self.cloud.publish_release_update(mod_id, mod_update, release_data)
+
+            self._save_cache()
             return True, f"Successfully published release v{version} for '{existing_item.name}'!", existing_item
 
         # Create brand-new mod entry
@@ -569,6 +701,7 @@ class ModBrowserClient:
             created_at=today,
             target_app_version=get_app_version(),
             config_version=CURRENT_CONFIG_VERSION,
+            download_url=package_url,
         )
         new_item = CommunityModItem(
             id=mod_id,
@@ -584,6 +717,7 @@ class ModBrowserClient:
             size_bytes=size_bytes,
             is_pack=is_pack,
             contained_entities=contained_entities,
+            package_url=package_url,
             created_at=today,
             updated_at=today,
             config_version=CURRENT_CONFIG_VERSION,
@@ -591,25 +725,58 @@ class ModBrowserClient:
             releases=[initial_release],
         )
         self._catalog_items.insert(0, new_item)
+
+        if self.cloud.is_configured:
+            mod_data = {
+                "id": mod_id,
+                "name": name,
+                "entity_type": entity_type,
+                "version": version,
+                "author": author,
+                "description": description,
+                "tags": tags,
+                "is_pack": is_pack,
+                "contained_entities": contained_entities,
+                "config_version": CURRENT_CONFIG_VERSION,
+                "target_app_version": get_app_version(),
+                "package_url": package_url,
+                "size_bytes": size_bytes,
+            }
+            rel_data = {
+                "mod_id": mod_id,
+                "version": version,
+                "changelog": changelog or "Initial community release.",
+                "download_url": package_url,
+                "size_bytes": size_bytes,
+                "config_version": CURRENT_CONFIG_VERSION,
+                "target_app_version": get_app_version(),
+            }
+            self.cloud.publish_new_mod(mod_data, rel_data)
+
+        self._save_cache()
         return True, f"Successfully published '{name}' (v{version}) to Community Mod Browser!", new_item
 
     def rate_mod(self, mod_id: str, score: float) -> tuple[bool, str]:
-        """Submits a rating (1.0 to 10.0) for a given mod and updates the score average."""
+        """Submits a rating (1.0 to 10.0) for a given mod and synchronizes with cloud if connected."""
         score = max(1.0, min(10.0, score))
         for item in self._catalog_items:
-            if item.id != mod_id: continue
-            
-            total_points: float = item.rating * item.rating_count
-            if mod_id in self._user_ratings:
-                old_score: float = self._user_ratings[mod_id]
-                total_points = total_points - old_score + score
-            else:
-                total_points += score
-                item.rating_count += 1
+            if item.id == mod_id:
+                total_points: float = item.rating * item.rating_count
+                if mod_id in self._user_ratings:
+                    old_score: float = self._user_ratings[mod_id]
+                    total_points = total_points - old_score + score
+                else:
+                    total_points += score
+                    item.rating_count += 1
 
-            item.rating = round(total_points / max(1, item.rating_count), 1)
-            self._user_ratings[mod_id] = score
-            return True, f"Your rating of {score:.1f}/10 has been recorded!"
+                item.rating = round(total_points / max(1, item.rating_count), 1)
+                self._user_ratings[mod_id] = score
+                self._save_cache()
+
+                if self.cloud.is_configured:
+                    self.cloud.submit_rating(mod_id, score)
+
+                return True, f"Your rating of {score:.1f}/10 has been recorded!"
 
         return False, f"Mod '{mod_id}' was not found in catalog."
 
