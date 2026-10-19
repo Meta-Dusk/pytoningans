@@ -155,6 +155,18 @@ class BaseEntity(
         return self.mod_manager.custom_behavior if self.mod_manager is not None else None
 
     @property
+    def pack(self) -> Optional[Any]:
+        """Returns the parent ModPack controller if this entity belongs to a modpack, or None."""
+        if self.mod_manager is not None and self.mod_manager.pack is not None:
+            return self.mod_manager.pack.controller
+        return None
+
+    @property
+    def pack_id(self) -> Optional[str]:
+        """Returns the identifier of the parent modpack, or None if standalone."""
+        return self.mod_manager.pack_id if self.mod_manager is not None else None
+
+    @property
     def state(self) -> str:
         return self._state
 

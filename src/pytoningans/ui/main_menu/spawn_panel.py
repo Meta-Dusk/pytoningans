@@ -10,6 +10,7 @@ from PySide6.QtCore import QRect, Signal
 from PySide6.QtGui import QGuiApplication, QScreen
 
 from pytoningans.core.constants import EntityType
+from pytoningans.core.mod_manager.discovery import ModEntryInfo
 from pytoningans.core.world import WorldOverlay
 from pytoningans.core.settings import SettingsManager
 from pytoningans.core.spawning import SpawnAreaMode
@@ -183,14 +184,51 @@ class SpawnPanel(QWidget):
         self.monitor_combo.addItem("Random Monitor", userData="random")
 
     def refresh_spawn_list(self) -> None:
-        """Filters the spawn dropdown based on the active category filter."""
+        """Filters the spawn dropdown based on the active category filter, grouping by modpack."""
         self.mod_combo.clear()
         selected_category: str = self.category_combo.currentData()
 
-        mods: dict[str, tuple[str, str]] = self.manager.mod_manager.get_available_mods_with_type()
-        for folder, (name, entity_type) in mods.items():
-            if selected_category == "all" or entity_type == selected_category:
-                self.mod_combo.addItem(f"[{entity_type.capitalize()}] {name}", userData=folder)
+        entries: list[ModEntryInfo] = self.manager.mod_manager.get_detailed_mod_list()
+        filtered: list[ModEntryInfo] = [
+            e for e in entries
+            if selected_category == "all" or e.entity_type == selected_category
+        ]
+
+        standalone: list[ModEntryInfo] = [e for e in filtered if not e.pack_id]
+        by_pack: dict[str, list] = {}
+        for e in filtered:
+            if e.pack_id is None or not e.pack_id: continue
+            _pack_name: str = e.pack_name or e.pack_id
+            by_pack.setdefault(_pack_name, []).append(e)
+
+        if standalone:
+            if by_pack:
+                self.mod_combo.addItem("── Standalone ──", userData=None)
+                item = self.mod_combo.model().item(self.mod_combo.count() - 1)
+                if item: item.setEnabled(False)
+
+            for entry in standalone:
+                self.mod_combo.addItem(
+                    f"[{entry.entity_type.capitalize()}] {entry.display_name}",
+                    userData=entry.mod_id,
+                )
+
+        for pack_name, pack_entries in by_pack.items():
+            self.mod_combo.addItem(f"── Pack: {pack_name} ──", userData=None)
+            item = self.mod_combo.model().item(self.mod_combo.count() - 1)
+            if item: item.setEnabled(False)
+
+            for entry in pack_entries:
+                self.mod_combo.addItem(
+                    f"[{entry.entity_type.capitalize()}] {entry.display_name}",
+                    userData=entry.mod_id,
+                )
+
+        # Select first valid item if possible
+        for i in range(self.mod_combo.count()):
+            if self.mod_combo.itemData(i) is not None:
+                self.mod_combo.setCurrentIndex(i)
+                break
 
     def _on_area_changed(self, _: int) -> None:
         mode: str = self.area_combo.currentData()
@@ -262,7 +300,7 @@ class SpawnPanel(QWidget):
         if not selected_mod or not self.manager.active_worlds:
             return
 
-        selected_target = (
+        selected_target: Optional[str] = (
             self.monitor_combo.currentData() if self.monitor_combo.isVisible() else None
         )
         amount: int = self.amount_spin.value()

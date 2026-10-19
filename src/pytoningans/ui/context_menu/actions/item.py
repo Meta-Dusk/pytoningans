@@ -92,6 +92,19 @@ def build_item_actions(menu: EntityContextMenu, layout: QVBoxLayout, item: BaseI
     hitbox_btn.clicked.connect(lambda: menu.execute_action(toggle_hitbox))
     layout.addWidget(hitbox_btn)
 
+    # Pack Actions (if part of a Tier 2 Modpack)
+    if item.mod_manager is not None and item.mod_manager.pack is not None:
+        pack_actions = item.mod_manager.pack.get_context_menu_actions(item)
+        if pack_actions:
+            layout.addWidget(create_info_row(f"{item.mod_manager.pack.name}:", "Pack Actions"))
+            for act in pack_actions:
+                act_btn = QPushButton(act.label)
+                if act.tooltip:
+                    act_btn.setToolTip(act.tooltip)
+                act_cb = act.callback
+                act_btn.clicked.connect(lambda _, c=act_cb: menu.execute_action(c))
+                layout.addWidget(act_btn)
+
     layout.addWidget(create_separator())
 
     # Destroy item

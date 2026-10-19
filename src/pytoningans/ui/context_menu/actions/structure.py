@@ -106,6 +106,19 @@ def build_structure_actions(menu: EntityContextMenu, layout: QVBoxLayout, struct
     hitbox_btn.clicked.connect(lambda: menu.execute_action(toggle_hitbox))
     layout.addWidget(hitbox_btn)
 
+    # Pack Actions (if part of a Tier 2 Modpack)
+    if structure.mod_manager is not None and structure.mod_manager.pack is not None:
+        pack_actions = structure.mod_manager.pack.get_context_menu_actions(structure)
+        if pack_actions:
+            layout.addWidget(create_info_row(f"{structure.mod_manager.pack.name}:", "Pack Actions"))
+            for act in pack_actions:
+                act_btn = QPushButton(act.label)
+                if act.tooltip:
+                    act_btn.setToolTip(act.tooltip)
+                act_cb = act.callback
+                act_btn.clicked.connect(lambda _, c=act_cb: menu.execute_action(c))
+                layout.addWidget(act_btn)
+
     layout.addWidget(create_separator())
 
     # Close structure

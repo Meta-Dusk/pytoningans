@@ -74,3 +74,17 @@ class ModConfig:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass
+class ModPackConfig:
+    id: str
+    name: str
+    version: str = "1.0.0"
+    author: str = ""
+    description: str = ""
+    shared_script: str = "pack.py"
+    tags: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)

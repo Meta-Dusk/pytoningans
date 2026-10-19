@@ -53,6 +53,12 @@ from .behaviors import (
     BaseBehavior,
 )
 
+# Modpacks
+from .modpack import (
+    BaseModPack,
+    PackMenuAction,
+)
+
 __all__ = [
     # Types & Geometry
     "Pos2D",
@@ -89,5 +95,9 @@ __all__ = [
     "BaseStructureBehavior",
     "BaseItemBehavior",
     "BaseBehavior",
+
+    # Modpacks
+    "BaseModPack",
+    "PackMenuAction",
 ]
 

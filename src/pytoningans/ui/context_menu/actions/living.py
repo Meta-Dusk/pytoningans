@@ -132,6 +132,19 @@ def build_living_actions(menu: EntityContextMenu, layout: QVBoxLayout, entity: E
 
     layout.addLayout(row_debug)
 
+    # Pack Actions (if part of a Tier 2 Modpack)
+    if entity.mod_manager is not None and entity.mod_manager.pack is not None:
+        pack_actions = entity.mod_manager.pack.get_context_menu_actions(entity)
+        if pack_actions:
+            layout.addWidget(create_info_row(f"{entity.mod_manager.pack.name}:", "Pack Actions"))
+            for act in pack_actions:
+                act_btn = QPushButton(act.label)
+                if act.tooltip:
+                    act_btn.setToolTip(act.tooltip)
+                act_cb = act.callback
+                act_btn.clicked.connect(lambda _, c=act_cb: menu.execute_action(c))
+                layout.addWidget(act_btn)
+
     layout.addWidget(create_separator())
 
     # Close / Despawn

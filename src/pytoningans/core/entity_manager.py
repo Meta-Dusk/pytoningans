@@ -186,6 +186,9 @@ class EntityManager:
         return entity
 
     def _on_spawn(self, entity: BaseEntity) -> None:
+        if entity.mod_manager is not None and entity.mod_manager.pack is not None:
+            entity.mod_manager.pack.on_entity_spawned(entity)
+
         behavior: Optional[BaseBehavior] = entity.behavior
         if behavior is None: return
         
