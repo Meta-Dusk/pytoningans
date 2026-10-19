@@ -60,7 +60,7 @@ class RatingDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16); layout.setSpacing(12)
 
         prompt_lbl = QLabel(
-            f"How would you rate <b>{self.item.name}</b> by @{self.item.author}?"
+            f"How would you rate <b>{self.item.name}</b> by {self.item.author}?"
         )
         prompt_lbl.setWordWrap(True)
         layout.addWidget(prompt_lbl)

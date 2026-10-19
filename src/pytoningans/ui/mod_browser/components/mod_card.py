@@ -2,7 +2,7 @@
 PyToNingans Mod Browser - Mod Card Component
 ============================================
 Visual card widget rendering community mod details, ratings, download stats,
-tags, and one-click actions (Inspect, Install/Uninstall, Rate).
+tags, outdated badges, update buttons, and one-click actions.
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Optional
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QWidget
+    QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QWidget, QMessageBox
 )
 
 from pytoningans.core.constants import EntityType
@@ -22,6 +22,7 @@ class ModCardWidget(QFrame):
 
     install_requested = Signal(object)    # CommunityModItem
     uninstall_requested = Signal(object)  # CommunityModItem
+    update_requested = Signal(object)     # CommunityModItem
     inspect_requested = Signal(object)    # CommunityModItem
     rate_requested = Signal(object)       # CommunityModItem
 
@@ -49,7 +50,7 @@ class ModCardWidget(QFrame):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(8)
 
-        # --- Top Header: Type Badge, Name, Installed indicator ---
+        # --- Top Header: Type Badge, Name, Outdated Indicator, Installed status ---
         header_layout = QHBoxLayout(); header_layout.setSpacing(8)
 
         # Type badge
@@ -82,21 +83,46 @@ class ModCardWidget(QFrame):
         name_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #cdd6f4;")
         header_layout.addWidget(name_label, stretch=1)
 
-        # Installed badge
-        if self.item.is_installed:
-            installed_badge = QLabel("✓ Installed")
-            installed_badge.setStyleSheet(
-                "color: #10b981; font-weight: bold; font-size: 11px; "
-                "background-color: rgba(16, 185, 129, 0.15); "
+        # Outdated warning badge
+        if self.item.is_outdated:
+            reasons_text = "\n• ".join(self.item.outdated_reasons)
+            outdated_badge = QLabel("⚠️ Outdated")
+            outdated_badge.setToolTip(f"Outdated Compatibility Warning:\n• {reasons_text}")
+            outdated_badge.setStyleSheet(
+                "background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; "
+                "font-weight: bold; font-size: 11px; border: 1px solid #f59e0b; "
                 "border-radius: 4px; padding: 2px 6px;"
             )
-            header_layout.addWidget(installed_badge)
+            header_layout.addWidget(outdated_badge)
+
+        # Installation / Update Status Badges
+        if self.item.is_installed:
+            if self.item.has_update:
+                update_badge = QLabel(f"↑ Update Available (v{self.item.version})")
+                update_badge.setToolTip(
+                    f"Installed: v{self.item.installed_version} → Latest: v{self.item.version}"
+                )
+                update_badge.setStyleSheet(
+                    "color: #38bdf8; font-weight: bold; font-size: 11px; "
+                    "background-color: rgba(56, 189, 248, 0.15); "
+                    "border: 1px solid #38bdf8; border-radius: 4px; padding: 2px 6px;"
+                )
+                header_layout.addWidget(update_badge)
+            else:
+                ver_display = self.item.installed_version or self.item.version
+                installed_badge = QLabel(f"✓ Installed (v{ver_display})")
+                installed_badge.setStyleSheet(
+                    "color: #10b981; font-weight: bold; font-size: 11px; "
+                    "background-color: rgba(16, 185, 129, 0.15); "
+                    "border-radius: 4px; padding: 2px 6px;"
+                )
+                header_layout.addWidget(installed_badge)
 
         layout.addLayout(header_layout)
 
         # --- Sub-Header: Author and Version ---
         meta_label = QLabel(
-            f"by @{self.item.author} • v{self.item.version} • {self.item.formatted_size}"
+            f"by {self.item.author} • v{self.item.version} • {self.item.formatted_size}"
         )
         meta_label.setStyleSheet("color: #a6adc8; font-size: 12px;")
         layout.addWidget(meta_label)
@@ -137,6 +163,14 @@ class ModCardWidget(QFrame):
 
         footer_layout.addStretch()
 
+        # Action: Changelog button if multiple releases or changelog available
+        if self.item.releases:
+            changelog_btn = QPushButton("Changelog")
+            changelog_btn.setToolTip("View version history and release notes")
+            changelog_btn.setStyleSheet("padding: 4px 8px; font-size: 11px; color: #a6adc8;")
+            changelog_btn.clicked.connect(self._show_changelog)
+            footer_layout.addWidget(changelog_btn)
+
         # Action 1: Rate button
         rate_btn = QPushButton("Rate")
         rate_btn.setToolTip(f"Submit a rating (1-10) for {self.item.name}")
@@ -151,22 +185,39 @@ class ModCardWidget(QFrame):
         inspect_btn.clicked.connect(lambda: self.inspect_requested.emit(self.item))
         footer_layout.addWidget(inspect_btn)
 
-        # Action 3: Install / Uninstall button
+        # Action 3: Install / Update / Uninstall buttons
         if self.item.is_installed:
-            action_btn = QPushButton("Uninstall"); action_btn.setObjectName("DangerBtn")
-            action_btn.setStyleSheet(
-                "background-color: #ef4444; color: white; padding: 4px 12px; "
+            if self.item.has_update:
+                update_btn = QPushButton(f"Update (v{self.item.version})")
+                update_btn.setToolTip(f"Upgrade to version {self.item.version}")
+                update_btn.setStyleSheet(
+                    "background-color: #0284c7; color: white; padding: 4px 12px; "
+                    "font-size: 11px; font-weight: bold; border-radius: 4px;"
+                )
+                update_btn.clicked.connect(lambda: self.update_requested.emit(self.item))
+                footer_layout.addWidget(update_btn)
+
+            uninstall_btn = QPushButton("Uninstall")
+            uninstall_btn.setStyleSheet(
+                "background-color: #ef4444; color: white; padding: 4px 10px; "
                 "font-size: 11px; font-weight: bold; border-radius: 4px;"
             )
-            action_btn.clicked.connect(lambda: self.uninstall_requested.emit(self.item))
+            uninstall_btn.clicked.connect(lambda: self.uninstall_requested.emit(self.item))
+            footer_layout.addWidget(uninstall_btn)
         else:
-            action_btn = QPushButton("Install")
-            action_btn.setStyleSheet(
+            install_btn = QPushButton("Install")
+            install_btn.setStyleSheet(
                 "background-color: #10b981; color: white; padding: 4px 14px; "
                 "font-size: 11px; font-weight: bold; border-radius: 4px;"
             )
-            action_btn.clicked.connect(lambda: self.install_requested.emit(self.item))
+            install_btn.clicked.connect(lambda: self.install_requested.emit(self.item))
+            footer_layout.addWidget(install_btn)
 
-        footer_layout.addWidget(action_btn)
         layout.addLayout(footer_layout)
 
+    def _show_changelog(self) -> None:
+        """Displays release notes in an information dialog."""
+        lines = [f"<b>Release History for {self.item.name}</b><br>"]
+        for r in self.item.releases:
+            lines.append(f"<b>Version {r.version}</b> ({r.created_at}):<br>• {r.changelog}<br>")
+        QMessageBox.information(self, f"{self.item.name} - Changelog", "<br>".join(lines))

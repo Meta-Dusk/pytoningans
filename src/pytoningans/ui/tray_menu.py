@@ -2,7 +2,7 @@ from PySide6.QtWidgets import QSystemTrayIcon, QMenu, QApplication
 from PySide6.QtGui import QIcon, QAction
 
 from pytoningans.ui.main_menu import MainMenu
-from pytoningans.core.constants import APP_CFG
+from pytoningans.core.constants import APP_CONFIG
 from pytoningans.utils.paths import get_asset_path
 
 class AppTray(QSystemTrayIcon):
@@ -11,7 +11,7 @@ class AppTray(QSystemTrayIcon):
         super().__init__(icon)
         
         self.main_menu: MainMenu = main_menu
-        self.setToolTip(APP_CFG.app_name)
+        self.setToolTip(APP_CONFIG.name)
         self._setup_menu()
 
     def _setup_menu(self) -> None:

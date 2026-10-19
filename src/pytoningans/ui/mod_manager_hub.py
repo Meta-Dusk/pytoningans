@@ -399,8 +399,17 @@ class ModManagerHub(QWidget):
         if result == QDialog.DialogCode.Accepted:
             self._refresh_list()
             self.mods_updated.emit()
-            self._select_folder(dialog.new_mod_folder)
-            self._open_editor(dialog.new_mod_folder)
+            if dialog.is_pack_creation:
+                QMessageBox.information(
+                    self,
+                    "Modpack Created",
+                    f"Modpack bundle '{dialog.new_mod_folder}' was successfully created.\n\n"
+                    "You can now add entities, items, or structures into this modpack by selecting "
+                    "'Add Object into Existing Modpack' in the Mod Creator.",
+                )
+            else:
+                self._select_folder(dialog.new_mod_folder)
+                self._open_editor(dialog.new_mod_folder)
         try:
             dialog.deleteLater()
         except Exception:

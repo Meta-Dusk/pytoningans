@@ -3,10 +3,12 @@ from pathlib import Path
 from typing import Any, Optional
 from PySide6.QtCore import QStandardPaths
 
-from pytoningans.core.constants import APP_CFG
+from pytoningans.core.constants import APP_CONFIG
 
 def is_compiled() -> bool:
-    """Detects if the app is packaged via pyside6-deploy (Nuitka) or PyInstaller."""
+    """
+    Detects if the app is packaged via pyside6-deploy (Nuitka) or PyInstaller.
+    """
     return getattr(sys, 'frozen', False) or "__compiled__" in globals()
 
 def get_base_path() -> Path:
@@ -31,18 +33,22 @@ def get_asset_path(relative_path: str) -> Path:
 
 def get_mods_directory() -> Path:
     """Safely resolves and creates the Documents/PyToNingans/mods folder."""
-    docs_path = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation))
+    docs_path = Path(
+        QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
+    )
     
     # Resolves to Documents/PyToNingans/mods
-    mods_dir = docs_path / APP_CFG.app_name / "mods"
+    mods_dir: Path = docs_path / APP_CONFIG.name / "mods"
     mods_dir.mkdir(parents=True, exist_ok=True)
     
     return mods_dir
 
 def get_settings_path() -> Path:
     """Safely resolves Documents/PyToNingans/settings.json."""
-    docs_path = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation))
-    app_dir = docs_path / APP_CFG.app_name
+    docs_path = Path(
+        QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
+    )
+    app_dir: Path = docs_path / APP_CONFIG.name
     app_dir.mkdir(parents=True, exist_ok=True)
     return app_dir / "settings.json"
 
@@ -65,7 +71,7 @@ def get_app_version() -> str:
         if pyproject_file.exists():
             import tomllib
             data: dict[str, Any] = tomllib.loads(pyproject_file.read_text(encoding="utf-8"))
-            version = data.get("project", {}).get("version")
+            version: str = data.get("project", {}).get("version")
             if version:
                 _CACHED_APP_VERSION = str(version)
                 return _CACHED_APP_VERSION
@@ -74,8 +80,8 @@ def get_app_version() -> str:
 
     # Attempt to resolve via package metadata
     try:
-        from importlib.metadata import version
-        _CACHED_APP_VERSION = version("pytoningans")
+        from importlib.metadata import version as meta_version
+        _CACHED_APP_VERSION = meta_version("pytoningans")
         return _CACHED_APP_VERSION
     except Exception:
         pass

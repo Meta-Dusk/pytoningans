@@ -94,7 +94,7 @@ class AnimationMeta:
 
 @dataclass(frozen=True, slots=True)
 class AppConfig:
-    app_name: str = "PyToNingans"
+    name: str = "PyToNingans"
 
 @dataclass
 class SystemLocks:
@@ -102,4 +102,4 @@ class SystemLocks:
     physics: bool = True
     animation: bool = True
 
-APP_CFG = AppConfig()
+APP_CONFIG = AppConfig()

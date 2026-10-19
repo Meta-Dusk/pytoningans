@@ -2,23 +2,25 @@
 PyToNingans Mod Browser - Client and Data Provider
 ================================================
 Handles catalog fetching, search filtering, download orchestration,
-package extraction, local installation tracking, and rating submissions.
+package extraction, local installation tracking, release updates, and rating submissions.
 Designed for offline-first operation with cloud sync readiness.
 """
 from __future__ import annotations
 
-import json, shutil
+import json, shutil, time
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
+from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
 from pytoningans.core.mod_manager import (
     resolve_mod_path, get_available_mods_with_type, get_available_packs,
 )
-from .models import CommunityModItem
+from pytoningans.utils.paths import get_app_version
+from .models import CommunityModItem, ModRelease, parse_semver
 
 
-# Seed catalog: Realistic community creations demonstrating diverse entity types and modpacks
+# Seed catalog: Realistic community creations demonstrating diverse entity types, modpacks, and release versions
 DEFAULT_CATALOG_DATA: list[dict[str, Any]] = [
     {
         "id": "vocaloid_crew_pack",
@@ -37,6 +39,20 @@ DEFAULT_CATALOG_DATA: list[dict[str, Any]] = [
         "size_bytes": 142000,
         "is_pack": True,
         "contained_entities": ["Hatsune Miku", "Kagamine Rin", "Kagamine Len"],
+        "config_version": CURRENT_CONFIG_VERSION,
+        "target_app_version": "0.8.0",
+        "releases": [
+            {
+                "version": "1.2.0",
+                "changelog": "Added Kagamine Len dual-singing interaction routine.",
+                "created_at": "2026-10-18",
+            },
+            {
+                "version": "1.0.0",
+                "changelog": "Initial release with Hatsune Miku and Rin.",
+                "created_at": "2026-10-10",
+            },
+        ],
     },
     {
         "id": "pixel_slime_knight",
@@ -55,6 +71,15 @@ DEFAULT_CATALOG_DATA: list[dict[str, Any]] = [
         "size_bytes": 48000,
         "is_pack": False,
         "contained_entities": [],
+        "config_version": CURRENT_CONFIG_VERSION,
+        "target_app_version": "0.8.0",
+        "releases": [
+            {
+                "version": "1.0.4",
+                "changelog": "Fine-tuned border bounce physics.",
+                "created_at": "2026-10-17",
+            }
+        ],
     },
     {
         "id": "coffee_brewer_structure",
@@ -73,6 +98,15 @@ DEFAULT_CATALOG_DATA: list[dict[str, Any]] = [
         "size_bytes": 62000,
         "is_pack": False,
         "contained_entities": [],
+        "config_version": CURRENT_CONFIG_VERSION,
+        "target_app_version": "0.8.0",
+        "releases": [
+            {
+                "version": "1.1.0",
+                "changelog": "Added steaming coffee particles.",
+                "created_at": "2026-10-15",
+            }
+        ],
     },
     {
         "id": "energy_crystal_item",
@@ -91,6 +125,15 @@ DEFAULT_CATALOG_DATA: list[dict[str, Any]] = [
         "size_bytes": 28000,
         "is_pack": False,
         "contained_entities": [],
+        "config_version": CURRENT_CONFIG_VERSION,
+        "target_app_version": "0.8.0",
+        "releases": [
+            {
+                "version": "1.0.0",
+                "changelog": "Initial crystal release.",
+                "created_at": "2026-10-12",
+            }
+        ],
     },
     {
         "id": "cyber_drone_flying",
@@ -109,24 +152,42 @@ DEFAULT_CATALOG_DATA: list[dict[str, Any]] = [
         "size_bytes": 75000,
         "is_pack": False,
         "contained_entities": [],
+        "config_version": CURRENT_CONFIG_VERSION,
+        "target_app_version": "0.8.0",
+        "releases": [
+            {
+                "version": "2.0.1",
+                "changelog": "Improved flying window collision angle detection.",
+                "created_at": "2026-10-19",
+            }
+        ],
     },
     {
-        "id": "dungeon_crawler_pack",
-        "name": "Classic Dungeon Crawler Pack",
-        "entity_type": "pack",
-        "version": "1.0.0",
-        "author": "PixelForge",
+        "id": "retro_companion_legacy",
+        "name": "Vintage Desktop Golem",
+        "entity_type": EntityType.ENTITY,
+        "version": "0.9.0",
+        "author": "OldSchoolModder",
         "description": (
-            "Everything you need for desktop RPG adventures: Warrior, Skeleton Mob, "
-            "Treasure Chest, and Healing Potions bundled in one pack."
+            "A slow stone golem from the early alpha versions. "
+            "Note: Designed for config schema v1 and app v0.7.0."
         ),
-        "tags": ["rpg", "combat", "modpack", "enemies", "loot"],
-        "rating": 9.5,
-        "rating_count": 79,
-        "downloads": 4100,
-        "size_bytes": 210000,
-        "is_pack": True,
-        "contained_entities": ["Dungeon Warrior", "Skeleton Archer", "Mimic Chest", "Healing Potion"],
+        "tags": ["retro", "legacy", "rock"],
+        "rating": 8.2,
+        "rating_count": 15,
+        "downloads": 620,
+        "size_bytes": 31000,
+        "is_pack": False,
+        "contained_entities": [],
+        "config_version": 1,  # Legacy config version to demonstrate Outdated badge
+        "target_app_version": "0.7.0",
+        "releases": [
+            {
+                "version": "0.9.0",
+                "changelog": "Legacy build.",
+                "created_at": "2026-08-01",
+            }
+        ],
     },
 ]
 
@@ -136,10 +197,7 @@ class ModBrowserClient:
 
     def __init__(self, mods_dir: Path) -> None:
         self.mods_dir: Path = mods_dir.resolve()
-        
         self._user_ratings: dict[str, float] = {}
-        """mod_id -> rating given by current user"""
-        
         self._catalog_items: list[CommunityModItem] = []
         self.is_online: bool = True
         self._load_local_catalog()
@@ -148,6 +206,24 @@ class ModBrowserClient:
         """Initializes catalog data from built-in seed and cached entries."""
         self._catalog_items = []
         for entry in DEFAULT_CATALOG_DATA:
+            releases: list[ModRelease] = []
+            for release in entry.get("releases", []):
+                releases.append(
+                    ModRelease(
+                        version=release.get("version", entry["version"]),
+                        changelog=release.get("changelog", ""),
+                        created_at=release.get("created_at", "2026-10-18"),
+                        target_app_version=release.get(
+                            "target_app_version", entry.get("target_app_version", "0.8.0")
+                        ),
+                        config_version=int(
+                            release.get(
+                                "config_version", entry.get("config_version", CURRENT_CONFIG_VERSION)
+                            )
+                        ),
+                    )
+                )
+
             item = CommunityModItem(
                 id=entry["id"],
                 name=entry["name"],
@@ -165,10 +241,20 @@ class ModBrowserClient:
                 icon_url=entry.get("icon_url"),
                 preview_image_path=entry.get("preview_image_path"),
                 package_url=entry.get("package_url"),
-                created_at="2026-10-18",
-                updated_at="2026-10-19",
+                created_at=entry.get("created_at", "2026-10-18"),
+                updated_at=entry.get("updated_at", "2026-10-19"),
+                config_version=int(entry.get("config_version", CURRENT_CONFIG_VERSION)),
+                target_app_version=entry.get("target_app_version", "0.8.0"),
+                releases=releases,
             )
             self._catalog_items.append(item)
+
+    def get_mod_by_id(self, mod_id: str) -> Optional[CommunityModItem]:
+        """Returns the catalog entry for a given mod ID if present."""
+        for item in self._catalog_items:
+            if item.id == mod_id:
+                return item
+        return None
 
     def fetch_mods(
         self, query: str = "", category: str = "all",
@@ -221,20 +307,65 @@ class ModBrowserClient:
         return results
 
     def sync_installed_status(self, items: list[CommunityModItem]) -> None:
-        """Updates the is_installed flag on catalog items based on currently present folders in mods_dir."""
+        """Updates is_installed, installed_version, and has_update flags on catalog items."""
         if not self.mods_dir.exists():
             for item in items:
                 item.is_installed = False
+                item.installed_version = None
+                item.has_update = False
             return
 
-        installed_standalone: set[str] = set(get_available_mods_with_type(self.mods_dir).keys())
-        installed_packs: set[str] = set(get_available_packs(self.mods_dir).keys())
+        installed_standalone: dict[str, tuple[str, str]] = get_available_mods_with_type(self.mods_dir)
+        installed_packs: dict[str, Any] = get_available_packs(self.mods_dir)
 
         for item in items:
+            folder: Path = self.mods_dir / item.id
             if item.is_pack:
-                item.is_installed = (item.id in installed_packs) or (self.mods_dir / item.id).exists()
+                pack_obj = installed_packs.get(item.id)
+                if pack_obj is not None:
+                    item.is_installed = True
+                    item.installed_version = pack_obj.manifest.version
+                elif folder.exists() and (folder / "pack.json").exists():
+                    item.is_installed = True
+                    try:
+                        pack_data: dict[str, Any] = json.loads(
+                            (folder / "pack.json").read_text(encoding="utf-8")
+                        )
+                        item.installed_version = str(
+                            pack_data.get("version", "1.0.0")
+                        )
+                    except Exception:
+                        item.installed_version = "1.0.0"
+                else:
+                    item.is_installed = False
+                    item.installed_version = None
             else:
-                item.is_installed = (item.id in installed_standalone) or (self.mods_dir / item.id).exists()
+                if item.id in installed_standalone or folder.exists():
+                    item.is_installed = True
+                    config_file: Path = folder / "config.json"
+                    if config_file.exists():
+                        try:
+                            config_data: dict[str, Any] = json.loads(
+                                config_file.read_text(encoding="utf-8")
+                            )
+                            item.installed_version = str(
+                                config_data.get(
+                                    "mod_version", config_data.get("version", "1.0.0")
+                                )
+                            )
+                        except Exception:
+                            item.installed_version = "1.0.0"
+                    else:
+                        item.installed_version = "1.0.0"
+                else:
+                    item.is_installed = False
+                    item.installed_version = None
+
+            # Compare catalog semver vs installed semver
+            if item.is_installed and item.installed_version:
+                item.has_update = parse_semver(item.version) > parse_semver(item.installed_version)
+            else:
+                item.has_update = False
 
     def install_mod(self, item: CommunityModItem) -> tuple[bool, str]:
         """
@@ -248,7 +379,6 @@ class ModBrowserClient:
             return False, f"Mod folder '{item.id}' already exists locally."
 
         try:
-            # Generate scaffold package structure matching mod specifications
             target_dir.mkdir(parents=True, exist_ok=True)
 
             if item.is_pack:
@@ -286,7 +416,7 @@ class ModBrowserClient:
                     entity_config: dict[str, Any] = {
                         "name": entity_name,
                         "entity_type": EntityType.ENTITY,
-                        "version": 2,
+                        "version": CURRENT_CONFIG_VERSION,
                         "columns": 1,
                         "rows": 1,
                     }
@@ -299,7 +429,8 @@ class ModBrowserClient:
                 config_data: dict[str, Any] = {
                     "name": item.name,
                     "entity_type": item.entity_type,
-                    "version": 2,
+                    "version": CURRENT_CONFIG_VERSION,
+                    "mod_version": item.version,
                     "columns": 1,
                     "rows": 1,
                     "behavior": {
@@ -313,6 +444,8 @@ class ModBrowserClient:
                 self._create_placeholder_sprite(target_dir / "sprite_sheet.png")
 
             item.is_installed = True
+            item.installed_version = item.version
+            item.has_update = False
             item.downloads += 1
             return True, f"Successfully installed '{item.name}'."
 
@@ -321,11 +454,45 @@ class ModBrowserClient:
                 shutil.rmtree(target_dir, ignore_errors=True)
             return False, f"Failed to install mod: {e}"
 
+    def update_mod(self, item: CommunityModItem) -> tuple[bool, str]:
+        """
+        Updates an installed mod or modpack to the latest catalog release version.
+        Refreshes manifests and metadata cleanly without data loss.
+        """
+        target_dir: Path = self.mods_dir / item.id
+        if not target_dir.exists():
+            resolved, pack_id, _ = resolve_mod_path(self.mods_dir, item.id)
+            if resolved is not None and resolved.exists():
+                target_dir = self.mods_dir / pack_id if pack_id else resolved
+            else:
+                return False, f"Local installation for '{item.name}' not found."
+
+        try:
+            if item.is_pack:
+                pack_json = target_dir / "pack.json"
+                if pack_json.exists():
+                    p_data = json.loads(pack_json.read_text(encoding="utf-8"))
+                    p_data["version"] = item.version
+                    p_data["description"] = item.description
+                    pack_json.write_text(json.dumps(p_data, indent=2), encoding="utf-8")
+            else:
+                cfg_file = target_dir / "config.json"
+                if cfg_file.exists():
+                    c_data = json.loads(cfg_file.read_text(encoding="utf-8"))
+                    c_data["mod_version"] = item.version
+                    c_data["version"] = CURRENT_CONFIG_VERSION
+                    cfg_file.write_text(json.dumps(c_data, indent=2), encoding="utf-8")
+
+            item.installed_version = item.version
+            item.has_update = False
+            return True, f"Successfully updated '{item.name}' to v{item.version}!"
+        except Exception as e:
+            return False, f"Failed to update '{item.name}': {e}"
+
     def uninstall_mod(self, item: CommunityModItem) -> tuple[bool, str]:
         """Safely removes an installed mod or modpack from self.mods_dir."""
         target_dir: Path = self.mods_dir / item.id
         if not target_dir.exists():
-            # Check if resolved by ID
             resolved, pack_id, _ = resolve_mod_path(self.mods_dir, item.id)
             if resolved is not None and resolved.exists():
                 target_dir = self.mods_dir / pack_id if pack_id else resolved
@@ -335,28 +502,114 @@ class ModBrowserClient:
         try:
             shutil.rmtree(target_dir)
             item.is_installed = False
+            item.installed_version = None
+            item.has_update = False
             return True, f"Successfully uninstalled '{item.name}'."
         except Exception as e:
             return False, f"Failed to delete mod folder: {e}"
+
+    def publish_or_update(
+        self,
+        mod_id: str,
+        name: str,
+        author: str,
+        version: str,
+        description: str,
+        entity_type: str,
+        is_pack: bool,
+        tags: list[str],
+        changelog: str = "",
+        contained_entities: Optional[list[str]] = None,
+        size_bytes: int = 0,
+    ) -> tuple[bool, str, CommunityModItem]:
+        """
+        Publishes a new mod or updates an existing publication with version bump and changelog.
+        Prevents duplicate entries and ensures version history tracking like git releases.
+        """
+        contained_entities = contained_entities or []
+        today: str = time.strftime("%Y-%m-%d")
+
+        existing_item: Optional[CommunityModItem] = self.get_mod_by_id(mod_id)
+        if existing_item is not None:
+            # Check version bump
+            if parse_semver(version) <= parse_semver(existing_item.version):
+                return (
+                    False,
+                    f"New release version (v{version}) must be higher than current catalog version "
+                    f"(v{existing_item.version}).",
+                    existing_item,
+                )
+
+            # Append release
+            new_release = ModRelease(
+                version=version,
+                changelog=changelog or f"Updated to v{version}.",
+                created_at=today,
+                target_app_version=get_app_version(),
+                config_version=CURRENT_CONFIG_VERSION,
+            )
+            existing_item.releases.insert(0, new_release)
+            existing_item.version = version
+            existing_item.description = description
+            existing_item.updated_at = today
+            existing_item.size_bytes = size_bytes or existing_item.size_bytes
+            existing_item.config_version = CURRENT_CONFIG_VERSION
+            existing_item.target_app_version = get_app_version()
+            if tags:
+                existing_item.tags = list(set(existing_item.tags + tags))
+            if contained_entities:
+                existing_item.contained_entities = contained_entities
+
+            return True, f"Successfully published release v{version} for '{existing_item.name}'!", existing_item
+
+        # Create brand-new mod entry
+        initial_release = ModRelease(
+            version=version,
+            changelog=changelog or "Initial community release.",
+            created_at=today,
+            target_app_version=get_app_version(),
+            config_version=CURRENT_CONFIG_VERSION,
+        )
+        new_item = CommunityModItem(
+            id=mod_id,
+            name=name,
+            entity_type=entity_type,
+            version=version,
+            author=author,
+            description=description,
+            tags=tags,
+            rating=10.0,
+            rating_count=0,
+            downloads=0,
+            size_bytes=size_bytes,
+            is_pack=is_pack,
+            contained_entities=contained_entities,
+            created_at=today,
+            updated_at=today,
+            config_version=CURRENT_CONFIG_VERSION,
+            target_app_version=get_app_version(),
+            releases=[initial_release],
+        )
+        self._catalog_items.insert(0, new_item)
+        return True, f"Successfully published '{name}' (v{version}) to Community Mod Browser!", new_item
 
     def rate_mod(self, mod_id: str, score: float) -> tuple[bool, str]:
         """Submits a rating (1.0 to 10.0) for a given mod and updates the score average."""
         score = max(1.0, min(10.0, score))
         for item in self._catalog_items:
-            if item.id == mod_id:
-                # Update rolling average
-                total_points: float = item.rating * item.rating_count
-                if mod_id in self._user_ratings:
-                    # User updating previous rating
-                    old_score: float = self._user_ratings[mod_id]
-                    total_points = total_points - old_score + score
-                else:
-                    total_points += score
-                    item.rating_count += 1
+            if item.id != mod_id: continue
+            
+            total_points: float = item.rating * item.rating_count
+            if mod_id in self._user_ratings:
+                old_score: float = self._user_ratings[mod_id]
+                total_points = total_points - old_score + score
+            else:
+                total_points += score
+                item.rating_count += 1
 
-                item.rating = round(total_points / max(1, item.rating_count), 1)
-                self._user_ratings[mod_id] = score
-                return True, f"Your rating of {score:.1f}/10 has been recorded!"
+            item.rating = round(total_points / max(1, item.rating_count), 1)
+            self._user_ratings[mod_id] = score
+            return True, f"Your rating of {score:.1f}/10 has been recorded!"
 
         return False, f"Mod '{mod_id}' was not found in catalog."
 

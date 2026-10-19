@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon, QFontDatabase, QFont
 from PySide6.QtCore import Qt
 
-from pytoningans.core.constants import APP_CFG, EntityType
+from pytoningans.core.constants import APP_CONFIG, EntityType
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.entity_manager import EntityManager
 from pytoningans.ui.main_menu import MainMenu
@@ -24,7 +24,7 @@ def main() -> None:
     app: QApplication = QApplication(sys.argv)
     install_global_tooltip_filter(app)
     
-    app.setApplicationName(APP_CFG.app_name)
+    app.setApplicationName(APP_CONFIG.name)
     app.setQuitOnLastWindowClosed(False)
     app.setStyleSheet(DARK_THEME)
     window_icon = QIcon(get_asset_path("assets/icon.ico").as_posix())

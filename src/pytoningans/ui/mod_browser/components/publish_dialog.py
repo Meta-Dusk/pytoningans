@@ -2,12 +2,14 @@
 PyToNingans Mod Browser - Publish Modpack Dialog
 ================================================
 Guides modders through publishing their locally created mods and modpacks,
-including automatic AST security verification, manifest packaging, and cloud staging.
+including automatic AST security verification, manifest packaging, version bumping,
+release notes (git-like releases), and authenticated cloud staging.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any, TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -15,6 +17,7 @@ from PySide6.QtWidgets import (
     QTextEdit, QPushButton, QMessageBox, QWidget, QFrame
 )
 
+from pytoningans.core.constants import EntityType
 from pytoningans.core.mod_manager import (
     ModManager, resolve_mod_path, export_mod_or_pack_to_zip, scan_mod_or_pack,
     SecurityRiskLevel, SecurityReport,
@@ -22,21 +25,39 @@ from pytoningans.core.mod_manager import (
 from pytoningans.core.mod_manager.modpack import ModPack
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.utils.assets import get_main_icon
+from ..auth import AuthManager
+from ..models import CommunityModItem, parse_semver
+from .auth_dialog import AuthDialog
+
+if TYPE_CHECKING:
+    from pytoningans.ui.mod_browser.auth import UserProfile
 
 
 class PublishModDialog(QDialog):
     """Modal dialog allowing users to package and publish a local mod/pack to the community."""
 
-    def __init__(self, mod_manager: ModManager, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self,
+        mod_manager: ModManager,
+        client: Optional[Any] = None,
+        parent: Optional[QWidget] = None,
+    ) -> None:
         super().__init__(parent)
         self.mod_manager: ModManager = mod_manager
+        self.client: Optional[Any] = client
+        self.auth: AuthManager = AuthManager.get()
         self.published_package_path: Optional[Path] = None
 
         self.setWindowTitle("Publish Mod or Modpack")
         self.setWindowIcon(get_main_icon())
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.resize(540, 480)
+        self.resize(540, 560)
+
+        # Check authentication first
+        if not self.auth.is_authenticated:
+            auth_dlg = AuthDialog(self)
+            auth_dlg.exec()
 
         self._setup_ui()
         self._populate_mods_dropdown()
@@ -52,22 +73,56 @@ class PublishModDialog(QDialog):
         layout = QVBoxLayout(content)
         layout.setContentsMargins(16, 16, 16, 16); layout.setSpacing(10)
 
+        # Creator Account Banner
+        user: Optional[UserProfile] = self.auth.current_user
+        author_name: str = user.username if user else "GuestCreator"
+        user_banner = QLabel(f"Publishing as verified creator: <b>{author_name}</b>")
+        user_banner.setStyleSheet(
+            "background-color: rgba(59, 130, 246, 0.15); color: #93c5fd; "
+            "border: 1px solid #3b82f6; border-radius: 4px; padding: 6px 10px; font-size: 11px;"
+        )
+        layout.addWidget(user_banner)
+
+        # Mode Indicator Banner (New vs Update)
+        self.mode_banner = QLabel("Publishing Mode: New Mod")
+        self.mode_banner.setStyleSheet(
+            "background-color: #1e1e2e; color: #a6adc8; border-radius: 4px; padding: 4px 8px; font-size: 11px;"
+        )
+        layout.addWidget(self.mode_banner)
+
         # Target Mod Selector
         layout.addWidget(QLabel("Select Local Mod or Pack to Publish:"))
         self.mod_combo = QComboBox()
         self.mod_combo.currentIndexChanged.connect(self._on_target_changed)
         layout.addWidget(self.mod_combo)
 
-        # Author Handle
-        layout.addWidget(QLabel("Author / Creator Handle:"))
-        self.author_input = QLineEdit()
-        self.author_input.setPlaceholderText("e.g. YourUsername")
+        # Creator Handle (Read-only bound to account)
+        layout.addWidget(QLabel("Creator Handle:"))
+        self.author_input = QLineEdit(author_name)
+        self.author_input.setReadOnly(True)
+        self.author_input.setStyleSheet("background-color: #2b2b3b; color: #a6adc8;")
         layout.addWidget(self.author_input)
 
         # Version
-        layout.addWidget(QLabel("Release Version:"))
+        ver_layout = QHBoxLayout()
+        ver_layout.addWidget(QLabel("Release Version:"))
+        self.ver_hint_label = QLabel("(Must be higher than current)")
+        self.ver_hint_label.setStyleSheet("color: #a6adc8; font-size: 10px; font-style: italic;")
+        ver_layout.addWidget(self.ver_hint_label)
+        ver_layout.addStretch()
+        layout.addLayout(ver_layout)
+
         self.version_input = QLineEdit("1.0.0")
         layout.addWidget(self.version_input)
+
+        # Changelog / Release Notes
+        layout.addWidget(QLabel("Release Notes / Changelog:"))
+        self.changelog_input = QTextEdit()
+        self.changelog_input.setPlaceholderText(
+            "What's new in this release? (e.g. Added idle dance animation, fixed collision hitbox)..."
+        )
+        self.changelog_input.setMaximumHeight(65)
+        layout.addWidget(self.changelog_input)
 
         # Short Description
         layout.addWidget(QLabel("Description and Highlights:"))
@@ -75,7 +130,7 @@ class PublishModDialog(QDialog):
         self.desc_input.setPlaceholderText(
             "Describe your entity behavior, items, and animations..."
         )
-        self.desc_input.setMaximumHeight(80)
+        self.desc_input.setMaximumHeight(65)
         layout.addWidget(self.desc_input)
 
         # Security Pre-flight Status Frame
@@ -137,6 +192,42 @@ class PublishModDialog(QDialog):
         resolved, pack_id, _ = resolve_mod_path(self.mod_manager.mods_dir, target_id)
         target_dir: Optional[Path] = (self.mod_manager.mods_dir / pack_id) if pack_id else resolved
 
+        # Check if already published in catalog
+        existing_item: Optional[CommunityModItem] = None
+        if self.client is not None:
+            existing_item = self.client.get_mod_by_id(target_id)
+
+        if existing_item is not None:
+            self.mode_banner.setText(
+                f"Release Update Mode: Publishing new release for existing catalog item '{existing_item.name}'"
+            )
+            self.mode_banner.setStyleSheet(
+                "background-color: rgba(14, 165, 233, 0.2); color: #38bdf8; "
+                "border: 1px solid #0284c7; border-radius: 4px; padding: 4px 8px; font-weight: bold; font-size: 11px;"
+            )
+            self.desc_input.setPlainText(existing_item.description)
+
+            # Suggest version bump (e.g. 1.0.0 -> 1.0.1)
+            old_semver = parse_semver(existing_item.version)
+            suggested_ver = f"{old_semver[0]}.{old_semver[1]}.{old_semver[2] + 1}"
+            self.version_input.setText(suggested_ver)
+            self.ver_hint_label.setText(f"(Current catalog version: v{existing_item.version})")
+            self.publish_btn.setText(f"Publish Release Update (v{suggested_ver})")
+            self.publish_btn.setStyleSheet(
+                "background-color: #0284c7; color: white; font-weight: bold; padding: 6px 14px;"
+            )
+        else:
+            self.mode_banner.setText("Publishing Mode: New Mod Listing")
+            self.mode_banner.setStyleSheet(
+                "background-color: #1e1e2e; color: #a6adc8; border-radius: 4px; padding: 4px 8px; font-size: 11px;"
+            )
+            self.version_input.setText("1.0.0")
+            self.ver_hint_label.setText("(Initial release)")
+            self.publish_btn.setText("Package and Publish")
+            self.publish_btn.setStyleSheet(
+                "background-color: #10b981; color: white; font-weight: bold; padding: 6px 14px;"
+            )
+
         if target_dir and target_dir.exists():
             report: SecurityReport = scan_mod_or_pack(target_dir)
             if report.risk_level == SecurityRiskLevel.DANGEROUS:
@@ -172,10 +263,10 @@ class PublishModDialog(QDialog):
         if target_id is None or not target_id:
             return
 
-        author: str = self.author_input.text().strip()
-        if not author:
-            QMessageBox.warning(self, "Author Required", "Please enter your creator username/handle.")
-            return
+        author: str = self.author_input.text().strip() or "Modder"
+        version_str: str = self.version_input.text().strip() or "1.0.0"
+        desc: str = self.desc_input.toPlainText().strip()
+        changelog: str = self.changelog_input.toPlainText().strip()
 
         resolved, pack_id, _ = resolve_mod_path(self.mod_manager.mods_dir, target_id)
         target_dir: Optional[Path] = (self.mod_manager.mods_dir / pack_id) if pack_id else resolved
@@ -183,21 +274,73 @@ class PublishModDialog(QDialog):
             QMessageBox.critical(self, "Error", "Target directory does not exist.")
             return
 
+        is_pack: bool = (target_dir / "pack.json").exists()
+        entity_name: str = target_dir.name
+        entity_type: str = "pack" if is_pack else EntityType.ENTITY
+        contained_entities: list[str] = []
+
+        if is_pack:
+            try:
+                p_data = json.loads((target_dir / "pack.json").read_text(encoding="utf-8"))
+                entity_name = p_data.get("name", entity_name)
+                for sub in p_data.get("sub_mods", []):
+                    sub_cfg = target_dir / sub / "config.json"
+                    if sub_cfg.exists():
+                        sub_data = json.loads(sub_cfg.read_text(encoding="utf-8"))
+                        contained_entities.append(sub_data.get("name", Path(sub).name))
+            except Exception:
+                pass
+        else:
+            cfg_path = target_dir / "config.json"
+            if cfg_path.exists():
+                try:
+                    c_data = json.loads(cfg_path.read_text(encoding="utf-8"))
+                    entity_name = c_data.get("name", entity_name)
+                    entity_type = c_data.get("entity_type", EntityType.ENTITY)
+                except Exception:
+                    pass
+
         import tempfile
         staging_dir: Path = Path(tempfile.gettempdir()) / "pytoningans_publish"
         staging_dir.mkdir(parents=True, exist_ok=True)
-        zip_path: Path = staging_dir / f"{target_dir.name}_v{self.version_input.text().strip() or '1.0.0'}.zip"
+        zip_path: Path = staging_dir / f"{target_dir.name}_v{version_str}.zip"
 
         success, msg, out_path = export_mod_or_pack_to_zip(target_dir, zip_path)
-        if success:
-            self.published_package_path = out_path
+        if not success or out_path is None:
+            QMessageBox.critical(self, "Export Failed", f"Failed to prepare package: {msg}")
+            return
+
+        self.published_package_path = out_path
+        size_bytes: int = out_path.stat().st_size
+
+        if self.client is not None:
+            pub_ok, pub_msg, _ = self.client.publish_or_update(
+                mod_id=target_id,
+                name=entity_name,
+                author=author,
+                version=version_str,
+                description=desc or f"{entity_name} created by {author}",
+                entity_type=entity_type,
+                is_pack=is_pack,
+                tags=["pack", "community"] if is_pack else ["custom", entity_type],
+                changelog=changelog,
+                contained_entities=contained_entities,
+                size_bytes=size_bytes,
+            )
+            if not pub_ok:
+                QMessageBox.warning(self, "Publication Conflict", pub_msg)
+                return
+
+            QMessageBox.information(
+                self,
+                "Publication Success",
+                f"{pub_msg}\n\nPackage archive prepared ({size_bytes} bytes)."
+            )
+        else:
             QMessageBox.information(
                 self,
                 "Package Prepared",
-                f"Successfully validated and packaged '{target_dir.name}' ({zip_path.stat().st_size} bytes).\n\n"
-                "Package is ready for cloud upload!"
+                f"Successfully prepared package archive for '{entity_name}' ({size_bytes} bytes)."
             )
-            self.accept()
-        else:
-            QMessageBox.critical(self, "Export Failed", f"Failed to prepare package: {msg}")
 
+        self.accept()
