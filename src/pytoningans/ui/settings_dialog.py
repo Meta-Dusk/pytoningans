@@ -437,9 +437,9 @@ class SettingsDialog(QDialog):
         self.open_data_btn.clicked.connect(self._open_app_data_dir)
         btn_row_2.addWidget(self.open_data_btn)
 
-        self.open_mods_btn = QPushButton("Open Local Mods Folder")
-        self.open_mods_btn.clicked.connect(self._open_mods_dir)
-        btn_row_2.addWidget(self.open_mods_btn)
+        self.open_assets_btn = QPushButton("Open Local Assets Folder")
+        self.open_assets_btn.clicked.connect(self._open_assets_dir)
+        btn_row_2.addWidget(self.open_assets_btn)
         actions_layout.addLayout(btn_row_2)
 
         dev_layout.addWidget(self.dev_actions_box)
@@ -701,15 +701,16 @@ class SettingsDialog(QDialog):
         )
         self._update_profile_status_ui()
         QMessageBox.information(
-            self, "Avatar Reset", "Custom picture removed. Restored account provider avatar / default badge."
+            self, "Avatar Reset",
+            "Custom picture removed. Restored account provider avatar / default badge."
         )
 
     def _on_github_action_clicked(self) -> None:
         auth: AuthManager = AuthManager.get()
         user: Optional[UserProfile] = auth.current_user
-        gh_user = user.github_username if user else None
-        if user and ("github" in user.providers or gh_user):
-            if gh_user:
+        gh_user: Optional[str] = user.github_username if user else None
+        if user is not None and ("github" in user.providers or gh_user is not None):
+            if gh_user is not None:
                 QDesktopServices.openUrl(QUrl(f"https://github.com/{gh_user}"))
         else:
             success, msg = auth.start_github_oauth()
@@ -852,7 +853,7 @@ class SettingsDialog(QDialog):
         data_dir.mkdir(parents=True, exist_ok=True)
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(data_dir)))
 
-    def _open_mods_dir(self) -> None:
-        mods_dir: Path = get_base_path() / "mods"
+    def _open_assets_dir(self) -> None:
+        mods_dir: Path = get_base_path() / "assets"
         mods_dir.mkdir(parents=True, exist_ok=True)
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(mods_dir)))
