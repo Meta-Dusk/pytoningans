@@ -16,7 +16,8 @@ from typing import Any, Optional
 
 from PySide6.QtCore import QObject, Signal
 
-from pytoningans.utils.paths import get_settings_path, get_base_path
+from pytoningans.utils.paths import get_settings_path, get_base_path, get_app_version
+from pytoningans.core.settings import SettingsManager
 from .oauth_handler import OAuthCallbackServer, OAuthCallbackHandler
 
 
@@ -28,6 +29,7 @@ class UserProfile:
     username: str
     created_at: str = ""
     avatar_url: Optional[str] = None
+    bio: str = ""
 
 
 @dataclass
@@ -165,6 +167,7 @@ class AuthManager(QObject):
                 username=user_data.get("username", "Modder"),
                 created_at=user_data.get("created_at", ""),
                 avatar_url=user_data.get("avatar_url"),
+                bio=user_data.get("bio", ""),
             )
             self._current_session = AuthSession(
                 access_token=data.get("access_token", ""),
@@ -172,6 +175,9 @@ class AuthManager(QObject):
                 user=user,
                 expires_at=data.get("expires_at", 0.0),
             )
+            if self._current_session.access_token and self._current_session.access_token != "mock_local_token":
+                if time.time() >= self._current_session.expires_at - 120:
+                    threading.Thread(target=self.refresh_session, daemon=True).start()
         except Exception:
             self._current_session = None
 
@@ -195,11 +201,198 @@ class AuthManager(QObject):
         except Exception:
             pass
 
+    def refresh_session(self) -> bool:
+        """
+        Refreshes access_token using current refresh_token against Supabase Auth.
+        Returns True if session was successfully refreshed, False otherwise.
+        """
+        if (
+            self._current_session is None
+            or not self.is_cloud_configured
+            or not self._current_session.refresh_token
+            or self._current_session.refresh_token == "mock_refresh_token"
+        ):
+            return False
+
+        endpoint: str = f"{self.supabase_url.rstrip('/')}/auth/v1/token?grant_type=refresh_token"
+        payload: bytes = json.dumps({
+            "refresh_token": self._current_session.refresh_token
+        }).encode("utf-8")
+        headers: dict[str, str] = {
+            "Content-Type": "application/json",
+            "apikey": self.supabase_pub_key,
+            "User-Agent": f"PyToNingans/{get_app_version()}",
+        }
+        req = urllib.request.Request(endpoint, data=payload, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data: dict[str, Any] = json.loads(resp.read().decode("utf-8"))
+                new_access_token: str = data.get("access_token", "")
+                new_refresh_token: str = data.get("refresh_token", self._current_session.refresh_token)
+                expires_in: int = int(data.get("expires_in", 3600))
+                if new_access_token:
+                    self._current_session.access_token = new_access_token
+                    self._current_session.refresh_token = new_refresh_token
+                    self._current_session.expires_at = time.time() + expires_in
+                    self._save_session()
+                    return True
+        except Exception:
+            pass
+        return False
+
+    def ensure_valid_session(self) -> bool:
+        """
+        Proactively refreshes active session if access_token has expired or will expire within 60s.
+        """
+        if (
+            self._current_session is None
+            or self._current_session.access_token == "mock_local_token"
+            or not self.is_cloud_configured
+        ):
+            return True
+
+        if time.time() >= self._current_session.expires_at - 60:
+            return self.refresh_session()
+        return True
+
     def sign_out(self) -> None:
-        """Clears local authentication session and notifies listeners."""
+        """Clears local authentication session, notifies cloud if connected, and notifies listeners."""
+        if (
+            self.is_cloud_configured
+            and self._current_session
+            and self._current_session.access_token
+            and self._current_session.access_token != "mock_local_token"
+        ):
+            try:
+                logout_endpoint: str = f"{self.supabase_url.rstrip('/')}/auth/v1/logout"
+                logout_req = urllib.request.Request(
+                    logout_endpoint,
+                    data=b"{}",
+                    headers={
+                        "Content-Type": "application/json",
+                        "apikey": self.supabase_pub_key,
+                        "Authorization": f"Bearer {self._current_session.access_token}",
+                        "User-Agent": f"PyToNingans/{get_app_version()}",
+                    },
+                    method="POST",
+                )
+                with urllib.request.urlopen(logout_req, timeout=3) as _:
+                    pass
+            except Exception:
+                pass
+
         self._current_session = None
         self._save_session()
         self.auth_state_changed.emit(None)
+        
+    def get_creator_name(self) -> str:
+        """
+        Returns active creator name from current session or app settings,
+        fallback to 'Modder'.
+        """
+        if (
+            self._current_session is not None and
+            self._current_session.user is not None and
+            self._current_session.user.username
+        ):
+            return self._current_session.user.username
+        try:
+            saved: str = SettingsManager.get().settings.creator_name.strip()
+            if saved:
+                return saved
+        except Exception:
+            pass
+        return "Modder"
+
+    def get_creator_bio(self) -> str:
+        """Returns creator bio from session or settings."""
+        if (
+            self._current_session is not None and
+            self._current_session.user is not None and
+            self._current_session.user.bio
+        ):
+            return self._current_session.user.bio
+        try:
+            return SettingsManager.get().settings.creator_bio.strip()
+        except Exception:
+            return ""
+
+    def update_profile(
+        self, new_username: str, bio: str = "", avatar_url: Optional[str] = None
+    ) -> tuple[bool, str]:
+        """
+        Updates the active creator's username, bio, and avatar.
+        Persists locally in session and AppSettings, and syncs to Supabase Cloud if authenticated.
+        """
+        clean_name: str = new_username.strip().replace(" ", "_")
+        if not clean_name:
+            return False, "Creator name cannot be empty."
+
+        try:
+            SettingsManager.get().update_settings(
+                creator_name=clean_name, creator_bio=bio.strip()
+            )
+        except Exception:
+            pass
+
+        if self._current_session is not None:
+            self._current_session.user.username = clean_name
+            self._current_session.user.bio = bio.strip()
+            if avatar_url:
+                self._current_session.user.avatar_url = avatar_url
+            self._save_session()
+        else:
+            self.sign_in_locally(clean_name)
+            if bio and self._current_session is not None:
+                self._current_session.user.bio = bio.strip()
+                self._save_session()
+
+        # If connected to cloud with an active token, update user metadata in Supabase
+        if (
+            self.is_authenticated
+            and self.is_cloud_configured
+            and self._current_session
+            and self._current_session.access_token != "mock_local_token"
+        ):
+            try:
+                self._sync_profile_to_cloud(clean_name, bio.strip())
+            except Exception as e:
+                print(f"Notice: Cloud profile sync warning: {e}")
+
+        self.auth_state_changed.emit(self.current_user)
+        return True, f"Profile updated! Creator name set to '{clean_name}'."
+
+    def _sync_profile_to_cloud(self, username: str, bio: str) -> None:
+        """Synchronizes username and bio to Supabase user_metadata via Auth REST API."""
+        if not self._current_session or not self.is_cloud_configured:
+            return
+
+        self.ensure_valid_session()
+
+        endpoint: str = f"{self.supabase_url.rstrip('/')}/auth/v1/user"
+        payload: bytes = json.dumps({
+            "data": {"username": username, "bio": bio}
+        }).encode("utf-8")
+        headers: dict[str, str] = {
+            "Content-Type": "application/json",
+            "apikey": self.supabase_pub_key,
+            "Authorization": f"Bearer {self._current_session.access_token}",
+            "User-Agent": f"PyToNingans/{get_app_version()}",
+        }
+        req = urllib.request.Request(endpoint, data=payload, headers=headers, method="PUT")
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                pass
+        except urllib.error.HTTPError as e:
+            # If 401/403 (e.g. token expired), attempt auto-refresh and retry once
+            if e.code in (401, 403) and self.refresh_session():
+                headers["Authorization"] = f"Bearer {self._current_session.access_token}"
+                retry_req = urllib.request.Request(endpoint, data=payload, headers=headers, method="PUT")
+                with urllib.request.urlopen(retry_req, timeout=8) as retry_resp:
+                    pass
+                return
+            raise
+
     def sign_in_locally(self, username: str = "LocalCreator") -> UserProfile:
         """Sets up a local creator session for offline-first modding without cloud connection."""
         clean_name: str = username.strip().replace(" ", "_") or "LocalCreator"

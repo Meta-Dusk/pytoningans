@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json, time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
@@ -20,13 +20,14 @@ from pytoningans.core.mod_manager import (
 from pytoningans.utils.paths import get_app_version, get_settings_path
 from .catalog_seed import DEFAULT_CATALOG_DATA
 from .installer_service import (
-    install_catalog_item,
-    update_installed_mod,
-    uninstall_installed_mod,
+    install_catalog_item, update_installed_mod, uninstall_installed_mod,
     create_placeholder_sprite,
 )
 from .models import CommunityModItem, ModRelease, parse_semver
 from .supabase_client import SupabaseClient
+
+if TYPE_CHECKING:
+    from pytoningans.core.mod_manager.modpack import ModPack
 
 __all__ = ["ModBrowserClient", "DEFAULT_CATALOG_DATA"]
 
@@ -212,23 +213,147 @@ class ModBrowserClient:
                 return item
         return None
 
+    def get_local_mod_items(self) -> list[CommunityModItem]:
+        """
+        Scans self.mods_dir for local standalone mods and modpacks that are not in the community catalog cache.
+        Returns CommunityModItem instances with is_local_only=True so creators can inspect,
+        track local changes, and publish online whenever they choose.
+        """
+        if not self.mods_dir.exists():
+            return []
+
+        catalog_ids: set[str] = {item.id for item in self._catalog_items}
+        local_items: list[CommunityModItem] = []
+
+        # Local Modpacks
+        installed_packs: dict[str, ModPack] = get_available_packs(self.mods_dir)
+        for pack_id, pack in installed_packs.items():
+            if pack_id in catalog_ids:
+                continue
+            folder: Path = self.mods_dir / pack_id
+            contained: list[str] = []
+            if folder.exists():
+                for sub_category in ("entities", "items", "structures"):
+                    sub_category_dir: Path = folder / sub_category
+                    if not sub_category_dir.is_dir(): continue
+                    for child in sub_category_dir.iterdir():
+                        if not child.is_dir() or child.name.startswith(("_", ".")): continue
+                        config: Path = child / "config.json"
+                        if config.exists():
+                            try:
+                                config_info: dict[str, Any] = json.loads(
+                                    config.read_text(encoding="utf-8")
+                                )
+                                contained.append(config_info.get("name", child.name))
+                            except Exception:
+                                contained.append(child.name)
+                        else:
+                            contained.append(child.name)
+            size: int = 0
+            if folder.exists():
+                try:
+                    size = sum(f.stat().st_size for f in folder.rglob("*") if f.is_file())
+                except Exception:
+                    size = 32000
+
+            author_val: str = pack.manifest.author or "LocalCreator"
+            local_items.append(
+                CommunityModItem(
+                    id=pack_id,
+                    name=pack.name,
+                    entity_type="pack",
+                    version=pack.manifest.version or "1.0.0",
+                    author=author_val,
+                    description=(
+                        pack.manifest.description or
+                        f"Locally authored modpack with {len(contained)} content items."
+                    ),
+                    tags=["local", "pack"] + getattr(pack.manifest, "tags", []),
+                    rating=10.0,
+                    rating_count=0,
+                    downloads=0,
+                    size_bytes=size,
+                    is_pack=True,
+                    contained_entities=contained,
+                    is_installed=True,
+                    installed_version=pack.manifest.version or "1.0.0",
+                    is_local_only=True,
+                )
+            )
+
+        # Local Standalone Mods
+        installed_standalone: dict[str, tuple[str, str]] = get_available_mods_with_type(self.mods_dir)
+        for mod_id, (name, entity_type) in installed_standalone.items():
+            if ":" in mod_id or mod_id in catalog_ids:
+                continue
+            _folder: Path = self.mods_dir / mod_id
+            if not _folder.is_dir():
+                continue
+            config_file: Path = _folder / "config.json"
+            ver: str = "1.0.0"
+            author: str = "LocalCreator"
+            tags: list[str] = ["local"]
+            if config_file.exists():
+                try:
+                    config_data = json.loads(config_file.read_text(encoding="utf-8"))
+                    ver = str(config_data.get("version", config_data.get("mod_version", "1.0.0")))
+                    author = str(config_data.get("author", author))
+                    if "tags" in config_data and isinstance(config_data["tags"], list):
+                        tags = list(set(tags + config_data["tags"]))
+                except Exception:
+                    pass
+
+            size: int = 0
+            try:
+                size = sum(f.stat().st_size for f in _folder.rglob("*") if f.is_file())
+            except Exception:
+                size = 16000
+
+            local_items.append(
+                CommunityModItem(
+                    id=mod_id,
+                    name=name,
+                    entity_type=entity_type,
+                    version=ver,
+                    author=author,
+                    description=f"Locally authored {entity_type} mod.",
+                    tags=tags,
+                    rating=10.0,
+                    rating_count=0,
+                    downloads=0,
+                    size_bytes=size,
+                    is_pack=False,
+                    is_installed=True,
+                    installed_version=ver,
+                    is_local_only=True,
+                )
+            )
+
+        return local_items
+
     def fetch_mods(
         self, query: str = "", category: str = "all",
         sort_by: str = "rating", installed_only: bool = False,
     ) -> list[CommunityModItem]:
         """
         Queries and filters community mods according to search string, category, and sorting.
-        Synchronizes each item with local installation state.
+        Synchronizes each item with local installation state and surfaces local creations.
         """
         self.sync_installed_status(self._catalog_items)
+        local_pool: list[CommunityModItem] = self.get_local_mod_items()
+        all_pool: list[CommunityModItem] = list(self._catalog_items) + local_pool
+
         results: list[CommunityModItem] = []
 
         _query: str = query.strip().lower()
-        for item in self._catalog_items:
+        for item in all_pool:
             if installed_only and not item.is_installed:
                 continue
 
-            if category == "pack" and not item.is_pack:
+            if category == "local":
+                if not item.is_local_only:
+                    continue
+            elif category == "pack" and not item.is_pack:
                 continue
             elif category in (EntityType.ENTITY, EntityType.ITEM, EntityType.STRUCTURE):
                 if item.entity_type != category:

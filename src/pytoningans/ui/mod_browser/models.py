@@ -66,6 +66,7 @@ class CommunityModItem:
     target_app_version: str = "0.8.0"
     releases: list[ModRelease] = field(default_factory=list)
     has_update: bool = False
+    is_local_only: bool = False
 
     @property
     def semver(self) -> tuple[int, ...]:

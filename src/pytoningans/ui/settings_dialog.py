@@ -9,22 +9,27 @@ Includes automatic content-based resizing, responsive scrolling, and a custom re
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from pathlib import Path
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QCheckBox,
     QSpinBox, QPushButton, QFrame, QWidget, QTabWidget, QMessageBox,
-    QScrollArea
+    QScrollArea, QLineEdit, QFormLayout, QMenu
 )
 from PySide6.QtCore import Qt, QUrl, QRect, QSize
-from PySide6.QtGui import QDesktopServices, QResizeEvent, QGuiApplication, QScreen
+from PySide6.QtGui import QDesktopServices, QResizeEvent, QGuiApplication, QScreen, QAction
 
-from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.core.settings import SettingsManager, HealthBarMode
 from pytoningans.utils.paths import get_settings_path, get_base_path
+from pytoningans.ui.title_bar import CustomTitleBar
+from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.ui.mod_browser.client import ModBrowserClient
+from pytoningans.ui.mod_browser.auth import AuthManager
+from pytoningans.ui.mod_browser.components.auth_dialog import AuthDialog
+
+if TYPE_CHECKING:
+    from pytoningans.ui.mod_browser.auth import UserProfile
 
 
 class SettingsDialog(QDialog):
@@ -45,6 +50,9 @@ class SettingsDialog(QDialog):
         self._adjust_size_for_content()
         self._center_window()
         self._is_loading = False
+
+        from pytoningans.ui.mod_browser.auth import AuthManager
+        AuthManager.get().auth_state_changed.connect(lambda _: self._update_profile_status_ui())
 
     def _create_separator(self) -> QFrame:
         sep = QFrame()
@@ -86,7 +94,101 @@ class SettingsDialog(QDialog):
         self.tabs.currentChanged.connect(lambda _: self._adjust_size_for_content())
 
         # -------------------------------------------------------------
-        # Tab 1: Combat and Visuals
+        # Tab 1: Creator Profile
+        # -------------------------------------------------------------
+        profile_tab = QWidget()
+        profile_layout = QVBoxLayout(profile_tab)
+        profile_layout.setContentsMargins(12, 12, 12, 12); profile_layout.setSpacing(10)
+
+        profile_info = QLabel(
+            "Manage your creator handle and community account.\n"
+            "Your creator name is automatically assigned when authoring or publishing mods."
+        )
+        profile_info.setObjectName("HelperText"); profile_info.setWordWrap(True)
+        profile_layout.addWidget(profile_info)
+        profile_layout.addWidget(self._create_separator())
+
+        # Account Status Badge Card
+        self.profile_status_card = QFrame()
+        self.profile_status_card.setFrameShape(QFrame.Shape.StyledPanel)
+        self.profile_status_card.setStyleSheet("""
+            QFrame {
+                background-color: rgba(30, 30, 46, 0.6);
+                border: 1px solid #45475a;
+                border-radius: 6px;
+            }
+        """)
+        card_layout = QHBoxLayout(self.profile_status_card)
+        card_layout.setContentsMargins(12, 10, 12, 10); card_layout.setSpacing(12)
+
+        # Avatar Initial Circle
+        self.avatar_lbl = QLabel("M")
+        self.avatar_lbl.setFixedSize(42, 42)
+        self.avatar_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.avatar_lbl.setStyleSheet("""
+            background-color: #89b4fa;
+            color: #1e1e2e;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 21px;
+        """)
+        card_layout.addWidget(self.avatar_lbl)
+
+        # Status text & description
+        status_text_layout = QVBoxLayout()
+        status_text_layout.setSpacing(2)
+        self.profile_name_title = QLabel("Creator: Modder")
+        self.profile_name_title.setStyleSheet("font-size: 13px; font-weight: bold; color: #cdd6f4;")
+        self.profile_account_status = QLabel("Offline Local Profile (No Cloud Sync)")
+        self.profile_account_status.setStyleSheet("font-size: 11px; color: #a6adc8;")
+        status_text_layout.addWidget(self.profile_name_title)
+        status_text_layout.addWidget(self.profile_account_status)
+        card_layout.addLayout(status_text_layout, stretch=1)
+
+        self.auth_action_btn = QPushButton("Connect Cloud")
+        self.auth_action_btn.setObjectName("SecondaryBtn")
+        self.auth_action_btn.clicked.connect(self._on_profile_auth_action)
+        card_layout.addWidget(self.auth_action_btn)
+
+        profile_layout.addWidget(self.profile_status_card)
+
+        # Form: Creator Name / Handle & Bio
+        name_form = QFormLayout()
+        name_form.setSpacing(8)
+        self.creator_name_input = QLineEdit()
+        self.creator_name_input.setPlaceholderText("e.g. MetaDusk, RetroGamer...")
+        name_form.addRow("Creator Handle:", self.creator_name_input)
+
+        self.creator_bio_input = QLineEdit()
+        self.creator_bio_input.setPlaceholderText("e.g. Pixel artist & idler sandbox modder")
+        name_form.addRow("Bio / Tagline:", self.creator_bio_input)
+
+        profile_layout.addLayout(name_form)
+
+        # Save profile button
+        btn_box = QHBoxLayout()
+        self.save_profile_btn = QPushButton("Save Profile")
+        self.save_profile_btn.setObjectName("SuccessBtn")
+        self.save_profile_btn.setToolTip("Persist your creator handle across all mod editor tools")
+        self.save_profile_btn.clicked.connect(self._save_profile)
+        btn_box.addWidget(self.save_profile_btn)
+        btn_box.addStretch()
+        profile_layout.addLayout(btn_box)
+
+        # Helper note
+        tip_lbl = QLabel(
+            "💡 Tip: Setting your creator handle here ensures you won't need to retype it "
+            "each time you create a mod, modpack, or release update."
+        )
+        tip_lbl.setStyleSheet("color: #89b4fa; font-size: 11px; font-style: italic;")
+        tip_lbl.setWordWrap(True)
+        profile_layout.addWidget(tip_lbl)
+
+        profile_layout.addStretch()
+        self.tabs.addTab(self._wrap_tab_in_scroll(profile_tab), "Profile")
+
+        # -------------------------------------------------------------
+        # Tab 2: Combat and Visuals
         # -------------------------------------------------------------
         combat_tab = QWidget()
         combat_layout = QVBoxLayout(combat_tab)
@@ -342,8 +444,86 @@ class SettingsDialog(QDialog):
             self.height() - self.grip.height(),
         )
 
+    def open_profile_tab(self) -> None:
+        """Switches directly to the Creator Profile tab."""
+        self.tabs.setCurrentIndex(0)
+
+    def _update_profile_status_ui(self) -> None:
+        auth: AuthManager = AuthManager.get()
+        user: Optional[UserProfile] = auth.current_user
+        name: str = auth.get_creator_name()
+        initial: str = name[0].upper() if name else "M"
+        self.avatar_lbl.setText(initial)
+        self.profile_name_title.setText(f"Creator: {name}")
+
+        if (
+            auth.is_authenticated and
+            auth.is_cloud_configured and
+            user is not None and
+            not user.id.startswith("local_")
+        ):
+            self.profile_account_status.setText(f"Connected to Cloud: {user.email}")
+            self.profile_account_status.setStyleSheet("font-size: 11px; color: #a6e3a1;")
+            self.auth_action_btn.setText("Account Options")
+        elif auth.is_authenticated and user is not None:
+            self.profile_account_status.setText(f"Offline Profile: {user.username} (Local)")
+            self.profile_account_status.setStyleSheet("font-size: 11px; color: #cba6f7;")
+            self.auth_action_btn.setText("Connect Cloud")
+        else:
+            self.profile_account_status.setText("Offline Local Profile (No Cloud Sync)")
+            self.profile_account_status.setStyleSheet("font-size: 11px; color: #a6adc8;")
+            self.auth_action_btn.setText("Connect Cloud")
+
+    def _save_profile(self) -> None:
+        auth: AuthManager = AuthManager.get()
+        new_name: str = self.creator_name_input.text().strip() or "Modder"
+        bio: str = self.creator_bio_input.text().strip()
+        ok, msg = auth.update_profile(new_name, bio=bio)
+        self._update_profile_status_ui()
+        if ok:
+            QMessageBox.information(self, "Profile Saved", msg)
+        else:
+            QMessageBox.warning(self, "Profile", msg)
+
+    def _on_profile_auth_action(self) -> None:
+        auth: AuthManager = AuthManager.get()
+        if (
+            auth.is_authenticated
+            and auth.current_user is not None and
+            not auth.current_user.id.startswith("local_")
+        ):
+            menu = QMenu(self)
+            info_act: QAction = menu.addAction(f"Signed in as {auth.current_user.email}")
+            info_act.setEnabled(False)
+            menu.addSeparator()
+            settings_act: QAction = menu.addAction("Cloud Server Settings")
+            sign_out_act: QAction = menu.addAction("Sign Out")
+            action: QAction = menu.exec(
+                self.auth_action_btn.mapToGlobal(self.auth_action_btn.rect().bottomLeft())
+            )
+            if action == settings_act:
+                dlg = AuthDialog(self)
+                dlg.show_server_settings()
+                dlg.exec()
+            elif action == sign_out_act:
+                auth.sign_out()
+                self._update_profile_status_ui()
+                QMessageBox.information(
+                    self, "Signed Out", "You have signed out of your cloud account."
+                )
+        else:
+            dlg = AuthDialog(self)
+            dlg.exec()
+            self._update_profile_status_ui()
+
     def _load_current_values(self) -> None:
         settings = self.settings_manager.settings
+
+        # Profile tab
+        auth: AuthManager = AuthManager.get()
+        self.creator_name_input.setText(auth.get_creator_name())
+        self.creator_bio_input.setText(auth.get_creator_bio())
+        self._update_profile_status_ui()
 
         # Combat tab
         idx: int = self.mode_combo.findData(settings.health_bar_mode)
@@ -401,8 +581,7 @@ class SettingsDialog(QDialog):
         client = ModBrowserClient(get_base_path() / "mods")
         added: int = client.load_seed_catalog()
         QMessageBox.information(
-            self,
-            "Demo Catalog Loaded",
+            self, "Demo Catalog Loaded",
             f"Successfully injected {added} demo/seed mods into your local catalog cache.",
         )
 
@@ -410,8 +589,7 @@ class SettingsDialog(QDialog):
         client = ModBrowserClient(get_base_path() / "mods")
         client.clear_catalog_cache()
         QMessageBox.information(
-            self,
-            "Cache Reset",
+            self, "Cache Reset",
             "Local community catalog cache has been cleared.",
         )
 

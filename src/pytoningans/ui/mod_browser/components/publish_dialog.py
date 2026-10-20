@@ -41,12 +41,14 @@ class PublishModDialog(QDialog):
         mod_manager: ModManager,
         client: Optional[Any] = None,
         parent: Optional[QWidget] = None,
+        selected_mod_id: Optional[str] = None,
     ) -> None:
         super().__init__(parent)
         self.mod_manager: ModManager = mod_manager
         self.client: Optional[Any] = client
         self.auth: AuthManager = AuthManager.get()
         self.published_package_path: Optional[Path] = None
+        self.selected_mod_id: Optional[str] = selected_mod_id
 
         self.setWindowTitle("Publish Mod or Modpack")
         self.setWindowIcon(get_main_icon())
@@ -74,9 +76,11 @@ class PublishModDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16); layout.setSpacing(10)
 
         # Creator Account Banner
-        user: Optional[UserProfile] = self.auth.current_user
-        author_name: str = user.username if user else "GuestCreator"
-        user_banner = QLabel(f"Publishing as verified creator: <b>{author_name}</b>")
+        author_name: str = self.auth.get_creator_name()
+        if self.auth.is_authenticated:
+            user_banner = QLabel(f"Publishing as verified creator: <b>{author_name}</b>")
+        else:
+            user_banner = QLabel(f"Publishing as creator: <b>{author_name}</b> (Offline / Local Mode)")
         user_banner.setObjectName("UserBanner")
         layout.addWidget(user_banner)
 
@@ -176,6 +180,11 @@ class PublishModDialog(QDialog):
             self.mod_combo.addItem("No local mods found in mods folder", userData=None)
             self.publish_btn.setEnabled(False)
         else:
+            if self.selected_mod_id is not None:
+                for idx in range(self.mod_combo.count()):
+                    if self.mod_combo.itemData(idx) == self.selected_mod_id:
+                        self.mod_combo.setCurrentIndex(idx)
+                        break
             self._on_target_changed()
 
     def _on_target_changed(self) -> None:

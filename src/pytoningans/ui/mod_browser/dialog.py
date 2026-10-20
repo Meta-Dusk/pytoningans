@@ -25,6 +25,7 @@ from pytoningans.core.settings import SettingsManager
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.ui.mod_inspector import ModInspectorDialog
+from pytoningans.ui.settings_dialog import SettingsDialog
 from pytoningans.utils.assets import get_main_icon
 
 from .auth import AuthManager, UserProfile
@@ -189,8 +190,9 @@ class ModBrowserDialog(QDialog):
 
     def _update_auth_ui(self, user: Optional[UserProfile]) -> None:
         """Updates the top bar account badge according to the current session."""
-        if user is not None:
-            self.auth_btn.setText(user.username)
+        creator: str = self.auth.get_creator_name()
+        if user is not None and not user.id.startswith("local_"):
+            self.auth_btn.setText(f"{user.username}")
             self.auth_btn.setStyleSheet("""
                 QPushButton {
                     background-color: rgba(59, 130, 246, 0.2);
@@ -206,7 +208,7 @@ class ModBrowserDialog(QDialog):
                 }
             """)
         else:
-            self.auth_btn.setText("Sign In / Register")
+            self.auth_btn.setText(f"{creator} (Profile)")
             self.auth_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #313244;
@@ -223,29 +225,42 @@ class ModBrowserDialog(QDialog):
             """)
 
     def _on_auth_btn_clicked(self) -> None:
-        """Opens user account options menu or launches AuthDialog."""
+        """Opens user account options menu or launches Profile settings."""
         user: Optional[UserProfile] = self.auth.current_user
-        if user is not None:
-            menu = QMenu(self)
-            info_action: QAction = menu.addAction(f"Signed in as {user.username} ({user.email})")
+        menu = QMenu(self)
+
+        profile_action: QAction = menu.addAction("Creator Profile")
+        menu.addSeparator()
+
+        sign_in_action: Optional[QAction] = None
+        sign_out_action: Optional[QAction] = None
+
+        if user is not None and not user.id.startswith("local_"):
+            info_action: QAction = menu.addAction(f"Cloud Account: {user.email}")
             info_action.setEnabled(False)
-            menu.addSeparator()
-
-            settings_action: QAction = menu.addAction("Cloud Connection Settings")
-            sign_out_action: QAction = menu.addAction("Sign Out")
-
-            action: QAction = menu.exec(self.auth_btn.mapToGlobal(self.auth_btn.rect().bottomLeft()))
-            if action == settings_action:
-                dlg = AuthDialog(self)
-                dlg.show_server_settings()
-                dlg.exec()
-            elif action == sign_out_action:
-                self.auth.sign_out()
-                self._update_auth_ui(None)
-                QMessageBox.information(
-                    self, "Signed Out", "You have signed out of your creator account."
-                )
+            settings_action: QAction = menu.addAction("☁ Cloud Connection Settings")
+            sign_out_action = menu.addAction("Sign Out")
         else:
+            settings_action = menu.addAction("☁ Cloud Connection Settings")
+            sign_in_action = menu.addAction("Sign In / Register (Cloud)")
+
+        action: QAction = menu.exec(self.auth_btn.mapToGlobal(self.auth_btn.rect().bottomLeft()))
+        if action == profile_action:
+            settings_dlg = SettingsDialog(self)
+            settings_dlg.open_profile_tab()
+            settings_dlg.exec()
+            self._update_auth_ui(self.auth.current_user)
+        elif action == settings_action:
+            dlg = AuthDialog(self)
+            dlg.show_server_settings()
+            dlg.exec()
+        elif sign_out_action is not None and action == sign_out_action:
+            self.auth.sign_out()
+            self._update_auth_ui(None)
+            QMessageBox.information(
+                self, "Signed Out", "You have signed out of your cloud creator account."
+            )
+        elif sign_in_action is not None and action == sign_in_action:
             dlg = AuthDialog(self)
             dlg.exec()
 
@@ -392,12 +407,19 @@ class ModBrowserDialog(QDialog):
             card.update_requested.connect(self._on_update_requested)
             card.inspect_requested.connect(self._on_inspect_requested)
             card.rate_requested.connect(self._on_rate_requested)
+            card.publish_requested.connect(self._on_card_publish_requested)
 
             self.cards_layout.addWidget(card)
             self._cards.append(card)
 
         installed_count: int = sum(1 for item in items if item.is_installed)
         self.count_label.setText(f"Showing {len(items)} mods ({installed_count} installed)")
+
+    def _on_card_publish_requested(self, item: CommunityModItem) -> None:
+        """Opens publish dialog with this specific local mod/modpack preselected."""
+        publish_dlg = PublishModDialog(self.mod_manager, self.client, self, selected_mod_id=item.id)
+        if publish_dlg.exec() == QDialog.DialogCode.Accepted:
+            self._apply_filters()
 
     def _on_install_requested(self, item: CommunityModItem) -> None:
         """Asynchronously installs a community mod or modpack package."""
@@ -566,7 +588,6 @@ class ModBrowserDialog(QDialog):
                 self, "Cache Cleared", "Local community catalog cache has been reset."
             )
         elif action == settings_action:
-            from pytoningans.ui.settings_dialog import SettingsDialog
             dlg = SettingsDialog(self)
             dlg.tabs.setCurrentIndex(2)  # Jump directly to Developer tab
             dlg.exec()

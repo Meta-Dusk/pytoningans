@@ -39,6 +39,7 @@ class FilterBarWidget(QWidget):
         # Category Filter
         self.category_combo = QComboBox()
         self.category_combo.addItem("All Categories", "all")
+        self.category_combo.addItem("Local Creations Only", "local")
         self.category_combo.addItem("Modpacks Only", "pack")
         self.category_combo.addItem("Entities Only", EntityType.ENTITY)
         self.category_combo.addItem("Items Only", EntityType.ITEM)

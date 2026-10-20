@@ -25,6 +25,7 @@ from pytoningans.core.constants import (
 from pytoningans.core.mod_manager import get_available_packs, ModPack
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
+from pytoningans.ui.mod_browser.auth import AuthManager
 
 
 class ModCreationDialog(QDialog):
@@ -100,12 +101,13 @@ class ModCreationDialog(QDialog):
             "Human-readable title displayed in menus."
         )
 
-        # Modpack specific fields: Author and Description
-        self.author_input = QLineEdit()
+        # Creator / Author handle and Description
+        default_author: str = AuthManager.get().get_creator_name()
+        self.author_input = QLineEdit(default_author)
         self.author_input.setPlaceholderText("e.g. YourName")
         self.author_row = self._add_form_row(
             form, "Author Handle:", self.author_input,
-            "Your creator handle or username."
+            "Your creator handle or username (defaults to your Profile setting)."
         )
 
         self.desc_input = QTextEdit()
@@ -200,7 +202,7 @@ class ModCreationDialog(QDialog):
         # Visibility toggles
         self._set_row_visible(self.pack_selector_row, is_child)
         self._set_row_visible(self.sub_cat_row, is_child)
-        self._set_row_visible(self.author_row, is_pack)
+        self._set_row_visible(self.author_row, not is_child)
         self._set_row_visible(self.desc_row, is_pack)
         self._set_row_visible(self.cols_row, not is_pack)
         self._set_row_visible(self.rows_row, not is_pack)
@@ -504,5 +506,9 @@ class ModCreationDialog(QDialog):
             animations=animations,
         )
 
+        config_dict = new_config.to_dict()
+        author_val: str = self.author_input.text().strip() or AuthManager.get().get_creator_name()
+        config_dict["author"] = author_val
+
         with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(new_config.to_dict(), f, indent=4)
+            json.dump(config_dict, f, indent=4)

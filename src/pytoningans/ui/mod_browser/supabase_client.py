@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Optional
-import urllib.error
-import urllib.parse
-import urllib.request
+from typing import Any, Optional, TYPE_CHECKING
+import urllib.error, urllib.parse, urllib.request
 
+from pytoningans.utils.paths import get_app_version
 from .auth import AuthManager
+
+if TYPE_CHECKING:
+    from pytoningans.ui.mod_browser.auth import AuthSession
 
 
 class SupabaseClient:
@@ -32,26 +34,30 @@ class SupabaseClient:
         return self.auth.supabase_url.rstrip("/")
 
     @property
-    def anon_key(self) -> str:
+    def publishable_key(self) -> str:
         return self.auth.supabase_pub_key
 
     def _headers(self, requires_auth: bool = False, is_upload: bool = False) -> dict[str, str]:
         headers: dict[str, str] = {
-            "apikey": self.anon_key,
+            "apikey": self.publishable_key,
+            "User-Agent": f"PyToNingans/{get_app_version()}",
         }
         if not is_upload:
             headers["Content-Type"] = "application/json"
 
+        if hasattr(self.auth, "ensure_valid_session"):
+            self.auth.ensure_valid_session()
+
         user = self.auth.current_user
-        session = getattr(self.auth, "_current_session", None)
+        session: Optional[AuthSession] = self.auth._current_session
         token: Optional[str] = session.access_token if session else None
 
         if token and token != "mock_local_token" and token != "mock_google_token":
             headers["Authorization"] = f"Bearer {token}"
         elif requires_auth:
-            headers["Authorization"] = f"Bearer {self.anon_key}"
+            headers["Authorization"] = f"Bearer {self.publishable_key}"
         else:
-            headers["Authorization"] = f"Bearer {self.anon_key}"
+            headers["Authorization"] = f"Bearer {self.publishable_key}"
 
         return headers
 
@@ -60,8 +66,8 @@ class SupabaseClient:
         if not self.is_configured:
             return False, "Supabase cloud is not configured.", []
 
-        endpoint = f"{self.base_url}/rest/v1/mods?select=*,mod_releases(*),mod_ratings(*)"
-        headers = self._headers(requires_auth=False)
+        endpoint: str = f"{self.base_url}/rest/v1/mods?select=*,mod_releases(*),mod_ratings(*)"
+        headers: dict[str, str] = self._headers(requires_auth=False)
         req = urllib.request.Request(endpoint, headers=headers, method="GET")
 
         try:

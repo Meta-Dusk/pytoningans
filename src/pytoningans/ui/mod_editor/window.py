@@ -186,19 +186,28 @@ class ModEditorWindow(QWidget):
         footer_layout.setContentsMargins(20, 10, 0, 15)
         
         self.open_folder_btn = QPushButton("Open Mod Folder")
-        self.open_folder_btn.setMinimumSize(150, 35)
+        self.open_folder_btn.setMinimumSize(140, 35)
+
+        self.publish_btn = QPushButton("Publish / Export")
+        self.publish_btn.setObjectName("SuccessBtn")
+        self.publish_btn.setMinimumSize(150, 35)
+        self.publish_btn.setToolTip(
+            "Package and publish this mod or pack to the community catalog"
+        )
         
         self.reload_btn = QPushButton("Discard Unsaved Changes")
-        self.reload_btn.setMinimumSize(200, 35)
+        self.reload_btn.setMinimumSize(180, 35)
          
         self.save_btn = QPushButton("Save config.json")
-        self.save_btn.setMinimumSize(200, 35)
+        self.save_btn.setMinimumSize(180, 35)
         
         footer_layout.addStretch()
         footer_layout.addWidget(self.open_folder_btn)
+        footer_layout.addSpacing(15)
+        footer_layout.addWidget(self.publish_btn)
         footer_layout.addStretch()
         footer_layout.addWidget(self.reload_btn)
-        footer_layout.addSpacing(35)
+        footer_layout.addSpacing(25)
         footer_layout.addWidget(self.save_btn)
         footer_layout.addStretch()
         
@@ -210,6 +219,7 @@ class ModEditorWindow(QWidget):
         self.mod_combo.currentIndexChanged.connect(self._on_combo_index_changed)
         self.name_input.textChanged.connect(self._on_name_changed)
         self.save_btn.clicked.connect(self._save_changes)
+        self.publish_btn.clicked.connect(self._on_publish_clicked)
         self.reload_btn.clicked.connect(self._on_reload_clicked)
         self.open_folder_btn.clicked.connect(self._on_open_folder_clicked)
         self.change_sheet_btn.clicked.connect(self._on_change_sheet_clicked)
@@ -345,6 +355,16 @@ class ModEditorWindow(QWidget):
             self.anim_sys._preview_timer.stop()
         super().closeEvent(event)
     
+    def _on_publish_clicked(self) -> None:
+        mod_folder: str = self.mod_combo.currentData()
+        if not mod_folder:
+            return
+        from pytoningans.ui.mod_browser.components.publish_dialog import PublishModDialog
+        from pytoningans.ui.mod_browser.client import ModBrowserClient
+        client = ModBrowserClient(self.controller.manager.mods_dir)
+        dlg = PublishModDialog(self.controller.manager, client, self, selected_mod_id=mod_folder)
+        dlg.exec()
+
     def _on_open_folder_clicked(self) -> None:
         mod_folder: str = self.mod_combo.currentData()
         if not mod_folder: return

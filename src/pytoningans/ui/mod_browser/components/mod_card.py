@@ -25,6 +25,7 @@ class ModCardWidget(QFrame):
     update_requested = Signal(object)     # CommunityModItem
     inspect_requested = Signal(object)    # CommunityModItem
     rate_requested = Signal(object)       # CommunityModItem
+    publish_requested = Signal(object)    # CommunityModItem
 
     def __init__(self, item: CommunityModItem, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -68,7 +69,20 @@ class ModCardWidget(QFrame):
             header_layout.addWidget(outdated_badge)
 
         # Installation / Update Status Badges
-        if self.item.is_installed:
+        if self.item.is_local_only:
+            local_badge = QLabel(f"★ Local Creation (v{self.item.version})")
+            local_badge.setObjectName("BadgeLocal")
+            local_badge.setStyleSheet("""
+                background-color: rgba(203, 166, 247, 0.2);
+                color: #cba6f7;
+                border: 1px solid #cba6f7;
+                border-radius: 4px;
+                padding: 2px 6px;
+                font-size: 10px;
+                font-weight: bold;
+            """)
+            header_layout.addWidget(local_badge)
+        elif self.item.is_installed:
             if self.item.has_update:
                 update_badge = QLabel(f"↑ Update Available (v{self.item.version})")
                 update_badge.setToolTip(
@@ -85,8 +99,9 @@ class ModCardWidget(QFrame):
         layout.addLayout(header_layout)
 
         # --- Sub-Header: Author and Version ---
+        sub_type = " • Local Draft" if self.item.is_local_only else ""
         meta_label = QLabel(
-            f"by {self.item.author} • v{self.item.version} • {self.item.formatted_size}"
+            f"by {self.item.author} • v{self.item.version} • {self.item.formatted_size}{sub_type}"
         )
         meta_label.setStyleSheet("color: #a6adc8; font-size: 12px;")
         layout.addWidget(meta_label)
@@ -115,58 +130,77 @@ class ModCardWidget(QFrame):
         # --- Stats and Actions Footer ---
         footer_layout = QHBoxLayout(); footer_layout.setSpacing(10)
 
-        # Rating display
-        rating_lbl = QLabel(self.item.formatted_rating)
-        rating_lbl.setStyleSheet("color: #f9e2af; font-weight: bold; font-size: 12px;")
-        footer_layout.addWidget(rating_lbl)
+        if self.item.is_local_only:
+            draft_lbl = QLabel("Local Workspace")
+            draft_lbl.setStyleSheet("color: #cba6f7; font-size: 11px; font-style: italic;")
+            footer_layout.addWidget(draft_lbl)
+            footer_layout.addStretch()
 
-        # Downloads display
-        dl_lbl = QLabel(f"↓ {self.item.downloads}")
-        dl_lbl.setStyleSheet("color: #a6adc8; font-size: 12px;")
-        footer_layout.addWidget(dl_lbl)
+            inspect_btn = QPushButton("Inspect")
+            inspect_btn.setToolTip("View files and run AST security audit on this local mod")
+            inspect_btn.setStyleSheet("padding: 4px 10px; font-size: 11px;")
+            inspect_btn.clicked.connect(lambda: self.inspect_requested.emit(self.item))
+            footer_layout.addWidget(inspect_btn)
 
-        footer_layout.addStretch()
-
-        # Action: Changelog button if multiple releases or changelog available
-        if self.item.releases:
-            changelog_btn = QPushButton("Changelog")
-            changelog_btn.setToolTip("View version history and release notes")
-            changelog_btn.setStyleSheet("padding: 4px 8px; font-size: 11px; color: #a6adc8;")
-            changelog_btn.clicked.connect(self._show_changelog)
-            footer_layout.addWidget(changelog_btn)
-
-        # Action 1: Rate button
-        rate_btn = QPushButton("Rate")
-        rate_btn.setToolTip(f"Submit a rating (1-10) for {self.item.name}")
-        rate_btn.setStyleSheet("padding: 4px 8px; font-size: 11px;")
-        rate_btn.clicked.connect(lambda: self.rate_requested.emit(self.item))
-        footer_layout.addWidget(rate_btn)
-
-        # Action 2: Inspect and Safety button
-        inspect_btn = QPushButton("Inspect")
-        inspect_btn.setToolTip("View files, source code, and run AST security audit")
-        inspect_btn.setStyleSheet("padding: 4px 10px; font-size: 11px;")
-        inspect_btn.clicked.connect(lambda: self.inspect_requested.emit(self.item))
-        footer_layout.addWidget(inspect_btn)
-
-        # Action 3: Install / Update / Uninstall buttons
-        if self.item.is_installed:
-            if self.item.has_update:
-                update_btn = QPushButton(f"Update (v{self.item.version})")
-                update_btn.setToolTip(f"Upgrade to version {self.item.version}")
-                update_btn.setObjectName("InfoBtn")
-                update_btn.clicked.connect(lambda: self.update_requested.emit(self.item))
-                footer_layout.addWidget(update_btn)
-
-            uninstall_btn = QPushButton("Uninstall")
-            uninstall_btn.setObjectName("DangerBtn")
-            uninstall_btn.clicked.connect(lambda: self.uninstall_requested.emit(self.item))
-            footer_layout.addWidget(uninstall_btn)
+            pub_btn = QPushButton("Publish to Community")
+            pub_btn.setObjectName("SuccessBtn")
+            pub_btn.setToolTip(f"Package and publish '{self.item.name}' to the community catalog")
+            pub_btn.setStyleSheet("padding: 4px 12px; font-size: 11px; font-weight: bold;")
+            pub_btn.clicked.connect(lambda: self.publish_requested.emit(self.item))
+            footer_layout.addWidget(pub_btn)
         else:
-            install_btn = QPushButton("Install")
-            install_btn.setObjectName("SuccessBtn")
-            install_btn.clicked.connect(lambda: self.install_requested.emit(self.item))
-            footer_layout.addWidget(install_btn)
+            # Rating display
+            rating_lbl = QLabel(self.item.formatted_rating)
+            rating_lbl.setStyleSheet("color: #f9e2af; font-weight: bold; font-size: 12px;")
+            footer_layout.addWidget(rating_lbl)
+
+            # Downloads display
+            dl_lbl = QLabel(f"↓ {self.item.downloads}")
+            dl_lbl.setStyleSheet("color: #a6adc8; font-size: 12px;")
+            footer_layout.addWidget(dl_lbl)
+
+            footer_layout.addStretch()
+
+            # Action: Changelog button if multiple releases or changelog available
+            if self.item.releases:
+                changelog_btn = QPushButton("Changelog")
+                changelog_btn.setToolTip("View version history and release notes")
+                changelog_btn.setStyleSheet("padding: 4px 8px; font-size: 11px; color: #a6adc8;")
+                changelog_btn.clicked.connect(self._show_changelog)
+                footer_layout.addWidget(changelog_btn)
+
+            # Action 1: Rate button
+            rate_btn = QPushButton("Rate")
+            rate_btn.setToolTip(f"Submit a rating (1-10) for {self.item.name}")
+            rate_btn.setStyleSheet("padding: 4px 8px; font-size: 11px;")
+            rate_btn.clicked.connect(lambda: self.rate_requested.emit(self.item))
+            footer_layout.addWidget(rate_btn)
+
+            # Action 2: Inspect and Safety button
+            inspect_btn = QPushButton("Inspect")
+            inspect_btn.setToolTip("View files, source code, and run AST security audit")
+            inspect_btn.setStyleSheet("padding: 4px 10px; font-size: 11px;")
+            inspect_btn.clicked.connect(lambda: self.inspect_requested.emit(self.item))
+            footer_layout.addWidget(inspect_btn)
+
+            # Action 3: Install / Update / Uninstall buttons
+            if self.item.is_installed:
+                if self.item.has_update:
+                    update_btn = QPushButton(f"Update (v{self.item.version})")
+                    update_btn.setToolTip(f"Upgrade to version {self.item.version}")
+                    update_btn.setObjectName("InfoBtn")
+                    update_btn.clicked.connect(lambda: self.update_requested.emit(self.item))
+                    footer_layout.addWidget(update_btn)
+
+                uninstall_btn = QPushButton("Uninstall")
+                uninstall_btn.setObjectName("DangerBtn")
+                uninstall_btn.clicked.connect(lambda: self.uninstall_requested.emit(self.item))
+                footer_layout.addWidget(uninstall_btn)
+            else:
+                install_btn = QPushButton("Install")
+                install_btn.setObjectName("SuccessBtn")
+                install_btn.clicked.connect(lambda: self.install_requested.emit(self.item))
+                footer_layout.addWidget(install_btn)
 
 
         layout.addLayout(footer_layout)
