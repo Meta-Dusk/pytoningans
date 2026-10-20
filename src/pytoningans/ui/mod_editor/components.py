@@ -1,5 +1,6 @@
+from typing import Optional
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QPushButton, QSizeGrip, QHBoxLayout, QSpinBox, QDoubleSpinBox
+    QWidget, QVBoxLayout, QLabel, QPushButton, QSizeGrip, QHBoxLayout, QSpinBox, QDoubleSpinBox, QFrame
 )
 from PySide6.QtCore import Qt, QRect, Signal, QPoint, QPointF
 from PySide6.QtGui import QImage, QPaintEvent, QPainter, QPen, QColor, QMouseEvent, QWheelEvent, QPixmap, QResizeEvent
@@ -83,10 +84,17 @@ class PreviewLabel(QLabel):
             self.update()
 
     def resizeEvent(self, event: QResizeEvent) -> None:
+        old_h: int = event.oldSize().height()
+        old_w: int = event.oldSize().width()
         super().resizeEvent(event)
         if self._first_load and not self.pixmap().isNull() and self.width() > 10:
             self._first_load = False
             self.reset_view()
+        elif old_h > 0 and old_w > 0:
+            dw: int = (self.width() - old_w) // 2
+            dh: int = (self.height() - old_h) // 2
+            self.pan_offset += QPoint(dw, dh)
+            self.update()
 
     def reset_view(self) -> None:
         """Centers the preview pixmap in the viewport."""
@@ -361,3 +369,76 @@ class CustomSizeGrip(QSizeGrip):
         # Draw two diagonal lines in the bottom right corner
         painter.drawLine(w - 12, h, w, h - 12)
         painter.drawLine(w - 6, h, w, h - 6)
+
+class VerticalResizeHandle(QFrame):
+    """
+    A sleek, draggable handle bar that resizes a target widget vertically.
+    Supports mouse dragging to resize and double-clicking to reset to default height.
+    """
+
+    height_changed = Signal(int)
+
+    def __init__(
+        self,
+        target_widget: QWidget,
+        default_height: int = 200,
+        min_height: int = 120,
+        max_height: int = 800,
+        parent: Optional[QWidget] = None,
+    ) -> None:
+        super().__init__(parent)
+        self.target_widget: QWidget = target_widget
+        self.default_height: int = default_height
+        self.min_height: int = min_height
+        self.max_height: int = max_height
+        self._dragging: bool = False
+        self._drag_start_y: int = 0
+        self._start_height: int = default_height
+
+        self.setFixedHeight(12)
+        self.setCursor(Qt.CursorShape.SizeVerCursor)
+        self.setToolTip("Drag up/down to resize preview height • Double-click to reset")
+        self.setObjectName("VerticalResizeHandle")
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        cx: int = self.width() // 2
+        cy: int = self.height() // 2
+        is_active: bool = self.underMouse() or self._dragging
+        dot_color = QColor("#89b4fa" if is_active else "#6c7086")
+        painter.setBrush(dot_color)
+        painter.setPen(Qt.PenStyle.NoPen)
+        for offset in (-12, 0, 12):
+            painter.drawEllipse(cx + offset - 2, cy - 2, 4, 4)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self._drag_start_y = event.globalPosition().toPoint().y()
+            self._start_height = self.target_widget.height()
+            self.update()
+            event.accept()
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if self._dragging:
+            dy: int = event.globalPosition().toPoint().y() - self._drag_start_y
+            new_h: int = max(self.min_height, min(self.max_height, self._start_height + dy))
+            self.target_widget.setFixedHeight(new_h)
+            self.height_changed.emit(new_h)
+            event.accept()
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = False
+            self.update()
+            event.accept()
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.target_widget.setFixedHeight(self.default_height)
+            self.height_changed.emit(self.default_height)
+            self.update()
+            event.accept()

@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt, QPoint, QRect
 from pytoningans.core.constants import (
     AnimationMeta, EntityType, StructureState, EntityState, ItemState
 )
-from pytoningans.ui.mod_editor.components import CollapsibleSection, create_info_label
+from pytoningans.ui.mod_editor.components import CollapsibleSection, create_info_label, VerticalResizeHandle
 from ..base_panel import BasePanel
 from .canvas import PhysicsCanvas
 
@@ -33,41 +33,65 @@ class PhysicsPanel(BasePanel):
         
         section = CollapsibleSection("Physics and Alignment")
         
-        # Top Controls
-        top_layout = QHBoxLayout()
+        # Top Controls (organized in 2 clean rows to prevent horizontal overflow)
+        top_controls_layout = QVBoxLayout()
+        top_controls_layout.setSpacing(6)
+
+        row_1 = QHBoxLayout()
         self.state_label = QLabel("State:")
         self.state_combo = QComboBox()
-            
         self.frame_spin = QSpinBox()
         self.frame_spin.setPrefix("Frame: "); self.frame_spin.setMinimum(0)
-        self.zoom_spin = QSpinBox()
-        self.zoom_spin.setPrefix("Zoom: "); self.zoom_spin.setSuffix("x")
-        self.zoom_spin.setRange(1, 20)
-        
         self.copy_btn = QPushButton("Copy")
         self.paste_btn = QPushButton("Paste")
         self.paste_btn.setEnabled(False)
-        
-        self.static_indicator = QLabel("Static Collision (Shared across all states)")
+        self.static_indicator = QLabel("Static Collision (Shared)")
         self.static_indicator.setStyleSheet("color: #60a5fa; font-weight: bold; font-size: 11px;")
         self.static_indicator.hide()
 
-        self.reset_view_btn = QPushButton("Reset View")
+        row_1.addWidget(self.state_label)
+        row_1.addWidget(self.state_combo)
+        row_1.addWidget(self.frame_spin)
+        row_1.addWidget(self.copy_btn)
+        row_1.addWidget(self.paste_btn)
+        row_1.addWidget(self.static_indicator)
+        row_1.addStretch()
 
-        top_layout.addWidget(self.state_label)
-        top_layout.addWidget(self.state_combo)
-        top_layout.addWidget(self.frame_spin)
-        top_layout.addWidget(self.copy_btn)
-        top_layout.addWidget(self.paste_btn)
-        top_layout.addWidget(self.static_indicator)
-        top_layout.addWidget(self.zoom_spin)
-        top_layout.addWidget(self.reset_view_btn)
-        top_layout.addStretch()
+        row_2 = QHBoxLayout()
+        self.zoom_spin = QSpinBox()
+        self.zoom_spin.setPrefix("Zoom: "); self.zoom_spin.setSuffix("x")
+        self.zoom_spin.setRange(1, 20)
+        self.reset_view_btn = QPushButton("Reset View")
+        self.expand_canvas_btn = QPushButton("⤢ Expand")
+        self.expand_canvas_btn.setToolTip("Quickly toggle between standard (340px) and large (520px) canvas height")
+        self.expand_canvas_btn.clicked.connect(self._toggle_canvas_expand)
+
+        row_2.addWidget(self.zoom_spin)
+        row_2.addWidget(self.reset_view_btn)
+        row_2.addWidget(self.expand_canvas_btn)
+        row_2.addStretch()
+
+        top_controls_layout.addLayout(row_1)
+        top_controls_layout.addLayout(row_2)
 
         # Canvas and Form Controls
         editor_layout = QHBoxLayout()
+        
+        canvas_container = QWidget()
+        canvas_layout = QVBoxLayout(canvas_container)
+        canvas_layout.setContentsMargins(0, 0, 0, 0)
+        canvas_layout.setSpacing(0)
+
         self.canvas = PhysicsCanvas()
-        editor_layout.addWidget(self.canvas, stretch=1)
+        self.canvas.setFixedHeight(340)
+        self.canvas_handle = VerticalResizeHandle(
+            self.canvas, default_height=340, min_height=180, max_height=800
+        )
+        self.canvas_handle.height_changed.connect(self._on_canvas_height_changed)
+        canvas_layout.addWidget(self.canvas)
+        canvas_layout.addWidget(self.canvas_handle)
+
+        editor_layout.addWidget(canvas_container, stretch=1)
         self.zoom_spin.setValue(self.canvas.zoom)
         
         form_flags: Qt.AlignmentFlag = (
@@ -154,7 +178,7 @@ class PhysicsPanel(BasePanel):
 
         editor_layout.addLayout(self.form)
         
-        section.content_layout.addLayout(top_layout)
+        section.content_layout.addLayout(top_controls_layout)
         section.content_layout.addLayout(editor_layout)
         layout.addWidget(section)
 
@@ -633,3 +657,16 @@ class PhysicsPanel(BasePanel):
         self.canvas.show_attack_range = bool(state)
         self.canvas.update()
 
+    def _toggle_canvas_expand(self) -> None:
+        if self.canvas.height() >= 460:
+            self.canvas.setFixedHeight(340)
+            self.expand_canvas_btn.setText("⤢ Expand")
+        else:
+            self.canvas.setFixedHeight(520)
+            self.expand_canvas_btn.setText("⤡ Compact")
+
+    def _on_canvas_height_changed(self, height: int) -> None:
+        if height >= 460:
+            self.expand_canvas_btn.setText("⤡ Compact")
+        else:
+            self.expand_canvas_btn.setText("⤢ Expand")

@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Optional
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QScrollArea, QFrame,
+    QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QScrollArea, QFrame, QSplitter,
     QMessageBox, QLabel, QLineEdit, QFileDialog
 )
 from PySide6.QtCore import QRect, Qt, Signal, QUrl, QTimer
@@ -99,8 +99,9 @@ class ModEditorWindow(QWidget):
             self.physics_panel, self.instance_names_panel, self.tags_panel
         ]
 
-        # Scroll Areas
-        split_layout = QHBoxLayout()
+        # Scroll Areas & Responsive Splitter
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.setObjectName("EditorSplitter")
         
         left_scroll = QScrollArea()
         left_scroll.setWidgetResizable(True)
@@ -172,9 +173,12 @@ class ModEditorWindow(QWidget):
         
         left_scroll.setWidget(left_content)
         right_scroll.setWidget(right_content)
-        split_layout.addWidget(left_scroll, stretch=1)
-        split_layout.addWidget(right_scroll, stretch=1)
-        content_layout.addLayout(split_layout)
+        self.splitter.addWidget(left_scroll)
+        self.splitter.addWidget(right_scroll)
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setChildrenCollapsible(False)
+        content_layout.addWidget(self.splitter, stretch=1)
         main_layout.addWidget(content_widget, stretch=1)
         
         # Footer

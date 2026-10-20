@@ -41,17 +41,18 @@ flowchart TD
     - **Transparent Overlay**: Frameless, click-through overlay that coexists seamlessly with your daily workflow.
     - **Desktop Window Physics**: Entities walk, jump, and stand on the borders of your active desktop application windows using low-level Win32 window hit-testing.
     - **Dynamic Spawning**: Spawn individual entities, full crews, or define desktop spawn exclusion rules.
+    - **Entity Interactions**: Entities can be made to interact with each other, or even your windows as physics, or just detect the window names for dialogue triggers and such.
 
 === "Combat & Visuals"
     - **Interactive Combat**: Characters can battle and unleash animated attacks on your screen.
     - **Customizable Feedback**: Floating damage popups, proportional health bar impact shaking, numerical HP displays, and auto-hide timing.
-    - **Catppuccin Themes**: Hand-crafted Dark and Light themes with consistent aesthetics.
+    - **Minimalistic Themes**: Hand-crafted Dark and Light themes with consistent aesthetics.
 
 === "Community & Modding"
     - **Rich Modpacks**: Group multiple entities into cohesive bundles with shared controllers (`BaseModPack`) and global state.
     - **Safety First**: Integrated AST security analyzer checks imported packages for prohibited modules before execution.
     - **Offline-First Mod Browser**: Discover, install, rate, and update community mods without mandatory logins.
-    - **Cloud Sync**: Optional Supabase Cloud integration with Google Sign-In and Git-like release versioning.
+    - **Cloud Sync**: Optional Supabase Cloud integration with Sign-In for Google and Github, and Git-like release versioning.
 
 ---
 

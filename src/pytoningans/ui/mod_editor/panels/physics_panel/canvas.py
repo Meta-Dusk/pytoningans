@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional
 from PySide6.QtWidgets import QWidget
 from PySide6.QtGui import (
-    QPaintEvent, QPainter, QColor, QMouseEvent, QPixmap, QPen, QWheelEvent
+    QPaintEvent, QPainter, QColor, QMouseEvent, QPixmap, QPen, QWheelEvent, QResizeEvent
 )
 from PySide6.QtCore import Qt, QPoint, QRect, Signal, QPointF
 
@@ -59,6 +59,19 @@ class PhysicsCanvas(QWidget):
             self._first_load = False
             self.reset_view()
         self.update()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        old_h: int = event.oldSize().height()
+        old_w: int = event.oldSize().width()
+        super().resizeEvent(event)
+        if self._first_load and not self.frame_pixmap.isNull() and self.width() > 10:
+            self._first_load = False
+            self.reset_view()
+        elif old_h > 0 and old_w > 0:
+            dw: int = (self.width() - old_w) // 2
+            dh: int = (self.height() - old_h) // 2
+            self.pan_offset += QPoint(dw, dh)
+            self.update()
 
     def reset_view(self) -> None:
         """Centers the frame pixmap in the canvas viewport."""
