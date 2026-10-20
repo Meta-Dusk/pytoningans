@@ -17,7 +17,7 @@ from pytoningans.core.roles import save_cached_roles
 from .auth import AuthManager
 
 if TYPE_CHECKING:
-    from pytoningans.ui.mod_browser.auth import AuthSession
+    from pytoningans.ui.mod_browser.auth import AuthSession, UserProfile
 
 
 class SupabaseClient:
@@ -49,7 +49,7 @@ class SupabaseClient:
         if hasattr(self.auth, "ensure_valid_session"):
             self.auth.ensure_valid_session()
 
-        user = self.auth.current_user
+        # user = self.auth.current_user
         session: Optional[AuthSession] = self.auth._current_session
         token: Optional[str] = session.access_token if session else None
 
@@ -62,35 +62,30 @@ class SupabaseClient:
 
         return headers
 
-    def fetch_creator_roles(self) -> dict[str, str]:
+    def fetch_creator_roles(self) -> list[dict[str, Any]]:
         """
         Fetches creator roles from public.creator_roles and caches them locally.
-        Gracefully returns existing cache if table does not exist or network fails.
+        Gracefully returns empty list if table does not exist or network fails.
         """
         if not self.is_configured:
-            return {}
+            return []
 
-        endpoint: str = f"{self.base_url}/rest/v1/creator_roles?select=handle,role,email"
+        endpoint: str = (
+            self.base_url +
+            "/rest/v1/creator_roles?select=user_id,role,handle,github_username,email"
+        )
         headers: dict[str, str] = self._headers(requires_auth=False)
         req = urllib.request.Request(endpoint, headers=headers, method="GET")
 
         try:
             with urllib.request.urlopen(req, timeout=6) as resp:
                 data: list[dict[str, Any]] = json.loads(resp.read().decode("utf-8"))
-                roles: dict[str, str] = {}
-                for row in data:
-                    h: str = str(row.get("handle") or "").strip().lower()
-                    r: str = str(row.get("role") or "").strip().lower()
-                    e: str = str(row.get("email") or "").strip().lower()
-                    if h and r:
-                        roles[h] = r
-                    if e and r:
-                        roles[e] = r
-                if roles:
-                    save_cached_roles(roles)
-                return roles
+                if isinstance(data, list):
+                    save_cached_roles(data)
+                    return data
         except Exception:
-            return {}
+            pass
+        return []
 
     def fetch_catalog(self) -> tuple[bool, str, list[dict[str, Any]]]:
         """Queries the public.mods table including joined mod_releases and mod_ratings."""
@@ -132,6 +127,7 @@ class SupabaseClient:
                         "entity_type": row.get("entity_type"),
                         "version": row.get("version"),
                         "author": row.get("author"),
+                        "author_id": row.get("author_id"),
                         "description": row.get("description", ""),
                         "tags": list(row.get("tags") or []),
                         "rating": avg_rating,
@@ -173,14 +169,14 @@ class SupabaseClient:
         if not zip_path.exists():
             return False, f"Zip file does not exist: {zip_path}", None
 
-        clean_filename = urllib.parse.quote(filename.replace(" ", "_"))
-        endpoint = f"{self.base_url}/storage/v1/object/mods/{clean_filename}"
+        clean_filename: str = urllib.parse.quote(filename.replace(" ", "_"))
+        endpoint: str = f"{self.base_url}/storage/v1/object/mods/{clean_filename}"
 
-        headers = self._headers(requires_auth=True, is_upload=True)
+        headers: dict[str, str] = self._headers(requires_auth=True, is_upload=True)
         headers["Content-Type"] = "application/zip"
         headers["x-upsert"] = "true"
 
-        data_bytes = zip_path.read_bytes()
+        data_bytes: bytes = zip_path.read_bytes()
         req = urllib.request.Request(endpoint, data=data_bytes, headers=headers, method="POST")
 
         try:
@@ -201,11 +197,11 @@ class SupabaseClient:
         if not self.is_configured:
             return False, "Cloud database not configured."
 
-        mods_endpoint = f"{self.base_url}/rest/v1/mods"
-        headers = self._headers(requires_auth=True)
+        mods_endpoint: str = f"{self.base_url}/rest/v1/mods"
+        headers: dict[str, str] = self._headers(requires_auth=True)
         headers["Prefer"] = "return=representation"
 
-        payload = json.dumps(mod_data).encode("utf-8")
+        payload: bytes = json.dumps(mod_data).encode("utf-8")
         req = urllib.request.Request(mods_endpoint, data=payload, headers=headers, method="POST")
 
         try:
@@ -217,8 +213,8 @@ class SupabaseClient:
             return False, f"Connection error: {e}"
 
         # Insert release
-        rel_endpoint = f"{self.base_url}/rest/v1/mod_releases"
-        rel_payload = json.dumps(release_data).encode("utf-8")
+        rel_endpoint: str = f"{self.base_url}/rest/v1/mod_releases"
+        rel_payload: bytes = json.dumps(release_data).encode("utf-8")
         rel_req = urllib.request.Request(rel_endpoint, data=rel_payload, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(rel_req, timeout=10):
@@ -233,10 +229,10 @@ class SupabaseClient:
         if not self.is_configured:
             return False, "Cloud database not configured."
 
-        # 1. Update mods table
-        mod_patch_url = f"{self.base_url}/rest/v1/mods?id=eq.{urllib.parse.quote(mod_id)}"
-        headers = self._headers(requires_auth=True)
-        patch_payload = json.dumps(mod_update).encode("utf-8")
+        # Update mods table
+        mod_patch_url: str = f"{self.base_url}/rest/v1/mods?id=eq.{urllib.parse.quote(mod_id)}"
+        headers: dict[str, str] = self._headers(requires_auth=True)
+        patch_payload: bytes = json.dumps(mod_update).encode("utf-8")
         req = urllib.request.Request(mod_patch_url, data=patch_payload, headers=headers, method="PATCH")
 
         try:
@@ -247,10 +243,10 @@ class SupabaseClient:
         except Exception as e:
             return False, f"Connection error: {e}"
 
-        # 2. Insert new release row
-        rel_endpoint = f"{self.base_url}/rest/v1/mod_releases"
+        # Insert new release row
+        rel_endpoint: str = f"{self.base_url}/rest/v1/mod_releases"
         headers["Prefer"] = "resolution=merge-duplicates"
-        rel_payload = json.dumps(release_data).encode("utf-8")
+        rel_payload: bytes = json.dumps(release_data).encode("utf-8")
         rel_req = urllib.request.Request(rel_endpoint, data=rel_payload, headers=headers, method="POST")
 
         try:
@@ -264,15 +260,15 @@ class SupabaseClient:
         if not self.is_configured:
             return False, "Cloud database not configured."
 
-        user = self.auth.current_user
-        if not user or not user.id:
+        user: Optional[UserProfile] = self.auth.current_user
+        if user is None or not user.id:
             return False, "You must be signed in to submit cloud ratings."
 
-        endpoint = f"{self.base_url}/rest/v1/mod_ratings"
-        headers = self._headers(requires_auth=True)
+        endpoint: str = f"{self.base_url}/rest/v1/mod_ratings"
+        headers: dict[str, str] = self._headers(requires_auth=True)
         headers["Prefer"] = "resolution=merge-duplicates"
 
-        payload = json.dumps({
+        payload: bytes = json.dumps({
             "mod_id": mod_id,
             "user_id": user.id,
             "rating": round(score, 1),
@@ -287,7 +283,7 @@ class SupabaseClient:
 
     def download_package(self, download_url: str, destination_path: Path) -> tuple[bool, str]:
         """Downloads a zip package from a remote URL into destination_path."""
-        headers = self._headers(requires_auth=False)
+        headers: dict[str, str] = self._headers(requires_auth=False)
         req = urllib.request.Request(download_url, headers=headers, method="GET")
 
         try:

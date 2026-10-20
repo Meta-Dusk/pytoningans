@@ -23,7 +23,7 @@ from .oauth_handler import OAuthCallbackServer, OAuthCallbackHandler
 
 
 def is_known_developer(
-    email: str = "",
+    user_id: str = "",
     username: str = "",
     github_username: Optional[str] = None,
     app_metadata: Optional[dict[str, Any]] = None,
@@ -34,18 +34,17 @@ def is_known_developer(
     Evaluates:
     1. Supabase Auth app_metadata (e.g. role == 'developer')
     2. Supabase Auth user_metadata
-    3. The public.creator_roles database table (cached locally)
-    4. Offline fallback defaults
+    3. The public.creator_roles database table (cached locally by user_id UUID)
     """
     return is_developer_account(
-        handle=username,
-        email=email,
-        github_username=github_username,
+        user_id=user_id,
+        handle=username or (github_username or ""),
         app_metadata=app_metadata,
         user_metadata=user_metadata,
     )
 
 
+# TODO: Refactor Auth to be a lot more modular!
 @dataclass
 class UserProfile:
     """Represents a signed-in community creator account."""
@@ -218,12 +217,12 @@ class AuthManager(QObject):
             # Backward compatibility deduction
             if not u_provs and u_prov:
                 u_provs = [u_prov]
-            if "github" in str(user_data.get("avatar_url", "")).lower() or u_gh or u_name == "Meta-Dusk":
+            if "github" in str(user_data.get("avatar_url", "")).lower() or u_gh or u_prov == "github" or "github" in u_provs:
                 if "github" not in u_provs:
                     u_provs.append("github")
                 u_prov = "github"
-                if not u_gh:
-                    u_gh = "Meta-Dusk" if u_name == "Meta-Dusk" else None
+                if not u_gh and "github" in u_provs:
+                    u_gh = u_name
 
             # Only retain Google if an actual Google provider login exists
             # (A user having a Gmail address on GitHub or Supabase does NOT mean Google OAuth is linked).
@@ -244,7 +243,11 @@ class AuthManager(QObject):
 
             is_dev = user_data.get("is_developer")
             if is_dev is None:
-                is_dev = is_known_developer(u_email, u_name, u_gh)
+                is_dev = is_known_developer(
+                    user_id=str(user_data.get("id", "")),
+                    username=u_name,
+                    github_username=u_gh,
+                )
 
             badges: list[str] = list(user_data.get("badges", []))
             if is_dev and "Developer" not in badges:
@@ -479,9 +482,9 @@ class AuthManager(QObject):
 
             # Recompute developer & badges
             is_dev: bool = is_known_developer(
-                self._current_session.user.email,
-                clean_name,
-                self._current_session.user.github_username,
+                user_id=self._current_session.user.id,
+                username=clean_name,
+                github_username=self._current_session.user.github_username,
             )
             self._current_session.user.is_developer = is_dev
             if is_dev and "Developer" not in self._current_session.user.badges:
@@ -544,7 +547,7 @@ class AuthManager(QObject):
     def sign_in_locally(self, username: str = "LocalCreator") -> UserProfile:
         """Sets up a local creator session for offline-first modding without cloud connection."""
         clean_name: str = username.strip().replace(" ", "_") or "LocalCreator"
-        is_dev = is_known_developer("", clean_name, None)
+        is_dev = is_known_developer(user_id=f"local_{clean_name}", username=clean_name)
         badges = ["Developer"] if is_dev else ["Offline Creator"]
         custom_avatar = ""
         try:
@@ -585,7 +588,7 @@ class AuthManager(QObject):
         if not self.is_cloud_configured:
             # Offline/Local Mode fallback: allow local sign-in
             username: str = email.split("@")[0].replace(".", "_")
-            is_dev = is_known_developer(email, username, None)
+            is_dev = is_known_developer(user_id=f"local_{username}", username=username)
             badges = ["Developer"] if is_dev else ["Offline Creator"]
             user = UserProfile(
                 id=f"local_{username}",
@@ -622,7 +625,13 @@ class AuthManager(QObject):
                 meta: dict[str, Any] = user_obj.get("user_metadata", {})
                 username: str = meta.get("username") or email.split("@")[0]
 
-                is_dev: bool = is_known_developer(user_obj.get("email", email), username, None)
+                is_dev: bool = is_known_developer(
+                    user_id=user_obj.get("id", ""),
+                    username=username,
+                    github_username=None,
+                    app_metadata=user_obj.get("app_metadata"),
+                    user_metadata=meta,
+                )
                 badges: list[str] = ["Developer", "Verified Creator"] if is_dev else ["Verified Creator"]
 
                 user = UserProfile(
@@ -670,8 +679,8 @@ class AuthManager(QObject):
 
         if not self.is_cloud_configured:
             # Offline/Local Mode registration
-            is_dev: bool = is_known_developer(email, username, None)
-            badges = ["Developer"] if is_dev else ["Offline Creator"]
+            is_dev: bool = is_known_developer(user_id=f"local_{username}", username=username)
+            badges: list[str] = ["Developer"] if is_dev else ["Offline Creator"]
             user = UserProfile(
                 id=f"local_{username}",
                 email=email,
@@ -711,7 +720,13 @@ class AuthManager(QObject):
                 meta: dict[str, Any] = user_obj.get("user_metadata", {})
                 confirmed_username: str = meta.get("username", username)
 
-                is_dev: bool = is_known_developer(user_obj.get("email", email), confirmed_username, None)
+                is_dev: bool = is_known_developer(
+                    user_id=user_obj.get("id", ""),
+                    username=confirmed_username,
+                    github_username=None,
+                    app_metadata=user_obj.get("app_metadata"),
+                    user_metadata=meta,
+                )
                 badges: list[str] = ["Developer", "Verified Creator"] if is_dev else ["Verified Creator"]
 
                 user = UserProfile(
@@ -762,7 +777,7 @@ class AuthManager(QObject):
             mock_id: str = f"{prov_key}_offline_user"
             mock_email: str = "user@gmail.com" if prov_key == "google" else f"creator@{prov_key}.local"
             mock_username: str = f"{prov_name}Creator"
-            is_dev = is_known_developer(mock_email, mock_username, None)
+            is_dev = is_known_developer(user_id=mock_id, username=mock_username)
             badges = ["Developer"] if is_dev else ["Offline Creator"]
             user = UserProfile(
                 id=mock_id,
@@ -941,9 +956,9 @@ class AuthManager(QObject):
 
                 # Identify developer status
                 is_dev: bool = is_known_developer(
-                    data.get("email", ""),
-                    chosen_username,
-                    github_username,
+                    user_id=data.get("id", ""),
+                    username=chosen_username,
+                    github_username=github_username,
                     app_metadata=app_meta,
                     user_metadata=meta,
                 )
@@ -980,4 +995,3 @@ class AuthManager(QObject):
                 self.auth_state_changed.emit(user)
         except Exception:
             pass
-

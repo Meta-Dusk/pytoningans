@@ -57,14 +57,18 @@ create table if not exists public.mod_ratings (
 -- Foreign key covering index (Performance Advisor: unindexed_foreign_keys)
 create index if not exists idx_mod_ratings_user_id on public.mod_ratings (user_id);
 
--- CREATOR ROLES TABLE (Flexible role & developer assignment)
+-- CREATOR ROLES TABLE (Cryptographic user_id UUID developer verification)
 create table if not exists public.creator_roles (
-  handle text primary key,
+  user_id uuid primary key references auth.users (id) on delete cascade,
   role text not null default 'developer',
+  handle text,
+  github_username text,
   email text,
   description text default '',
   created_at timestamp with time zone not null default now()
 );
+
+create index if not exists idx_creator_roles_user_id on public.creator_roles (user_id);
 
 -- ==============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -86,19 +90,32 @@ create policy "Creator roles are viewable by everyone" on public.creator_roles f
 select
   using (true);
 
--- Seed initial core developer account
+-- Seed / link official core developer account by user UUID or email in auth.users
 insert into
-  public.creator_roles (handle, role, email, description)
-values
-  (
-    'Meta-Dusk',
-    'developer',
-    'andredcxxv@gmail.com',
-    'Core Developer & Author'
+  public.creator_roles (
+    user_id,
+    role,
+    handle,
+    github_username,
+    email,
+    description
   )
-on conflict (handle) do update
+select
+  id as user_id,
+  'developer' as role,
+  'Meta-Dusk' as handle,
+  'Meta-Dusk' as github_username,
+  email,
+  'Core Developer & Author' as description
+from
+  auth.users
+where
+  email = 'andredcxxv@gmail.com'
+  or raw_user_meta_data ->> 'user_name' = 'Meta-Dusk'
+on conflict (user_id) do update
 set role = excluded.role,
-email = excluded.email;
+handle = excluded.handle,
+github_username = excluded.github_username;
 
 -- --- Mods RLS Policies ---
 drop policy if exists "Mods are viewable by everyone" on public.mods;

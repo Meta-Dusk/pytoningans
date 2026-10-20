@@ -9,8 +9,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
-from pytoningans.core.roles import is_developer_account
 from pytoningans.core.constants import EntityType
+from pytoningans.core.roles import get_github_for_creator, is_developer_account
 from pytoningans.utils.paths import get_app_version
 
 
@@ -46,7 +46,7 @@ class CommunityModItem:
     """Represents a community mod or modpack available in the Mod Browser."""
     id: str
     name: str
-    entity_type: EntityType
+    entity_type: EntityType | str
     version: str
     author: str
     description: str
@@ -69,24 +69,21 @@ class CommunityModItem:
     releases: list[ModRelease] = field(default_factory=list)
     has_update: bool = False
     is_local_only: bool = False
+    author_id: Optional[str] = None
     author_badges: list[str] = field(default_factory=list)
     github_username: Optional[str] = None
 
     @property
     def is_developer(self) -> bool:
         """Determines if the author is recognized as an official core developer."""
-        if any(b.lower() == "developer" for b in self.author_badges):
-            return True
-        return is_developer_account(handle=self.author)
+        return is_developer_account(user_id=self.author_id or "", handle=self.author)
 
     @property
     def author_github(self) -> Optional[str]:
         """Returns GitHub handle for the author if linked or developer."""
         if self.github_username:
             return self.github_username.strip().lstrip("@")
-        if self.author.strip().lower() in ("meta-dusk", "andredcxxv"):
-            return "Meta-Dusk"
-        return None
+        return get_github_for_creator(user_id=self.author_id or "", handle=self.author)
 
     @property
     def semver(self) -> tuple[int, ...]:

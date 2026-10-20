@@ -37,7 +37,8 @@ class CatalogSyncWorker(QThread):
 class ModInstallWorker(QThread):
     """Background worker for non-blocking mod package downloading, extraction, or updates."""
 
-    install_completed = Signal(bool, str, object)  # success, message, CommunityModItem
+    install_completed = Signal(bool, str, object)
+    """`.connect(success, message, CommunityModItem)`"""
 
     def __init__(
         self,

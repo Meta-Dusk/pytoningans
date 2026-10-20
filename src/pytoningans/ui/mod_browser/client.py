@@ -29,6 +29,7 @@ from .auth import AuthManager
 
 if TYPE_CHECKING:
     from pytoningans.core.mod_manager.modpack import ModPack
+    from pytoningans.ui.mod_browser.auth import UserProfile
 
 __all__ = ["ModBrowserClient", "DEFAULT_CATALOG_DATA"]
 
@@ -122,6 +123,7 @@ class ModBrowserClient:
             entity_type=entry["entity_type"],
             version=entry["version"],
             author=entry["author"],
+            author_id=entry.get("author_id"),
             description=entry.get("description", ""),
             tags=list(entry.get("tags") or []),
             rating=float(entry.get("rating", 10.0)),
@@ -150,6 +152,7 @@ class ModBrowserClient:
             "entity_type": item.entity_type,
             "version": item.version,
             "author": item.author,
+            "author_id": item.author_id,
             "author_badges": item.author_badges,
             "github_username": item.github_username,
             "description": item.description,
@@ -262,12 +265,19 @@ class ModBrowserClient:
                     size = 32000
 
             author_val: str = pack.manifest.author or "LocalCreator"
-            current_user = AuthManager.get().current_user
-            pack_badges = list(current_user.badges) if current_user and current_user.username == author_val else []
-            pack_gh = current_user.github_username if current_user and current_user.username == author_val else None
-            if author_val.strip().lower() in ("meta-dusk", "andredcxxv"):
-                pack_badges = ["Developer"]
-                pack_gh = "Meta-Dusk"
+            current_user: Optional[UserProfile] = AuthManager.get().current_user
+            pack_author_id: Optional[str] = (
+                current_user.id if current_user is not None and
+                current_user.username == author_val else None
+            )
+            pack_badges: list[str] = (
+                list(current_user.badges) if current_user is not None and
+                current_user.username == author_val else []
+            )
+            pack_gh: Optional[str] = (
+                current_user.github_username if current_user is not None and
+                current_user.username == author_val else None
+            )
 
             local_items.append(
                 CommunityModItem(
@@ -276,6 +286,7 @@ class ModBrowserClient:
                     entity_type="pack",
                     version=pack.manifest.version or "1.0.0",
                     author=author_val,
+                    author_id=pack_author_id,
                     author_badges=pack_badges,
                     github_username=pack_gh,
                     description=(
@@ -323,12 +334,19 @@ class ModBrowserClient:
             except Exception:
                 size = 16000
 
-            current_user = AuthManager.get().current_user
-            mod_badges = list(current_user.badges) if current_user and current_user.username == author else []
-            mod_gh = current_user.github_username if current_user and current_user.username == author else None
-            if author.strip().lower() in ("meta-dusk", "andredcxxv"):
-                mod_badges = ["Developer"]
-                mod_gh = "Meta-Dusk"
+            current_user: Optional[UserProfile] = AuthManager.get().current_user
+            mod_author_id: Optional[str] = (
+                current_user.id if current_user is not None and
+                current_user.username == author else None
+            )
+            mod_badges: list[str] = (
+                list(current_user.badges) if current_user is not None and
+                current_user.username == author else []
+            )
+            mod_gh: Optional[str] = (
+                current_user.github_username if current_user is not None and
+                current_user.username == author else None
+            )
 
             local_items.append(
                 CommunityModItem(
@@ -337,6 +355,7 @@ class ModBrowserClient:
                     entity_type=entity_type,
                     version=ver,
                     author=author,
+                    author_id=mod_author_id,
                     author_badges=mod_badges,
                     github_username=mod_gh,
                     description=f"Locally authored {entity_type} mod.",
@@ -564,13 +583,19 @@ class ModBrowserClient:
             return True, f"Successfully published release v{version} for '{existing_item.name}'!", existing_item
 
         # Create brand-new mod entry
-        current_user = AuthManager.get().current_user
-        author_badges = list(current_user.badges) if current_user and current_user.username == author else []
-        author_gh = current_user.github_username if current_user and current_user.username == author else None
-        if not author_badges and author.strip().lower() in ("meta-dusk", "andredcxxv"):
-            author_badges = ["Developer"]
-        if not author_gh and author.strip().lower() in ("meta-dusk", "andredcxxv"):
-            author_gh = "Meta-Dusk"
+        current_user: Optional[UserProfile] = AuthManager.get().current_user
+        author_id: Optional[str] = (
+            current_user.id if current_user is not None and
+            current_user.username == author else None
+        )
+        author_badges: list[str] = (
+            list(current_user.badges) if current_user is not None and
+            current_user.username == author else []
+        )
+        author_gh: Optional[str] = (
+            current_user.github_username if current_user is not None and
+            current_user.username == author else None
+        )
 
         initial_release = ModRelease(
             version=version,
@@ -586,6 +611,7 @@ class ModBrowserClient:
             entity_type=entity_type,
             version=version,
             author=author,
+            author_id=author_id,
             author_badges=author_badges,
             github_username=author_gh,
             description=description,
@@ -612,6 +638,7 @@ class ModBrowserClient:
                 "entity_type": entity_type,
                 "version": version,
                 "author": author,
+                "author_id": author_id,
                 "author_badges": author_badges,
                 "github_username": author_gh,
                 "description": description,
