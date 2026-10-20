@@ -25,7 +25,7 @@ class SupabaseClient:
 
     @property
     def is_configured(self) -> bool:
-        return bool(self.auth.supabase_url and self.auth.supabase_anon_key)
+        return bool(self.auth.supabase_url and self.auth.supabase_pub_key)
 
     @property
     def base_url(self) -> str:
@@ -33,7 +33,7 @@ class SupabaseClient:
 
     @property
     def anon_key(self) -> str:
-        return self.auth.supabase_anon_key
+        return self.auth.supabase_pub_key
 
     def _headers(self, requires_auth: bool = False, is_upload: bool = False) -> dict[str, str]:
         headers: dict[str, str] = {

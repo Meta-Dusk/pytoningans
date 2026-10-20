@@ -1,3 +1,5 @@
+<!-- TODO: Update the README! -->
+
 # PyToNingans
 
 > An app about putting little creatures on your desktop... Like Teto :)

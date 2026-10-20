@@ -56,7 +56,7 @@ class AuthManager(QObject):
         self._session_path: Path = get_settings_path().parent / "auth_session.json"
 
         self.supabase_url: str = os.environ.get("SUPABASE_URL", "")
-        self.supabase_anon_key: str = os.environ.get("SUPABASE_ANON_KEY", "")
+        self.supabase_pub_key: str = os.environ.get("SUPABASE_ANON_KEY", "")
 
         self._current_session: Optional[AuthSession] = None
         self._oauth_server: Optional[http.server.HTTPServer] = None
@@ -81,7 +81,11 @@ class AuthManager(QObject):
 
     @property
     def is_cloud_configured(self) -> bool:
-        return bool(self.supabase_url and self.supabase_anon_key)
+        return bool(self.supabase_url and self.supabase_pub_key)
+
+    @property
+    def supabase_anon_key(self) -> str:
+        return self.supabase_pub_key
 
     def _read_env_file(self, env_path: Path) -> dict[str, str]:
         """Simple, dependency-free key=value parser for local .env files."""
@@ -113,7 +117,7 @@ class AuthManager(QObject):
             try:
                 b_data = json.loads(bundled_config.read_text(encoding="utf-8"))
                 self.supabase_url = b_data.get("supabase_url", self.supabase_url)
-                self.supabase_anon_key = b_data.get("supabase_anon_key", self.supabase_anon_key)
+                self.supabase_pub_key = b_data.get("supabase_anon_key", self.supabase_pub_key)
             except Exception:
                 pass
 
@@ -122,28 +126,28 @@ class AuthManager(QObject):
         if "SUPABASE_URL" in env_vars:
             self.supabase_url = env_vars["SUPABASE_URL"]
         if "SUPABASE_ANON_KEY" in env_vars:
-            self.supabase_anon_key = env_vars["SUPABASE_ANON_KEY"]
+            self.supabase_pub_key = env_vars["SUPABASE_ANON_KEY"]
 
         # 3. Environment variables
         self.supabase_url = os.environ.get("SUPABASE_URL", self.supabase_url)
-        self.supabase_anon_key = os.environ.get("SUPABASE_ANON_KEY", self.supabase_anon_key)
+        self.supabase_pub_key = os.environ.get("SUPABASE_ANON_KEY", self.supabase_pub_key)
 
         # 4. User documents override
         if not self._config_path.is_file(): return
         try:
             data: dict[str, Any] = json.loads(self._config_path.read_text(encoding="utf-8"))
             self.supabase_url = data.get("supabase_url", self.supabase_url)
-            self.supabase_anon_key = data.get("supabase_anon_key", self.supabase_anon_key)
+            self.supabase_pub_key = data.get("supabase_anon_key", self.supabase_pub_key)
         except Exception:
             pass
 
     def save_config(self, url: str, anon_key: str) -> None:
         self.supabase_url = url.strip()
-        self.supabase_anon_key = anon_key.strip()
+        self.supabase_pub_key = anon_key.strip()
         try:
             payload: dict[str, str] = {
                 "supabase_url": self.supabase_url,
-                "supabase_anon_key": self.supabase_anon_key,
+                "supabase_anon_key": self.supabase_pub_key,
             }
             self._config_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         except Exception:
@@ -247,7 +251,7 @@ class AuthManager(QObject):
         payload: bytes = json.dumps({"email": email, "password": password}).encode("utf-8")
         headers: dict[str, str] = {
             "Content-Type": "application/json",
-            "apikey": self.supabase_anon_key,
+            "apikey": self.supabase_pub_key,
         }
 
         request = urllib.request.Request(endpoint, data=payload, headers=headers, method="POST")
@@ -321,7 +325,7 @@ class AuthManager(QObject):
         }).encode("utf-8")
         headers: dict[str, str] = {
             "Content-Type": "application/json",
-            "apikey": self.supabase_anon_key,
+            "apikey": self.supabase_pub_key,
         }
 
         request = urllib.request.Request(endpoint, data=payload, headers=headers, method="POST")
@@ -362,33 +366,40 @@ class AuthManager(QObject):
         except Exception as e:
             return False, f"Connection error: {e}", None
 
-    def start_google_oauth(self, callback_port: int = 54321) -> tuple[bool, str]:
+    def start_oauth(self, provider: str = "google", callback_port: int = 54321) -> tuple[bool, str]:
         """
-        Launches Google OAuth in the user's default browser with a 
+        Launches OAuth (e.g. Google, GitHub) in the user's default browser with a
         temporary local redirect listener.
+        Offline-first: Provides a mock creator profile when cloud is not configured.
         """
+        prov_key: str = provider.lower()
+        prov_name: str = "GitHub" if prov_key == "github" else provider.capitalize()
+
         if not self.is_cloud_configured:
-            # Offline mock Google sign-in
+            # Offline mock sign-in
+            mock_id: str = f"{prov_key}_offline_user"
+            mock_email: str = "user@gmail.com" if prov_key == "google" else f"creator@{prov_key}.local"
+            mock_username: str = f"{prov_name}Creator"
             user = UserProfile(
-                id="google_offline_user",
-                email="user@gmail.com",
-                username="GoogleCreator",
+                id=mock_id,
+                email=mock_email,
+                username=mock_username,
                 created_at=time.strftime("%Y-%m-%d"),
             )
             self._current_session = AuthSession(
-                access_token="mock_google_token",
-                refresh_token="mock_google_refresh",
+                access_token=f"mock_{prov_key}_token",
+                refresh_token=f"mock_{prov_key}_refresh",
                 user=user,
                 expires_at=time.time() + 86400 * 30,
             )
             self._save_session()
             self.auth_state_changed.emit(user)
-            return True, "Signed in with Google (Offline Mode) as 'GoogleCreator'."
+            return True, f"Signed in with {prov_name} (Offline Mode) as '{mock_username}'."
 
         redirect_uri: str = f"http://127.0.0.1:{callback_port}/callback"
         auth_url: str = (
             f"{self.supabase_url.rstrip('/')}/auth/v1/authorize?"
-            f"provider=google&redirect_to={urllib.parse.quote(redirect_uri)}"
+            f"provider={prov_key}&redirect_to={urllib.parse.quote(redirect_uri)}"
         )
 
         try:
@@ -413,9 +424,17 @@ class AuthManager(QObject):
             thread.start()
 
             webbrowser.open(auth_url)
-            return True, "Opened Google sign-in page in your browser..."
+            return True, f"Opened {prov_name} sign-in page in your browser..."
         except Exception as e:
             return False, f"Failed to start OAuth redirect listener: {e}"
+
+    def start_google_oauth(self, callback_port: int = 54321) -> tuple[bool, str]:
+        """Launches Google OAuth in the user's default browser."""
+        return self.start_oauth("google", callback_port)
+
+    def start_github_oauth(self, callback_port: int = 54321) -> tuple[bool, str]:
+        """Launches GitHub OAuth in the user's default browser."""
+        return self.start_oauth("github", callback_port)
 
     def _handle_oauth_tokens(self, access_token: str, refresh_token: str) -> None:
         """Queries user profile using the captured access token and activates the session."""
@@ -423,13 +442,15 @@ class AuthManager(QObject):
             endpoint: str = f"{self.supabase_url.rstrip('/')}/auth/v1/user"
             headers: dict[str, str] = {
                 "Authorization": f"Bearer {access_token}",
-                "apikey": self.supabase_anon_key,
+                "apikey": self.supabase_pub_key,
             }
             request = urllib.request.Request(endpoint, headers=headers)
             with urllib.request.urlopen(request, timeout=10) as response:
                 data: dict[str, Any] = json.loads(response.read().decode("utf-8"))
                 meta: dict[str, Any] = data.get("user_metadata", {})
                 username: str = (
+                    meta.get("user_name") or
+                    meta.get("preferred_username") or
                     meta.get("full_name") or
                     meta.get("name") or
                     data.get("email", "").split("@")[0]

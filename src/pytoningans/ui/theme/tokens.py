@@ -336,7 +336,7 @@ DARK_PALETTE = ThemePalette(
 
     # Inputs / Controls
     input_bg="#2d2d2d",
-    input_border="#3d3d3d",
+    input_border="#45475a",
     accent="#4a90e2",
     checkbox_text="#e0e0e0",
     checkbox_indicator_bg="#252526",

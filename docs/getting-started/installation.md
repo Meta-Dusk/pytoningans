@@ -36,6 +36,12 @@ Before running PyToNingans, ensure you have:
    uv run py src/pytoningans/main.py
    ```
 
+   or
+
+   ```bash
+   uv run pytoningans
+   ```
+
 ---
 
 ## Standalone Executable Deployment

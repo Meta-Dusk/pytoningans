@@ -58,8 +58,9 @@ class SettingsDialog(QDialog):
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        scroll.setStyleSheet("background: transparent; border: none;")
-        widget.setStyleSheet("background: transparent;")
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        scroll.viewport().setAutoFillBackground(False)
+        widget.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         scroll.setWidget(widget)
         return scroll
 
@@ -101,7 +102,9 @@ class SettingsDialog(QDialog):
         combat_layout.addWidget(hb_header)
 
         mode_layout = QHBoxLayout()
-        mode_layout.addWidget(QLabel("Display Mode:"))
+        mode_lbl = QLabel("Display Mode:")
+        mode_lbl.setFixedWidth(140)
+        mode_layout.addWidget(mode_lbl)
         self.mode_combo = QComboBox()
         self.mode_combo.addItem("Show On Damage Only (Default)", HealthBarMode.ON_DAMAGE)
         self.mode_combo.addItem("Always Visible", HealthBarMode.ALWAYS)
@@ -112,6 +115,7 @@ class SettingsDialog(QDialog):
 
         self.hide_delay_layout = QHBoxLayout()
         self.hide_delay_label = QLabel("Auto-Hide Delay:")
+        self.hide_delay_label.setFixedWidth(140)
         self.hide_delay_spin = QSpinBox()
         self.hide_delay_spin.setRange(1, 15); self.hide_delay_spin.setSuffix(" sec"); self.hide_delay_spin.setValue(3)
         self.hide_delay_spin.setToolTip("How long the health bar remains visible after taking damage")
@@ -184,7 +188,9 @@ class SettingsDialog(QDialog):
         spawn_layout.addWidget(self.avoid_window_cb)
 
         area_layout = QHBoxLayout()
-        area_layout.addWidget(QLabel("Spawn Boundary Area:"))
+        area_lbl = QLabel("Spawn Boundary Area:")
+        area_lbl.setFixedWidth(180)
+        area_layout.addWidget(area_lbl)
         self.spawn_area_combo = QComboBox()
         self.spawn_area_combo.addItem("Full Primary Screen", "screen")
         self.spawn_area_combo.addItem("Active Desktop Bounds", "desktop")

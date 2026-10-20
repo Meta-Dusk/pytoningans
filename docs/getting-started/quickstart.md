@@ -29,11 +29,11 @@ When PyToNingans launches, the central **Control Panel** appears. It provides in
 
 ## 1. Spawning Your First Entity
 
-1. Look at the left pane (**Spawning & Placement**).
+1. Look at the left pane (**Spawning and Placement**).
 2. Select any installed mod entity or pre-packaged companion from the list.
 3. Choose your desired spawn boundary:
-   - **Full Primary Screen**: Spawns anywhere across your monitor.
-   - **Active Desktop Bounds**: Prefers empty space away from foreground taskbars.
+    - **Full Primary Screen**: Spawns anywhere across your monitor.
+    - **Active Desktop Bounds**: Prefers empty space away from foreground taskbars.
 4. Click **Spawn Entity**. Your character will drop directly onto your desktop!
 
 ---

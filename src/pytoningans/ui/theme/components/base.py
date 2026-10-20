@@ -21,6 +21,7 @@ QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit {{
     border: 1px solid {p.input_border};
     border-radius: 4px;
     padding: 4px 8px;
+    min-height: 20px;
 }}
 
 QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover, QLineEdit:hover {{
@@ -29,6 +30,28 @@ QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover, QLineEdit:hover {{
 
 QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QLineEdit:focus {{
     border: 1px solid {p.accent};
+}}
+
+QComboBox QAbstractItemView {{
+    background-color: {p.menu_bg};
+    color: {p.menu_item_text};
+    border: 1px solid {p.input_border};
+    border-radius: 4px;
+    selection-background-color: {p.menu_item_selected_bg};
+    selection-color: {p.menu_item_selected_text};
+    padding: 4px;
+    outline: none;
+}}
+
+QComboBox QAbstractItemView::item {{
+    min-height: 24px;
+    padding: 4px 8px;
+    border-radius: 3px;
+}}
+
+QComboBox QAbstractItemView::item:selected {{
+    background-color: {p.menu_item_selected_bg};
+    color: {p.menu_item_selected_text};
 }}
 
 QCheckBox {{
