@@ -179,7 +179,7 @@ class ModBrowserDialog(QDialog):
     def _update_auth_ui(self, user: Optional[UserProfile]) -> None:
         """Updates the top bar account badge according to the current session."""
         if user is not None:
-            self.auth_btn.setText(f"@{user.username}")
+            self.auth_btn.setText(user.username)
             self.auth_btn.setStyleSheet("""
                 QPushButton {
                     background-color: rgba(59, 130, 246, 0.2);
@@ -230,6 +230,7 @@ class ModBrowserDialog(QDialog):
                 dlg.exec()
             elif action == sign_out_action:
                 self.auth.sign_out()
+                self._update_auth_ui(None)
                 QMessageBox.information(
                     self, "Signed Out", "You have signed out of your creator account."
                 )

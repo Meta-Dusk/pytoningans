@@ -195,6 +195,7 @@ class AuthManager(QObject):
         """Clears local authentication session and notifies listeners."""
         self._current_session = None
         self._save_session()
+        self.auth_state_changed.emit(None)
     def sign_in_locally(self, username: str = "LocalCreator") -> UserProfile:
         """Sets up a local creator session for offline-first modding without cloud connection."""
         clean_name: str = username.strip().replace(" ", "_") or "LocalCreator"
