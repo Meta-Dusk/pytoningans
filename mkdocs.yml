@@ -8,6 +8,7 @@ copyright: "Copyright &copy; 2026 MetaDusk - Open Source under MIT License"
 
 theme:
     name: material
+    custom_dir: overrides
     language: en
     palette:
         # Palette toggle for dark mode (default)
