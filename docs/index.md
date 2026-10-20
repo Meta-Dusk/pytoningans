@@ -57,22 +57,15 @@ flowchart TD
 
 ## Quick Navigation
 
-<div class="grid cards" markdown>
-
-- :material-download: **[Installation & Setup](getting-started/installation.md)**
-
-    Get PyToNingans running on your PC in less than two minutes using `uv`.
-
-- :material-play-circle-outline: **[Quickstart Guide](getting-started/quickstart.md)**
-
-    Learn basic controls, spawning entities, and navigating the Control Panel.
-
-- :material-package-variant-closed: **[Modding Guide](modding/mod-structure.md)**
-
-    Create your own desktop companions, spritesheets, and Modpacks.
-
-- :material-cloud-outline: **[Community Hub & Publishing](modding/publishing.md)**
-
-    Publish and update releases on the community mod catalog with Supabase.
-
-</div>
+| Topic | Documentation Guide | Description |
+| :--- | :--- | :--- |
+| 📥 **Setup** | [Installation & Setup](getting-started/installation.md) | Prerequisites, source cloning, and running with `uv` or Nuitka. |
+| 🎮 **Controls** | [Quickstart Guide](getting-started/quickstart.md) | Spawning characters, dragging entities, and Control Panel basics. |
+| 🪟 **Physics** | [Desktop Window Physics](user-guide/desktop-physics.md) | Win32 hit-testing and standing on desktop application windows. |
+| ⚔️ **Combat** | [Combat & Visual Feedback](user-guide/combat-visuals.md) | Damage numbers, impact shakes, and health bar modes. |
+| ⚙️ **Settings** | [Settings & Developer Tools](user-guide/settings.md) | Multi-category settings, DPI scaling, and Developer Mode. |
+| 📦 **Modding** | [Mod Architecture & Config](modding/mod-structure.md) | Manifest format, animation rows, and config schemas. |
+| 👥 **Modpacks** | [Modpacks & Shared Controllers](modding/creating-packs.md) | Bundling multi-entity rosters and custom `pack.py` controllers. |
+| 🛡️ **Security** | [Security Audit & AST](modding/inspector-audit.md) | Automated AST safety checks and package inspection. |
+| ☁️ **Publishing** | [Community Hub & Cloud](modding/publishing.md) | Supabase sync, Google Sign-In, ratings, and Git-like releases. |
+| 📜 **API** | [API Reference](api/reference.md) | Auto-generated Python API documentation and docstrings. |

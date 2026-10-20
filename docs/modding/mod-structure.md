@@ -12,10 +12,8 @@ A standalone entity mod is organized as follows:
 mods/
 └── my_cool_character/
     ├── config.json          # Main manifest, stats, and animation definitions
-    ├── sprite_sheet.png     # Grid of character animation frames
-    └── sounds/              # (Optional) Audio assets
-        ├── attack.wav
-        └── jump.wav
+    └── sprite_sheet.png     # Grid of character animation frames
+    
 ```
 
 ---
