@@ -5,6 +5,7 @@ on:
     branches:
       - stable
       - main
+      - experimental
   workflow_dispatch:
 
 permissions:
