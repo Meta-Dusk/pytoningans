@@ -6,7 +6,7 @@ worlds, entity managers, entities, and structures on the desktop.
 """
 from __future__ import annotations
 
-from typing import Protocol, Optional, Union, runtime_checkable
+from typing import Protocol, Optional, Union, runtime_checkable, Any
 
 from .types import (
     Pos2D, IRect, EntityState, StructureState, ItemState, BehaviorType, AttackType, DeathAnimation
@@ -28,13 +28,20 @@ class IModInfo(Protocol):
     attack_damage: int
     attack_range: int
     jump_height: int
+    move_speed: float
+    regen_rate: float
     can_fly: bool
+    can_climb_walls: bool
+    can_move_windows: bool
+    window_move_mode: str
+    ignore_window_physics: bool
     behavior_type: BehaviorType
     attack_type: AttackType
     plain_dialogue: list[str]
     death_dialogue: list[str]
     death_animation: DeathAnimation
     auto_close_on_death: bool
+    fade_in_on_spawn: bool
     instance_names: list[str]
 
 
@@ -52,7 +59,8 @@ class IEntityManager(Protocol):
         y: float,
         mod_folder: str,
         target_world: Optional[IWorld] = None,
-        instance_name: Optional[str] = None
+        instance_name: Optional[str] = None,
+        fade_in: Optional[bool] = None,
     ) -> Optional[IBaseEntity]:
         """Spawns an entity or structure into the game world."""
         ...
@@ -69,10 +77,15 @@ class IWorld(Protocol):
     active_entities: list[IEntity]
     active_structures: list[IStructure]
     active_items: list[IItem]
+    active_window_rects: list[IRect]
+
+    def move_window(self, win_rect: IRect, dx: int, dy: int) -> bool:
+        """Moves the desktop window associated with win_rect by (dx, dy) pixels."""
+        ...
 
 
 # =============================================================================
-#* Entity & Structure Protocols
+#* Entity and Structure Protocols
 # =============================================================================
 
 @runtime_checkable
@@ -83,6 +96,16 @@ class IBaseEntity(Protocol):
     facing_left: bool
     sprite_rotation: float
     velocity_y: float
+    move_speed: float
+    fade_in_on_spawn: bool
+    can_climb_walls: bool
+    can_move_windows: bool
+    ignore_window_physics: bool
+    should_use_window_physics: bool
+    is_climbing: bool
+    is_cursor_grabbed: bool
+    is_following_cursor: bool
+    target_pos: Optional[Any]
     components: dict[str, IComponent]
 
     @property
@@ -127,12 +150,54 @@ class IBaseEntity(Protocol):
         """Removes the entity from the world, detaches components, and cleans up memory."""
         ...
 
+    def fade_in(self, duration_ms: int = 1000) -> None:
+        """Smoothly fades in the entity from current opacity to 1.0."""
+        ...
+
+    def fade_out(self, duration_ms: int = 1000, destroy_on_complete: bool = False) -> None:
+        """Smoothly fades out the entity from current opacity to 0.0."""
+        ...
+
     def flip(self) -> None:
         """Toggles horizontal facing direction and horizontally mirrors collision hitboxes."""
         ...
 
     def sceneBoundingRect(self) -> IRect:
         """Returns the absolute scene bounding box of the entity."""
+        ...
+
+    def move_window(self, win: IRect, dx: int, dy: int) -> bool:
+        """Moves the specified desktop window by (dx, dy) pixels."""
+        ...
+
+    #? Cursor Interaction API
+    def get_cursor_pos(self) -> tuple[float, float]:
+        """Returns the current OS mouse cursor position mapped into this entity's world scene coordinates."""
+        ...
+
+    def get_global_cursor_pos(self) -> tuple[int, int]:
+        """Returns the current OS mouse cursor coordinates in virtual desktop space."""
+        ...
+
+    def set_cursor_pos(self, scene_x: float, scene_y: float) -> None:
+        """Moves the OS mouse cursor to the given position in world scene coordinates."""
+        ...
+
+    def grab_cursor(
+        self,
+        offset_x: Optional[int] = None,
+        offset_y: Optional[int] = None,
+        duration_ms: Optional[int] = None,
+    ) -> None:
+        """Grabs the OS mouse cursor, locking it to the entity's position (+ offset) as it moves."""
+        ...
+
+    def release_cursor(self) -> None:
+        """Releases the OS mouse cursor if currently grabbed by this entity."""
+        ...
+
+    def follow_cursor(self, enabled: bool = True, min_distance: float = 30.0) -> None:
+        """Configures the entity to automatically follow / pathfind towards the mouse cursor."""
         ...
 
     #? Component Management
@@ -202,6 +267,7 @@ class IEntity(IBaseEntity, Protocol):
     """Living desktop entity with health, AI, combat, and dialogue."""
     is_dead: bool
     current_health: int
+    regen_rate: float
     target_pos: Optional[Pos2D]
     behavior_type: BehaviorType
     entity_manager: Optional[IEntityManager]

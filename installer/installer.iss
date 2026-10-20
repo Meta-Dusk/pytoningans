@@ -1,5 +1,5 @@
 #define MyAppName "PyToNingans"
-#define MyAppVersion "0.7.8"
+#define MyAppVersion "0.8.1"
 #define MyAppPublisher "MetaDusk Inc."
 #define MyAppURL "https://github.com/Meta-Dusk/pytoningans"
 #define MyAppExeName "PyToNingans.dist\PyToNingans.exe"
@@ -45,25 +45,17 @@ Name: "custom"; Description: "Custom installation"; Flags: iscustom
 ; The core app is fixed and cannot be unchecked
 Name: "core"; Description: "Core Engine Files"; Types: full custom; Flags: fixed
 
-; Added a specific component for the API
-Name: "mods\api"; Description: "Modding API Package (api/)"; Types: full custom
-Name: "mods\default_mod"; Description: "Include Default Entity Mod"; Types: full custom
-Name: "mods\example_mods"; Description: "Include All Example Mods"; Types: full custom
+; Modding API package
+Name: "api"; Description: "Modding API Package (api/)"; Types: full custom; Flags: fixed
 
 [Files]
 ; Core Application
 Source: "..\build\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: core
 Source: "..\assets\icon.ico"; DestDir: "{app}"; Flags: ignoreversion; Components: core
+Source: "..\cloud_config.json"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: core
 
 ; Modding API
-; By listing 'mods\api mods\default_mod mods\example_mods', this package installs if ANY of those three boxes are checked.
-Source: "..\src\pytoningans\core\api\*"; DestDir: "{userdocs}\{#MyAppName}\mods\api"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: mods\api mods\default_mod mods\example_mods
-
-; Default Mod
-Source: "..\assets\mods\default_entity\*"; DestDir: "{userdocs}\{#MyAppName}\mods\default_entity"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: mods\default_mod
-
-; Example Mods
-Source: "..\assets\mods\*"; DestDir: "{userdocs}\{#MyAppName}\mods"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: mods\example_mods
+Source: "..\src\pytoningans\core\api\*"; DestDir: "{userdocs}\{#MyAppName}\mods\api"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: api
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}\PyToNingans.dist"; IconFilename: "{app}\icon.ico"

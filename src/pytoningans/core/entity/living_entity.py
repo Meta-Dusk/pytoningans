@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from typing import Optional, cast, TYPE_CHECKING
+from typing import Optional, cast, TYPE_CHECKING, Union
 
 from PySide6.QtCore import QEasingCurve, QPointF, QVariantAnimation
 from PySide6.QtWidgets import QGraphicsSceneContextMenuEvent
@@ -34,12 +34,11 @@ class Entity(BaseEntity):
 
         self.is_dead: bool = False
         self.current_health: int = mod_manager.max_health if mod_manager else 100
+        self.regen_rate: float = mod_manager.regen_rate if mod_manager is not None else 0.0
+        self._regen_accumulator: float = 0.0
         self.damage_tint_time_left: int = 0
         self.revive_time_left: int = 0
-        self._target_pos: Optional[QPointF] = None
         self.held_item: Optional[BaseItem] = None
-
-        self._fade_anim: Optional[QVariantAnimation] = None
         self._rot_anim: Optional[QVariantAnimation] = None
 
         self.ai_sys: Optional[AISystem] = AISystem(self)
@@ -66,17 +65,6 @@ class Entity(BaseEntity):
             self.state not in (EntityState.DRAG, EntityState.INTERACT) and
             not self.is_dead
         )
-
-    @property
-    def target_pos(self) -> Optional[QPointF]:
-        return self._target_pos
-
-    @target_pos.setter
-    def target_pos(self, pos: Optional[Pos2D]) -> None:
-        if pos is None:
-            self._target_pos = None
-        else:
-            self._target_pos = QPointF(pos.x, pos.y)
 
     def update_systems(self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None) -> None:
         if self.is_paused: return
@@ -106,6 +94,17 @@ class Entity(BaseEntity):
             super().update_systems(dt, centers)
             return
 
+        if self.regen_rate > 0.0:
+            max_hp: int = self.mod_manager.max_health if self.mod_manager else 100
+            if self.current_health < max_hp:
+                self._regen_accumulator += self.regen_rate * (dt / 1000.0)
+                if self._regen_accumulator >= 1.0:
+                    heal_amt: int = int(self._regen_accumulator)
+                    self._regen_accumulator -= heal_amt
+                    self.heal(heal_amt)
+            else:
+                self._regen_accumulator = 0.0
+
         if (
             not self.is_force_idle and
             self.locks.ai and
@@ -115,7 +114,7 @@ class Entity(BaseEntity):
         super().update_systems(dt, centers)
 
         if not self.is_force_idle:
-            behavior: Optional[BaseBehavior] = self.get_behavior
+            behavior: Optional[BaseBehavior] = self.behavior
             if behavior is None: return
             if isinstance(behavior, BaseEntityBehavior):
                 try:
@@ -124,6 +123,7 @@ class Entity(BaseEntity):
                     print(f"Custom Entity on_update Error: {e}")
 
     def on_moved(self) -> None:
+        super().on_moved()
         if self.health_bar is not None: self.health_bar.update_position()
         if self.bubble is not None: self.bubble.update_position()
         if self.held_item is not None: self.held_item._update_held_position()
@@ -206,7 +206,10 @@ class Entity(BaseEntity):
 
     def die(self) -> None:
         if self.is_dead or self.mod_manager is None: return
+        self.release_cursor()
+        self.follow_cursor(False)
         self.current_health = 0
+        self._regen_accumulator = 0.0
         self.is_dead = True
         
         if self.held_item is not None:
@@ -214,13 +217,13 @@ class Entity(BaseEntity):
             
         self.sprite_rotation = 0.0
         if self.anim_sys: self.anim_sys.set_state(EntityState.DYING)
-        self._target_pos = None
+        self.target_pos = None
 
         if self.health_bar is not None:
             self.health_bar.on_die()
 
         # Trigger death dialogue, overriding or interrupting any active speech bubble
-        death_lines: list[str] = getattr(self.mod_manager, "death_dialogue", [])
+        death_lines: list[str] = self.mod_manager.death_dialogue
         if death_lines:
             death_text: str = random.choice(death_lines)
             if self.bubble is not None and self.bubble.isVisible():
@@ -259,19 +262,13 @@ class Entity(BaseEntity):
 
         if self.mod_manager.auto_close_on_death:
             fade_duration: int = 3500 if death_lines else 3000
-            self._fade_anim = QVariantAnimation(self.world)
-            self._fade_anim.setDuration(fade_duration)
-            self._fade_anim.setStartValue(1.0)
-            self._fade_anim.setEndValue(0.0)
-
-            self._fade_anim.valueChanged.connect(self.setOpacity)
-            self._fade_anim.finished.connect(self.destroy)
-            self._fade_anim.start()
+            self.fade_out(duration_ms=fade_duration, destroy_on_complete=True)
 
     def revive(self) -> None:
         if self.mod_manager is None or not self.is_dead: return
 
         self.current_health = self.mod_manager.max_health
+        self._regen_accumulator = 0.0
         self.is_dead = False
 
         if self.health_bar is not None:
@@ -324,15 +321,11 @@ class Entity(BaseEntity):
         self.say(text, 4000)
 
         if self.anim_sys: self.anim_sys.set_state(EntityState.IDLE)
-        self._target_pos = None
+        self.target_pos = None
 
     def pause_death_animations(self) -> None:
         """Pauses death fade/rotation animations while context menu is open."""
-        if (
-            self._fade_anim is not None and
-            self._fade_anim.state() == QVariantAnimation.State.Running
-        ):
-            self._fade_anim.pause()
+        super().pause_death_animations()
         if (
             self._rot_anim is not None and
             self._rot_anim.state() == QVariantAnimation.State.Running
@@ -341,11 +334,7 @@ class Entity(BaseEntity):
 
     def resume_death_animations(self) -> None:
         """Resumes death fade/rotation animations when context menu is dismissed."""
-        if (
-            self._fade_anim is not None and
-            self._fade_anim.state() == QVariantAnimation.State.Paused
-        ):
-            self._fade_anim.resume()
+        super().resume_death_animations()
         if (
             self._rot_anim is not None and
             self._rot_anim.state() == QVariantAnimation.State.Paused
@@ -357,21 +346,21 @@ class Entity(BaseEntity):
         super().contextMenuEvent(event)
 
     def _on_die(self) -> None:
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if not isinstance(behavior, BaseEntityBehavior): return
 
         entity_api: IEntity = cast(IEntity, self)
         behavior.on_death(entity_api)
 
     def _on_revive(self) -> None:
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if not isinstance(behavior, BaseEntityBehavior): return
 
         entity_api: IEntity = cast(IEntity, self)
         behavior.on_revive(entity_api)
 
     def _on_speak(self, text: str) -> None:
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if not isinstance(behavior, BaseEntityBehavior): return
         try:
             behavior.on_speak(cast(IEntity, self), text)
@@ -379,7 +368,7 @@ class Entity(BaseEntity):
             print(f"Custom Entity on_speak Error: {e}")
 
     def _on_damage(self, amount: int) -> None:
-        behavior: Optional[BaseBehavior] = self.get_behavior
+        behavior: Optional[BaseBehavior] = self.behavior
         if not isinstance(behavior, BaseEntityBehavior): return
         try:
             behavior.on_damage(cast(IEntity, self), amount)

@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 def build_item_actions(menu: EntityContextMenu, layout: QVBoxLayout, item: BaseItem) -> None:
     """Builds interactive control buttons and target pickers for an item."""
-    # Quick Actions: Use & Drop
+    # Quick Actions: Use and Drop
     row_quick = QHBoxLayout()
     row_quick.setSpacing(6)
 
@@ -40,7 +40,7 @@ def build_item_actions(menu: EntityContextMenu, layout: QVBoxLayout, item: BaseI
         )
 
         alive_entities: list[Entity] = []
-        if item.world is not None and getattr(item.world, "active_entities", None):
+        if item.world is not None and item.world.active_entities:
             alive_entities = [e for e in item.world.active_entities if not e.is_dead]
 
         target_row = QHBoxLayout()
@@ -82,6 +82,28 @@ def build_item_actions(menu: EntityContextMenu, layout: QVBoxLayout, item: BaseI
     gravity_check.setToolTip("When checked, this item is affected by gravity and falls to desktop edges.")
     gravity_check.toggled.connect(item.set_physics_enabled)
     layout.addWidget(gravity_check)
+
+    # Debug Visualization Toggle (Hitbox)
+    hitbox_btn = QPushButton("Hide Hitbox" if item.is_debug_hitbox_visible else "Show Hitbox")
+    hitbox_btn.setToolTip("Toggle on-screen visualization of physics collision hitbox.")
+    def toggle_hitbox() -> None:
+        item.toggle_debug_hitboxes()
+        hitbox_btn.setText("Hide Hitbox" if item.is_debug_hitbox_visible else "Show Hitbox")
+    hitbox_btn.clicked.connect(lambda: menu.execute_action(toggle_hitbox))
+    layout.addWidget(hitbox_btn)
+
+    # Pack Actions (if part of a Tier 2 Modpack)
+    if item.mod_manager is not None and item.mod_manager.pack is not None:
+        pack_actions = item.mod_manager.pack.get_context_menu_actions(item)
+        if pack_actions:
+            layout.addWidget(create_info_row(f"{item.mod_manager.pack.name}:", "Pack Actions"))
+            for act in pack_actions:
+                act_btn = QPushButton(act.label)
+                if act.tooltip:
+                    act_btn.setToolTip(act.tooltip)
+                act_cb = act.callback
+                act_btn.clicked.connect(lambda _, c=act_cb: menu.execute_action(c))
+                layout.addWidget(act_btn)
 
     layout.addWidget(create_separator())
 

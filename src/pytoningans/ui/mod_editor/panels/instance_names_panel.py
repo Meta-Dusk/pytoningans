@@ -41,9 +41,9 @@ class InstanceNamesPanel(BasePanel):
         sec_layout.addWidget(self.names_list)
 
         btns_layout = QHBoxLayout()
-        self.add_btn = QPushButton("+ Add")
-        self.edit_btn = QPushButton("✎ Edit")
-        self.del_btn = QPushButton("- Remove")
+        self.add_btn = QPushButton("(+) Add")
+        self.edit_btn = QPushButton("(e) Edit")
+        self.del_btn = QPushButton("(-) Remove")
         self.clear_btn = QPushButton("Clear All")
 
         self.edit_btn.setEnabled(False)

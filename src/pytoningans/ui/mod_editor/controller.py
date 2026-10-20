@@ -1,7 +1,7 @@
 import shutil
 from pathlib import Path
 
-from typing import Tuple, Any, Optional
+from typing import Any, Optional
 from PySide6.QtCore import QRect
 from PySide6.QtGui import QPixmap
 
@@ -13,7 +13,11 @@ class ModEditorController:
     def __init__(self, mod_manager: ModManager) -> None:
         self.manager: ModManager = mod_manager
 
-    def get_mod_list(self) -> dict[str, Tuple[str, str]]:
+    def get_mod_list(self) -> dict[str, tuple[str, str]]:
+        """
+        Returns a dict of:
+        `folder_name, [entity_name, entity_type]`
+        """
         return self.manager.get_available_mods_with_type()
 
     def load_mod(self, folder: str) -> bool:
@@ -22,7 +26,7 @@ class ModEditorController:
     def save_mod(self, folder: str) -> None:
         self.manager.save_mod_config(folder, self.manager.current_mod_name)
 
-    def get_global_grid(self) -> Tuple[int, int]:
+    def get_global_grid(self) -> tuple[int, int]:
         return self.manager.global_columns, self.manager.global_rows
 
     def update_global_grid(self, cols: int, rows: int) -> None:
@@ -42,11 +46,11 @@ class ModEditorController:
     def get_frame(self, state: str, frame_index: int) -> Optional[QPixmap]:
         return self.manager.get_frame(state, frame_index)
         
-    def has_mapped_row(self, state: str) -> Tuple[bool, int]:
+    def has_mapped_row(self, state: str) -> tuple[bool, int]:
         meta: Optional[AnimationMeta] = self.manager.animations.get(state)
         return (True, meta.row) if meta else (False, 0)
     
-    def get_sheet_info(self) -> Tuple[int, int, int, int]:
+    def get_sheet_info(self) -> tuple[int, int, int, int]:
         """Returns (sheet_width, sheet_height, base_tile_width, base_tile_height)."""
         sheet: Optional[QPixmap] = self.manager._global_sheet
         if sheet is None: return 0, 0, 0, 0
@@ -60,23 +64,39 @@ class ModEditorController:
         return {
             "type": self.manager.behavior_type,
             "can_fly": self.manager.can_fly,
+            "can_climb_walls": self.manager.can_climb_walls,
+            "can_move_windows": self.manager.can_move_windows,
+            "window_move_mode": self.manager.window_move_mode,
+            "ignore_window_physics": self.manager.ignore_window_physics,
             "max_health": self.manager.max_health,
             "attack_damage": self.manager.attack_damage,
             "attack_range": self.manager.attack_range,
             "jump_height": self.manager.jump_height,
+            "move_speed": self.manager.move_speed,
+            "regen_rate": self.manager.regen_rate,
             "attack_type": self.manager.attack_type,
+            "auto_close_on_death": self.manager.auto_close_on_death,
+            "fade_in_on_spawn": self.manager.fade_in_on_spawn,
         }
 
     def update_behavior_stats(self, stats: dict[str, Any]) -> None:
         self.manager.behavior_type = stats.get("type", self.manager.behavior_type)
         self.manager.can_fly = stats.get("can_fly", self.manager.can_fly)
+        self.manager.can_climb_walls = stats.get("can_climb_walls", self.manager.can_climb_walls)
+        self.manager.can_move_windows = stats.get("can_move_windows", self.manager.can_move_windows)
+        self.manager.window_move_mode = stats.get("window_move_mode", self.manager.window_move_mode)
+        self.manager.ignore_window_physics = stats.get("ignore_window_physics", self.manager.ignore_window_physics)
         self.manager.max_health = stats.get("max_health", self.manager.max_health)
         self.manager.attack_damage = stats.get("attack_damage", self.manager.attack_damage)
         self.manager.attack_range = stats.get("attack_range", self.manager.attack_range)
         self.manager.jump_height = stats.get("jump_height", self.manager.jump_height)
+        self.manager.move_speed = float(stats.get("move_speed", self.manager.move_speed))
+        self.manager.regen_rate = float(stats.get("regen_rate", self.manager.regen_rate))
         self.manager.attack_type = stats.get("attack_type", self.manager.attack_type)
+        self.manager.auto_close_on_death = bool(stats.get("auto_close_on_death", self.manager.auto_close_on_death))
+        self.manager.fade_in_on_spawn = bool(stats.get("fade_in_on_spawn", self.manager.fade_in_on_spawn))
     
-    def get_raw_preview(self, state: str, frame_index: int) -> Tuple[Optional[QPixmap], QRect]:
+    def get_raw_preview(self, state: str, frame_index: int) -> tuple[Optional[QPixmap], QRect]:
         """Returns the uncropped base tile and the QRect representing the custom crop area."""
         sheet: Optional[QPixmap] = self.manager._global_sheet
         if not sheet: return None, QRect()

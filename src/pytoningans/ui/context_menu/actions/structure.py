@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 def build_structure_actions(menu: EntityContextMenu, layout: QVBoxLayout, structure: BaseStructure) -> None:
     """Builds interactive control buttons and portal link pickers for a structure."""
     status_text: str = (
-        "Deactivate" if structure.state == StructureState.ACTIVE.value else "Activate"
+        "Deactivate" if structure.state == StructureState.ACTIVE else "Activate"
     )
     row_quick = QHBoxLayout()
     row_quick.setSpacing(6)
@@ -66,7 +66,7 @@ def build_structure_actions(menu: EntityContextMenu, layout: QVBoxLayout, struct
         current_idx: int = 0
         for idx, other in enumerate(other_structures, start=1):
             other_name: str = other.display_name
-            coords: str = f"@{int(other.x())}, {int(other.y())}"
+            coords: str = f"x:{int(other.x())}, y:{int(other.y())}"
             portal_combo.addItem(f"{other_name} ({coords})", userData=other)
             if teleport_comp.linked_portal is other:
                 current_idx = idx
@@ -96,6 +96,28 @@ def build_structure_actions(menu: EntityContextMenu, layout: QVBoxLayout, struct
             lambda: menu.execute_action(structure.attach_teleportation)
         )
         layout.addWidget(add_tele_btn)
+
+    # Debug Visualization Toggle (Hitbox)
+    hitbox_btn = QPushButton("Hide Hitbox" if structure.is_debug_hitbox_visible else "Show Hitbox")
+    hitbox_btn.setToolTip("Toggle on-screen visualization of physics collision hitbox.")
+    def toggle_hitbox() -> None:
+        structure.toggle_debug_hitboxes()
+        hitbox_btn.setText("Hide Hitbox" if structure.is_debug_hitbox_visible else "Show Hitbox")
+    hitbox_btn.clicked.connect(lambda: menu.execute_action(toggle_hitbox))
+    layout.addWidget(hitbox_btn)
+
+    # Pack Actions (if part of a Tier 2 Modpack)
+    if structure.mod_manager is not None and structure.mod_manager.pack is not None:
+        pack_actions = structure.mod_manager.pack.get_context_menu_actions(structure)
+        if pack_actions:
+            layout.addWidget(create_info_row(f"{structure.mod_manager.pack.name}:", "Pack Actions"))
+            for act in pack_actions:
+                act_btn = QPushButton(act.label)
+                if act.tooltip:
+                    act_btn.setToolTip(act.tooltip)
+                act_cb = act.callback
+                act_btn.clicked.connect(lambda _, c=act_cb: menu.execute_action(c))
+                layout.addWidget(act_btn)
 
     layout.addWidget(create_separator())
 

@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from pytoningans.core.constants import EntityState
 
 if TYPE_CHECKING:
     from .system import AISystem
+    from pytoningans.core.entity.living_entity import Entity
 
 
 def check_environment(ai: AISystem) -> bool:
     """Checks open window titles or idle dialogue opportunities to trigger speech."""
-    entity = ai.entity
+    entity: Optional[Entity] = ai.entity
     if (
         entity is None or
         entity.mod_manager is None or
@@ -48,11 +49,11 @@ def check_environment(ai: AISystem) -> bool:
 
 def trigger_dialogue(ai: AISystem, text: str, duration_ms: int) -> None:
     """Causes the entity to speak a dialogue line and return to idle."""
-    entity = ai.entity
+    entity: Optional[Entity] = ai.entity
     if entity is None or entity.anim_sys is None:
         return
     entity.say(text, duration_ms)
     entity.anim_sys.set_state(EntityState.IDLE)
-    entity._target_pos = None
+    entity.target_pos = None
     entity.toFront()
 

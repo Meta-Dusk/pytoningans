@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from PySide6.QtCore import QPointF
+from PySide6.QtCore import QPointF, QRect
 
 from pytoningans.core.constants import EntityState
 from .combat import check_combat as _do_check_combat
@@ -21,6 +21,8 @@ from .interaction import start_interaction as _do_start_interaction
 from .item_seeking import check_item_seeking as _do_check_item_seeking
 from .item_seeking import default_survival_seeking as _do_default_survival_seeking
 from .item_seeking import navigate_towards_item as _do_navigate_towards_item
+from pytoningans.core.entity.physics.helpers import get_effective_hitbox
+from pytoningans.core.entity.physics.window_collision import find_candidate_platforms
 
 if TYPE_CHECKING:
     from pytoningans.core.api import IItem
@@ -62,6 +64,18 @@ class AISystem:
             self.attack_time_left -= dt
             if self.attack_time_left <= 0:
                 self.entity.anim_sys.set_state(EntityState.IDLE)
+                # Ensure ground/platform snapping after attack finishes
+                if (
+                    self.entity.world is not None and
+                    self.entity.mod_manager is not None and
+                    not self.entity.mod_manager.can_fly
+                ):
+                    hitbox: QRect = get_effective_hitbox(self.entity)
+                    hitbox_bottom_offset: int = hitbox.y() + hitbox.height()
+                    ground_y: float = self.entity.world.scene.sceneRect().bottom()
+                    effective_ground_y, _ = find_candidate_platforms(self.entity, ground_y, 0.0)
+                    if self.entity.y() + hitbox_bottom_offset > effective_ground_y:
+                        self.entity.setPos(self.entity.x(), effective_ground_y - hitbox_bottom_offset)
             return
 
         if self.decision_accumulator >= 2500:
@@ -107,7 +121,7 @@ class AISystem:
     def _on_check_interactions(self, other_entity: Entity) -> bool:
         return _do_on_check_interactions(self, other_entity)
 
-    # --- Decision & Wandering API ---
+    # --- Decision and Wandering API ---
 
     def _ai_decision_tick(self) -> None:
         _do_ai_decision_tick(self)

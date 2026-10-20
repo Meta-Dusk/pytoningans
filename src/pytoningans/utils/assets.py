@@ -22,3 +22,17 @@ def get_main_icon() -> QIcon:
             ).as_posix()
         )
     return _main_window_icon
+
+
+_google_icon: Optional[QIcon] = None
+
+def get_google_icon() -> QIcon:
+    """Lazily loads and caches the Google logo icon."""
+    global _google_icon
+    if _google_icon is None:
+        icon_path = get_asset_path("assets/ui/google_icon.png")
+        if icon_path.exists():
+            _google_icon = QIcon(icon_path.as_posix())
+        else:
+            _google_icon = QIcon()
+    return _google_icon

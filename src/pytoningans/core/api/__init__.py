@@ -53,8 +53,14 @@ from .behaviors import (
     BaseBehavior,
 )
 
+# Modpacks
+from .modpack import (
+    BaseModPack,
+    PackMenuAction,
+)
+
 __all__ = [
-    # Types & Geometry
+    # Types and Geometry
     "Pos2D",
     "Rect2D",
     "IRect",
@@ -73,7 +79,7 @@ __all__ = [
     "BaseComponent",
     "ITeleportationComponent",
     
-    # Engine & World Protocols
+    # Engine and World Protocols
     "IModInfo",
     "IEntityManager",
     "IWorld",
@@ -89,5 +95,9 @@ __all__ = [
     "BaseStructureBehavior",
     "BaseItemBehavior",
     "BaseBehavior",
+
+    # Modpacks
+    "BaseModPack",
+    "PackMenuAction",
 ]
 

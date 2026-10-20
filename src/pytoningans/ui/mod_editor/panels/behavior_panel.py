@@ -5,7 +5,9 @@ from PySide6.QtWidgets import (
 
 from pytoningans.core.constants import BehaviorType, AttackType, DeathAnimation
 from pytoningans.ui.mod_editor.controller import ModEditorController
-from pytoningans.ui.mod_editor.components import CollapsibleSection, create_spinbox, create_info_label
+from pytoningans.ui.mod_editor.components import (
+    CollapsibleSection, create_spinbox, create_double_spinbox, create_info_label
+)
 from .base_panel import BasePanel, BaseBehaviorPanel
 
 class BehaviorStatsPanel(BasePanel):
@@ -22,10 +24,20 @@ class BehaviorStatsPanel(BasePanel):
         form = QFormLayout()
         
         self.can_fly_check = QCheckBox("Enable Flight (Ignores Gravity)")
+        self.ignore_window_physics_check = QCheckBox("Ignore Window Physics (Ghost Through Windows)")
+        self.can_climb_walls_check = QCheckBox("Allow Wall Climbing (Runs up Window Sides)")
+        self.can_move_windows_check = QCheckBox("Allow Moving Windows (Pushes / Attacks Windows)")
+        self.window_move_mode_combo = QComboBox()
+        self.window_move_mode_combo.addItem("Attack (Knock back on strike)", "attack")
+        self.window_move_mode_combo.addItem("Push (Shove while walking)", "push")
+        self.window_move_mode_combo.addItem("Both (Push and attack)", "both")
+
         self.max_health_spin = create_spinbox(1, 9999)
         self.atk_dmg_spin = create_spinbox(0, 9999)
         self.atk_range_spin = create_spinbox(0, 2000)
         self.jump_height_spin = create_spinbox(0, 100)
+        self.move_speed_spin = create_double_spinbox(0.1, 50.0, step=0.5, decimals=1)
+        self.regen_rate_spin = create_double_spinbox(0.0, 1000.0, step=0.5, decimals=1)
         
         self.atk_type_combo = QComboBox()
         for atk_type in AttackType:
@@ -35,13 +47,40 @@ class BehaviorStatsPanel(BasePanel):
         for b_type in BehaviorType:
             self.behavior_type_combo.addItem(b_type.value.capitalize(), userData=b_type)
             
-        form.addRow(create_info_label("Behavior Type:", "Determines engine AI logic."), self.behavior_type_combo)
+        form.addRow(
+            create_info_label("Behavior Type:", "Determines engine AI logic."), self.behavior_type_combo
+        )
         form.addRow("", self.can_fly_check)
-        form.addRow(create_info_label("Max Health:", "Total health points."), self.max_health_spin)
-        form.addRow(create_info_label("Attack Damage:", "Damage dealt per hit."), self.atk_dmg_spin)
-        form.addRow(create_info_label("Attack Range (px):", "Maximum distance to strike."), self.atk_range_spin)
-        form.addRow(create_info_label("Attack Type:", "How many entities can be damaged."), self.atk_type_combo)
-        form.addRow(create_info_label("Jump Height:", "Initial vertical velocity."), self.jump_height_spin)
+        form.addRow("", self.ignore_window_physics_check)
+        form.addRow("", self.can_climb_walls_check)
+        form.addRow("", self.can_move_windows_check)
+        form.addRow(
+            create_info_label("Window Move Mode:", "How the entity moves desktop windows."), self.window_move_mode_combo
+        )
+        form.addRow(
+            create_info_label("Max Health:", "Total health points."), self.max_health_spin
+        )
+        form.addRow(
+            create_info_label("Attack Damage:", "Damage dealt per hit."), self.atk_dmg_spin
+        )
+        form.addRow(
+            create_info_label("Attack Range (px):", "Maximum distance to strike."), self.atk_range_spin
+        )
+        form.addRow(
+            create_info_label("Attack Type:", "How many entities can be damaged."), self.atk_type_combo
+        )
+        form.addRow(
+            create_info_label("Jump Height:", "Initial vertical velocity."), self.jump_height_spin
+        )
+        form.addRow(
+            create_info_label("Move Speed (px):", "Base movement speed in pixels per tick."), self.move_speed_spin
+        )
+        form.addRow(
+            create_info_label(
+                "Passive Regen (HP/s):",
+                "Passive health regeneration rate per second. 0 to disable."
+            ), self.regen_rate_spin
+        )
         
         self.section.content_layout.addLayout(form)
         layout.addWidget(self.section)
@@ -49,35 +88,75 @@ class BehaviorStatsPanel(BasePanel):
     def _connect_signals(self) -> None:
         self.behavior_type_combo.currentIndexChanged.connect(self._on_edited)
         self.can_fly_check.stateChanged.connect(self._on_edited)
-        for spin in (self.max_health_spin, self.atk_dmg_spin, self.atk_range_spin, self.jump_height_spin):
+        self.ignore_window_physics_check.stateChanged.connect(self._on_ignore_window_physics_toggled)
+        self.can_climb_walls_check.stateChanged.connect(self._on_edited)
+        self.can_move_windows_check.stateChanged.connect(self._on_can_move_windows_toggled)
+        self.window_move_mode_combo.currentIndexChanged.connect(self._on_edited)
+        for spin in (
+            self.max_health_spin, self.atk_dmg_spin, self.atk_range_spin,
+            self.jump_height_spin, self.move_speed_spin, self.regen_rate_spin
+        ):
             spin.valueChanged.connect(self._on_edited)
+
+    def _on_ignore_window_physics_toggled(self, *_) -> None:
+        is_ignoring = self.ignore_window_physics_check.isChecked()
+        self.can_climb_walls_check.setEnabled(not is_ignoring)
+        self.can_move_windows_check.setEnabled(not is_ignoring)
+        self.window_move_mode_combo.setEnabled(not is_ignoring and self.can_move_windows_check.isChecked())
+        self._on_edited()
+
+    def _on_can_move_windows_toggled(self, *_) -> None:
+        self.window_move_mode_combo.setEnabled(self.can_move_windows_check.isChecked())
+        self._on_edited()
 
     def _on_edited(self, *_) -> None:
         if self._is_updating_ui: return
         stats: dict[str, Any] = {
             "type": self.behavior_type_combo.currentData(),
             "can_fly": self.can_fly_check.isChecked(),
+            "ignore_window_physics": self.ignore_window_physics_check.isChecked(),
+            "can_climb_walls": self.can_climb_walls_check.isChecked(),
+            "can_move_windows": self.can_move_windows_check.isChecked(),
+            "window_move_mode": self.window_move_mode_combo.currentData() or "attack",
             "max_health": self.max_health_spin.value(),
             "attack_damage": self.atk_dmg_spin.value(),
             "attack_range": self.atk_range_spin.value(),
             "jump_height": self.jump_height_spin.value(),
+            "move_speed": self.move_speed_spin.value(),
+            "regen_rate": self.regen_rate_spin.value(),
             "attack_type": self.atk_type_combo.currentData(),
         }
         self.controller.update_behavior_stats(stats)
 
     def load_data(self) -> None:
         self._is_updating_ui = True
-        stats = self.controller.get_behavior_stats()
-        self.can_fly_check.setChecked(stats["can_fly"])
+        stats: dict[str, Any] = self.controller.get_behavior_stats()
+        self.can_fly_check.setChecked(stats.get("can_fly", False))
+        self.ignore_window_physics_check.setChecked(stats.get("ignore_window_physics", False))
+        self.can_climb_walls_check.setChecked(stats.get("can_climb_walls", False))
+        self.can_move_windows_check.setChecked(stats.get("can_move_windows", False))
+        
+        mode: str = stats.get("window_move_mode", "attack")
+        mode_idx: int = self.window_move_mode_combo.findData(mode)
+        if mode_idx >= 0:
+            self.window_move_mode_combo.setCurrentIndex(mode_idx)
+        
+        is_ignoring = self.ignore_window_physics_check.isChecked()
+        self.can_climb_walls_check.setEnabled(not is_ignoring)
+        self.can_move_windows_check.setEnabled(not is_ignoring)
+        self.window_move_mode_combo.setEnabled(not is_ignoring and self.can_move_windows_check.isChecked())
+
         self.max_health_spin.setValue(stats["max_health"])
         self.atk_dmg_spin.setValue(stats["attack_damage"])
         self.atk_range_spin.setValue(stats["attack_range"])
         self.jump_height_spin.setValue(stats["jump_height"])
+        self.move_speed_spin.setValue(float(stats.get("move_speed", 2.0)))
+        self.regen_rate_spin.setValue(float(stats.get("regen_rate", 0.0)))
         
-        current_type = stats.get("type", BehaviorType.NEUTRAL)
+        current_type: str = stats.get("type", BehaviorType.NEUTRAL)
         self.behavior_type_combo.setCurrentIndex(self.behavior_type_combo.findData(current_type))
         
-        atk_type = stats.get("attack_type", AttackType.SINGLE)
+        atk_type: str = stats.get("attack_type", AttackType.SINGLE)
         self.atk_type_combo.setCurrentIndex(self.atk_type_combo.findData(atk_type))
         
         self._is_updating_ui = False
@@ -117,6 +196,7 @@ class BehaviorScriptPanel(BaseBehaviorPanel):
         self.death_anim_combo.addItem("Rotate Right 90°", DeathAnimation.ROTATE_RIGHT)
         self.death_anim_combo.addItem("Rotate 90° or -90°", DeathAnimation.ROTATE_LEFT_OR_RIGHT)
         
+        self.fade_in_check = QCheckBox("Fade In on Spawn")
         self.auto_close_check = QCheckBox("Fade Out and Close on Death")
         
         form.addWidget(self.add_btn)
@@ -125,6 +205,7 @@ class BehaviorScriptPanel(BaseBehaviorPanel):
         form.addItem(QSpacerItem(0, 16))
         
         form.addRow("Death Animation:", self.death_anim_combo)
+        form.addRow(self.fade_in_check)
         form.addRow(self.auto_close_check)
         
         self.section.content_layout.addLayout(form)
@@ -135,6 +216,7 @@ class BehaviorScriptPanel(BaseBehaviorPanel):
         self.edit_btn.clicked.connect(self._open_script)
         self.delete_btn.clicked.connect(self._delete_script)
         self.death_anim_combo.currentIndexChanged.connect(self._on_death_anim_changed)
+        self.fade_in_check.stateChanged.connect(self._on_fade_in_changed)
         self.auto_close_check.stateChanged.connect(self._on_auto_close_changed)
 
     def load_data(self) -> None:
@@ -146,10 +228,14 @@ class BehaviorScriptPanel(BaseBehaviorPanel):
         idx: int = self.death_anim_combo.findData(self.controller.manager.death_animation)
         if idx >= 0: self.death_anim_combo.setCurrentIndex(idx)
             
+        self.fade_in_check.setChecked(self.controller.manager.fade_in_on_spawn)
         self.auto_close_check.setChecked(self.controller.manager.auto_close_on_death)
     
     def _on_death_anim_changed(self) -> None:
         self.controller.manager.death_animation = self.death_anim_combo.currentData()
+
+    def _on_fade_in_changed(self, state: int) -> None:
+        self.controller.manager.fade_in_on_spawn = bool(state)
 
     def _on_auto_close_changed(self, state: int) -> None:
         self.controller.manager.auto_close_on_death = bool(state)

@@ -95,6 +95,14 @@ class BaseEntityBehavior:
         """Called when the mouse cursor leaves the entity's bounding area."""
         pass
 
+    def on_cursor_grabbed(self, entity: IEntity) -> None:
+        """Called when this entity grabs control of the OS mouse cursor."""
+        pass
+
+    def on_cursor_released(self, entity: IEntity) -> None:
+        """Called when this entity releases the OS mouse cursor."""
+        pass
+
 
 class BaseStructureBehavior:
     """

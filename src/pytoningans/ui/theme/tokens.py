@@ -35,7 +35,7 @@ class ThemePalette:
     header_border: str
     header_hover_bg: str
 
-    # Labels & Headers
+    # Labels and Headers
     helper_text: str
     banner_text: str
     banner_bg: str
@@ -71,7 +71,7 @@ class ThemePalette:
     titlebar_btn_color: str
     titlebar_btn_hover_color: str
 
-    # Tooltip & Speech Bubble
+    # Tooltip and Speech Bubble
     tooltip_bg: str
     tooltip_border: str
     tooltip_text: str
@@ -79,7 +79,7 @@ class ThemePalette:
     speech_bubble_text: str
     speech_bubble_border: str
 
-    # Menus & Action Rows
+    # Menus and Action Rows
     menu_bg: str
     menu_border: str
     menu_item_text: str
@@ -98,6 +98,72 @@ class ThemePalette:
     tag_badge_bg: str
     tag_badge_text: str
     tag_badge_border: str
+
+    # Button Variants (Primary, Success, Info, Secondary, Link)
+    primary_btn_bg: str
+    primary_btn_border: str
+    primary_btn_text: str
+    primary_btn_hover_bg: str
+    primary_btn_hover_border: str
+    primary_btn_pressed_bg: str
+
+    success_btn_bg: str
+    success_btn_border: str
+    success_btn_text: str
+    success_btn_hover_bg: str
+    success_btn_hover_border: str
+    success_btn_pressed_bg: str
+
+    info_btn_bg: str
+    info_btn_border: str
+    info_btn_text: str
+    info_btn_hover_bg: str
+    info_btn_hover_border: str
+    info_btn_pressed_bg: str
+
+    secondary_btn_bg: str
+    secondary_btn_border: str
+    secondary_btn_text: str
+    secondary_btn_hover_bg: str
+    secondary_btn_hover_border: str
+    secondary_btn_pressed_bg: str
+
+    link_btn_text: str
+    link_btn_hover_text: str
+
+    # Tabs and Panes
+    tab_pane_bg: str
+    tab_pane_border: str
+    tab_bg: str
+    tab_border: str
+    tab_text: str
+    tab_hover_bg: str
+    tab_selected_bg: str
+    tab_selected_text: str
+
+    # Cards
+    card_bg: str
+    card_border: str
+    card_hover_bg: str
+    card_hover_border: str
+
+    # Badges and Status Indicators
+    badge_warning_bg: str
+    badge_warning_border: str
+    badge_warning_text: str
+    badge_success_bg: str
+    badge_success_border: str
+    badge_success_text: str
+    badge_info_bg: str
+    badge_info_border: str
+    badge_info_text: str
+    badge_danger_bg: str
+    badge_danger_border: str
+    badge_danger_text: str
+    badge_pack_bg: str
+    badge_structure_bg: str
+    badge_item_bg: str
+    badge_entity_bg: str
 
 
 LIGHT_PALETTE = ThemePalette(
@@ -129,7 +195,7 @@ LIGHT_PALETTE = ThemePalette(
     header_border="#dcdcdc",
     header_hover_bg="#e5e5e5",
 
-    # Labels & Headers
+    # Labels and Headers
     helper_text="#666666",
     banner_text="#444444",
     banner_bg="#eeeeee",
@@ -165,7 +231,7 @@ LIGHT_PALETTE = ThemePalette(
     titlebar_btn_color="#666666",
     titlebar_btn_hover_color="black",
 
-    # Tooltip & Speech Bubble
+    # Tooltip and Speech Bubble
     tooltip_bg="#ffffff",
     tooltip_border="#dcdcdc",
     tooltip_text="#1e1e1e",
@@ -173,7 +239,7 @@ LIGHT_PALETTE = ThemePalette(
     speech_bubble_text="#000000",
     speech_bubble_border="#333333",
 
-    # Menus & Action Rows
+    # Menus and Action Rows
     menu_bg="#ffffff",
     menu_border="#d1d1d1",
     menu_item_text="#1e1e1e",
@@ -192,6 +258,72 @@ LIGHT_PALETTE = ThemePalette(
     tag_badge_bg="rgba(0, 120, 212, 0.12)",
     tag_badge_text="#0078d4",
     tag_badge_border="rgba(0, 120, 212, 0.35)",
+
+    # Button Variants (Primary, Success, Info, Secondary, Link)
+    primary_btn_bg="#0078d4",
+    primary_btn_border="#0078d4",
+    primary_btn_text="#ffffff",
+    primary_btn_hover_bg="#106ebe",
+    primary_btn_hover_border="#106ebe",
+    primary_btn_pressed_bg="#005a9e",
+
+    success_btn_bg="#107c41",
+    success_btn_border="#107c41",
+    success_btn_text="#ffffff",
+    success_btn_hover_bg="#0e6b37",
+    success_btn_hover_border="#0e6b37",
+    success_btn_pressed_bg="#0c592e",
+
+    info_btn_bg="#0284c7",
+    info_btn_border="#0284c7",
+    info_btn_text="#ffffff",
+    info_btn_hover_bg="#0369a1",
+    info_btn_hover_border="#0369a1",
+    info_btn_pressed_bg="#075985",
+
+    secondary_btn_bg="#f0f0f0",
+    secondary_btn_border="#d1d1d1",
+    secondary_btn_text="#1e1e1e",
+    secondary_btn_hover_bg="#e5e5e5",
+    secondary_btn_hover_border="#b0b0b0",
+    secondary_btn_pressed_bg="#d4d4d4",
+
+    link_btn_text="#0078d4",
+    link_btn_hover_text="#106ebe",
+
+    # Tabs and Panes
+    tab_pane_bg="#ffffff",
+    tab_pane_border="#d1d1d1",
+    tab_bg="#f0f0f0",
+    tab_border="#d1d1d1",
+    tab_text="#666666",
+    tab_hover_bg="#e5e5e5",
+    tab_selected_bg="#ffffff",
+    tab_selected_text="#0078d4",
+
+    # Cards
+    card_bg="#ffffff",
+    card_border="#d1d1d1",
+    card_hover_bg="#f7f7f7",
+    card_hover_border="#0078d4",
+
+    # Badges and Status Indicators
+    badge_warning_bg="rgba(245, 158, 11, 0.15)",
+    badge_warning_border="#f59e0b",
+    badge_warning_text="#b45309",
+    badge_success_bg="rgba(16, 185, 129, 0.15)",
+    badge_success_border="#10b981",
+    badge_success_text="#047857",
+    badge_info_bg="rgba(56, 189, 248, 0.15)",
+    badge_info_border="#0284c7",
+    badge_info_text="#0369a1",
+    badge_danger_bg="rgba(239, 68, 68, 0.15)",
+    badge_danger_border="#ef4444",
+    badge_danger_text="#b91c1c",
+    badge_pack_bg="#0891b2",
+    badge_structure_bg="#7c3aed",
+    badge_item_bg="#d97706",
+    badge_entity_bg="#2563eb",
 )
 
 
@@ -224,7 +356,7 @@ DARK_PALETTE = ThemePalette(
     header_border="#3d3d3d",
     header_hover_bg="#383838",
 
-    # Labels & Headers
+    # Labels and Headers
     helper_text="#aaaaaa",
     banner_text="#e0e0e0",
     banner_bg="#333333",
@@ -260,7 +392,7 @@ DARK_PALETTE = ThemePalette(
     titlebar_btn_color="#aaaaaa",
     titlebar_btn_hover_color="white",
 
-    # Tooltip & Speech Bubble
+    # Tooltip and Speech Bubble
     tooltip_bg="#2b2b2b",
     tooltip_border="#3d3d3d",
     tooltip_text="#f3f3f3",
@@ -268,7 +400,7 @@ DARK_PALETTE = ThemePalette(
     speech_bubble_text="#FFFFFF",
     speech_bubble_border="#555555",
 
-    # Menus & Action Rows
+    # Menus and Action Rows
     menu_bg="#2b2b2b",
     menu_border="#3d3d3d",
     menu_item_text="#f3f3f3",
@@ -287,5 +419,71 @@ DARK_PALETTE = ThemePalette(
     tag_badge_bg="rgba(74, 144, 226, 0.18)",
     tag_badge_text="#4a90e2",
     tag_badge_border="rgba(74, 144, 226, 0.45)",
+
+    # Button Variants (Primary, Success, Info, Secondary, Link)
+    primary_btn_bg="#3b82f6",
+    primary_btn_border="#2563eb",
+    primary_btn_text="#ffffff",
+    primary_btn_hover_bg="#2563eb",
+    primary_btn_hover_border="#1d4ed8",
+    primary_btn_pressed_bg="#1d4ed8",
+
+    success_btn_bg="#10b981",
+    success_btn_border="#059669",
+    success_btn_text="#ffffff",
+    success_btn_hover_bg="#059669",
+    success_btn_hover_border="#047857",
+    success_btn_pressed_bg="#047857",
+
+    info_btn_bg="#0284c7",
+    info_btn_border="#0369a1",
+    info_btn_text="#ffffff",
+    info_btn_hover_bg="#0369a1",
+    info_btn_hover_border="#075985",
+    info_btn_pressed_bg="#075985",
+
+    secondary_btn_bg="#313244",
+    secondary_btn_border="#45475a",
+    secondary_btn_text="#cdd6f4",
+    secondary_btn_hover_bg="#45475a",
+    secondary_btn_hover_border="#585b70",
+    secondary_btn_pressed_bg="#585b70",
+
+    link_btn_text="#89b4fa",
+    link_btn_hover_text="#b4befe",
+
+    # Tabs and Panes
+    tab_pane_bg="#181825",
+    tab_pane_border="#313244",
+    tab_bg="#1e1e2e",
+    tab_border="#313244",
+    tab_text="#a6adc8",
+    tab_hover_bg="#2d2d3d",
+    tab_selected_bg="#313244",
+    tab_selected_text="#cdd6f4",
+
+    # Cards
+    card_bg="#1e1e2e",
+    card_border="#313244",
+    card_hover_bg="#24253a",
+    card_hover_border="#585b70",
+
+    # Badges and Status Indicators
+    badge_warning_bg="rgba(245, 158, 11, 0.15)",
+    badge_warning_border="#f59e0b",
+    badge_warning_text="#fbbf24",
+    badge_success_bg="rgba(16, 185, 129, 0.15)",
+    badge_success_border="#10b981",
+    badge_success_text="#10b981",
+    badge_info_bg="rgba(56, 189, 248, 0.15)",
+    badge_info_border="#38bdf8",
+    badge_info_text="#38bdf8",
+    badge_danger_bg="rgba(239, 68, 68, 0.15)",
+    badge_danger_border="#ef4444",
+    badge_danger_text="#f87171",
+    badge_pack_bg="#0891b2",
+    badge_structure_bg="#7c3aed",
+    badge_item_bg="#d97706",
+    badge_entity_bg="#2563eb",
 )
 

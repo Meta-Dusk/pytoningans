@@ -24,12 +24,14 @@ def compile_behavior_mod(
         import pytoningans.core.api.components as api_components
         import pytoningans.core.api.protocols as api_protocols
         import pytoningans.core.api.behaviors as api_behaviors
+        import pytoningans.core.api.modpack as api_modpack
 
         sys.modules["api"] = core_api
         sys.modules["api.types"] = api_types
         sys.modules["api.components"] = api_components
         sys.modules["api.protocols"] = api_protocols
         sys.modules["api.behaviors"] = api_behaviors
+        sys.modules["api.modpack"] = api_modpack
 
         spec = importlib.util.spec_from_file_location(
             f"mod_behavior_{mod_folder_name}", str(behavior_path)
@@ -40,9 +42,9 @@ def compile_behavior_mod(
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
-        if entity_type == EntityType.STRUCTURE.value:
+        if entity_type == EntityType.STRUCTURE:
             target_base_name: str = "BaseStructureBehavior"
-        elif entity_type == EntityType.ITEM.value:
+        elif entity_type == EntityType.ITEM:
             target_base_name: str = "BaseItemBehavior"
         else:
             target_base_name: str = "BaseEntityBehavior"

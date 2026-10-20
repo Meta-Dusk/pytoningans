@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional, Any, TYPE_CHECKING
 
-from PySide6.QtCore import QRect, Qt, QPoint
+from PySide6.QtCore import QRect, QRectF, Qt, QPoint
 from PySide6.QtGui import QGuiApplication, QPixmap, QScreen, QResizeEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QDialog, QLayoutItem, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox,
@@ -71,12 +71,11 @@ class EntityContextMenu(QDialog):
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
-        if hasattr(self, "grip"):
-            self.grip.move(
-                self.width() - self.grip.width(),
-                self.height() - self.grip.height()
-            )
-            self.grip.raise_()
+        self.grip.move(
+            self.width() - self.grip.width(),
+            self.height() - self.grip.height()
+        )
+        self.grip.raise_()
 
     def _build_ui(self) -> None:
         if self.entity is None:
@@ -197,7 +196,7 @@ class EntityContextMenu(QDialog):
 
     def _create_tags_section(self) -> Optional[QWidget]:
         """Creates a horizontal scrollable strip of tag badges if tags exist."""
-        if not self.entity or not getattr(self.entity, "tags", None):
+        if not self.entity or not self.entity.tags:
             return None
 
         scroll = QScrollArea()
@@ -244,7 +243,7 @@ class EntityContextMenu(QDialog):
         return "[Object]"
 
     # =========================================================================
-    # Action Execution & Cleanup
+    # Action Execution and Cleanup
     # =========================================================================
     def execute_action(self, action_fn: Any) -> None:
         """Executes an action and dynamically updates the UI while keeping the window open."""
@@ -287,7 +286,7 @@ class EntityContextMenu(QDialog):
         if self.entity is not None:
             self.entity.set_highlighted(False)
             self.entity.resume_death_animations()
-            if getattr(self.entity, "_active_context_menu", None) is self:
+            if self.entity._active_context_menu is self:
                 self.entity._active_context_menu = None
 
         if EntityContextMenu._active_menu is self:
@@ -297,7 +296,7 @@ class EntityContextMenu(QDialog):
         event.accept()
 
     # =========================================================================
-    # Window Spawning & Management
+    # Window Spawning and Management
     # =========================================================================
     @classmethod
     def show_for_entity(cls, entity: BaseEntity, click_pos: QPoint) -> EntityContextMenu:
@@ -327,10 +326,10 @@ class EntityContextMenu(QDialog):
         spawn_x: int
         spawn_y: int
 
-        if entity.world is not None and getattr(entity.world, "view", None) is not None:
-            entity_rect = entity.sceneBoundingRect()
-            top_right_view = entity.world.view.mapFromScene(entity_rect.topRight())
-            global_top_right = entity.world.view.mapToGlobal(top_right_view)
+        if entity.world is not None and entity.world.view is not None:
+            entity_rect: QRectF = entity.sceneBoundingRect()
+            top_right_view: QPoint = entity.world.view.mapFromScene(entity_rect.topRight())
+            global_top_right: QPoint = entity.world.view.mapToGlobal(top_right_view)
             spawn_x = global_top_right.x() + 8
             spawn_y = global_top_right.y()
         else:
@@ -346,9 +345,11 @@ class EntityContextMenu(QDialog):
             geom: QRect = screen.availableGeometry()
             # If overflowing on the right, place to the left of the entity
             if spawn_x + w > geom.right() - 8:
-                if entity.world is not None and getattr(entity.world, "view", None) is not None:
-                    top_left_view = entity.world.view.mapFromScene(entity.sceneBoundingRect().topLeft())
-                    global_top_left = entity.world.view.mapToGlobal(top_left_view)
+                if entity.world is not None and entity.world.view is not None:
+                    top_left_view: QPoint = entity.world.view.mapFromScene(
+                        entity.sceneBoundingRect().topLeft()
+                    )
+                    global_top_left: QPoint = entity.world.view.mapToGlobal(top_left_view)
                     spawn_x = global_top_left.x() - w - 8
                 else:
                     spawn_x = click_pos.x() - w - 8

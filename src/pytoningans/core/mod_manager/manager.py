@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import json
-import sys
+import json, sys
 from pathlib import Path
 from typing import Any, Optional
 
@@ -10,35 +9,26 @@ from PySide6.QtGui import QPixmap
 
 from pytoningans.core.api import BaseBehavior
 from pytoningans.core.config_schema import (
-    CURRENT_CONFIG_VERSION,
-    BehaviorConfig,
-    DialogueConfig,
-    ModConfig,
+    CURRENT_CONFIG_VERSION, BehaviorConfig, DialogueConfig, ModConfig,
 )
 from pytoningans.core.constants import (
-    AnimationMeta,
-    AttackType,
-    BehaviorType,
-    DeathAnimation,
-    EntityType,
+    AnimationMeta, AttackType, BehaviorType, DeathAnimation, EntityType,
 )
 from .behavior_loader import compile_behavior_mod
 from .cache import (
-    CacheKey,
-    clear_mod_cache,
-    clear_shared_cache,
-    shared_frame_cache,
+    CacheKey, clear_mod_cache, clear_shared_cache, shared_frame_cache,
     shared_sheets,
 )
 from .config_io import (
-    ensure_config_file,
-    ensure_fallback_animations,
-    parse_animations,
-    save_config_file,
-    sync_static_item_physics,
+    ensure_config_file, ensure_fallback_animations, parse_animations,
+    save_config_file, sync_static_physics,
 )
-from .discovery import IGNORED_MOD_FOLDERS, get_available_mods_with_type
-from .physics import get_frame_physics
+from .discovery import (
+    IGNORED_MOD_FOLDERS, get_available_mods_with_type, get_detailed_mod_list,
+    get_available_packs, resolve_mod_path, ModEntryInfo,
+)
+from .modpack import ModPack, ModPackRegistry
+from .physics import get_frame_physics, get_frame_hold_point
 from .sprites import bake_sprite_sheet, get_frame, resolve_dimensions
 
 
@@ -70,13 +60,20 @@ class ModManager:
         self.global_columns: int = 1
         self.global_rows: int = 1
         self.is_static: bool = False
+        self._static_physics_cache: Optional[tuple[QPoint, QRect]] = None
 
         self.config_version: int = CURRENT_CONFIG_VERSION
         self.can_fly: bool = False
+        self.can_climb_walls: bool = False
+        self.can_move_windows: bool = False
+        self.window_move_mode: str = "attack"
+        self.ignore_window_physics: bool = False
         self.max_health: int = 100
         self.attack_damage: int = 10
         self.attack_range: int = 50
         self.jump_height: int = 150
+        self.move_speed: float = 2.0
+        self.regen_rate: float = 0.0
         self.behavior_type: BehaviorType = BehaviorType.NEUTRAL
         self.attack_type: AttackType = AttackType.SINGLE
         self.max_targets: int = 1
@@ -92,8 +89,14 @@ class ModManager:
 
         self.death_animation: DeathAnimation = DeathAnimation.SPRITE
         self.auto_close_on_death: bool = False
+        self.fade_in_on_spawn: bool = False
         self.instance_names: list[str] = []
         self.tags: list[str] = []
+
+        self.pack_id: Optional[str] = None
+        self.pack: Optional[ModPack] = None
+        self.sub_id: Optional[str] = None
+        self._resolved_mod_path: Optional[Path] = None
 
         # Inject the mods folder into Python's runtime path
         abs_mods_dir: str = str(self.mods_dir.resolve())
@@ -103,24 +106,54 @@ class ModManager:
     @property
     def current_mod_path(self) -> Path:
         """Returns the full Path to the currently loaded mod's directory."""
+        if self._resolved_mod_path is not None:
+            return self._resolved_mod_path
         return self.mods_dir / self.current_mod_folder
 
     @property
     def entity_type(self) -> str:
         """Returns the entity type, defaulting to 'entity' for backward compatibility."""
-        return self.config.entity_type if self.config else EntityType.ENTITY.value
+        return self.config.entity_type if self.config is not None else EntityType.ENTITY
 
     def get_available_mods_with_type(self) -> dict[str, tuple[str, str]]:
-        """Returns a dict mapping folder_name -> (display_name, entity_type)."""
+        """Returns a dict mapping mod_id -> (display_name, entity_type)."""
         return get_available_mods_with_type(self.mods_dir, self.IGNORED_MOD_FOLDERS)
 
+    def get_available_packs(self) -> dict[str, ModPack]:
+        """Returns a dict mapping pack_id -> ModPack for all modpacks."""
+        return get_available_packs(self.mods_dir, self.IGNORED_MOD_FOLDERS)
+
+    def get_detailed_mod_list(self) -> list[ModEntryInfo]:
+        """Returns a full list of ModEntryInfo for all standalone mods and pack sub-entities."""
+        return get_detailed_mod_list(self.mods_dir, self.IGNORED_MOD_FOLDERS)
+
     def load_mod(self, mod_folder_name: str) -> bool:
-        """Loads a mod folder by name, parsing configuration and loading sprite sheet."""
+        """Loads a mod folder by name or namespaced pack ID, parsing configuration and loading sprite sheet."""
         if mod_folder_name.lower() in self.IGNORED_MOD_FOLDERS:
             return False
 
         self.current_mod_folder = mod_folder_name
-        mod_path: Path = self.mods_dir / mod_folder_name
+
+        # Resolve path using discovery helper (handles both standalone and modpack IDs)
+        resolved_path, pack_id, sub_id = resolve_mod_path(self.mods_dir, mod_folder_name)
+        mod_path: Path
+        if resolved_path is not None and resolved_path.exists():
+            mod_path = resolved_path
+            self._resolved_mod_path = resolved_path
+            self.pack_id = pack_id
+            self.sub_id = sub_id
+            if pack_id:
+                pack_dir = self.mods_dir / pack_id
+                self.pack = ModPackRegistry.get_or_load(pack_dir)
+            else:
+                self.pack = None
+        else:
+            mod_path = self.mods_dir / mod_folder_name
+            self._resolved_mod_path = mod_path
+            self.pack_id = None
+            self.sub_id = None
+            self.pack = None
+
         config_path: Path = mod_path / "config.json"
         sprite_path: Path = mod_path / "sprite_sheet.png"
 
@@ -134,26 +167,21 @@ class ModManager:
         with open(config_path, "r", encoding="utf-8") as f:
             data: dict[str, Any] = json.load(f)
 
-        raw_entity_type = data.get("entity_type", EntityType.ENTITY.value)
-        entity_type_str: str = (
-            raw_entity_type.value
-            if hasattr(raw_entity_type, "value")
-            else str(raw_entity_type)
-        )
-
+        entity_type: str = data.get("entity_type", EntityType.ENTITY)
         behavior_data: dict[str, Any] = data.get("behavior", {})
-        raw_tags: list[Any] = data.get("tags", behavior_data.get("tags", []))
-        self.tags = [str(t).lower().strip() for t in raw_tags if str(t).strip()]
+        tags: list[str] = data.get("tags", behavior_data.get("tags", []))
+        self.tags = [t.lower().strip() for t in tags if t.strip()]
 
+        self._static_physics_cache = None
         self.is_static = data.get("is_static", False)
-        if not self.is_static and entity_type_str == EntityType.ITEM.value:
+        if not self.is_static and entity_type in (EntityType.ITEM, EntityType.STRUCTURE):
             if data.get("columns", 1) == 1 and data.get("rows", 1) == 1:
                 self.is_static = True
 
         # Instantiate the config to store the entity type
         self.config = ModConfig(
             name=data.get("name", mod_folder_name),
-            entity_type=entity_type_str,
+            entity_type=entity_type,
             is_static=self.is_static,
             tags=self.tags,
             version=data.get("version", CURRENT_CONFIG_VERSION),
@@ -168,19 +196,25 @@ class ModManager:
         self.config_version = data.get("version", 1)
 
         self.can_fly = behavior_data.get("can_fly", False)
+        self.can_climb_walls = behavior_data.get("can_climb_walls", False)
+        self.can_move_windows = behavior_data.get("can_move_windows", False)
+        self.window_move_mode = behavior_data.get("window_move_mode", "attack")
+        self.ignore_window_physics = behavior_data.get("ignore_window_physics", False)
 
         self.max_health = behavior_data.get("max_health", 100)
         self.attack_damage = behavior_data.get("attack_damage", 10)
         self.attack_range = behavior_data.get("attack_range", 50)
         self.jump_height = behavior_data.get("jump_height", 15)
+        self.move_speed = float(behavior_data.get("move_speed", 2.0))
+        self.regen_rate = float(behavior_data.get("regen_rate", 0.0))
 
-        raw_behavior_type = behavior_data.get("type", "neutral")
+        raw_behavior_type: str = behavior_data.get("type", "neutral")
         try:
             self.behavior_type = BehaviorType(raw_behavior_type)
         except ValueError:
             self.behavior_type = BehaviorType.NEUTRAL
 
-        raw_attack_type = behavior_data.get("attack_type", "single")
+        raw_attack_type: str = behavior_data.get("attack_type", "single")
         try:
             self.attack_type = AttackType(raw_attack_type)
         except ValueError:
@@ -188,24 +222,25 @@ class ModManager:
 
         self.max_targets = behavior_data.get("max_targets", 1)
 
-        raw_death_anim = behavior_data.get("death_animation", "sprite")
+        raw_death_anim: str = behavior_data.get("death_animation", "sprite")
         try:
             self.death_animation = DeathAnimation(raw_death_anim)
         except ValueError:
             self.death_animation = DeathAnimation.SPRITE
 
         self.auto_close_on_death = behavior_data.get("auto_close_on_death", False)
+        self.fade_in_on_spawn = behavior_data.get("fade_in_on_spawn", False)
         self.instance_names = list(behavior_data.get("instance_names", []))
 
         anim_data: dict[str, Any] = data.get("animations", {})
         self.animations = parse_animations(anim_data, self.entity_type)
         ensure_fallback_animations(self.animations, self.entity_type, self.global_columns)
 
-        # For static items, ensure baseline physics and overrides match idle across all states
-        if self.is_static and self.entity_type == EntityType.ITEM.value:
-            sync_static_item_physics(self.animations)
+        # For static entities, ensure baseline physics and overrides match idle across all states
+        if self.is_static:
+            sync_static_physics(self.animations)
 
-        dialogue_data = data.get("dialogue", {})
+        dialogue_data: dict[str, list[Any]] = data.get("dialogue", {})
         self.plain_dialogue = dialogue_data.get("plain_dialogue", ["..."])
         self.death_dialogue = dialogue_data.get(
             "death_dialogue", ["Ugh...", "I'll be back...", "Farewell..."]
@@ -237,11 +272,17 @@ class ModManager:
 
     def save_mod_config(self, mod_folder_name: str, name: str) -> None:
         """Saves current settings into config.json in the mod's directory."""
-        mod_path: Path = self.mods_dir / mod_folder_name
+        mod_path: Path
+        if self._resolved_mod_path is not None:
+            mod_path = self._resolved_mod_path
+        else:
+            resolved, _, _ = resolve_mod_path(self.mods_dir, mod_folder_name)
+            mod_path = resolved if resolved is not None else (self.mods_dir / mod_folder_name)
         config_path: Path = mod_path / "config.json"
 
-        if self.is_static and self.entity_type == EntityType.ITEM.value:
-            sync_static_item_physics(self.animations)
+        if self.is_static:
+            sync_static_physics(self.animations)
+        self._static_physics_cache = None
 
         config = ModConfig(
             name=name,
@@ -252,16 +293,23 @@ class ModManager:
             columns=self.global_columns,
             rows=self.global_rows,
             behavior=BehaviorConfig(
-                type=BehaviorType(self.behavior_type).value,
+                type=self.behavior_type,
                 can_fly=self.can_fly,
+                can_climb_walls=self.can_climb_walls,
+                can_move_windows=self.can_move_windows,
+                window_move_mode=self.window_move_mode,
+                ignore_window_physics=self.ignore_window_physics,
                 max_health=self.max_health,
                 attack_damage=self.attack_damage,
                 attack_range=self.attack_range,
                 jump_height=self.jump_height,
+                move_speed=self.move_speed,
+                regen_rate=self.regen_rate,
                 attack_type=self.attack_type,
                 max_targets=self.max_targets,
                 death_animation=self.death_animation,
                 auto_close_on_death=self.auto_close_on_death,
+                fade_in_on_spawn=self.fade_in_on_spawn,
                 instance_names=self.instance_names,
             ),
             animations={str(state): meta for state, meta in self.animations.items()},
@@ -296,7 +344,7 @@ class ModManager:
             self.animations,
             lambda: self.save_mod_config(self.current_mod_folder, self.current_mod_name),
         )
-        if success and new_sheet:
+        if success and new_sheet is not None:
             self._global_sheet = new_sheet
             return True
         return False
@@ -312,7 +360,32 @@ class ModManager:
 
     def get_frame_physics(self, state: str, tick_index: int) -> tuple[QPoint, QRect]:
         """Returns the (Anchor Point, Hitbox Rect) for the current frame."""
+        if self.is_static:
+            if self._static_physics_cache is not None:
+                return self._static_physics_cache
+            result: tuple[QPoint, QRect] = get_frame_physics(
+                self.animations,
+                state,
+                tick_index,
+                self.is_static,
+                self.entity_type,
+            )
+            self._static_physics_cache = result
+            return result
+
         return get_frame_physics(
+            self.animations,
+            state,
+            tick_index,
+            self.is_static,
+            self.entity_type,
+        )
+
+    def get_frame_hold_point(self, state: str, tick_index: int) -> Optional[QPoint]:
+        """
+        Returns the custom Item Hold Anchor Point for the current frame if configured, or None.
+        """
+        return get_frame_hold_point(
             self.animations,
             state,
             tick_index,

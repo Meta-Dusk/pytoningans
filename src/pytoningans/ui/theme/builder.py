@@ -7,6 +7,7 @@ from .components import (
     get_menu_styles,
     get_overlay_styles,
     get_table_styles,
+    get_container_styles,
 )
 from .tokens import ThemePalette
 
@@ -20,5 +21,7 @@ def build_theme(palette: ThemePalette) -> str:
         get_menu_styles(palette),
         get_overlay_styles(palette),
         get_context_menu_styles(palette),
+        get_container_styles(palette),
     ])
+
 

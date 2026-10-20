@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 def build_living_actions(menu: EntityContextMenu, layout: QVBoxLayout, entity: Entity) -> None:
     """Builds interactive control buttons and target pickers for a living entity."""
     if not entity.is_dead:
-        # Action Row 1: Talk & Jump
+        # Action Row 1: Talk and Jump
         row1 = QHBoxLayout()
         row1.setSpacing(6)
 
@@ -22,11 +22,12 @@ def build_living_actions(menu: EntityContextMenu, layout: QVBoxLayout, entity: E
         talk_btn.setToolTip("Prompt the entity to speak a random dialogue line immediately.")
         talk_btn.clicked.connect(lambda: menu.execute_action(entity.force_talk))
         row1.addWidget(talk_btn)
-
-        jump_btn = QPushButton("Force Jump")
-        jump_btn.setToolTip("Make the entity perform an upward jump.")
-        jump_btn.clicked.connect(lambda: menu.execute_action(entity.jump))
-        row1.addWidget(jump_btn)
+        
+        if entity.mod_manager is not None and not entity.mod_manager.can_fly:
+            jump_btn = QPushButton("Force Jump")
+            jump_btn.setToolTip("Make the entity perform an upward jump.")
+            jump_btn.clicked.connect(lambda: menu.execute_action(entity.jump))
+            row1.addWidget(jump_btn)
 
         layout.addLayout(row1)
 
@@ -54,7 +55,7 @@ def build_living_actions(menu: EntityContextMenu, layout: QVBoxLayout, entity: E
             )
 
             unheld_items: list[BaseItem] = []
-            if entity.world is not None and getattr(entity.world, "active_items", None):
+            if entity.world is not None and entity.world.active_items:
                 unheld_items = [
                     it for it in entity.world.active_items
                     if it.is_interactable and not it.is_held
@@ -69,7 +70,8 @@ def build_living_actions(menu: EntityContextMenu, layout: QVBoxLayout, entity: E
 
             if unheld_items:
                 for it in unheld_items:
-                    item_combo.addItem(f"{it.display_name} (@ {int(it.x())}, {int(it.y())})", userData=it)
+                    coords: str = f"x:{int(it.x())}, y:{int(it.y())}"
+                    item_combo.addItem(f"{it.display_name} ({coords})", userData=it)
                 pickup_btn.setToolTip("Command the entity to take this item.")
                 pickup_btn.clicked.connect(
                     lambda: menu.execute_action(lambda: entity.pick_up(item_combo.currentData()))
@@ -94,7 +96,54 @@ def build_living_actions(menu: EntityContextMenu, layout: QVBoxLayout, entity: E
         revive_btn = QPushButton("Revive Entity")
         revive_btn.setToolTip("Bring this entity back to life with full health.")
         revive_btn.clicked.connect(lambda: menu.execute_action(entity.revive))
-        layout.addWidget(revive_btn)
+        # Toggle Window Physics (entity-specific override)
+        phys_text: str = "Enable Window Physics" if entity.ignore_window_physics else "Ignore Window Physics"
+        phys_tip: str = (
+            "Re-enable window collision and platforms for this entity."
+            if entity.ignore_window_physics else
+            "Make this entity ghost through desktop windows (overrides global setting)."
+        )
+        win_phys_btn = QPushButton(phys_text)
+        win_phys_btn.setToolTip(phys_tip)
+        def toggle_win_phys() -> None:
+            entity.ignore_window_physics = not entity.ignore_window_physics
+        win_phys_btn.clicked.connect(lambda: menu.execute_action(toggle_win_phys))
+        layout.addWidget(win_phys_btn)
+
+    # Debug Visualization Toggles (Hitbox and Range)
+    row_debug = QHBoxLayout()
+    row_debug.setSpacing(6)
+
+    hitbox_btn = QPushButton("Hide Hitbox" if entity.is_debug_hitbox_visible else "Show Hitbox")
+    hitbox_btn.setToolTip("Toggle on-screen visualization of physics collision and attack hitboxes.")
+    def toggle_hitbox() -> None:
+        entity.toggle_debug_hitboxes()
+        hitbox_btn.setText("Hide Hitbox" if entity.is_debug_hitbox_visible else "Show Hitbox")
+    hitbox_btn.clicked.connect(lambda: menu.execute_action(toggle_hitbox))
+    row_debug.addWidget(hitbox_btn)
+
+    range_btn = QPushButton("Hide Range" if entity.is_debug_attack_range_visible else "Show Range")
+    range_btn.setToolTip("Toggle on-screen visualization of entity attack / aggro range circle.")
+    def toggle_range() -> None:
+        entity.toggle_debug_attack_range()
+        range_btn.setText("Hide Range" if entity.is_debug_attack_range_visible else "Show Range")
+    range_btn.clicked.connect(lambda: menu.execute_action(toggle_range))
+    row_debug.addWidget(range_btn)
+
+    layout.addLayout(row_debug)
+
+    # Pack Actions (if part of a Tier 2 Modpack)
+    if entity.mod_manager is not None and entity.mod_manager.pack is not None:
+        pack_actions = entity.mod_manager.pack.get_context_menu_actions(entity)
+        if pack_actions:
+            layout.addWidget(create_info_row(f"{entity.mod_manager.pack.name}:", "Pack Actions"))
+            for action in pack_actions:
+                act_btn = QPushButton(action.label)
+                if action.tooltip:
+                    act_btn.setToolTip(action.tooltip)
+                act_cb = action.callback
+                act_btn.clicked.connect(lambda _, c=act_cb: menu.execute_action(c))
+                layout.addWidget(act_btn)
 
     layout.addWidget(create_separator())
 

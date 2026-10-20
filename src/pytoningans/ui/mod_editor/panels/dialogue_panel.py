@@ -39,9 +39,9 @@ class DialoguePanel(BasePanel):
         sec_layout.addWidget(self.plain_dialogue_list)
         
         plain_btns = QHBoxLayout()
-        self.add_plain_btn = QPushButton("+ Add")
-        self.edit_plain_btn = QPushButton("/\\ Edit")
-        self.del_plain_btn = QPushButton("- Remove")
+        self.add_plain_btn = QPushButton("(+) Add")
+        self.edit_plain_btn = QPushButton("(e) Edit")
+        self.del_plain_btn = QPushButton("(-) Remove")
         plain_btns.addWidget(self.add_plain_btn)
         plain_btns.addWidget(self.edit_plain_btn)
         plain_btns.addWidget(self.del_plain_btn)
@@ -66,9 +66,9 @@ class DialoguePanel(BasePanel):
         sec_layout.addWidget(self.death_dialogue_list)
         
         death_btns = QHBoxLayout()
-        self.add_death_btn = QPushButton("+ Add")
-        self.edit_death_btn = QPushButton("/\\ Edit")
-        self.del_death_btn = QPushButton("- Remove")
+        self.add_death_btn = QPushButton("(+) Add")
+        self.edit_death_btn = QPushButton("(e) Edit")
+        self.del_death_btn = QPushButton("(-) Remove")
         death_btns.addWidget(self.add_death_btn)
         death_btns.addWidget(self.edit_death_btn)
         death_btns.addWidget(self.del_death_btn)
@@ -112,9 +112,9 @@ class DialoguePanel(BasePanel):
         sec_layout.addWidget(self.window_triggers_table)
         
         trigger_btns = QHBoxLayout()
-        self.add_trigger_btn = QPushButton("+ Add")
-        self.edit_trigger_btn = QPushButton("/\\ Edit")
-        self.del_trigger_btn = QPushButton("- Remove")
+        self.add_trigger_btn = QPushButton("(+) Add")
+        self.edit_trigger_btn = QPushButton("(e) Edit")
+        self.del_trigger_btn = QPushButton("(-) Remove")
         trigger_btns.addWidget(self.add_trigger_btn)
         trigger_btns.addWidget(self.edit_trigger_btn)
         trigger_btns.addWidget(self.del_trigger_btn)
@@ -125,19 +125,19 @@ class DialoguePanel(BasePanel):
 
     def _connect_signals(self) -> None:
         """Binds this panel's buttons and filter inputs to logic."""
-        # Plain dialogue buttons & filter
+        # Plain dialogue buttons and filter
         self.add_plain_btn.clicked.connect(self._on_add_plain_dialogue)
         self.edit_plain_btn.clicked.connect(self._on_edit_plain_dialogue)
         self.del_plain_btn.clicked.connect(self._on_remove_plain_dialogue)
         self.plain_filter_input.textChanged.connect(self._apply_plain_filter)
         
-        # Death dialogue buttons & filter
+        # Death dialogue buttons and filter
         self.add_death_btn.clicked.connect(self._on_add_death_dialogue)
         self.edit_death_btn.clicked.connect(self._on_edit_death_dialogue)
         self.del_death_btn.clicked.connect(self._on_remove_death_dialogue)
         self.death_filter_input.textChanged.connect(self._apply_death_filter)
         
-        # Window triggers table, buttons & filter
+        # Window triggers table, buttons and filter
         self.add_trigger_btn.clicked.connect(self._on_add_window_trigger)
         self.edit_trigger_btn.clicked.connect(self._on_edit_window_trigger)
         self.del_trigger_btn.clicked.connect(self._on_remove_window_trigger)
@@ -155,17 +155,17 @@ class DialoguePanel(BasePanel):
         
         # Populate Plain Dialogue
         self.plain_dialogue_list.clear()
-        if hasattr(self.controller.manager, 'plain_dialogue'):
+        if self.controller.manager.plain_dialogue:
             self.plain_dialogue_list.addItems(self.controller.manager.plain_dialogue)
             
         # Populate Death Dialogue
         self.death_dialogue_list.clear()
-        if hasattr(self.controller.manager, 'death_dialogue'):
+        if self.controller.manager.death_dialogue:
             self.death_dialogue_list.addItems(self.controller.manager.death_dialogue)
             
         # Populate Window Triggers Table
         self.window_triggers_table.setRowCount(0)
-        if hasattr(self.controller.manager, 'window_triggers'):
+        if self.controller.manager.window_triggers:
             for trigger in self.controller.manager.window_triggers:
                 self._add_trigger_row(trigger)
                 
@@ -273,12 +273,11 @@ class DialoguePanel(BasePanel):
 
     def _save_dialogue_state(self) -> None:
         """Extracts all plain dialogue items and updates the engine manager."""
-        if getattr(self, '_is_updating_ui', False): return
+        if self._is_updating_ui: return
         new_dialogue: list[str] = [
             self.plain_dialogue_list.item(i).text() for i in range(self.plain_dialogue_list.count())
         ]
-        if hasattr(self.controller.manager, 'plain_dialogue'):
-            self.controller.manager.plain_dialogue = new_dialogue
+        self.controller.manager.plain_dialogue = new_dialogue
 
     # --- Death Dialogue Actions ---
     def _on_add_death_dialogue(self) -> None:
@@ -317,12 +316,11 @@ class DialoguePanel(BasePanel):
 
     def _save_death_dialogue_state(self) -> None:
         """Extracts all death dialogue items and updates the engine manager."""
-        if getattr(self, '_is_updating_ui', False): return
+        if self._is_updating_ui: return
         new_death_dialogue: list[str] = [
             self.death_dialogue_list.item(i).text() for i in range(self.death_dialogue_list.count())
         ]
-        if hasattr(self.controller.manager, 'death_dialogue'):
-            self.controller.manager.death_dialogue = new_death_dialogue
+        self.controller.manager.death_dialogue = new_death_dialogue
 
     # --- Window Triggers Actions ---
     def _on_add_window_trigger(self) -> None:
@@ -345,14 +343,14 @@ class DialoguePanel(BasePanel):
 
     def _save_trigger_state(self) -> None:
         """Extracts all trigger dictionaries from the table items and updates the engine manager."""
-        if getattr(self, '_is_updating_ui', False): return
+        if self._is_updating_ui: return
         new_triggers: list[dict[str, Any]] = []
         for row in range(self.window_triggers_table.rowCount()):
-            item0 = self.window_triggers_table.item(row, 0)
-            if item0:
-                data = item0.data(Qt.ItemDataRole.UserRole)
-                if data:
-                    new_triggers.append(data)
+            item_0: Optional[QTableWidgetItem] = self.window_triggers_table.item(row, 0)
+            if item_0 is None: continue
+            data = item_0.data(Qt.ItemDataRole.UserRole)
+            if data:
+                new_triggers.append(data)
         self.controller.manager.window_triggers = new_triggers
 
     def _on_edit_window_trigger(self) -> None:

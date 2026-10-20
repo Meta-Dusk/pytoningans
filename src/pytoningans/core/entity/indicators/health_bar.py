@@ -70,7 +70,7 @@ class HealthBarItem(QGraphicsItem):
                 self.update()
         else:
             settings = SettingsManager.get().settings
-            if settings.health_bar_mode == HealthBarMode.ALWAYS.value and not self.entity.is_dead:
+            if settings.health_bar_mode == HealthBarMode.ALWAYS and not self.entity.is_dead:
                 pass
             elif self.visibility_timer > 0:
                 pass
@@ -79,12 +79,10 @@ class HealthBarItem(QGraphicsItem):
             self.update()
 
     def detach_signals(self) -> None:
-        if not getattr(self, "_signals_connected", False):
-            return
+        if not self._signals_connected: return
         try:
             SettingsManager.get().settings_changed.disconnect(self.apply_settings)
-        except Exception:
-            pass
+        except Exception: pass
         finally:
             self._signals_connected = False
 
@@ -99,18 +97,18 @@ class HealthBarItem(QGraphicsItem):
     def apply_settings(self) -> None:
         if self.entity is None: return
         mode: str = SettingsManager.get().settings.health_bar_mode
-
-        if mode == HealthBarMode.ALWAYS.value:
-            if not self.entity.is_dead:
-                self.show()
-                self.setOpacity(1.0)
-            else:
+        match mode:
+            case HealthBarMode.ALWAYS:
+                if not self.entity.is_dead:
+                    self.show()
+                    self.setOpacity(1.0)
+                else:
+                    self.hide()
+            case HealthBarMode.HIDDEN:
                 self.hide()
-        elif mode == HealthBarMode.HIDDEN.value:
-            self.hide()
-        elif mode == HealthBarMode.ON_DAMAGE.value:
-            if self.visibility_timer <= 0 and self.fade_time_left <= 0:
-                self.hide()
+            case HealthBarMode.ON_DAMAGE:
+                if self.visibility_timer <= 0 and self.fade_time_left <= 0:
+                    self.hide()
         self.update()
 
     def on_damage_taken(self, damage: int, new_hp: int, old_hp: int) -> None:
@@ -131,7 +129,7 @@ class HealthBarItem(QGraphicsItem):
         self.shake_time_left = self.shake_duration
         self.shake_amplitude = 2.0 + 6.0 * dmg_ratio
 
-        if settings.health_bar_mode != HealthBarMode.HIDDEN.value:
+        if settings.health_bar_mode != HealthBarMode.HIDDEN:
             self.visibility_timer = settings.auto_hide_delay_ms
             self.fade_time_left = 0
             self.setOpacity(1.0)
@@ -145,7 +143,7 @@ class HealthBarItem(QGraphicsItem):
         self.current_hp = float(new_hp)
         self.ghost_hp = float(new_hp)
 
-        if settings.health_bar_mode != HealthBarMode.HIDDEN.value:
+        if settings.health_bar_mode != HealthBarMode.HIDDEN:
             self.visibility_timer = settings.auto_hide_delay_ms
             self.fade_time_left = 0
             self.setOpacity(1.0)
@@ -201,7 +199,7 @@ class HealthBarItem(QGraphicsItem):
             self.setOpacity(1.0)
             self.fade_time_left = 0
             needs_redraw = True
-        elif settings.health_bar_mode == HealthBarMode.ALWAYS.value:
+        elif settings.health_bar_mode == HealthBarMode.ALWAYS:
             if self.entity.is_dead:
                 if self.isVisible():
                     self.hide()
@@ -317,7 +315,7 @@ class HealthBarItem(QGraphicsItem):
         inner_h: float = max(0.0, bar_h - (inner_pad * 2.0))
         max_hp: int = max(1, self.entity.mod_manager.max_health if self.entity.mod_manager else 100)
 
-        # Ghost Depletion Bar (shows subtracted chunk flashing & smoothly draining)
+        # Ghost Depletion Bar (shows subtracted chunk flashing and smoothly draining)
         ghost_ratio: float = max(0.0, min(1.0, self.ghost_hp / max_hp))
         if ghost_ratio > 0:
             ghost_w = inner_w * ghost_ratio

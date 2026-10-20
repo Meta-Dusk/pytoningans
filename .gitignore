@@ -5,6 +5,12 @@ build/
 dist/
 wheels/
 *.egg-info
+site/
 
 # Virtual environments
 .venv
+
+# Local secrets and credentials
+.env
+.env.*
+cloud_config.json

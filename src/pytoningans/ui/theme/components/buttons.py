@@ -60,6 +60,98 @@ QPushButton#DangerBtn:disabled {{
     color: {p.btn_disabled_text};
 }}
 
+QPushButton#PrimaryBtn {{
+    background-color: {p.primary_btn_bg};
+    border: 1px solid {p.primary_btn_border};
+    color: {p.primary_btn_text};
+    font-weight: bold;
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-size: 12px;
+}}
+
+
+QPushButton#PrimaryBtn:hover {{
+    background-color: {p.primary_btn_hover_bg};
+    border: 1px solid {p.primary_btn_hover_border};
+}}
+
+QPushButton#PrimaryBtn:pressed {{
+    background-color: {p.primary_btn_pressed_bg};
+}}
+
+QPushButton#SuccessBtn {{
+    background-color: {p.success_btn_bg};
+    border: 1px solid {p.success_btn_border};
+    color: {p.success_btn_text};
+    font-weight: bold;
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-size: 12px;
+}}
+
+QPushButton#SuccessBtn:hover {{
+    background-color: {p.success_btn_hover_bg};
+    border: 1px solid {p.success_btn_hover_border};
+}}
+
+QPushButton#SuccessBtn:pressed {{
+    background-color: {p.success_btn_pressed_bg};
+}}
+
+QPushButton#InfoBtn {{
+    background-color: {p.info_btn_bg};
+    border: 1px solid {p.info_btn_border};
+    color: {p.info_btn_text};
+    font-weight: bold;
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-size: 12px;
+}}
+
+QPushButton#InfoBtn:hover {{
+    background-color: {p.info_btn_hover_bg};
+    border: 1px solid {p.info_btn_hover_border};
+}}
+
+QPushButton#InfoBtn:pressed {{
+    background-color: {p.info_btn_pressed_bg};
+}}
+
+QPushButton#SecondaryBtn {{
+    background-color: {p.secondary_btn_bg};
+    border: 1px solid {p.secondary_btn_border};
+    color: {p.secondary_btn_text};
+    font-weight: bold;
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-size: 12px;
+}}
+
+
+QPushButton#SecondaryBtn:hover {{
+    background-color: {p.secondary_btn_hover_bg};
+    border: 1px solid {p.secondary_btn_hover_border};
+}}
+
+QPushButton#SecondaryBtn:pressed {{
+    background-color: {p.secondary_btn_pressed_bg};
+}}
+
+QPushButton#LinkBtn {{
+    background: transparent;
+    border: none;
+    color: {p.link_btn_text};
+    font-size: 11px;
+    text-decoration: underline;
+    padding: 4px;
+}}
+
+QPushButton#LinkBtn:hover {{
+    color: {p.link_btn_hover_text};
+}}
+
+
 QPushButton#TitleBarBtn {{ 
     background: transparent; 
     border: none; 

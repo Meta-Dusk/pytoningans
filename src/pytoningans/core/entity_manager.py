@@ -1,10 +1,12 @@
 import gc, random
 from typing import cast, Optional
 
-from PySide6.QtCore import QTimer, QElapsedTimer, QThreadPool
+from PySide6.QtCore import QTimer, QElapsedTimer, QThreadPool, QRect
 from PySide6.QtGui import QPixmapCache, QGuiApplication, QScreen
 
 from pytoningans.core.vision_worker import VisionWorker
+from pytoningans.core.window_tracker import WindowTracker
+from pytoningans.core.settings import SettingsManager
 
 from pytoningans.core.entity.base_structure import BaseStructure
 from pytoningans.core.entity.base_item import BaseItem
@@ -14,6 +16,7 @@ from pytoningans.core.entity.animation import AnimationSystem
 
 from pytoningans.core.world import WorldOverlay
 from pytoningans.core.mod_manager import ModManager
+from pytoningans.core.spawning import SpawningSystem
 from pytoningans.core.api import (
     IEntity, IStructure, IItem, BaseStructureBehavior, BaseEntityBehavior,
     BaseItemBehavior, BaseBehavior
@@ -35,6 +38,11 @@ class EntityManager:
         self._vision_in_progress: bool = False
         self._vision_worker: Optional[VisionWorker] = None
         
+        self.window_tracker: WindowTracker = WindowTracker()
+        self.window_track_accumulator: int = 0
+        
+        self.spawning_system: SpawningSystem = SpawningSystem(self)
+        
         self.clock = QElapsedTimer()
         self.timer = QTimer()
         self.timer.timeout.connect(self._global_tick)
@@ -54,9 +62,17 @@ class EntityManager:
             world.showFullScreen()
             self.active_worlds.append(world)
 
+    def _has_window_triggers(self) -> bool:
+        """Returns True if any active entity mod defines window triggers."""
+        return any(
+            bool(e.mod_manager.window_triggers)
+            for e in self.active_entities if e.mod_manager is not None
+        )
+
     def _on_vision_ready(self, titles: list[str]) -> None:
         self.active_window_titles = titles
         self._vision_in_progress = False
+        self._vision_worker = None
 
     def _global_tick(self) -> None:
         """The heartbeat of the entire application across all worlds."""
@@ -65,11 +81,28 @@ class EntityManager:
         self.vision_accumulator += dt
         if self.vision_accumulator >= 3000:
             self.vision_accumulator = 0
-            if not self._vision_in_progress:
+            if not self._vision_in_progress and self._has_window_triggers():
                 self._vision_in_progress = True
                 self._vision_worker = VisionWorker()
                 self._vision_worker.signals.finished.connect(self._on_vision_ready)
                 QThreadPool.globalInstance().start(self._vision_worker)
+
+        # Track visible interactive desktop windows for physics collisions
+        self.window_track_accumulator += dt
+        if self.window_track_accumulator >= 150:
+            self.window_track_accumulator = 0
+            if SettingsManager.get().settings.enable_window_physics:
+                self.window_tracker.update()
+                for world in self.active_worlds:
+                    screen_geom: QRect = world.geometry()
+                    world.active_windows = self.window_tracker.get_local_windows_for_screen(screen_geom)
+                    world.active_window_rects = [lr for _, lr in world.active_windows]
+            else:
+                for world in self.active_worlds:
+                    if world.active_window_rects:
+                        world.active_window_rects.clear()
+                    if world.active_windows:
+                        world.active_windows.clear()
 
         for world in self.active_worlds:
             world.update_systems(dt)
@@ -77,11 +110,14 @@ class EntityManager:
     def spawn_entity(
         self, x: float, y: float, mod_folder: str, 
         target_world: Optional[WorldOverlay] = None,
-        instance_name: Optional[str] = None
+        instance_name: Optional[str] = None,
+        fade_in: Optional[bool] = None,
     ) -> Optional[BaseEntity]:
         """Dynamically spawns a living Entity or a static Structure based on mod config."""
         mod_manager = ModManager(self.mod_manager.mods_dir)
         mod_manager.load_mod(mod_folder)
+        if fade_in is not None:
+            mod_manager.fade_in_on_spawn = fade_in
         
         # Fallback to the first world if no specific world is provided
         world: Optional[WorldOverlay] = (
@@ -124,14 +160,14 @@ class EntityManager:
 
         # Route instantiation based on the declared entity type
         entity: BaseStructure | BaseItem | Entity
-        if mod_manager.entity_type == EntityType.STRUCTURE.value:
+        if mod_manager.entity_type == EntityType.STRUCTURE:
             entity = BaseStructure(x, y, mod_manager, world)
             if chosen_name:
                 entity.set_instance_name(chosen_name)
             world.scene.addItem(entity)
             world.active_structures.append(entity)
             self.active_structures.append(entity)
-        elif mod_manager.entity_type == EntityType.ITEM.value:
+        elif mod_manager.entity_type == EntityType.ITEM:
             entity = BaseItem(x, y, mod_manager, world)
             if chosen_name:
                 entity.set_instance_name(chosen_name)
@@ -150,7 +186,10 @@ class EntityManager:
         return entity
 
     def _on_spawn(self, entity: BaseEntity) -> None:
-        behavior: Optional[BaseBehavior] = entity.get_behavior
+        if entity.mod_manager is not None and entity.mod_manager.pack is not None:
+            entity.mod_manager.pack.on_entity_spawned(entity)
+
+        behavior: Optional[BaseBehavior] = entity.behavior
         if behavior is None: return
         
         try:
@@ -200,7 +239,8 @@ class EntityManager:
                     world.scene.removeItem(entity)
                 break
         
-        # If no other remaining active entity or structure uses this mod, prune its sprite sheets & frame cache
+        # If no other remaining active entity or structure uses this mod,
+        # prune its sprite sheets and frame cache
         if mod_folder is not None and mod_folder:
             all_remaining: list[BaseEntity] = (
                 cast(list[BaseEntity], self.active_entities) +
