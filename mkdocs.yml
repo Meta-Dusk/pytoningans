@@ -1,0 +1,80 @@
+site_name: PyToNingans
+site_description: A PySide6 Desktop Idler Sandbox Game & Community Modding Ecosystem
+site_author: MetaDusk
+site_url: https://meta-dusk.github.io/pytoningans/
+repo_name: Meta-Dusk/pytoningans
+repo_url: https://github.com/Meta-Dusk/pytoningans
+copyright: "Copyright &copy; 2026 MetaDusk - Open Source under MIT License"
+
+theme:
+    name: material
+    language: en
+    palette:
+        # Palette toggle for dark mode (default)
+        - scheme: slate
+          primary: deep purple
+          accent: cyan
+          toggle:
+              icon: material/brightness-4
+              name: Switch to light mode
+        # Palette toggle for light mode
+        - scheme: default
+          primary: deep purple
+          accent: indigo
+          toggle:
+              icon: material/brightness-7
+              name: Switch to dark mode
+    font:
+        text: Roboto
+        code: Roboto Mono
+    features:
+        - navigation.tabs
+        - navigation.tabs.sticky
+        - navigation.sections
+        - navigation.expand
+        - navigation.top
+        - navigation.instant
+        - navigation.tracking
+        - search.suggest
+        - search.highlight
+        - content.code.copy
+        - content.code.annotate
+
+markdown_extensions:
+    - admonition
+    - pymdownx.details
+    - pymdownx.superfences:
+          custom_fences:
+              - name: mermaid
+                class: mermaid
+                format: !!python/name:pymdownx.superfences.fence_code_format
+    - pymdownx.highlight:
+          anchor_linenums: true
+          line_spans: __span
+          pygments_lang_class: true
+    - pymdownx.inlinehilite
+    - pymdownx.snippets
+    - pymdownx.tabbed:
+          alternate_style: true
+    - tables
+    - attr_list
+    - def_list
+    - pymdownx.tasklist:
+          custom_checkbox: true
+
+nav:
+    - Overview: index.md
+    - Getting Started:
+          - Installation & Requirements: getting-started/installation.md
+          - Quickstart Guide: getting-started/quickstart.md
+    - User Guide:
+          - Desktop Window Physics: user-guide/desktop-physics.md
+          - Combat & Visual Feedback: user-guide/combat-visuals.md
+          - Settings & Developer Tools: user-guide/settings.md
+    - Modding:
+          - Mod Architecture & Config: modding/mod-structure.md
+          - Modpacks & Shared Controllers: modding/creating-packs.md
+          - Security Audit & AST Sandbox: modding/inspector-audit.md
+          - Community Hub & Cloud Publishing: modding/publishing.md
+    - API Reference: api/reference.md
+    - Privacy Policy: privacy.md
