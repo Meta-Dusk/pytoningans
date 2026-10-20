@@ -32,6 +32,7 @@ class AppSettings:
     enable_debug_mode: bool = False
     creator_name: str = "Modder"
     creator_bio: str = ""
+    creator_avatar_path: str = ""
 
 
 # Backward compatibility alias
@@ -70,6 +71,7 @@ class SettingsManager(QObject):
                     enable_debug_mode=data.get("enable_debug_mode", False),
                     creator_name=data.get("creator_name", "Modder"),
                     creator_bio=data.get("creator_bio", ""),
+                    creator_avatar_path=data.get("creator_avatar_path", ""),
                 )
             except Exception as e:
                 print(f"Warning: Failed to load settings from {path}: {e}")
@@ -97,6 +99,7 @@ class SettingsManager(QObject):
         enable_debug_mode: Optional[bool] = None,
         creator_name: Optional[str] = None,
         creator_bio: Optional[str] = None,
+        creator_avatar_path: Optional[str] = None,
     ) -> None:
         changed = False
         if health_bar_mode is not None and self.settings.health_bar_mode != health_bar_mode:
@@ -131,6 +134,9 @@ class SettingsManager(QObject):
             changed = True
         if creator_bio is not None and self.settings.creator_bio != creator_bio.strip():
             self.settings.creator_bio = creator_bio.strip()
+            changed = True
+        if creator_avatar_path is not None and self.settings.creator_avatar_path != creator_avatar_path.strip():
+            self.settings.creator_avatar_path = creator_avatar_path.strip()
             changed = True
 
         if changed:

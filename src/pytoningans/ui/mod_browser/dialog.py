@@ -192,21 +192,39 @@ class ModBrowserDialog(QDialog):
         """Updates the top bar account badge according to the current session."""
         creator: str = self.auth.get_creator_name()
         if user is not None and not user.id.startswith("local_"):
-            self.auth_btn.setText(f"{user.username}")
-            self.auth_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: rgba(59, 130, 246, 0.2);
-                    color: #93c5fd;
-                    border: 1px solid #3b82f6;
-                    border-radius: 4px;
-                    padding: 4px 10px;
-                    font-size: 11px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: rgba(59, 130, 246, 0.35);
-                }
-            """)
+            if user.is_developer:
+                self.auth_btn.setText(f"★ {user.username} (Dev)")
+                self.auth_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: rgba(203, 166, 247, 0.2);
+                        color: #cba6f7;
+                        border: 1px solid #cba6f7;
+                        border-radius: 4px;
+                        padding: 4px 10px;
+                        font-size: 11px;
+                        font-weight: bold;
+                    }
+                    QPushButton:hover {
+                        background-color: rgba(203, 166, 247, 0.35);
+                    }
+                """)
+            else:
+                prov_icon = "✓ " if ("github" in user.providers or "google" in user.providers) else ""
+                self.auth_btn.setText(f"{prov_icon}{user.username}")
+                self.auth_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: rgba(59, 130, 246, 0.2);
+                        color: #93c5fd;
+                        border: 1px solid #3b82f6;
+                        border-radius: 4px;
+                        padding: 4px 10px;
+                        font-size: 11px;
+                        font-weight: bold;
+                    }
+                    QPushButton:hover {
+                        background-color: rgba(59, 130, 246, 0.35);
+                    }
+                """)
         else:
             self.auth_btn.setText(f"{creator} (Profile)")
             self.auth_btn.setStyleSheet("""
@@ -236,8 +254,17 @@ class ModBrowserDialog(QDialog):
         sign_out_action: Optional[QAction] = None
 
         if user is not None and not user.id.startswith("local_"):
-            info_action: QAction = menu.addAction(f"Cloud Account: {user.email}")
+            info_action: QAction = menu.addAction(f"Logged in with {user.display_provider}")
             info_action.setEnabled(False)
+            email_action: QAction = menu.addAction(f"Account: {user.email}")
+            email_action.setEnabled(False)
+            if user.github_username:
+                gh_action: QAction = menu.addAction(f"GitHub: {user.github_username}")
+                gh_action.setEnabled(False)
+            if user.is_developer:
+                dev_action: QAction = menu.addAction("Role: Core Developer ★")
+                dev_action.setEnabled(False)
+            menu.addSeparator()
             settings_action: QAction = menu.addAction("☁ Cloud Connection Settings")
             sign_out_action = menu.addAction("Sign Out")
         else:

@@ -25,6 +25,7 @@ from .installer_service import (
 )
 from .models import CommunityModItem, ModRelease, parse_semver
 from .supabase_client import SupabaseClient
+from .auth import AuthManager
 
 if TYPE_CHECKING:
     from pytoningans.core.mod_manager.modpack import ModPack
@@ -137,6 +138,8 @@ class ModBrowserClient:
             config_version=int(entry.get("config_version", CURRENT_CONFIG_VERSION)),
             target_app_version=entry.get("target_app_version", "0.8.0"),
             releases=releases,
+            author_badges=list(entry.get("author_badges") or []),
+            github_username=entry.get("github_username"),
         )
 
     def _item_to_dict(self, item: CommunityModItem) -> dict[str, Any]:
@@ -147,6 +150,8 @@ class ModBrowserClient:
             "entity_type": item.entity_type,
             "version": item.version,
             "author": item.author,
+            "author_badges": item.author_badges,
+            "github_username": item.github_username,
             "description": item.description,
             "tags": item.tags,
             "rating": item.rating,
@@ -257,6 +262,13 @@ class ModBrowserClient:
                     size = 32000
 
             author_val: str = pack.manifest.author or "LocalCreator"
+            current_user = AuthManager.get().current_user
+            pack_badges = list(current_user.badges) if current_user and current_user.username == author_val else []
+            pack_gh = current_user.github_username if current_user and current_user.username == author_val else None
+            if author_val.strip().lower() in ("meta-dusk", "andredcxxv"):
+                pack_badges = ["Developer"]
+                pack_gh = "Meta-Dusk"
+
             local_items.append(
                 CommunityModItem(
                     id=pack_id,
@@ -264,6 +276,8 @@ class ModBrowserClient:
                     entity_type="pack",
                     version=pack.manifest.version or "1.0.0",
                     author=author_val,
+                    author_badges=pack_badges,
+                    github_username=pack_gh,
                     description=(
                         pack.manifest.description or
                         f"Locally authored modpack with {len(contained)} content items."
@@ -309,6 +323,13 @@ class ModBrowserClient:
             except Exception:
                 size = 16000
 
+            current_user = AuthManager.get().current_user
+            mod_badges = list(current_user.badges) if current_user and current_user.username == author else []
+            mod_gh = current_user.github_username if current_user and current_user.username == author else None
+            if author.strip().lower() in ("meta-dusk", "andredcxxv"):
+                mod_badges = ["Developer"]
+                mod_gh = "Meta-Dusk"
+
             local_items.append(
                 CommunityModItem(
                     id=mod_id,
@@ -316,6 +337,8 @@ class ModBrowserClient:
                     entity_type=entity_type,
                     version=ver,
                     author=author,
+                    author_badges=mod_badges,
+                    github_username=mod_gh,
                     description=f"Locally authored {entity_type} mod.",
                     tags=tags,
                     rating=10.0,
@@ -541,6 +564,14 @@ class ModBrowserClient:
             return True, f"Successfully published release v{version} for '{existing_item.name}'!", existing_item
 
         # Create brand-new mod entry
+        current_user = AuthManager.get().current_user
+        author_badges = list(current_user.badges) if current_user and current_user.username == author else []
+        author_gh = current_user.github_username if current_user and current_user.username == author else None
+        if not author_badges and author.strip().lower() in ("meta-dusk", "andredcxxv"):
+            author_badges = ["Developer"]
+        if not author_gh and author.strip().lower() in ("meta-dusk", "andredcxxv"):
+            author_gh = "Meta-Dusk"
+
         initial_release = ModRelease(
             version=version,
             changelog=changelog or "Initial community release.",
@@ -555,6 +586,8 @@ class ModBrowserClient:
             entity_type=entity_type,
             version=version,
             author=author,
+            author_badges=author_badges,
+            github_username=author_gh,
             description=description,
             tags=tags,
             rating=10.0,
@@ -579,6 +612,8 @@ class ModBrowserClient:
                 "entity_type": entity_type,
                 "version": version,
                 "author": author,
+                "author_badges": author_badges,
+                "github_username": author_gh,
                 "description": description,
                 "tags": tags,
                 "is_pack": is_pack,

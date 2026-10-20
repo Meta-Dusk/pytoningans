@@ -67,6 +67,25 @@ class CommunityModItem:
     releases: list[ModRelease] = field(default_factory=list)
     has_update: bool = False
     is_local_only: bool = False
+    author_badges: list[str] = field(default_factory=list)
+    github_username: Optional[str] = None
+
+    @property
+    def is_developer(self) -> bool:
+        """Determines if the author is recognized as an official core developer."""
+        clean_author: str = self.author.strip().lower()
+        if clean_author in ("meta-dusk", "andredcxxv", "andredcxxv@gmail.com"):
+            return True
+        return any(b.lower() == "developer" for b in self.author_badges)
+
+    @property
+    def author_github(self) -> Optional[str]:
+        """Returns GitHub handle for the author if linked or developer."""
+        if self.github_username:
+            return self.github_username.strip().lstrip("@")
+        if self.author.strip().lower() in ("meta-dusk", "andredcxxv"):
+            return "Meta-Dusk"
+        return None
 
     @property
     def semver(self) -> tuple[int, ...]:

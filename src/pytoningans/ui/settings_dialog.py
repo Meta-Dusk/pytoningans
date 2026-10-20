@@ -13,15 +13,17 @@ from typing import Optional, TYPE_CHECKING
 from pathlib import Path
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QCheckBox,
+    QDialog, QLayoutItem, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QCheckBox,
     QSpinBox, QPushButton, QFrame, QWidget, QTabWidget, QMessageBox,
-    QScrollArea, QLineEdit, QFormLayout, QMenu
+    QScrollArea, QLineEdit, QFormLayout, QMenu, QFileDialog
 )
 from PySide6.QtCore import Qt, QUrl, QRect, QSize
 from PySide6.QtGui import QDesktopServices, QResizeEvent, QGuiApplication, QScreen, QAction
 
 from pytoningans.core.settings import SettingsManager, HealthBarMode
 from pytoningans.utils.paths import get_settings_path, get_base_path
+from pytoningans.utils.assets import get_google_icon, get_github_icon
+from pytoningans.utils.avatar import AvatarLabel, get_avatar_cache_dir
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.ui.mod_browser.client import ModBrowserClient
@@ -108,7 +110,7 @@ class SettingsDialog(QDialog):
         profile_layout.addWidget(profile_info)
         profile_layout.addWidget(self._create_separator())
 
-        # Account Status Badge Card
+        # Account Status Badge Card with Circular Avatar
         self.profile_status_card = QFrame()
         self.profile_status_card.setFrameShape(QFrame.Shape.StyledPanel)
         self.profile_status_card.setStyleSheet("""
@@ -121,28 +123,46 @@ class SettingsDialog(QDialog):
         card_layout = QHBoxLayout(self.profile_status_card)
         card_layout.setContentsMargins(12, 10, 12, 10); card_layout.setSpacing(12)
 
-        # Avatar Initial Circle
-        self.avatar_lbl = QLabel("M")
-        self.avatar_lbl.setFixedSize(42, 42)
-        self.avatar_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.avatar_lbl.setStyleSheet("""
-            background-color: #89b4fa;
-            color: #1e1e2e;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 21px;
-        """)
+        # Dynamic Circular Avatar Widget
+        self.avatar_lbl = AvatarLabel(size=56, border_color="#89b4fa", border_width=2)
         card_layout.addWidget(self.avatar_lbl)
 
-        # Status text & description
+        # Status text, handle, badges, and avatar picture controls
         status_text_layout = QVBoxLayout()
-        status_text_layout.setSpacing(2)
+        status_text_layout.setSpacing(3)
+
+        name_badge_layout = QHBoxLayout()
+        name_badge_layout.setSpacing(6)
         self.profile_name_title = QLabel("Creator: Modder")
         self.profile_name_title.setStyleSheet("font-size: 13px; font-weight: bold; color: #cdd6f4;")
+        name_badge_layout.addWidget(self.profile_name_title)
+
+        self.badges_layout = QHBoxLayout()
+        self.badges_layout.setSpacing(4)
+        name_badge_layout.addLayout(self.badges_layout)
+        name_badge_layout.addStretch()
+        status_text_layout.addLayout(name_badge_layout)
+
         self.profile_account_status = QLabel("Offline Local Profile (No Cloud Sync)")
         self.profile_account_status.setStyleSheet("font-size: 11px; color: #a6adc8;")
-        status_text_layout.addWidget(self.profile_name_title)
         status_text_layout.addWidget(self.profile_account_status)
+
+        # Avatar picture action buttons
+        avatar_btn_row = QHBoxLayout()
+        avatar_btn_row.setSpacing(6)
+        self.change_avatar_btn = QPushButton("Change Picture...")
+        self.change_avatar_btn.setObjectName("SecondaryBtn")
+        self.change_avatar_btn.setStyleSheet("padding: 2px 8px; font-size: 10px;")
+        self.change_avatar_btn.clicked.connect(self._on_change_avatar_clicked)
+        avatar_btn_row.addWidget(self.change_avatar_btn)
+
+        self.reset_avatar_btn = QPushButton("Reset Picture")
+        self.reset_avatar_btn.setStyleSheet("padding: 2px 8px; font-size: 10px; color: #a6adc8;")
+        self.reset_avatar_btn.clicked.connect(self._on_reset_avatar_clicked)
+        avatar_btn_row.addWidget(self.reset_avatar_btn)
+        avatar_btn_row.addStretch()
+        status_text_layout.addLayout(avatar_btn_row)
+
         card_layout.addLayout(status_text_layout, stretch=1)
 
         self.auth_action_btn = QPushButton("Connect Cloud")
@@ -151,6 +171,67 @@ class SettingsDialog(QDialog):
         card_layout.addWidget(self.auth_action_btn)
 
         profile_layout.addWidget(self.profile_status_card)
+
+        # Connected Services & Verification Card
+        conn_header = QLabel("Connected Accounts & Verification:"); conn_header.setObjectName("SectionHeader")
+        profile_layout.addWidget(conn_header)
+
+        self.conn_card = QFrame()
+        self.conn_card.setStyleSheet("""
+            QFrame {
+                background-color: rgba(24, 24, 37, 0.5);
+                border: 1px solid #313244;
+                border-radius: 6px;
+                padding: 4px;
+            }
+        """)
+        conn_layout = QVBoxLayout(self.conn_card)
+        conn_layout.setContentsMargins(10, 8, 10, 8); conn_layout.setSpacing(8)
+
+        # GitHub row
+        gh_row = QHBoxLayout(); gh_row.setSpacing(10)
+        gh_icon_lbl = QLabel()
+        gh_icon_lbl.setPixmap(get_github_icon().pixmap(18, 18))
+        gh_row.addWidget(gh_icon_lbl)
+        gh_title = QLabel("GitHub Account:")
+        gh_title.setStyleSheet("font-weight: bold; font-size: 12px; color: #cdd6f4; min-width: 105px;")
+        gh_row.addWidget(gh_title)
+
+        self.gh_status_lbl = QLabel("Not connected")
+        self.gh_status_lbl.setStyleSheet("font-size: 11px; color: #a6adc8;")
+        gh_row.addWidget(self.gh_status_lbl, stretch=1)
+
+        self.gh_action_btn = QPushButton("Connect GitHub")
+        self.gh_action_btn.setStyleSheet("padding: 3px 10px; font-size: 11px;")
+        self.gh_action_btn.clicked.connect(self._on_github_action_clicked)
+        gh_row.addWidget(self.gh_action_btn)
+        conn_layout.addLayout(gh_row)
+
+        line_sep = QFrame(); line_sep.setFrameShape(QFrame.Shape.HLine)
+        line_sep.setStyleSheet("background-color: #313244; max-height: 1px;")
+        conn_layout.addWidget(line_sep)
+
+        # Google row
+        google_row = QHBoxLayout(); google_row.setSpacing(10)
+        google_icon_lbl = QLabel()
+        google_icon_lbl.setPixmap(get_google_icon().pixmap(18, 18))
+        google_row.addWidget(google_icon_lbl)
+        google_title = QLabel("Google Account:")
+        google_title.setStyleSheet("font-weight: bold; font-size: 12px; color: #cdd6f4; min-width: 105px;")
+        google_row.addWidget(google_title)
+
+        self.google_status_lbl = QLabel("Not connected")
+        self.google_status_lbl.setStyleSheet("font-size: 11px; color: #a6adc8;")
+        google_row.addWidget(self.google_status_lbl, stretch=1)
+
+        self.google_action_btn = QPushButton("Connect Google")
+        self.google_action_btn.setStyleSheet("padding: 3px 10px; font-size: 11px;")
+        self.google_action_btn.clicked.connect(self._on_google_action_clicked)
+        google_row.addWidget(self.google_action_btn)
+        conn_layout.addLayout(google_row)
+
+        profile_layout.addWidget(self.conn_card)
+        profile_layout.addWidget(self._create_separator())
 
         # Form: Creator Name / Handle & Bio
         name_form = QFormLayout()
@@ -453,16 +534,76 @@ class SettingsDialog(QDialog):
         user: Optional[UserProfile] = auth.current_user
         name: str = auth.get_creator_name()
         initial: str = name[0].upper() if name else "M"
-        self.avatar_lbl.setText(initial)
+
+        # Update dynamic avatar
+        avatar_source: Optional[str] = auth.get_creator_avatar()
+        self.avatar_lbl.set_avatar(avatar_source, initial=initial)
+
+        # Clear existing badges
+        while self.badges_layout.count():
+            item: Optional[QLayoutItem] = self.badges_layout.takeAt(0)
+            if item is None: continue
+            w: Optional[QWidget] = item.widget()
+            if w is None: continue
+            w.deleteLater()
+
         self.profile_name_title.setText(f"Creator: {name}")
 
+        badges: list[str] = user.badges if user is not None else []
+        is_dev: bool = user.is_developer if user is not None else False
+
+        if is_dev:
+            self.avatar_lbl.set_border_color("#cba6f7")
+            dev_badge = QLabel("★ Developer")
+            dev_badge.setToolTip("Recognized PyToNingans Core Developer & Maintainer")
+            dev_badge.setStyleSheet("""
+                background-color: rgba(203, 166, 247, 0.25);
+                color: #cba6f7;
+                border: 1px solid #cba6f7;
+                border-radius: 4px;
+                padding: 2px 6px;
+                font-size: 10px;
+                font-weight: bold;
+            """)
+            self.badges_layout.addWidget(dev_badge)
+
+        if "Verified Creator" in badges:
+            verified_badge = QLabel("✓ Verified Creator")
+            verified_badge.setToolTip("Authenticated community mod creator via OAuth")
+            verified_badge.setStyleSheet("""
+                background-color: rgba(137, 220, 235, 0.2);
+                color: #89dceb;
+                border: 1px solid #89dceb;
+                border-radius: 4px;
+                padding: 2px 6px;
+                font-size: 10px;
+                font-weight: bold;
+            """)
+            self.badges_layout.addWidget(verified_badge)
+        elif "Offline Creator" in badges or not auth.is_authenticated:
+            self.avatar_lbl.set_border_color("#89b4fa")
+            off_badge = QLabel("● Offline Creator")
+            off_badge.setStyleSheet("""
+                background-color: rgba(108, 112, 134, 0.2);
+                color: #a6adc8;
+                border: 1px solid #6c7086;
+                border-radius: 4px;
+                padding: 2px 6px;
+                font-size: 10px;
+            """)
+            self.badges_layout.addWidget(off_badge)
+        self.badges_layout.addStretch()
+
+        # Update account status card
         if (
             auth.is_authenticated and
             auth.is_cloud_configured and
             user is not None and
             not user.id.startswith("local_")
         ):
-            self.profile_account_status.setText(f"Connected to Cloud: {user.email}")
+            self.profile_account_status.setText(
+                f"Cloud Account: {user.email} (via {user.display_provider})"
+            )
             self.profile_account_status.setStyleSheet("font-size: 11px; color: #a6e3a1;")
             self.auth_action_btn.setText("Account Options")
         elif auth.is_authenticated and user is not None:
@@ -473,6 +614,110 @@ class SettingsDialog(QDialog):
             self.profile_account_status.setText("Offline Local Profile (No Cloud Sync)")
             self.profile_account_status.setStyleSheet("font-size: 11px; color: #a6adc8;")
             self.auth_action_btn.setText("Connect Cloud")
+
+        # Update Connected Services Card
+        providers: list[str] = user.providers if user else []
+        gh_user: Optional[str] = user.github_username if user else None
+        goog_email: Optional[str] = user.google_email if user else None
+
+        # GitHub row
+        if "github" in providers or gh_user:
+            gh_display: str = f"{gh_user}" if gh_user else "Linked"
+            self.gh_status_lbl.setText(
+                f"Connected as <b>{gh_display}</b> <span style='color: #a6e3a1;'>[Verified ✓]</span>"
+            )
+            self.gh_status_lbl.setStyleSheet("font-size: 11px; color: #cdd6f4;")
+            self.gh_action_btn.setText("View GitHub Profile ↗")
+            self.gh_action_btn.setToolTip(f"Open https://github.com/{gh_user or ''} in default browser")
+            self.gh_action_btn.setEnabled(bool(gh_user))
+        else:
+            self.gh_status_lbl.setText("Not connected")
+            self.gh_status_lbl.setStyleSheet("font-size: 11px; color: #6c7086;")
+            self.gh_action_btn.setText("Connect GitHub")
+            self.gh_action_btn.setToolTip("Sign in / link your GitHub account")
+            self.gh_action_btn.setEnabled(True)
+
+        # Google row
+        if "google" in providers or goog_email:
+            g_disp: str = goog_email or (user.email if user else "Linked")
+            self.google_status_lbl.setText(
+                f"Connected ({g_disp}) <span style='color: #a6e3a1;'>[Google Verified ✓]</span>"
+            )
+            self.google_status_lbl.setStyleSheet("font-size: 11px; color: #cdd6f4;")
+            self.google_action_btn.setText("Connected ✓")
+            self.google_action_btn.setEnabled(False)
+        else:
+            self.google_status_lbl.setText("Not connected")
+            self.google_status_lbl.setStyleSheet("font-size: 11px; color: #6c7086;")
+            self.google_action_btn.setText("Connect Google")
+            self.google_action_btn.setToolTip("Sign in / link your Google account")
+            self.google_action_btn.setEnabled(True)
+
+    def _on_change_avatar_clicked(self) -> None:
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Profile Picture",
+            "",
+            "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)",
+        )
+        if not file_path:
+            return
+
+        import shutil
+        src = Path(file_path)
+        if not src.is_file():
+            return
+
+        dest_dir: Path = get_avatar_cache_dir()
+        dest_file: Path = dest_dir / f"custom_{src.stem}{src.suffix}"
+        try:
+            shutil.copyfile(src, dest_file)
+            auth: AuthManager = AuthManager.get()
+            auth.update_profile(
+                new_username=self.creator_name_input.text().strip() or auth.get_creator_name(),
+                bio=self.creator_bio_input.text().strip(),
+                custom_avatar_path=str(dest_file),
+            )
+            self._update_profile_status_ui()
+            QMessageBox.information(self, "Avatar Updated", "Custom profile picture saved and applied!")
+        except Exception as e:
+            QMessageBox.warning(self, "Avatar Error", f"Failed to save profile picture: {e}")
+
+    def _on_reset_avatar_clicked(self) -> None:
+        auth: AuthManager = AuthManager.get()
+        auth.update_profile(
+            new_username=self.creator_name_input.text().strip() or auth.get_creator_name(),
+            bio=self.creator_bio_input.text().strip(),
+            custom_avatar_path="",
+        )
+        self._update_profile_status_ui()
+        QMessageBox.information(
+            self, "Avatar Reset", "Custom picture removed. Restored account provider avatar / default badge."
+        )
+
+    def _on_github_action_clicked(self) -> None:
+        auth: AuthManager = AuthManager.get()
+        user: Optional[UserProfile] = auth.current_user
+        gh_user = user.github_username if user else None
+        if user and ("github" in user.providers or gh_user):
+            if gh_user:
+                QDesktopServices.openUrl(QUrl(f"https://github.com/{gh_user}"))
+        else:
+            success, msg = auth.start_github_oauth()
+            if success:
+                QMessageBox.information(self, "GitHub Sign-In", msg)
+            else:
+                QMessageBox.warning(self, "OAuth Error", msg)
+
+    def _on_google_action_clicked(self) -> None:
+        auth: AuthManager = AuthManager.get()
+        user: Optional[UserProfile] = auth.current_user
+        if not user or ("google" not in user.providers and not user.google_email):
+            success, msg = auth.start_google_oauth()
+            if success:
+                QMessageBox.information(self, "Google Sign-In", msg)
+            else:
+                QMessageBox.warning(self, "OAuth Error", msg)
 
     def _save_profile(self) -> None:
         auth: AuthManager = AuthManager.get()

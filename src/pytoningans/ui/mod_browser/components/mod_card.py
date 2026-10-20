@@ -98,13 +98,69 @@ class ModCardWidget(QFrame):
 
         layout.addLayout(header_layout)
 
-        # --- Sub-Header: Author and Version ---
-        sub_type = " • Local Draft" if self.item.is_local_only else ""
+        # --- Sub-Header: Author, Badges, GitHub link, and Version ---
+        sub_layout = QHBoxLayout(); sub_layout.setSpacing(6)
+
+        by_label = QLabel("by")
+        by_label.setStyleSheet("color: #a6adc8; font-size: 12px;")
+        sub_layout.addWidget(by_label)
+
+        author_label = QLabel(self.item.author)
+        author_label.setStyleSheet("color: #cdd6f4; font-size: 12px; font-weight: bold;")
+        sub_layout.addWidget(author_label)
+
+        # Developer badge
+        if self.item.is_developer:
+            dev_badge = QLabel("★ Developer")
+            dev_badge.setToolTip("Official PyToNingans Core Developer")
+            dev_badge.setStyleSheet("""
+                background-color: rgba(203, 166, 247, 0.25);
+                color: #cba6f7;
+                border: 1px solid #cba6f7;
+                border-radius: 3px;
+                padding: 1px 5px;
+                font-size: 10px;
+                font-weight: bold;
+            """)
+            sub_layout.addWidget(dev_badge)
+
+        # Verified badge if not developer but verified
+        elif "Verified Creator" in self.item.author_badges:
+            verified_badge = QLabel("✓ Verified")
+            verified_badge.setToolTip("Verified Community Creator")
+            verified_badge.setStyleSheet("""
+                background-color: rgba(137, 220, 235, 0.2);
+                color: #89dceb;
+                border: 1px solid #89dceb;
+                border-radius: 3px;
+                padding: 1px 5px;
+                font-size: 10px;
+                font-weight: bold;
+            """)
+            sub_layout.addWidget(verified_badge)
+
+        # GitHub Profile Link (clickable)
+        author_gh: Optional[str] = self.item.author_github
+        if author_gh is not None:
+            gh_link = QLabel(
+                f"<a href='https://github.com/{author_gh}' "
+                "style='color: #89b4fa; "
+                f"text-decoration: none;'>{author_gh} ↗</a>"
+            )
+            gh_link.setOpenExternalLinks(True)
+            gh_link.setToolTip(f"View {author_gh}'s GitHub profile in default browser")
+            gh_link.setStyleSheet("font-size: 11px;")
+            sub_layout.addWidget(gh_link)
+
+        sub_type: str = " • Local Draft" if self.item.is_local_only else ""
         meta_label = QLabel(
-            f"by {self.item.author} • v{self.item.version} • {self.item.formatted_size}{sub_type}"
+            f"• v{self.item.version} • {self.item.formatted_size}{sub_type}"
         )
         meta_label.setStyleSheet("color: #a6adc8; font-size: 12px;")
-        layout.addWidget(meta_label)
+        sub_layout.addWidget(meta_label)
+        sub_layout.addStretch()
+
+        layout.addLayout(sub_layout)
 
         # --- Description ---
         desc_label = QLabel(self.item.description); desc_label.setWordWrap(True)
