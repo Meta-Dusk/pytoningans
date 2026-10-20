@@ -28,25 +28,4 @@ combination of puns and acronyms:
 - **Ningans**: This is a combination of the Japanese term for "human" or "person," which is "Ningen," and "Shenanigans," which just means
 random stuff :D
 
-Anyway, hope you'll like this game about having desktop critters roam around! You can refer to the rest of the
-sections below about what this app offers and such :)
-
-## Feature List
-
-| Feature | Description |
-| --- | --- |
-| **Customizable Entities** | Refer to the `Modding` section on how to add your own! |
-| **Custom AI Behavior** | Entities can have their own behavior, interact with other pets, and (in the future) interact with your PC. |
-| **Structures** | These are a new type of entity, that has an entirely different system of interactions. |
-
-## Modding
-
-Yes, this game technically supports modding, but it's not fully finished yet, as there are a lot of missing event hooks,
-and other stuff. What it does support now though, is the following:
-
-| Modding Feature | Description |
-| --- | --- |
-| **Custom Sprites** | You can use your own sprite sheets! Animate it, and tweak it to render properly in the mod editor. |
-| **Mod Creator / Editor** | You can create and edits mods directly in the app itself. Yippee! |
-| **Custom Behaviors** | Entities and Structures can have their own behavior. |
-| **Entity Components** | This is a new feature that serves as an easily extensible system for adding new behaviors, that can be used by multiple entities. |
+Anyway, hope you'll like this game about having desktop critters roam around! You can refer to the documentation website in the about section of this repo to the right, or you can just go here: [PyToNingans Documentation](https://meta-dusk.github.io/pytoningans/)
