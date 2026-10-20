@@ -9,6 +9,8 @@ copyright: "Copyright &copy; 2026 MetaDusk - Open Source under MIT License"
 theme:
     name: material
     custom_dir: overrides
+    logo: assets/logo.png
+    favicon: assets/favicon.ico
     language: en
     palette:
         # Palette toggle for dark mode (default)
