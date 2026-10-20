@@ -1,5 +1,5 @@
 """
-PyToNingans Mod Browser - Supabase Authentication & Session Manager
+PyToNingans Mod Browser - Supabase Authentication and Session Manager
 ===================================================================
 Provides user account management, secure session persistence, in-app Email/Password
 authentication, and Google OAuth via system browser redirect and local callback server.

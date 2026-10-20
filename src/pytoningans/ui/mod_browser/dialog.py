@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
+from pytoningans.core.settings import SettingsManager
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.ui.mod_inspector import ModInspectorDialog
@@ -47,6 +48,7 @@ class ModBrowserDialog(QDialog):
         self.mod_manager: ModManager = mod_manager
         self.client: ModBrowserClient = ModBrowserClient(self.mod_manager.mods_dir)
         self.auth: AuthManager = AuthManager.get()
+        self.settings_mgr: SettingsManager = SettingsManager.get()
         self._active_workers: list[Any] = []
 
         self.setWindowTitle("Community Mod Browser")
@@ -59,6 +61,8 @@ class ModBrowserDialog(QDialog):
         self._setup_ui()
         self.auth.auth_state_changed.connect(self._update_auth_ui)
         self._update_auth_ui(self.auth.current_user)
+        self.settings_mgr.settings_changed.connect(self._update_debug_visibility)
+        self._update_debug_visibility()
         self._update_status_indicator()
         self._apply_filters()
         self._center_window()
@@ -78,7 +82,7 @@ class ModBrowserDialog(QDialog):
         # --- Top Header and Actions Bar ---
         top_bar = QHBoxLayout(); top_bar.setSpacing(10)
 
-        # Online Status Indicator & Cloud Connect Toggle
+        # Online Status Indicator and Cloud Connect Toggle
         self.status_badge = QLabel("● Offline Catalog")
         self.status_badge.setObjectName("StatusBadgeOffline")
         top_bar.addWidget(self.status_badge)
@@ -102,6 +106,13 @@ class ModBrowserDialog(QDialog):
         self.refresh_btn.setToolTip("Reload community catalog")
         self.refresh_btn.clicked.connect(self._refresh_catalog)
         top_bar.addWidget(self.refresh_btn)
+
+        # Debug Tools Menu Button (Visible only when Developer Mode is enabled in Settings)
+        self.debug_btn = QPushButton("Debug ▾")
+        self.debug_btn.setObjectName("SecondaryBtn")
+        self.debug_btn.setToolTip("Developer and Testing Tools")
+        self.debug_btn.clicked.connect(self._on_debug_btn_clicked)
+        top_bar.addWidget(self.debug_btn)
 
         # Publish Mod button
         self.publish_btn = QPushButton("Publish Mod/Pack")
@@ -362,6 +373,13 @@ class ModBrowserDialog(QDialog):
         self._cards.clear()
 
         if not items:
+            if self.settings_mgr.settings.enable_debug_mode:
+                self.empty_label.setText(
+                    "No mods found matching your search criteria.\n"
+                    "(Developer Mode Active: Use 'Debug ▾' above to load sample mods)"
+                )
+            else:
+                self.empty_label.setText("No mods found matching your search criteria.")
             self.empty_label.setVisible(True)
             self.count_label.setText("0 mods found")
             return
@@ -511,3 +529,44 @@ class ModBrowserDialog(QDialog):
         if publish_dlg.exec() == QDialog.DialogCode.Accepted:
             self._refresh_catalog()
             self.mods_updated.emit()
+
+    def _update_debug_visibility(self) -> None:
+        """Toggles visibility of the debug tools menu based on developer settings."""
+        self.debug_btn.setVisible(self.settings_mgr.settings.enable_debug_mode)
+        if not self._cards:
+            self._apply_filters()
+
+    def _on_debug_btn_clicked(self) -> None:
+        """Opens developer and testing tools popup menu."""
+        menu = QMenu(self)
+        title_action = menu.addAction("Developer and Testing Tools")
+        title_action.setEnabled(False)
+        menu.addSeparator()
+
+        seed_action = menu.addAction("Load Demo / Seed Catalog")
+        seed_action.setToolTip("Inject built-in demo mods into the catalog cache for offline testing")
+
+        clear_cache_action = menu.addAction("Clear Local Catalog Cache")
+        clear_cache_action.setToolTip("Wipe cached community items to test empty catalog state")
+
+        menu.addSeparator()
+        settings_action = menu.addAction("Configure Developer Settings...")
+
+        action = menu.exec(self.debug_btn.mapToGlobal(self.debug_btn.rect().bottomLeft()))
+        if action == seed_action:
+            added = self.client.load_seed_catalog()
+            self._apply_filters()
+            QMessageBox.information(
+                self, "Demo Catalog Loaded", f"Injected {added} demo mods into your local catalog."
+            )
+        elif action == clear_cache_action:
+            self.client.clear_catalog_cache()
+            self._apply_filters()
+            QMessageBox.information(
+                self, "Cache Cleared", "Local community catalog cache has been reset."
+            )
+        elif action == settings_action:
+            from pytoningans.ui.settings_dialog import SettingsDialog
+            dlg = SettingsDialog(self)
+            dlg.tabs.setCurrentIndex(2)  # Jump directly to Developer tab
+            dlg.exec()

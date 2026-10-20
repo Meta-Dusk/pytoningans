@@ -9,7 +9,7 @@ wheels/
 # Virtual environments
 .venv
 
-# Local secrets & credentials
+# Local secrets and credentials
 .env
 .env.*
 cloud_config.json

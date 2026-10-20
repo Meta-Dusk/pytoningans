@@ -3,7 +3,7 @@ PyToNingans Mod Browser - Client and Data Provider
 ================================================
 Handles catalog fetching, search filtering, download orchestration,
 package caching, release updates, and rating submissions.
-Integrates with Supabase Cloud REST & Storage backend with complete offline-first caching.
+Integrates with Supabase Cloud REST and Storage backend with complete offline-first caching.
 Delegates disk installation, scaffolding, and uninstallation to installer_service.
 """
 from __future__ import annotations
@@ -48,14 +48,9 @@ class ModBrowserClient:
         self._load_local_catalog()
 
     def _load_local_catalog(self) -> None:
-        """Initializes catalog data from built-in seed and cached disk entries."""
+        """Initializes catalog data from cached disk entries."""
         self._catalog_items = []
         catalog_map: dict[str, CommunityModItem] = {}
-
-        # Load built-in seed
-        for entry in DEFAULT_CATALOG_DATA:
-            item = self._dict_to_item(entry)
-            catalog_map[item.id] = item
 
         # Merge local cache if available
         if self._cache_file.exists():
@@ -68,6 +63,34 @@ class ModBrowserClient:
                 pass
 
         self._catalog_items = list(catalog_map.values())
+
+    def load_seed_catalog(self) -> int:
+        """
+        Debug feature: Injects demo/seed catalog items for offline testing.
+        Returns the number of new seed items added.
+        """
+        existing_ids: set[str] = {item.id for item in self._catalog_items}
+        added_count: int = 0
+        for entry in DEFAULT_CATALOG_DATA:
+            item: CommunityModItem = self._dict_to_item(entry)
+            if item.id not in existing_ids:
+                self._catalog_items.append(item)
+                existing_ids.add(item.id)
+                added_count += 1
+
+        self._save_cache()
+        return added_count
+
+    def clear_catalog_cache(self) -> None:
+        """
+        Debug feature: Resets catalog cache to clean empty state.
+        """
+        self._catalog_items.clear()
+        if self._cache_file.exists():
+            try:
+                self._cache_file.unlink()
+            except Exception:
+                pass
 
     def _dict_to_item(self, entry: dict[str, Any]) -> CommunityModItem:
         """Converts raw catalog dictionary data into a CommunityModItem."""
@@ -342,11 +365,11 @@ class ModBrowserClient:
 
         if existing_item is not None:
             if parse_semver(version) <= parse_semver(existing_item.version):
-                return (
-                    False,
-                    f"New release version (v{version}) must be higher than current catalog version (v{existing_item.version}).",
-                    existing_item,
+                msg: str = (
+                    f"New release version (v{version}) must be higher than current "
+                    f"catalog version (v{existing_item.version})."
                 )
+                return False, msg, existing_item,
 
             new_release = ModRelease(
                 version=version,

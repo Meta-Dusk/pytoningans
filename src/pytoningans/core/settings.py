@@ -19,7 +19,8 @@ class HealthBarMode(StrEnum):
 
 
 @dataclass
-class CombatVisualSettings:
+class AppSettings:
+    """Global user preferences and application configuration settings."""
     health_bar_mode: str = HealthBarMode.ON_DAMAGE
     show_damage_numbers: bool = True
     show_health_numbers: bool = True
@@ -28,6 +29,11 @@ class CombatVisualSettings:
     enable_window_physics: bool = True
     avoid_window_spawn: bool = True
     spawn_area_mode: str = "screen"
+    enable_debug_mode: bool = False
+
+
+# Backward compatibility alias
+CombatVisualSettings = AppSettings
 
 
 class SettingsManager(QObject):
@@ -36,7 +42,7 @@ class SettingsManager(QObject):
 
     def __init__(self) -> None:
         super().__init__()
-        self.settings: CombatVisualSettings = CombatVisualSettings()
+        self.settings: AppSettings = AppSettings()
         self.load()
 
     @classmethod
@@ -50,7 +56,7 @@ class SettingsManager(QObject):
         if path.exists():
             try:
                 data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-                self.settings = CombatVisualSettings(
+                self.settings = AppSettings(
                     health_bar_mode=data.get("health_bar_mode", HealthBarMode.ON_DAMAGE),
                     show_damage_numbers=data.get("show_damage_numbers", True),
                     show_health_numbers=data.get("show_health_numbers", True),
@@ -59,12 +65,13 @@ class SettingsManager(QObject):
                     enable_window_physics=data.get("enable_window_physics", True),
                     avoid_window_spawn=data.get("avoid_window_spawn", True),
                     spawn_area_mode=data.get("spawn_area_mode", "screen"),
+                    enable_debug_mode=data.get("enable_debug_mode", False),
                 )
             except Exception as e:
                 print(f"Warning: Failed to load settings from {path}: {e}")
-                self.settings = CombatVisualSettings()
+                self.settings = AppSettings()
         else:
-            self.settings = CombatVisualSettings()
+            self.settings = AppSettings()
 
     def save(self) -> None:
         path: Path = get_settings_path()
@@ -83,6 +90,7 @@ class SettingsManager(QObject):
         enable_window_physics: Optional[bool] = None,
         avoid_window_spawn: Optional[bool] = None,
         spawn_area_mode: Optional[str] = None,
+        enable_debug_mode: Optional[bool] = None,
     ) -> None:
         changed = False
         if health_bar_mode is not None and self.settings.health_bar_mode != health_bar_mode:
@@ -109,13 +117,16 @@ class SettingsManager(QObject):
         if spawn_area_mode is not None and self.settings.spawn_area_mode != spawn_area_mode:
             self.settings.spawn_area_mode = spawn_area_mode
             changed = True
+        if enable_debug_mode is not None and self.settings.enable_debug_mode != enable_debug_mode:
+            self.settings.enable_debug_mode = enable_debug_mode
+            changed = True
 
         if changed:
             self.save()
             self.settings_changed.emit()
 
     def reset_to_defaults(self) -> None:
-        self.settings = CombatVisualSettings()
+        self.settings = AppSettings()
         self.save()
         self.settings_changed.emit()
 

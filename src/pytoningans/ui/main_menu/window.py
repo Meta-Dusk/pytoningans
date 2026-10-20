@@ -10,7 +10,7 @@ from PySide6.QtGui import QResizeEvent, QShowEvent, QHideEvent, QKeyEvent
 
 from pytoningans.ui.mod_manager_hub import ModManagerHub
 from pytoningans.ui.mod_browser import ModBrowserDialog
-from pytoningans.ui.combat_settings_dialog import CombatSettingsDialog
+from pytoningans.ui.settings_dialog import SettingsDialog
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.ui.main_menu.spawn_panel import SpawnPanel
@@ -32,7 +32,8 @@ class MainMenu(QWidget):
         self.manager: EntityManager = manager
         self.hub_window: Optional[ModManagerHub] = None
         self.browser_dialog: Optional[ModBrowserDialog] = None
-        self.combat_settings_dialog: Optional[CombatSettingsDialog] = None
+        self.settings_dialog: Optional[SettingsDialog] = None
+        self.combat_settings_dialog: Optional[SettingsDialog] = None
         self._setup_ui()
 
     def _create_vertical_separator(self) -> QFrame:
@@ -74,7 +75,7 @@ class MainMenu(QWidget):
         self.system_controls_panel = SystemControlsPanel(right_widget)
         self.system_controls_panel.open_browser_requested.connect(self._open_browser)
         self.system_controls_panel.open_hub_requested.connect(self._open_hub)
-        self.system_controls_panel.open_combat_settings_requested.connect(self._open_combat_settings)
+        self.system_controls_panel.open_settings_requested.connect(self._open_settings)
         right_layout.addWidget(self.system_controls_panel)
 
         right_layout.addStretch()
@@ -139,17 +140,22 @@ class MainMenu(QWidget):
     def _on_hub_destroyed(self) -> None:
         self.hub_window = None
 
-    def _open_combat_settings(self) -> None:
-        if self.combat_settings_dialog is None or not self.combat_settings_dialog.isVisible():
-            self.combat_settings_dialog = CombatSettingsDialog(self)
-            self.combat_settings_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-            self.combat_settings_dialog.destroyed.connect(self._on_combat_settings_destroyed)
-            self.combat_settings_dialog.show()
+    def _open_settings(self) -> None:
+        if self.settings_dialog is None or not self.settings_dialog.isVisible():
+            self.settings_dialog = SettingsDialog(self)
+            self.combat_settings_dialog = self.settings_dialog
+            self.settings_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            self.settings_dialog.destroyed.connect(self._on_settings_destroyed)
+            self.settings_dialog.show()
         else:
-            self.combat_settings_dialog.activateWindow()
+            self.settings_dialog.activateWindow()
 
-    def _on_combat_settings_destroyed(self) -> None:
+    def _on_settings_destroyed(self) -> None:
+        self.settings_dialog = None
         self.combat_settings_dialog = None
+
+    _open_combat_settings = _open_settings
+    _on_combat_settings_destroyed = _on_settings_destroyed
 
     def _open_browser(self) -> None:
         if self.browser_dialog is None or not self.browser_dialog.isVisible():

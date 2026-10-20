@@ -10,26 +10,22 @@ create table if not exists public.mods (
     author text not null,
     author_id uuid references auth.users (id) on delete set null,
     description text not null default '',
-    tags text [] not null default '{}',
+    tags text[] not null default '{}',
     is_pack boolean not null default false,
-    contained_entities text [] not null default '{}',
+    contained_entities text[] not null default '{}',
     config_version integer not null default 10,
     target_app_version text not null default '0.8.0',
     package_url text,
     icon_url text,
     downloads integer not null default 0,
     size_bytes bigint not null default 0,
-    created_at timestamp
-    with
-        time zone not null default now (),
-        updated_at timestamp
-    with
-        time zone not null default now ()
+    created_at timestamp with time zone not null default now(),
+    updated_at timestamp with time zone not null default now()
 );
 
 -- MOD RELEASES TABLE (Git-like version history)
 create table if not exists public.mod_releases (
-    id uuid primary key default gen_random_uuid (),
+    id uuid primary key default gen_random_uuid(),
     mod_id text not null references public.mods (id) on delete cascade,
     version text not null,
     changelog text not null default '',
@@ -37,10 +33,8 @@ create table if not exists public.mod_releases (
     size_bytes bigint not null default 0,
     config_version integer not null default 10,
     target_app_version text not null default '0.8.0',
-    created_at timestamp
-    with
-        time zone not null default now (),
-        unique (mod_id, version)
+    created_at timestamp with time zone not null default now(),
+    unique (mod_id, version)
 );
 
 -- MOD RATINGS TABLE (1.0 to 10.0 per user per mod)
@@ -51,10 +45,8 @@ create table if not exists public.mod_ratings (
         rating >= 1.0
         and rating <= 10.0
     ),
-    created_at timestamp
-    with
-        time zone not null default now (),
-        primary key (mod_id, user_id)
+    created_at timestamp with time zone not null default now(),
+    primary key (mod_id, user_id)
 );
 
 -- ENABLE ROW LEVEL SECURITY (RLS)
@@ -73,8 +65,9 @@ create policy "Authenticated creators can publish mods" on public.mods for inser
 with
     check (auth.role () = 'authenticated');
 
-create policy "Creators can update their own mods" on public.mods for
-update using (auth.uid () = author_id);
+create policy "Creators can update their own mods" on public.mods
+for update
+    using (auth.uid () = author_id);
 
 -- Releases RLS Policies
 create policy "Releases are viewable by everyone" on public.mod_releases for
@@ -125,11 +118,12 @@ with
         and auth.role () = 'authenticated'
     );
 
-create policy "Creators can update mod packages" on storage.objects for
-update using (
-    bucket_id = 'mods'
-    and auth.role () = 'authenticated'
-);
+create policy "Creators can update mod packages" on storage.objects
+for update
+    using (
+        bucket_id = 'mods'
+        and auth.role () = 'authenticated'
+    );
 
 -- EXPLICIT API GRANTS
 -- (Required because "Automatically expose new tables" is disabled)
@@ -167,7 +161,7 @@ select
     authenticated;
 
 -- MISSING DELETE POLICIES
--- (Allows authors to unpublish/delete mods & releases)
+-- (Allows authors to unpublish/delete mods and releases)
 create policy "Creators can delete their own mods" on public.mods for delete using (auth.uid () = author_id);
 
 create policy "Creators can delete releases of their own mods" on public.mod_releases for delete using (

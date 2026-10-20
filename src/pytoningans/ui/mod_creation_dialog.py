@@ -85,7 +85,7 @@ class ModCreationDialog(QDialog):
             "Subfolder inside the modpack where files will be stored."
         )
 
-        # Common inputs: folder & name
+        # Common inputs: folder and name
         self.folder_input = QLineEdit()
         self.folder_input.setPlaceholderText("e.g. my_cool_entity")
         self.folder_row = self._add_form_row(
@@ -100,7 +100,7 @@ class ModCreationDialog(QDialog):
             "Human-readable title displayed in menus."
         )
 
-        # Modpack specific fields: Author & Description
+        # Modpack specific fields: Author and Description
         self.author_input = QLineEdit()
         self.author_input.setPlaceholderText("e.g. YourName")
         self.author_row = self._add_form_row(
@@ -116,10 +116,9 @@ class ModCreationDialog(QDialog):
             "Short summary of what this pack provides."
         )
 
-        # Entity specific fields: Grid dimensions & Entity Type
+        # Entity specific fields: Grid dimensions and Entity Type
         self.cols_spin = QSpinBox()
-        self.cols_spin.setRange(1, 100)
-        self.cols_spin.setValue(4)
+        self.cols_spin.setRange(1, 100); self.cols_spin.setValue(4)
         self.cols_row = self._add_form_row(
             form, "Authoring Columns:", self.cols_spin,
             "Columns dividing the sprite sheet evenly (used to compute base tile width)."

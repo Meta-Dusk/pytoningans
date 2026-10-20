@@ -98,7 +98,7 @@ class RatingDialog(QDialog):
 
     def _on_slider_changed(self, value: int) -> None:
         self.selected_rating = value
-        self.score_label.setText(RATING_DESCRIPTIONS.get(value, f"{value} / 10"))
+        self.score_label.setText(RATING_DESCRIPTIONS.get(value, f"{value} / 10.0"))
 
     def _on_submit(self) -> None:
         self.accept()

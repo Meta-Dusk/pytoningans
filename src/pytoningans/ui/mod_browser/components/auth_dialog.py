@@ -1,11 +1,11 @@
 """
-PyToNingans Mod Browser - Creator Account & Auth Dialog
+PyToNingans Mod Browser - Creator Account and Auth Dialog
 =======================================================
 Provides an interactive modal dialog for:
-- Signing in with Email & Password
+- Signing in with Email and Password
 - Creating a new Creator Account
 - Google OAuth in system browser
-- Configuring optional Supabase Project URL & Anon Key
+- Configuring optional Supabase Project URL and Anon Key
 """
 from __future__ import annotations
 

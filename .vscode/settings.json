@@ -1,4 +1,1 @@
-{
-  "sql-formatter.dialect": "postgresql"
-}
-
+{ "SQL-Formatter-VSCode.dialect": "postgresql" }
