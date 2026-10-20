@@ -18,29 +18,32 @@ from PySide6.QtCore import QObject, Signal
 
 from pytoningans.utils.paths import get_settings_path, get_base_path, get_app_version
 from pytoningans.core.settings import SettingsManager
+from pytoningans.core.roles import is_developer_account
 from .oauth_handler import OAuthCallbackServer, OAuthCallbackHandler
 
 
-# TODO: Update `is_known_developer()` to just use a hidden column in database
 def is_known_developer(
-    email: str = "", username: str = "",
-    github_username: Optional[str] = None
+    email: str = "",
+    username: str = "",
+    github_username: Optional[str] = None,
+    app_metadata: Optional[dict[str, Any]] = None,
+    user_metadata: Optional[dict[str, Any]] = None,
 ) -> bool:
     """
-    Returns True if the user account is recognized as an 
-    _official_ **PyToNingans** core developer.
+    Returns True if the user account is recognized as an official PyToNingans core developer.
+    Evaluates:
+    1. Supabase Auth app_metadata (e.g. role == 'developer')
+    2. Supabase Auth user_metadata
+    3. The public.creator_roles database table (cached locally)
+    4. Offline fallback defaults
     """
-    clean_email: str = email.strip().lower()
-    clean_user: str = username.strip().lower()
-    clean_gh: str = (github_username or "").strip().lower()
-
-    if clean_email in ("andredcxxv@gmail.com",):
-        return True
-    if clean_user in ("meta-dusk", "andredcxxv"):
-        return True
-    if clean_gh in ("meta-dusk", "andredcxxv"):
-        return True
-    return False
+    return is_developer_account(
+        handle=username,
+        email=email,
+        github_username=github_username,
+        app_metadata=app_metadata,
+        user_metadata=user_metadata,
+    )
 
 
 @dataclass
@@ -222,11 +225,13 @@ class AuthManager(QObject):
                 if not u_gh:
                     u_gh = "Meta-Dusk" if u_name == "Meta-Dusk" else None
 
-            if "google" in str(user_data.get("avatar_url", "")).lower() or u_goog or u_email.endswith("@gmail.com"):
-                if not u_goog and u_email.endswith("@gmail.com"):
-                    u_goog = u_email
-                if "google" not in u_provs and "google" in str(user_data.get("avatar_url", "")).lower():
+            # Only retain Google if an actual Google provider login exists
+            # (A user having a Gmail address on GitHub or Supabase does NOT mean Google OAuth is linked).
+            if "google" in str(user_data.get("avatar_url", "")).lower() or u_prov == "google":
+                if "google" not in u_provs:
                     u_provs.append("google")
+            if "google" not in u_provs and u_prov != "google":
+                u_goog = None
 
             u_cust = user_data.get("custom_avatar_path")
             if not u_cust:
@@ -935,7 +940,13 @@ class AuthManager(QObject):
                 merged_providers = list(dict.fromkeys(existing_providers + incoming_providers))
 
                 # Identify developer status
-                is_dev: bool = is_known_developer(data.get("email", ""), chosen_username, github_username)
+                is_dev: bool = is_known_developer(
+                    data.get("email", ""),
+                    chosen_username,
+                    github_username,
+                    app_metadata=app_meta,
+                    user_metadata=meta,
+                )
                 badges: list[str] = []
                 if is_dev:
                     badges.append("Developer")

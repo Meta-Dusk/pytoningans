@@ -13,6 +13,7 @@ from typing import Any, Optional, TYPE_CHECKING
 import urllib.error, urllib.parse, urllib.request
 
 from pytoningans.utils.paths import get_app_version
+from pytoningans.core.roles import save_cached_roles
 from .auth import AuthManager
 
 if TYPE_CHECKING:
@@ -61,10 +62,46 @@ class SupabaseClient:
 
         return headers
 
+    def fetch_creator_roles(self) -> dict[str, str]:
+        """
+        Fetches creator roles from public.creator_roles and caches them locally.
+        Gracefully returns existing cache if table does not exist or network fails.
+        """
+        if not self.is_configured:
+            return {}
+
+        endpoint: str = f"{self.base_url}/rest/v1/creator_roles?select=handle,role,email"
+        headers: dict[str, str] = self._headers(requires_auth=False)
+        req = urllib.request.Request(endpoint, headers=headers, method="GET")
+
+        try:
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                data: list[dict[str, Any]] = json.loads(resp.read().decode("utf-8"))
+                roles: dict[str, str] = {}
+                for row in data:
+                    h: str = str(row.get("handle") or "").strip().lower()
+                    r: str = str(row.get("role") or "").strip().lower()
+                    e: str = str(row.get("email") or "").strip().lower()
+                    if h and r:
+                        roles[h] = r
+                    if e and r:
+                        roles[e] = r
+                if roles:
+                    save_cached_roles(roles)
+                return roles
+        except Exception:
+            return {}
+
     def fetch_catalog(self) -> tuple[bool, str, list[dict[str, Any]]]:
         """Queries the public.mods table including joined mod_releases and mod_ratings."""
         if not self.is_configured:
             return False, "Supabase cloud is not configured.", []
+
+        # Refresh creator roles in background
+        try:
+            self.fetch_creator_roles()
+        except Exception:
+            pass
 
         endpoint: str = f"{self.base_url}/rest/v1/mods?select=*,mod_releases(*),mod_ratings(*)"
         headers: dict[str, str] = self._headers(requires_auth=False)

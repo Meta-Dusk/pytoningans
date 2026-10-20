@@ -621,8 +621,13 @@ class SettingsDialog(QDialog):
         goog_email: Optional[str] = user.google_email if user else None
 
         # GitHub row
-        if "github" in providers or gh_user:
-            gh_display: str = f"{gh_user}" if gh_user else "Linked"
+        has_github: bool = (
+            ("github" in providers) or
+            (user is not None and user.primary_provider == "github") or
+            bool(gh_user)
+        )
+        if has_github:
+            gh_display: str = f"@{gh_user}" if gh_user else "Linked"
             self.gh_status_lbl.setText(
                 f"Connected as <b>{gh_display}</b> <span style='color: #a6e3a1;'>[Verified ✓]</span>"
             )
@@ -638,7 +643,11 @@ class SettingsDialog(QDialog):
             self.gh_action_btn.setEnabled(True)
 
         # Google row
-        if "google" in providers or goog_email:
+        has_google: bool = (
+            ("google" in providers) or
+            (user is not None and user.primary_provider == "google")
+        )
+        if has_google:
             g_disp: str = goog_email or (user.email if user else "Linked")
             self.google_status_lbl.setText(
                 f"Connected ({g_disp}) <span style='color: #a6e3a1;'>[Google Verified ✓]</span>"

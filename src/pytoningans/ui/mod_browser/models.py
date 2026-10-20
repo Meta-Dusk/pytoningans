@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
+from pytoningans.core.roles import is_developer_account
+from pytoningans.core.constants import EntityType
 from pytoningans.utils.paths import get_app_version
 
 
@@ -44,7 +46,7 @@ class CommunityModItem:
     """Represents a community mod or modpack available in the Mod Browser."""
     id: str
     name: str
-    entity_type: str  # "entity", "structure", "item", "pack"
+    entity_type: EntityType
     version: str
     author: str
     description: str
@@ -73,10 +75,9 @@ class CommunityModItem:
     @property
     def is_developer(self) -> bool:
         """Determines if the author is recognized as an official core developer."""
-        clean_author: str = self.author.strip().lower()
-        if clean_author in ("meta-dusk", "andredcxxv", "andredcxxv@gmail.com"):
+        if any(b.lower() == "developer" for b in self.author_badges):
             return True
-        return any(b.lower() == "developer" for b in self.author_badges)
+        return is_developer_account(handle=self.author)
 
     @property
     def author_github(self) -> Optional[str]:
@@ -136,7 +137,7 @@ class CommunityModItem:
 
     @property
     def formatted_rating(self) -> str:
-        """Returns a formatted rating string (e.g. '★ 9.5/10 (42)')."""
+        """Returns a formatted rating string (e.g. '★ 9.5/10.0 (42)')."""
         if self.rating_count == 0:
             return "★ New (No ratings)"
-        return f"★ {self.rating:.1f}/10 ({self.rating_count})"
+        return f"★ {self.rating:.1f}/10.0 ({self.rating_count})"

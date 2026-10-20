@@ -57,6 +57,15 @@ create table if not exists public.mod_ratings (
 -- Foreign key covering index (Performance Advisor: unindexed_foreign_keys)
 create index if not exists idx_mod_ratings_user_id on public.mod_ratings (user_id);
 
+-- CREATOR ROLES TABLE (Flexible role & developer assignment)
+create table if not exists public.creator_roles (
+  handle text primary key,
+  role text not null default 'developer',
+  email text,
+  description text default '',
+  created_at timestamp with time zone not null default now()
+);
+
 -- ==============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- Note: Subqueries (select auth.<function>()) prevent row-by-row re-evaluation.
@@ -67,6 +76,29 @@ alter table public.mods enable row level security;
 alter table public.mod_releases enable row level security;
 
 alter table public.mod_ratings enable row level security;
+
+alter table public.creator_roles enable row level security;
+
+-- --- Creator Roles RLS Policies ---
+drop policy if exists "Creator roles are viewable by everyone" on public.creator_roles;
+
+create policy "Creator roles are viewable by everyone" on public.creator_roles for
+select
+  using (true);
+
+-- Seed initial core developer account
+insert into
+  public.creator_roles (handle, role, email, description)
+values
+  (
+    'Meta-Dusk',
+    'developer',
+    'andredcxxv@gmail.com',
+    'Core Developer & Author'
+  )
+on conflict (handle) do update
+set role = excluded.role,
+email = excluded.email;
 
 -- --- Mods RLS Policies ---
 drop policy if exists "Mods are viewable by everyone" on public.mods;
@@ -276,6 +308,11 @@ select
 update,
 delete on table public.mod_ratings to anon,
 authenticated;
+
+grant
+select
+  on table public.creator_roles to anon,
+  authenticated;
 
 grant usage,
 select
