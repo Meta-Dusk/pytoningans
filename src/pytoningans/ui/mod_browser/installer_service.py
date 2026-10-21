@@ -41,20 +41,24 @@ def install_catalog_item(
     target_dir: Path = mods_dir / item.id
 
     if target_dir.exists():
+        print(f"[install_catalog_item] Mod folder '{item.id}' already exists locally.")
         return False, f"Mod folder '{item.id}' already exists locally."
 
     # Case 1: Real package download from Cloud Storage
     if item.package_url and cloud is not None and cloud.is_configured:
         with tempfile.TemporaryDirectory() as temp_dir:
-            temp_zip = Path(temp_dir) / f"{item.id}.zip"
+            temp_zip: Path = Path(temp_dir) / f"{item.id}.zip"
             dl_ok, dl_msg = cloud.download_package(item.package_url, temp_zip)
+            print(f"[install_catalog_item] Download Message: {dl_msg}")
             if dl_ok:
                 ext_ok, ext_msg, _ = extract_mod_or_pack_from_zip(temp_zip, mods_dir)
+                print(f"[install_catalog_item] Extract Message:\n{ext_msg}")
                 if ext_ok:
                     item.is_installed = True
                     item.installed_version = item.version
                     item.has_update = False
                     item.downloads += 1
+                    print(f"[install_catalog_item] Successfully downloaded and installed '{item.name}'")
                     return True, f"Successfully downloaded and installed '{item.name}'."
 
     # Case 2: Offline scaffold fallback
@@ -126,11 +130,13 @@ def install_catalog_item(
         item.installed_version = item.version
         item.has_update = False
         item.downloads += 1
+        print(f"[install_catalog_item] Successfully installed '{item.name}'.")
         return True, f"Successfully installed '{item.name}'."
 
     except Exception as e:
         if target_dir.exists():
             shutil.rmtree(target_dir, ignore_errors=True)
+        print(f"[install_catalog_item] Failed to install mod: {e}")
         return False, f"Failed to install mod: {e}"
 
 

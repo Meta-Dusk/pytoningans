@@ -32,7 +32,7 @@ class SupabaseClient:
 
     @property
     def base_url(self) -> str:
-        return self.auth.supabase_url.rstrip("/")
+        return self.auth.supabase_url
 
     @property
     def publishable_key(self) -> str:
@@ -46,18 +46,20 @@ class SupabaseClient:
         if not is_upload:
             headers["Content-Type"] = "application/json"
 
-        if hasattr(self.auth, "ensure_valid_session"):
-            self.auth.ensure_valid_session()
+        self.auth.ensure_valid_session()
 
         # user = self.auth.current_user
         current_sesh: Optional[AuthSession] = self.auth._store.current_session
         token: Optional[str] = current_sesh.access_token if current_sesh is not None else None
 
         if token and token != "mock_local_token" and token != "mock_google_token":
+            print("[_headers] Using JWT")
             headers["Authorization"] = f"Bearer {token}"
         elif requires_auth:
+            print("[_headers] Using default pub key")
             headers["Authorization"] = f"Bearer {self.publishable_key}"
         else:
+            print("[_headers] Using default pub key")
             headers["Authorization"] = f"Bearer {self.publishable_key}"
 
         return headers
@@ -110,12 +112,12 @@ class SupabaseClient:
                 for row in data:
                     ratings_list: list[dict[str, Any]] = row.get("mod_ratings", [])
                     rating_count = len(ratings_list)
-                    avg_rating = 10.0
+                    avg_rating: float = 10.0
                     if rating_count > 0:
-                        total_pts = sum(float(r.get("rating", 10.0)) for r in ratings_list)
+                        total_pts: float = sum(float(r.get("rating", 10.0)) for r in ratings_list)
                         avg_rating = round(total_pts / rating_count, 1)
 
-                    releases_list = sorted(
+                    releases_list: list[dict[str, Any]] = sorted(
                         row.get("mod_releases", []),
                         key=lambda r: r.get("created_at", ""),
                         reverse=True,
@@ -162,14 +164,30 @@ class SupabaseClient:
             return False, f"Network error connecting to cloud: {e}", []
 
     def upload_package(self, zip_path: Path, filename: str) -> tuple[bool, str, Optional[str]]:
-        """Uploads a package zip archive to the 'mods' storage bucket and returns its public URL."""
+        """
+        Uploads a package zip archive to the 'mods' storage bucket and returns its public URL.
+        """
         if not self.is_configured:
+            print(
+                "[upload_package] Upload status...\n"
+                " ok=False\n"
+                " msg=\"Cloud storage not configured.\"\n"
+                " url=None"
+            )
             return False, "Cloud storage not configured.", None
 
         if not zip_path.exists():
+            print(
+                "[upload_package] Upload status...\n"
+                " ok=False\n"
+                f" msg=\"Zip file does not exist: {zip_path}\"\n"
+                " url=None"
+            )
             return False, f"Zip file does not exist: {zip_path}", None
+        
+        print(f"Zip file created at: {zip_path}")
 
-        clean_filename: str = urllib.parse.quote(filename.replace(" ", "_"))
+        clean_filename: str = urllib.parse.quote(filename.replace(" ", "_"), safe="/")
         endpoint: str = f"{self.base_url}/storage/v1/object/mods/{clean_filename}"
 
         headers: dict[str, str] = self._headers(requires_auth=True, is_upload=True)
@@ -182,25 +200,46 @@ class SupabaseClient:
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 public_url = f"{self.base_url}/storage/v1/object/public/mods/{clean_filename}"
+                print(
+                    "[upload_package] Upload status...\n"
+                    " ok=True\n"
+                    " msg=\"Uploaded package to cloud storage.\"\n"
+                    f" url={public_url}"
+                )
                 return True, "Uploaded package to cloud storage.", public_url
         except urllib.error.HTTPError as e:
             try:
                 err_text = e.read().decode("utf-8")
             except Exception:
                 err_text = str(e)
+            print(
+                "[upload_package] Upload status...\n"
+                " ok=False\n"
+                f" msg=\"Storage upload failed (HTTP {e.code}): {err_text}\"\n"
+                " url=None"
+            )
             return False, f"Storage upload failed (HTTP {e.code}): {err_text}", None
         except Exception as e:
+            print(
+                "[upload_package] Upload status...\n"
+                " ok=False\n"
+                f" msg=\"Failed to upload package: {e}\"\n"
+                " url=None"
+            )
             return False, f"Failed to upload package: {e}", None
 
     def publish_new_mod(self, mod_data: dict[str, Any], release_data: dict[str, Any]) -> tuple[bool, str]:
         """Inserts a new mod and its initial release into public.mods and public.mod_releases."""
         if not self.is_configured:
+            print("[publish_new_mod] Cloud database not configured.")
             return False, "Cloud database not configured."
 
-        mods_endpoint: str = f"{self.base_url}/rest/v1/mods"
         headers: dict[str, str] = self._headers(requires_auth=True)
-        headers["Prefer"] = "return=representation"
+        # Upsert handling allows retries without 409 Conflict errors
+        headers["Prefer"] = "resolution=merge-duplicates,return=representation"
 
+        # Register or update parent mod record
+        mods_endpoint: str = f"{self.base_url}/rest/v1/mods"
         payload: bytes = json.dumps(mod_data).encode("utf-8")
         req = urllib.request.Request(mods_endpoint, data=payload, headers=headers, method="POST")
 
@@ -208,19 +247,29 @@ class SupabaseClient:
             with urllib.request.urlopen(req, timeout=10):
                 pass
         except urllib.error.HTTPError as e:
-            return False, f"Failed to register mod: HTTP {e.code}"
+            err_body = e.read().decode("utf-8", errors="replace")
+            print(f"[publish_new_mod] Failed to register mod (HTTP {e.code}): {err_body}")
+            return False, f"Failed to register mod (HTTP {e.code}): {err_body}"
         except Exception as e:
-            return False, f"Connection error: {e}"
+            print(f"[publish_new_mod] Connection error registering mod: {e}")
+            return False, f"Connection error registering mod: {e}"
 
-        # Insert release
+        # Insert initial release record
         rel_endpoint: str = f"{self.base_url}/rest/v1/mod_releases"
         rel_payload: bytes = json.dumps(release_data).encode("utf-8")
         rel_req = urllib.request.Request(rel_endpoint, data=rel_payload, headers=headers, method="POST")
+
         try:
             with urllib.request.urlopen(rel_req, timeout=10):
+                print("[publish_new_mod] Successfully registered mod and release in cloud database.")
                 return True, "Successfully registered mod and release in cloud database."
+        except urllib.error.HTTPError as e:
+            err_body: str = e.read().decode("utf-8", errors="replace")
+            print(f"[publish_new_mod] Mod registered, but release entry failed (HTTP {e.code}): {err_body}")
+            return False, f"Mod registered, but release entry failed (HTTP {e.code}): {err_body}"
         except Exception as e:
-            return True, f"Mod published, but initial release registration had warning: {e}"
+            print(f"[publish_new_mod] Mod registered, but release entry failed: {e}")
+            return False, f"Mod registered, but release entry failed: {e}"
 
     def publish_release_update(
         self, mod_id: str, mod_update: dict[str, Any], release_data: dict[str, Any]

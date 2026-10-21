@@ -6,7 +6,7 @@ including directory normalization, zip-slip security guards, and manifest detect
 """
 from __future__ import annotations
 
-import json, os, shutil, zipfile
+import json, os, shutil, zipfile, re
 from pathlib import Path
 from typing import Optional
 
@@ -66,11 +66,12 @@ def extract_mod_or_pack_from_zip(
 ) -> tuple[bool, str, Optional[Path]]:
     """
     Safely extracts a mod or modpack .zip archive into target_mods_dir.
-    Performs zip-slip path validation and manifest detection.
+    Performs zip-slip path validation, manifest ID detection, and duplicate avoidance.
     Returns (success, message, extracted_folder_path).
     """
     zip_path = zip_path.resolve()
     target_mods_dir = target_mods_dir.resolve()
+
     if not zip_path.exists():
         return False, f"File not found: {zip_path}", None
 
@@ -89,10 +90,6 @@ def extract_mod_or_pack_from_zip(
                 if not str(dest).startswith(str(target_mods_dir)):
                     return False, f"Security violation: path traversal detected in '{name}'.", None
 
-            # Analyze root structure
-            has_root_pack: bool = "pack.json" in namelist
-            has_root_config: bool = "config.json" in namelist
-
             # Check for single top-level directory wrapper
             top_level_dirs: set[str] = set()
             for name in namelist:
@@ -100,26 +97,46 @@ def extract_mod_or_pack_from_zip(
                 if len(parts) > 1:
                     top_level_dirs.add(parts[0])
 
-            has_single_wrapper: bool = (
-                not has_root_pack and not has_root_config and len(top_level_dirs) == 1
-            )
+            has_single_wrapper: bool = len(top_level_dirs) == 1
 
-            # Determine destination folder name
-            dest_folder_name: str = zip_path.stem
-            if has_root_pack:
+            # Detect manifest file (mod.json, modpack.json, config.json, pack.json)
+            manifest_candidates: list[str] = ["mod.json", "modpack.json", "config.json", "pack.json"]
+            target_manifest: Optional[str] = None
+
+            # Check root level
+            for candidate in manifest_candidates:
+                if candidate in namelist:
+                    target_manifest = candidate
+                    break
+
+            # Check inside single top-level wrapper
+            if not target_manifest and has_single_wrapper:
+                wrapper_prefix: str = next(iter(top_level_dirs))
+                for candidate in manifest_candidates:
+                    wrapper_candidate: str = f"{wrapper_prefix}/{candidate}"
+                    if wrapper_candidate in namelist:
+                        target_manifest = wrapper_candidate
+                        break
+
+            dest_folder_name: Optional[str] = None
+
+            # Primary: Extract 'id' from manifest file
+            if target_manifest:
                 try:
-                    pack_data = json.loads(zf.read("pack.json").decode("utf-8"))
-                    dest_folder_name = pack_data.get("id", dest_folder_name)
+                    manifest_bytes = zf.read(target_manifest)
+                    manifest_data = json.loads(manifest_bytes.decode("utf-8"))
+                    dest_folder_name = manifest_data.get("id")
                 except Exception:
                     pass
-            elif has_root_config:
-                try:
-                    cfg_data = json.loads(zf.read("config.json").decode("utf-8"))
-                    dest_folder_name = cfg_data.get("name", dest_folder_name)
-                except Exception:
-                    pass
-            elif has_single_wrapper:
+
+            # Secondary: Fall back to top-level wrapper directory name
+            if not dest_folder_name and has_single_wrapper:
                 dest_folder_name = next(iter(top_level_dirs))
+
+            # Fallback: Derive from zip stem (strip cloud version suffix like '_v1.0.0')
+            if not dest_folder_name:
+                stem = zip_path.stem
+                dest_folder_name = re.sub(r"_v\d+(\.\d+)*$", "", stem)
 
             # Clean destination folder name for filesystem safety
             safe_folder_name: str = "".join(
@@ -128,8 +145,8 @@ def extract_mod_or_pack_from_zip(
 
             dest_dir: Path = target_mods_dir / safe_folder_name
             if dest_dir.exists():
-                # Avoid accidental overwrite
-                counter = 1
+                # Avoid accidental overwrite via numeric indexing
+                counter: int = 1
                 while (target_mods_dir / f"{safe_folder_name}_{counter}").exists():
                     counter += 1
                 dest_dir = target_mods_dir / f"{safe_folder_name}_{counter}"
@@ -138,16 +155,15 @@ def extract_mod_or_pack_from_zip(
 
             # Extract files
             for member in zf.infolist():
-                target_path: Path
                 if has_single_wrapper:
                     # Strip wrapper prefix
                     relative_parts: list[str] = member.filename.strip("/").split("/")[1:]
                     if not relative_parts:
                         continue
                     relative_name: str = "/".join(relative_parts)
-                    target_path = (dest_dir / relative_name).resolve()
+                    target_path: Path = (dest_dir / relative_name).resolve()
                 else:
-                    target_path = (dest_dir / member.filename).resolve()
+                    target_path: Path = (dest_dir / member.filename).resolve()
 
                 # Verify target_path remains inside dest_dir
                 if not str(target_path).startswith(str(dest_dir)):

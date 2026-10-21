@@ -300,6 +300,13 @@ def resolve_mod_path(
     ):
         print(f"=> Returning: {direct_path}, None, None")
         return direct_path, None, None
+    
+    # Check if modpack
+    if direct_path.is_dir() and (
+        (direct_path / "pack.json").exists() or (direct_path / "pack.py").exists()
+    ):
+        print(f"=> Returning: {direct_path}, None, None")
+        return direct_path, None, None
 
     # Fallback: check if mod_id matches a sub-entity inside any modpack
     for item in mods_dir.iterdir():

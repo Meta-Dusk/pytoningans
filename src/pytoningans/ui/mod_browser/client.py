@@ -527,6 +527,7 @@ class ModBrowserClient:
             up_ok, up_msg, uploaded_url = self.cloud.upload_package(
                 zip_path, f"{mod_id}_v{version}.zip"
             )
+            print(f"[publish_or_update] Upload Message:\n{up_msg}")
             if up_ok:
                 package_url = uploaded_url
 
