@@ -117,9 +117,8 @@ class PublishModDialog(QDialog):
         # Changelog / Release Notes
         layout.addWidget(QLabel("Release Notes / Changelog:"))
         self.changelog_input = QTextEdit()
-        self.changelog_input.setPlaceholderText(
-            "What's new in this release? (e.g. Added idle dance animation, fixed collision hitbox)..."
-        )
+        self.changelog_input.setPlaceholderText("What's new in this release?")
+        self.changelog_input.setToolTip("e.g. Added idle dance animation, fixed collision hitbox")
         self.changelog_input.setMaximumHeight(65)
         layout.addWidget(self.changelog_input)
 

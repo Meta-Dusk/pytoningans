@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Optional, cast, Any
+from typing import TYPE_CHECKING, Optional, cast
 
 from PySide6.QtCore import QPoint, QPointF, QRect
 from PySide6.QtGui import QCursor

@@ -19,7 +19,8 @@ def main() -> None:
     
     os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
     QApplication.setHighDpiScaleFactorRoundingPolicy(
-        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+        Qt.HighDpiScaleFactorRoundingPolicy.Round
+    )
     
     app: QApplication = QApplication(sys.argv)
     install_global_tooltip_filter(app)
@@ -39,11 +40,11 @@ def main() -> None:
         font_families: list[str] = QFontDatabase.applicationFontFamilies(font_id)
         
         default_font = QFont(font_families[0])
-        default_font.setStyleStrategy(
-            QFont.StyleStrategy.PreferQuality | QFont.StyleStrategy.PreferAntialias)
-        default_font.setHintingPreference(QFont.HintingPreference.PreferFullHinting)
+        default_font.setPixelSize(14)
+        default_font.setStyleStrategy(QFont.StyleStrategy.PreferBitmap)
+        default_font.setKerning(True)
+        default_font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
         
-        # Apply the crisp font settings to the entire application
         app.setFont(default_font)
     
     # Initialize Mod Manager

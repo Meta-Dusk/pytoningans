@@ -50,8 +50,8 @@ class SupabaseClient:
             self.auth.ensure_valid_session()
 
         # user = self.auth.current_user
-        session: Optional[AuthSession] = self.auth._current_session
-        token: Optional[str] = session.access_token if session else None
+        session: Optional[AuthSession] = self.auth._store.current_session
+        token: Optional[str] = session.access_token if session is not None else None
 
         if token and token != "mock_local_token" and token != "mock_google_token":
             headers["Authorization"] = f"Bearer {token}"
