@@ -17,9 +17,9 @@ class CustomToolTip(QWidget):
     def __init__(self, text: str = "", parent: Optional[QWidget] = None) -> None:
         super().__init__(
             parent,
-            Qt.WindowType.ToolTip
-            | Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint,
+            Qt.WindowType.ToolTip |
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.WindowStaysOnTopHint,
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
@@ -29,7 +29,6 @@ class CustomToolTip(QWidget):
 
         self.label = QLabel(text)
         self.label.setObjectName("ToolTipText")
-        # Enable word wrapping and restrict width to prevent runaway horizontal growth
         self.label.setWordWrap(True)
         self.label.setMaximumWidth(280)
 
@@ -93,7 +92,7 @@ class CustomToolTipManager(QObject):
             QGuiApplication.screenAt(pos)
             or QGuiApplication.primaryScreen()
         )
-        if screen:
+        if screen is not None:
             screen_geom: QRect = screen.availableGeometry()
 
             # Right edge clamp
@@ -228,7 +227,7 @@ class CustomToolTipManager(QObject):
         return ""
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        event_type = event.type()
+        event_type: QEvent.Type = event.type()
 
         if event_type == QEvent.Type.ToolTip:
             text: str = self._extract_tooltip_text(watched, event)
@@ -242,11 +241,16 @@ class CustomToolTipManager(QObject):
 
         elif event_type == QEvent.Type.MouseMove:
             if self._current_widget is not None and watched is self._current_widget:
-                is_view = isinstance(watched, (QGraphicsView, QAbstractItemView)) or (
-                    isinstance(watched, QWidget) and isinstance(watched.parent(), (QGraphicsView, QAbstractItemView))
+                is_view: bool = isinstance(watched, (QGraphicsView, QAbstractItemView)) or (
+                    isinstance(watched, QWidget) and isinstance(
+                        watched.parent(), (QGraphicsView, QAbstractItemView)
+                    )
                 )
                 if not is_view:
-                    mouse_pos = event.globalPos() if isinstance(event, (QMouseEvent, QHelpEvent)) else QPoint()
+                    mouse_pos: QPoint = (
+                        event.globalPos() if isinstance(event, (QMouseEvent, QHelpEvent))
+                        else QPoint()
+                    )
                     if (mouse_pos - self._show_pos).manhattanLength() > 25:
                         self.hide_tip()
 
@@ -271,7 +275,7 @@ class CustomToolTipManager(QObject):
 
 def install_global_tooltip_filter(app: Optional[QApplication] = None) -> CustomToolTipManager:
     """Installs the custom tooltip filter globally on the application."""
-    manager = CustomToolTipManager.get()
+    manager: CustomToolTipManager = CustomToolTipManager.get()
     target_app = app or QApplication.instance()
     if target_app and not getattr(target_app, "_custom_tooltip_installed", False):
         target_app.installEventFilter(manager)

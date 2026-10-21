@@ -25,7 +25,7 @@ from pytoningans.core.settings import SettingsManager
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.ui.mod_inspector import ModInspectorDialog
-from pytoningans.ui.settings_dialog import SettingsDialog
+from pytoningans.ui.settings_dialog import SettingsDialog, SettingsTab
 from pytoningans.utils.assets import get_main_icon
 
 from .auth import AuthManager, UserProfile
@@ -444,6 +444,7 @@ class ModBrowserDialog(QDialog):
 
     def _on_card_publish_requested(self, item: CommunityModItem) -> None:
         """Opens publish dialog with this specific local mod/modpack preselected."""
+        print(f"Attempting to publish mod: {item.id}")
         publish_dlg = PublishModDialog(self.mod_manager, self.client, self, selected_mod_id=item.id)
         if publish_dlg.exec() == QDialog.DialogCode.Accepted:
             self._apply_filters()
@@ -616,5 +617,5 @@ class ModBrowserDialog(QDialog):
             )
         elif action == settings_action:
             dlg = SettingsDialog(self)
-            dlg.tabs.setCurrentIndex(2)  # Jump directly to Developer tab
+            dlg.tabs.setCurrentIndex(SettingsTab.DeveloperAndDebugging)
             dlg.exec()

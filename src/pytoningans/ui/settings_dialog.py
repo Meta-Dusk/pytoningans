@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Optional, TYPE_CHECKING
 from pathlib import Path
+from enum import IntEnum, unique
 
 from PySide6.QtWidgets import (
     QDialog, QLayoutItem, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QCheckBox,
@@ -34,6 +35,14 @@ if TYPE_CHECKING:
     from pytoningans.ui.mod_browser.auth import UserProfile
 
 
+@unique
+class SettingsTab(IntEnum):
+    CreatorProfile = 0
+    CombatAndVisuals = 1
+    SpawningAndEnvironment = 2
+    DeveloperAndDebugging = 3
+
+
 class SettingsDialog(QDialog):
     """
     Central settings dialog allowing users to customize:
@@ -53,7 +62,6 @@ class SettingsDialog(QDialog):
         self._center_window()
         self._is_loading = False
 
-        from pytoningans.ui.mod_browser.auth import AuthManager
         AuthManager.get().auth_state_changed.connect(lambda _: self._update_profile_status_ui())
 
     def _create_separator(self) -> QFrame:
@@ -349,7 +357,7 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(self._wrap_tab_in_scroll(combat_tab), "Combat and Visuals")
 
         # -------------------------------------------------------------
-        # Tab 2: Spawning and Environment
+        # Tab 3: Spawning and Environment
         # -------------------------------------------------------------
         spawn_tab = QWidget()
         spawn_layout = QVBoxLayout(spawn_tab)
@@ -385,7 +393,7 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(self._wrap_tab_in_scroll(spawn_tab), "Spawning")
 
         # -------------------------------------------------------------
-        # Tab 3: Developer and Debugging
+        # Tab 4: Developer and Debugging
         # -------------------------------------------------------------
         dev_tab = QWidget()
         dev_layout = QVBoxLayout(dev_tab)

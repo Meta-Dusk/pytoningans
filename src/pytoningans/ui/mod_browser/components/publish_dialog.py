@@ -30,7 +30,7 @@ from ..models import CommunityModItem, parse_semver
 from .auth_dialog import AuthDialog
 
 if TYPE_CHECKING:
-    from pytoningans.ui.mod_browser.auth import UserProfile
+    from ..client import ModBrowserClient
 
 
 class PublishModDialog(QDialog):
@@ -39,13 +39,13 @@ class PublishModDialog(QDialog):
     def __init__(
         self,
         mod_manager: ModManager,
-        client: Optional[Any] = None,
+        client: Optional[ModBrowserClient] = None,
         parent: Optional[QWidget] = None,
         selected_mod_id: Optional[str] = None,
     ) -> None:
         super().__init__(parent)
         self.mod_manager: ModManager = mod_manager
-        self.client: Optional[Any] = client
+        self.client: Optional[ModBrowserClient] = client
         self.auth: AuthManager = AuthManager.get()
         self.published_package_path: Optional[Path] = None
         self.selected_mod_id: Optional[str] = selected_mod_id
@@ -157,7 +157,6 @@ class PublishModDialog(QDialog):
         self.publish_btn.clicked.connect(self._on_publish_clicked)
         btn_layout.addWidget(self.publish_btn)
 
-
         layout.addLayout(btn_layout)
         main_layout.addWidget(content)
 
@@ -255,7 +254,7 @@ class PublishModDialog(QDialog):
             self.security_status_label.style().unpolish(self.security_status_label)
             self.security_status_label.style().polish(self.security_status_label)
 
-
+    # FIXME: Publishing modpacks doesn't work!
     def _on_publish_clicked(self) -> None:
         target_id: Optional[str] = self.mod_combo.currentData()
         if target_id is None or not target_id:
@@ -265,11 +264,18 @@ class PublishModDialog(QDialog):
         version_str: str = self.version_input.text().strip() or "1.0.0"
         desc: str = self.desc_input.toPlainText().strip()
         changelog: str = self.changelog_input.toPlainText().strip()
-
+        
         resolved, pack_id, _ = resolve_mod_path(self.mod_manager.mods_dir, target_id)
-        target_dir: Optional[Path] = (self.mod_manager.mods_dir / pack_id) if pack_id else resolved
-        if not target_dir or not target_dir.exists():
-            QMessageBox.critical(self, "Error", "Target directory does not exist.")
+        target_dir: Optional[Path] = (
+            (self.mod_manager.mods_dir / pack_id) if pack_id is not None else resolved
+        )
+        if target_dir is None or not target_dir.exists():
+            QMessageBox.critical(
+                self, "Error",
+                f"Target directory '{str(target_dir)}' does not exist.\n"
+                f"resolved was: '{str(resolved)}'\n"
+                f"pack_id was: '{str(pack_id)}'"
+            )
             return
 
         is_pack: bool = (target_dir / "pack.json").exists()

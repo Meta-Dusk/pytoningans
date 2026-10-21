@@ -65,7 +65,7 @@ class CommunityModItem:
     created_at: str = ""
     updated_at: str = ""
     config_version: int = CURRENT_CONFIG_VERSION
-    target_app_version: str = "0.8.0"
+    target_app_version: str = _DEFAULT_APP_VERSION
     releases: list[ModRelease] = field(default_factory=list)
     has_update: bool = False
     is_local_only: bool = False
@@ -121,7 +121,8 @@ class CommunityModItem:
                 f"Built for game v{self.target_app_version} (Current is v{current_version})"
             )
         return reasons
-
+    
+    # TODO: Add formatted size to Mod Inspector window as well
     @property
     def formatted_size(self) -> str:
         """Returns human-readable size string (e.g. 1.2 MB)."""
