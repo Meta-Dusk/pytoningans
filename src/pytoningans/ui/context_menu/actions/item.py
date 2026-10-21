@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from ..window import EntityContextMenu
     from pytoningans.core.entity.base_item import BaseItem
     from pytoningans.core.entity.living_entity import Entity
+    from pytoningans.core.api.modpack import PackMenuAction
 
 
 def build_item_actions(menu: EntityContextMenu, layout: QVBoxLayout, item: BaseItem) -> None:
@@ -86,15 +87,17 @@ def build_item_actions(menu: EntityContextMenu, layout: QVBoxLayout, item: BaseI
     # Debug Visualization Toggle (Hitbox)
     hitbox_btn = QPushButton("Hide Hitbox" if item.is_debug_hitbox_visible else "Show Hitbox")
     hitbox_btn.setToolTip("Toggle on-screen visualization of physics collision hitbox.")
+    
     def toggle_hitbox() -> None:
         item.toggle_debug_hitboxes()
         hitbox_btn.setText("Hide Hitbox" if item.is_debug_hitbox_visible else "Show Hitbox")
+        
     hitbox_btn.clicked.connect(lambda: menu.execute_action(toggle_hitbox))
     layout.addWidget(hitbox_btn)
 
     # Pack Actions (if part of a Tier 2 Modpack)
     if item.mod_manager is not None and item.mod_manager.pack is not None:
-        pack_actions = item.mod_manager.pack.get_context_menu_actions(item)
+        pack_actions: list[PackMenuAction] = item.mod_manager.pack.get_context_menu_actions(item)
         if pack_actions:
             layout.addWidget(create_info_row(f"{item.mod_manager.pack.name}:", "Pack Actions"))
             for act in pack_actions:
@@ -113,4 +116,3 @@ def build_item_actions(menu: EntityContextMenu, layout: QVBoxLayout, item: BaseI
     destroy_btn.setToolTip("Permanently delete and remove this item from the world.")
     destroy_btn.clicked.connect(lambda: menu.execute_and_close(item.destroy))
     layout.addWidget(destroy_btn)
-

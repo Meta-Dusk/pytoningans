@@ -1,5 +1,5 @@
 """
-PyToNingans Mod Browser :: Auth Data Models
+PyToNingans Mod Browser - Auth Data Models
 ==========================================
 Pure data containers for user identity and session state.
 """
@@ -33,7 +33,7 @@ def is_known_developer(
     )
 
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class UserProfile:
     """Represents a signed-in community creator account."""
     id: str
@@ -66,7 +66,7 @@ class UserProfile:
         return provider.capitalize()
 
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class AuthSession:
     """Represents persistent session tokens and user state."""
     access_token: str

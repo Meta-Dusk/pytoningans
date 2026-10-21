@@ -1,5 +1,5 @@
 """
-PyToNingans Mod Browser :: Auth Configuration
+PyToNingans Mod Browser - Auth Configuration
 =============================================
 Loads and persists Supabase project credentials with hierarchical source priority.
 """

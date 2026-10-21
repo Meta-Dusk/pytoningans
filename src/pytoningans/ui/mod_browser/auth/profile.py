@@ -1,5 +1,5 @@
 """
-PyToNingans Mod Browser :: Auth Profile Management
+PyToNingans Mod Browser - Auth Profile Management
 =================================================
 Creator profile reading, local persistence, and cloud sync via Supabase Auth REST.
 """
@@ -154,16 +154,16 @@ class AuthProfileMixin(BaseAuthMixin):
         """Updates the in-memory session user fields and recomputes developer badges."""
         manager: Optional[AuthManager] = self._auth_manager()
         store: AuthSessionStore = manager._store
-        sesh: Optional[AuthSession] = store.current_session
-        if sesh is None: return
+        current_sesh: Optional[AuthSession] = store.current_session
+        if current_sesh is None: return
         
-        sesh.user.username = clean_name
-        sesh.user.bio = bio.strip()
+        current_sesh.user.username = clean_name
+        current_sesh.user.bio = bio.strip()
         if avatar_url is not None:
-            sesh.user.avatar_url = avatar_url
+            current_sesh.user.avatar_url = avatar_url
         if custom_avatar_path is not None:
-            sesh.user.custom_avatar_path = custom_avatar_path.strip()
-        self._recompute_developer_badges(sesh.user, clean_name)
+            current_sesh.user.custom_avatar_path = custom_avatar_path.strip()
+        self._recompute_developer_badges(current_sesh.user, clean_name)
         store.save()
 
     def _recompute_developer_badges(self, user: UserProfile, username: str) -> None:

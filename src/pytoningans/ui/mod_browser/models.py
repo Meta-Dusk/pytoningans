@@ -11,7 +11,7 @@ from typing import Optional
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
 from pytoningans.core.roles import get_github_for_creator, is_developer_account
-from pytoningans.utils.paths import get_app_version
+from pytoningans.utils.paths import get_app_version, _DEFAULT_APP_VERSION
 
 
 def parse_semver(ver: str) -> tuple[int, ...]:
@@ -29,19 +29,19 @@ def parse_semver(ver: str) -> tuple[int, ...]:
         return (0, 0, 0)
 
 
-@dataclass
+@dataclass(kw_only=True, slots=True, frozen=True)
 class ModRelease:
     """Represents a specific release version / git-like tag of a mod or modpack."""
     version: str
     changelog: str
     created_at: str
-    target_app_version: str = "0.8.0"
+    target_app_version: str = _DEFAULT_APP_VERSION
     config_version: int = CURRENT_CONFIG_VERSION
     download_url: Optional[str] = None
     package_hash: Optional[str] = None
 
 
-@dataclass
+@dataclass(kw_only=True, slots=True)
 class CommunityModItem:
     """Represents a community mod or modpack available in the Mod Browser."""
     id: str

@@ -10,11 +10,19 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import StrEnum, unique
 from pathlib import Path
 from typing import Optional, Any
 
 
+@unique
+class SecuritySeverity(StrEnum):
+    DANGER = "danger"
+    WARNING = "warning"
+    INFO = "info"
+
+
+@unique
 class SecurityRiskLevel(StrEnum):
     SAFE = "safe"
     LOW = "low"
@@ -22,19 +30,19 @@ class SecurityRiskLevel(StrEnum):
     DANGEROUS = "dangerous"
 
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class SecurityIssue:
     """Represents a potential security or safety concern found during AST analysis."""
     file: str
     line: int
     col: int
     category: str
-    severity: str  # "danger", "warning", "info"
+    severity: SecuritySeverity
     description: str
     code_snippet: str = ""
 
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class SecurityReport:
     """Aggregated safety audit and functional summary of a mod or modpack."""
     target_name: str
@@ -64,17 +72,17 @@ DANGEROUS_IMPORTS: dict[str, tuple[str, str]] = {
 
 SUSPICIOUS_CALLS: dict[str, tuple[str, str, str]] = {
     # func_name -> (category, severity, description)
-    "eval": ("dynamic_execution", "danger", "Executes arbitrary strings as Python code (eval)"),
-    "exec": ("dynamic_execution", "danger", "Executes arbitrary dynamic Python code (exec)"),
-    "__import__": ("dynamic_execution", "warning", "Dynamically imports modules at runtime"),
-    "compile": ("dynamic_execution", "warning", "Compiles arbitrary code strings"),
-    "os.system": ("process_execution", "danger", "Executes arbitrary shell commands (os.system)"),
-    "os.popen": ("process_execution", "danger", "Opens a pipe to or from a shell command (os.popen)"),
-    "os.kill": ("process_execution", "danger", "Sends terminate/kill signals to system processes"),
-    "shutil.rmtree": ("filesystem", "danger", "Recursively deletes entire directory trees"),
-    "os.remove": ("filesystem", "warning", "Deletes files from the disk"),
-    "os.unlink": ("filesystem", "warning", "Unlinks/deletes files from the disk"),
-    "webbrowser.open": ("system", "info", "Opens a web URL in the user's default browser"),
+    "eval": ("dynamic_execution", SecuritySeverity.DANGER, "Executes arbitrary strings as Python code (eval)"),
+    "exec": ("dynamic_execution", SecuritySeverity.DANGER, "Executes arbitrary dynamic Python code (exec)"),
+    "__import__": ("dynamic_execution", SecuritySeverity.WARNING, "Dynamically imports modules at runtime"),
+    "compile": ("dynamic_execution", SecuritySeverity.WARNING, "Compiles arbitrary code strings"),
+    "os.system": ("process_execution", SecuritySeverity.DANGER, "Executes arbitrary shell commands (os.system)"),
+    "os.popen": ("process_execution", SecuritySeverity.DANGER, "Opens a pipe to or from a shell command (os.popen)"),
+    "os.kill": ("process_execution", SecuritySeverity.DANGER, "Sends terminate/kill signals to system processes"),
+    "shutil.rmtree": ("filesystem", SecuritySeverity.DANGER, "Recursively deletes entire directory trees"),
+    "os.remove": ("filesystem", SecuritySeverity.WARNING, "Deletes files from the disk"),
+    "os.unlink": ("filesystem", SecuritySeverity.WARNING, "Unlinks/deletes files from the disk"),
+    "webbrowser.open": ("system", SecuritySeverity.INFO, "Opens a web URL in the user's default browser"),
 }
 
 
@@ -109,7 +117,7 @@ class ModASTVisitor(ast.NodeVisitor):
                             line=node.lineno,
                             col=node.col_offset,
                             category=category,
-                            severity="danger",
+                            severity=SecuritySeverity.DANGER,
                             description=f"Imports '{mod_name}': {description}.",
                             code_snippet=self._get_line_snippet(node.lineno),
                         )
@@ -140,7 +148,7 @@ class ModASTVisitor(ast.NodeVisitor):
                             line=node.lineno,
                             col=node.col_offset,
                             category=category,
-                            severity="danger",
+                            severity=SecuritySeverity.DANGER,
                             description=f"Imports '{full_name}': {description}.",
                             code_snippet=self._get_line_snippet(node.lineno),
                         )
@@ -166,7 +174,7 @@ class ModASTVisitor(ast.NodeVisitor):
                         line=node.lineno,
                         col=node.col_offset,
                         category=cat,
-                        severity=sev,
+                        severity=SecuritySeverity(sev),
                         description=desc,
                         code_snippet=self._get_line_snippet(node.lineno),
                     )
@@ -180,7 +188,7 @@ class ModASTVisitor(ast.NodeVisitor):
                     line=node.lineno,
                     col=node.col_offset,
                     category="process_execution",
-                    severity="danger",
+                    severity=SecuritySeverity.DANGER,
                     description=f"Executes external system process via '{call_name}'.",
                     code_snippet=self._get_line_snippet(node.lineno),
                 )
@@ -198,7 +206,7 @@ class ModASTVisitor(ast.NodeVisitor):
                             line=node.lineno,
                             col=node.col_offset,
                             category="filesystem",
-                            severity="warning",
+                            severity=SecuritySeverity.WARNING,
                             description=f"Opens file in write/append mode ('{mode_arg.value}').",
                             code_snippet=self._get_line_snippet(node.lineno),
                         )
@@ -216,7 +224,7 @@ class ModASTVisitor(ast.NodeVisitor):
                     line=node.lineno,
                     col=node.col_offset,
                     category="filesystem",
-                    severity="warning",
+                    severity=SecuritySeverity.WARNING,
                     description=f"Writes data to filesystem via '{call_name or 'write_text'}'.",
                     code_snippet=self._get_line_snippet(node.lineno),
                 )
@@ -231,7 +239,7 @@ class ModASTVisitor(ast.NodeVisitor):
                     line=node.lineno,
                     col=node.col_offset,
                     category="network",
-                    severity="danger",
+                    severity=SecuritySeverity.DANGER,
                     description=f"Initiates network communication via '{call_name}'.",
                     code_snippet=self._get_line_snippet(node.lineno),
                 )
@@ -309,7 +317,7 @@ def scan_python_file(
                     line=1,
                     col=0,
                     category="syntax",
-                    severity="warning",
+                    severity=SecuritySeverity.WARNING,
                     description=f"Could not read file: {e}",
                 )
             ], []
@@ -325,7 +333,7 @@ def scan_python_file(
                 line=e.lineno or 1,
                 col=e.offset or 0,
                 category="syntax",
-                severity="warning",
+                severity=SecuritySeverity.WARNING,
                 description=f"Python Syntax Error: {e.msg}",
                 code_snippet=e.text.strip() if e.text else "",
             )
@@ -428,7 +436,7 @@ def scan_mod_or_pack(target_dir: Path) -> SecurityReport:
             "Inspect the issues list to ensure this matches the mod's intended behavior."
         )
     else:
-        summary = "🚨 DANGER: Risky system operations detected (network or process execution)!"
+        summary = "DANGER: Risky system operations detected (network or process execution)!"
         detailed_explanation = (
             "CRITICAL: The static analyzer detected high-risk system operations. "
             "This mod attempts to run external system commands or communicate over the network. "

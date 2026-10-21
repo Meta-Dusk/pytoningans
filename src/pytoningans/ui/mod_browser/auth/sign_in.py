@@ -1,5 +1,5 @@
 """
-PyToNingans Mod Browser :: Auth Sign-In and Sign-Up
+PyToNingans Mod Browser - Auth Sign-In and Sign-Up
 ==================================================
 Email/password authentication, local offline accounts, and Supabase cloud registration.
 """

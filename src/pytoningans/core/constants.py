@@ -53,7 +53,7 @@ class BehaviorType(StrEnum):
     NEUTRAL = "neutral"
     HOSTILE = "hostile"
 
-@dataclass()
+@dataclass(slots=True, kw_only=True)
 class AnimationMeta:
     row: int
     start_frame: int = 0
@@ -92,11 +92,11 @@ class AnimationMeta:
     frame_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
     """Dictionary mapping string frame indices (for JSON) to override data dicts"""
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True, kw_only=True, frozen=True)
 class AppConfig:
     name: str = "PyToNingans"
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class SystemLocks:
     ai: bool = True
     physics: bool = True

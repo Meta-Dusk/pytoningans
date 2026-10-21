@@ -1,5 +1,5 @@
 """
-PyToNingans Mod Browser :: Auth Manager
+PyToNingans Mod Browser - Auth Manager
 =======================================
 Singleton QObject that composes AuthConfig, AuthSessionStore, and the auth mixin classes
 into a single, unified authentication manager for the mod browser.

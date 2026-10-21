@@ -1,5 +1,5 @@
 """
-PyToNingans Mod Browser :: OAuth Sign-In (Google, GitHub)
+PyToNingans Mod Browser - OAuth Sign-In (Google, GitHub)
 =========================================================
 Launches provider OAuth in the system browser via a temporary local redirect listener.
 """

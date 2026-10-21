@@ -18,7 +18,7 @@ class HealthBarMode(StrEnum):
     HIDDEN = "hidden"
 
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class AppSettings:
     """Global user preferences and application configuration settings."""
     health_bar_mode: str = HealthBarMode.ON_DAMAGE
@@ -33,10 +33,6 @@ class AppSettings:
     creator_name: str = "Modder"
     creator_bio: str = ""
     creator_avatar_path: str = ""
-
-
-# Backward compatibility alias
-CombatVisualSettings = AppSettings
 
 
 class SettingsManager(QObject):
@@ -101,7 +97,7 @@ class SettingsManager(QObject):
         creator_bio: Optional[str] = None,
         creator_avatar_path: Optional[str] = None,
     ) -> None:
-        changed = False
+        changed: bool = False
         if health_bar_mode is not None and self.settings.health_bar_mode != health_bar_mode:
             self.settings.health_bar_mode = health_bar_mode
             changed = True
@@ -147,4 +143,3 @@ class SettingsManager(QObject):
         self.settings = AppSettings()
         self.save()
         self.settings_changed.emit()
-

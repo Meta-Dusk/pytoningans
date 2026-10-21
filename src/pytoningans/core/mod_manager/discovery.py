@@ -11,7 +11,7 @@ from .modpack import ModPack, ModPackRegistry, load_pack_manifest, ModPackConfig
 IGNORED_MOD_FOLDERS: set[str] = {"api", "__pycache__"}
 
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class ModEntryInfo:
     """Rich metadata for a discovered mod or pack-contained sub-entity."""
     mod_id: str

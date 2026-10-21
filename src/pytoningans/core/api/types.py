@@ -15,14 +15,14 @@ from dataclasses import dataclass
 #* Primitives, Coordinates and Geometry
 # =============================================================================
 
-@dataclass
+@dataclass(slots=True)
 class Pos2D:
     """Represents a 2D floating-point position in the world."""
     x: float
     y: float
 
 
-@dataclass
+@dataclass(slots=True)
 class Rect2D:
     """Represents a 2D rectangle in the world."""
     x: float

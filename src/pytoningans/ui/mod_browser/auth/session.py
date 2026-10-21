@@ -1,5 +1,5 @@
 """
-PyToNingans Mod Browser :: Auth Session Persistence and Refresh
+PyToNingans Mod Browser - Auth Session Persistence and Refresh
 ==============================================================
 Handles loading, saving, and refreshing Supabase auth sessions from disk.
 """

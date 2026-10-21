@@ -1,5 +1,5 @@
 """
-PyToNingans Mod Browser :: Auth Package
+PyToNingans Mod Browser - Auth Package
 =======================================
 Public re-exports for the auth subpackage.
 
