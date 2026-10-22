@@ -15,8 +15,7 @@ class AnimationPreviewPanel(QWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(0)
         
         title = QLabel("Live Animation Preview")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -35,15 +34,16 @@ class AnimationPreviewPanel(QWidget):
         preview_ctrls = QHBoxLayout()
         preview_ctrls.setContentsMargins(0, 6, 0, 0)
         self.preview_zoom_spin = QSpinBox()
-        self.preview_zoom_spin.setPrefix("Zoom: ")
-        self.preview_zoom_spin.setSuffix("x")
+        self.preview_zoom_spin.setPrefix("Zoom: "); self.preview_zoom_spin.setSuffix("x")
         self.preview_zoom_spin.setRange(1, 20)
         self.preview_zoom_spin.setValue(self.preview_label.zoom)
 
-        self.preview_reset_btn = QPushButton("Reset View")
-        self.restart_btn = QPushButton("Restart Animation")
-        self.expand_btn = QPushButton("⤢ Expand")
-        self.expand_btn.setToolTip("Quickly toggle between standard (220px) and tall (420px) preview height")
+        self.preview_reset_btn = QPushButton("⛶ Reset View")
+        self.restart_btn = QPushButton("⭮ Restart Animation")
+        self.expand_btn = QPushButton("[+] Expand")
+        self.expand_btn.setToolTip(
+            "Quickly toggle between standard (220px) and tall (420px) preview height"
+        )
         self.expand_btn.clicked.connect(self._toggle_expand)
 
         preview_ctrls.addWidget(self.preview_zoom_spin)
@@ -60,13 +60,13 @@ class AnimationPreviewPanel(QWidget):
     def _toggle_expand(self) -> None:
         if self.preview_label.height() >= 360:
             self.preview_label.setFixedHeight(220)
-            self.expand_btn.setText("⤢ Expand")
+            self.expand_btn.setText("[+] Expand")
         else:
             self.preview_label.setFixedHeight(420)
-            self.expand_btn.setText("⤡ Compact")
+            self.expand_btn.setText("[-] Compact")
 
     def _on_height_changed(self, height: int) -> None:
         if height >= 360:
-            self.expand_btn.setText("⤡ Compact")
+            self.expand_btn.setText("[-] Compact")
         else:
-            self.expand_btn.setText("⤢ Expand")
+            self.expand_btn.setText("[+] Expand")

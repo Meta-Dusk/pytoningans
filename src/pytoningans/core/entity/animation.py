@@ -177,11 +177,11 @@ class AnimationSystem(QObject):
 
         # Attack Hitbox transformation
         if atk_rect.width() > 0 and atk_rect.height() > 0:
-            atk_cx = atk_rect.x() + atk_rect.width() / 2.0
-            atk_cy = atk_rect.y() + atk_rect.height() / 2.0
-            mapped_atk_c = transform.map(QPointF(atk_cx, atk_cy))
-            final_atk_cx = mapped_atk_c.x() - mapped_rect.x()
-            final_atk_cy = mapped_atk_c.y() - mapped_rect.y()
+            atk_cx: float = atk_rect.x() + atk_rect.width() / 2.0
+            atk_cy: float = atk_rect.y() + atk_rect.height() / 2.0
+            mapped_atk_c: QPointF = transform.map(QPointF(atk_cx, atk_cy))
+            final_atk_cx: float = mapped_atk_c.x() - mapped_rect.x()
+            final_atk_cy: float = mapped_atk_c.y() - mapped_rect.y()
             atk_rect = QRect(
                 int(round(final_atk_cx - atk_rect.width() / 2.0)),
                 int(round(final_atk_cy - atk_rect.height() / 2.0)),
@@ -241,7 +241,9 @@ class AnimationSystem(QObject):
             held_item._update_held_position()
 
         # Notify visual debug overlay if visible
-        debug_overlay: Optional[DebugHitboxOverlayItem] = getattr(self.entity, "_debug_overlay", None)
+        debug_overlay: Optional[DebugHitboxOverlayItem] = getattr(
+            self.entity, "_debug_overlay", None
+        )
         if debug_overlay is not None and debug_overlay.isVisible():
             debug_overlay.update_overlay()
 

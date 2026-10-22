@@ -22,6 +22,7 @@ from pytoningans.core.mod_manager.security import (
 )
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.utils.assets import get_main_icon
+from pytoningans.utils.format import formatted_size
 
 
 class ModInspectorDialog(QDialog):
@@ -36,8 +37,7 @@ class ModInspectorDialog(QDialog):
         self.setWindowIcon(get_main_icon())
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.resize(920, 620)
-        self.setMinimumSize(750, 480)
+        self.resize(920, 620); self.setMinimumSize(750, 480)
 
         self._setup_ui()
         self._populate_file_tree()
@@ -135,15 +135,13 @@ class ModInspectorDialog(QDialog):
         issues_header.setStyleSheet("font-weight: bold; font-size: 13px; margin-top: 6px;")
         layout.addWidget(issues_header)
 
-        self.issues_table = QTableWidget()
-        self.issues_table.setColumnCount(4)
+        self.issues_table = QTableWidget(); self.issues_table.setColumnCount(4)
         self.issues_table.setHorizontalHeaderLabels(
             ["Severity", "Category", "Location", "Description"]
         )
         horizontalHeader = self.issues_table.horizontalHeader()
-        horizontalHeader.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        horizontalHeader.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        horizontalHeader.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        for i in range(3):
+            horizontalHeader.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
         horizontalHeader.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.issues_table.verticalHeader().setVisible(False)
         self.issues_table.setAlternatingRowColors(True)
@@ -156,10 +154,11 @@ class ModInspectorDialog(QDialog):
 
         self.preview_header = QLabel("Select a file from the list to view its contents.")
         self.preview_header.setStyleSheet("color: gray; font-style: italic;")
+        self.preview_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.preview_header)
 
         self.code_viewer = QPlainTextEdit(); self.code_viewer.setReadOnly(True)
-        mono_font = QFont("Consolas", 10); mono_font.setStyleHint(QFont.StyleHint.Monospace)
+        mono_font = QFont("Pixel Code", 10); mono_font.setStyleHint(QFont.StyleHint.Monospace)
         self.code_viewer.setFont(mono_font)
         layout.addWidget(self.code_viewer)
 
@@ -170,28 +169,27 @@ class ModInspectorDialog(QDialog):
 
     def _populate_security_tab(self) -> None:
         risk: SecurityRiskLevel = self.report.risk_level
-
-        # Styling banner based on risk
-        if risk == SecurityRiskLevel.SAFE:
-            bg_color = "rgba(16, 185, 129, 0.15)"
-            border_color = "#10b981"
-            title_color = "#34d399"
-            title_text = "AST SAFETY AUDIT: VERIFIED SAFE"
-        elif risk == SecurityRiskLevel.LOW:
-            bg_color = "rgba(59, 130, 246, 0.15)"
-            border_color = "#3b82f6"
-            title_color = "#60a5fa"
-            title_text = "AST SAFETY AUDIT: LOW RISK (MINOR SYSTEM CALLS)"
-        elif risk == SecurityRiskLevel.MEDIUM:
-            bg_color = "rgba(245, 158, 11, 0.15)"
-            border_color = "#f59e0b"
-            title_color = "#fbbf24"
-            title_text = "AST SAFETY AUDIT: WARNING (FILE / DYNAMIC OPERATIONS)"
-        else:
-            bg_color = "rgba(239, 68, 68, 0.2)"
-            border_color = "#ef4444"
-            title_color = "#f87171"
-            title_text = "AST SAFETY AUDIT: DANGER (POTENTIAL MALICIOUS CODE)"
+        match risk:
+            case SecurityRiskLevel.SAFE:
+                bg_color = "rgba(16, 185, 129, 0.15)"
+                border_color = "#10b981"
+                title_color = "#34d399"
+                title_text = "AST SAFETY AUDIT: VERIFIED SAFE"
+            case SecurityRiskLevel.LOW:
+                bg_color = "rgba(59, 130, 246, 0.15)"
+                border_color = "#3b82f6"
+                title_color = "#60a5fa"
+                title_text = "AST SAFETY AUDIT: LOW RISK (MINOR SYSTEM CALLS)"
+            case SecurityRiskLevel.MEDIUM:
+                bg_color = "rgba(245, 158, 11, 0.15)"
+                border_color = "#f59e0b"
+                title_color = "#fbbf24"
+                title_text = "AST SAFETY AUDIT: WARNING (FILE / DYNAMIC OPERATIONS)"
+            case _:
+                bg_color = "rgba(239, 68, 68, 0.2)"
+                border_color = "#ef4444"
+                title_color = "#f87171"
+                title_text = "AST SAFETY AUDIT: DANGER (POTENTIAL MALICIOUS CODE)"
 
         self.risk_banner.setStyleSheet(
             f"background-color: {bg_color}; border: 1px solid {border_color}; border-radius: 6px;"
@@ -200,7 +198,7 @@ class ModInspectorDialog(QDialog):
         self.risk_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {title_color};")
         self.risk_summary.setText(f"{self.report.summary}\n{self.report.detailed_explanation}")
 
-        # Add capability chips
+        #? Add capability chips
         # Clear previous
         while self.caps_layout.count():
             item: Optional[QLayoutItem] = self.caps_layout.takeAt(0)
@@ -268,7 +266,7 @@ class ModInspectorDialog(QDialog):
 
     def _on_file_selected(self, item: QTreeWidgetItem, column: int) -> None:
         file_path_str: Optional[str] = item.data(0, Qt.ItemDataRole.UserRole)
-        if not file_path_str:
+        if file_path_str is None:
             return
 
         file_path = Path(file_path_str)
@@ -276,7 +274,8 @@ class ModInspectorDialog(QDialog):
             return
 
         self.preview_header.setText(
-            f"Viewing: {file_path.name} ({file_path.stat().st_size} bytes)"
+            f"Viewing: {file_path.name} "
+            f"({formatted_size(file_path.stat().st_size)})"
         )
 
         # Handle images
@@ -307,4 +306,3 @@ class ModInspectorDialog(QDialog):
 
         self.code_viewer.setPlainText(content)
         self.tabs.setCurrentWidget(self.preview_tab)
-

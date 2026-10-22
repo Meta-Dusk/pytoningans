@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-from PySide6.QtCore import QRect
+from typing import TYPE_CHECKING, Optional
 
 from pytoningans.core.constants import EntityState
 from .helpers import get_effective_hitbox
 from .window_collision import (
-    resolve_window_depenetration,
-    find_candidate_platforms,
-    check_window_ceiling_collision,
+    resolve_window_depenetration, find_candidate_platforms, check_window_ceiling_collision,
 )
 
 if TYPE_CHECKING:
+    from PySide6.QtCore import QRect
+    from pytoningans.core.entity.base_entity import BaseEntity
     from .system import PhysicsSystem
 
 
@@ -19,7 +18,7 @@ def tick_gravity_and_collisions(
     system: PhysicsSystem, ground_y: float, current_gravity: float
 ) -> None:
     """Performs vertical gravity accumulation, ceiling checks, window auto-scoop, and platform landing."""
-    entity = system.entity
+    entity: Optional[BaseEntity] = system.entity
     if (
         entity is None or
         entity.mod_manager is None or
@@ -49,22 +48,11 @@ def tick_gravity_and_collisions(
 
     if entity_bottom < effective_ground_y or entity.velocity_y < 0:
         entity.velocity_y += current_gravity
+        
         new_y: float = entity.y() + entity.velocity_y
-
-        # Ceiling collision check
-        if entity.velocity_y < 0:
-            adjusted_new_y, did_collide = check_window_ceiling_collision(entity, new_y)
-            if did_collide:
-                new_y = adjusted_new_y
-                entity.velocity_y = 0.0
-
-        # Landing collision check
-        if new_y + hitbox_bottom_offset >= effective_ground_y:
-            new_y = effective_ground_y - hitbox_bottom_offset
-            entity.velocity_y = 0.0
-            if entity.state == EntityState.JUMPING and not is_dead and entity.anim_sys is not None:
-                entity.anim_sys.set_state(EntityState.IDLE)
-
+        new_y = _ceiling_collision_check(entity, new_y)
+        new_y = _landing_collision_check(entity, is_dead, hitbox_bottom_offset, effective_ground_y, new_y)
+        
         entity.setPos(entity.x(), new_y)
     else:
         entity.velocity_y = 0.0
@@ -73,3 +61,24 @@ def tick_gravity_and_collisions(
         if entity.state == EntityState.JUMPING and not is_dead and entity.anim_sys is not None:
             entity.anim_sys.set_state(EntityState.IDLE)
 
+def _landing_collision_check(
+    entity: BaseEntity, is_dead: bool, hitbox_bottom_offset: int,
+    effective_ground_y: float, new_y: float
+) -> float:
+    if new_y + hitbox_bottom_offset >= effective_ground_y:
+        new_y = effective_ground_y - hitbox_bottom_offset
+        entity.velocity_y = 0.0
+        if (
+            entity.state == EntityState.JUMPING and
+            not is_dead and entity.anim_sys is not None
+        ):
+            entity.anim_sys.set_state(EntityState.IDLE)
+    return new_y
+
+def _ceiling_collision_check(entity: BaseEntity, new_y: float) -> float:
+    if entity.velocity_y < 0:
+        adjusted_new_y, did_collide = check_window_ceiling_collision(entity, new_y)
+        if did_collide:
+            new_y = adjusted_new_y
+            entity.velocity_y = 0.0
+    return new_y

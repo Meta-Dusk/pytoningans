@@ -7,15 +7,6 @@ from PySide6.QtGui import QImage, QPaintEvent, QPainter, QPen, QColor, QMouseEve
 
 from pytoningans.ui.tool_tip import ToolTipLabel
 
-def create_info_label(text: str, tooltip_text: str) -> QWidget:
-    widget = QWidget()
-    layout = QHBoxLayout(widget)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.addWidget(QLabel(text))
-    layout.addWidget(ToolTipLabel(text="[?]", tooltip_text=tooltip_text))
-    layout.addStretch()
-    return widget
-
 def create_info_widget(widget: QWidget, tooltip_text: str) -> QWidget:
     combined_widget = QWidget()
     layout = QHBoxLayout(combined_widget)
@@ -25,17 +16,18 @@ def create_info_widget(widget: QWidget, tooltip_text: str) -> QWidget:
     layout.addStretch()
     return combined_widget
 
+def create_info_label(text: str, tooltip_text: str) -> QWidget:
+    return create_info_widget(QLabel(text), tooltip_text)
+
 def create_spinbox(min_val: int, max_val: int) -> QSpinBox:
-    spin = QSpinBox()
-    spin.setRange(min_val, max_val)
+    spin = QSpinBox(); spin.setRange(min_val, max_val)
     return spin
 
 def create_double_spinbox(
     min_val: float, max_val: float, step: float = 0.1, decimals: int = 1
 ) -> QDoubleSpinBox:
     spin = QDoubleSpinBox()
-    spin.setRange(min_val, max_val)
-    spin.setSingleStep(step)
+    spin.setRange(min_val, max_val); spin.setSingleStep(step)
     spin.setDecimals(decimals)
     return spin
 
@@ -118,6 +110,7 @@ class PreviewLabel(QLabel):
             return
 
         painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
         painter.fillRect(self.rect(), self.palette().base().color())
         painter.setPen(self.palette().shadow().color())
         painter.drawRect(0, 0, self.width() - 1, self.height() - 1)
@@ -323,8 +316,7 @@ class CollapsibleSection(QWidget):
         self.title = title
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(0)
         
         self.btn = QPushButton(f"▼  {title}")
         self.btn.setCheckable(True)

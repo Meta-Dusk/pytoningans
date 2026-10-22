@@ -8,55 +8,53 @@ from pytoningans.utils.paths import get_app_version
 
 class CustomTitleBar(QWidget):
     def __init__(
-        self, parent: QWidget, title: str,
+        self, parent: QWidget, title: str, /, *,
         show_version: bool = True,
         can_minimize: bool = True,
         can_maximize: bool = True
     ) -> None:
         super().__init__(parent)
         self.parent_window: QWidget = parent
+        self._show_version: bool = show_version
+        self._can_minimize: bool = can_minimize
+        self._can_maximize: bool = can_maximize
         self._drag_offset: Optional[QPoint] = None
-        self._setup_ui(title, show_version, can_minimize, can_maximize)
+        self._setup_ui(title)
 
-    def _setup_ui(
-        self, title: str,
-        show_version: bool = True,
-        can_minimize: bool = True,
-        can_maximize: bool = True
-    ) -> None:
-        self.setFixedHeight(32)
-        self.setObjectName("CustomTitleBar")
+    def _setup_ui(self, title: str) -> None:
+        self.setFixedHeight(32); self.setObjectName("CustomTitleBar")
         
         layout: QHBoxLayout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 0, 0, 0)
-        layout.setSpacing(6)
+        layout.setContentsMargins(12, 0, 0, 0); layout.setSpacing(6)
         
         self.title_label: QLabel = QLabel(title)
         self.title_label.setObjectName("TitleBarText")
         layout.addWidget(self.title_label)
         
-        if show_version:
+        if self._show_version:
             self.version_label: QLabel = QLabel(f"v{get_app_version()}")
             self.version_label.setObjectName("TitleBarVersion")
             layout.addWidget(self.version_label)
         
         layout.addStretch()
-
-        if can_minimize:
-            self.minimize_btn: QPushButton = QPushButton("[_]")
+        
+        self.minimize_btn: Optional[QPushButton] = None
+        if self._can_minimize:
+            self.minimize_btn = QPushButton("-")
             self.minimize_btn.setFixedSize(32, 32)
             self.minimize_btn.setObjectName("TitleBarBtn")
             self.minimize_btn.clicked.connect(self.parent_window.showMinimized)
             layout.addWidget(self.minimize_btn)
         
-        if can_maximize:
-            self.maximize_btn: QPushButton = QPushButton("[+]")
+        self.maximize_btn: Optional[QPushButton] = None
+        if self._can_maximize:
+            self.maximize_btn = QPushButton("🗖")
             self.maximize_btn.setFixedSize(32, 32)
             self.maximize_btn.setObjectName("TitleBarBtn")
             self.maximize_btn.clicked.connect(self._toggle_maximize)
             layout.addWidget(self.maximize_btn)
         
-        self.close_btn: QPushButton = QPushButton("[X]")
+        self.close_btn: QPushButton = QPushButton("🗙")
         self.close_btn.setFixedSize(32, 32)
         self.close_btn.setObjectName("TitleBarCloseBtn")
         self.close_btn.clicked.connect(self.parent_window.close)
@@ -95,7 +93,8 @@ class CustomTitleBar(QWidget):
                 
                 # Restore the window
                 self.parent_window.showNormal()
-                self.maximize_btn.setText("[+]")
+                if self.maximize_btn is not None:
+                    self.maximize_btn.setText("🗖")
 
             # Move the window
             self.parent_window.move(event.globalPosition().toPoint() - self._drag_offset)
@@ -108,7 +107,7 @@ class CustomTitleBar(QWidget):
     
     # --- Other Window Events ---
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton and self._can_maximize:
             self._toggle_maximize()
             event.accept()
     
@@ -117,7 +116,9 @@ class CustomTitleBar(QWidget):
         window: QWidget = self.window()
         if window.isMaximized():
             window.showNormal()
-            self.maximize_btn.setText("[+]")
+            if self.maximize_btn is not None:
+                self.maximize_btn.setText("🗖")
         else:
             window.showMaximized()
-            self.maximize_btn.setText("[-]")
+            if self.maximize_btn is not None:
+                self.maximize_btn.setText("🗗")

@@ -1,14 +1,19 @@
-from typing import Optional, cast
+from __future__ import annotations
+
+from typing import Optional, cast, TYPE_CHECKING
 
 from PySide6.QtCore import QPointF, QRectF
 
-from pytoningans.core.api import BaseBehavior, BaseStructureBehavior, IEntity, IStructure
-from pytoningans.core.components.base_component import BaseComponent
+from pytoningans.core.api import BaseStructureBehavior
 from pytoningans.core.components.teleportation import TeleportationComponent
 from pytoningans.core.constants import StructureState
 from pytoningans.core.entity.base_entity import BaseEntity
-from pytoningans.core.mod_manager import ModManager
-from pytoningans.core.world import WorldOverlay
+
+if TYPE_CHECKING:
+    from pytoningans.core.api import BaseBehavior, IEntity, IStructure
+    from pytoningans.core.world import WorldOverlay
+    from pytoningans.core.mod_manager import ModManager
+    from pytoningans.core.components.base_component import BaseComponent
 
 
 class BaseStructure(BaseEntity):
@@ -47,12 +52,14 @@ class BaseStructure(BaseEntity):
 
     def _set_linked_portal(self, target: Optional[BaseStructure]) -> None:
         teleport_comp: Optional[BaseComponent] = self.get_component("teleportation")
-        if isinstance(teleport_comp, TeleportationComponent):
-            teleport_comp.linked_portal = target
-            if target is not None and target.has_component("teleportation"):
-                target_comp: Optional[BaseComponent] = target.get_component("teleportation")
-                if isinstance(target_comp, TeleportationComponent):
-                    target_comp.linked_portal = self
+        if not isinstance(teleport_comp, TeleportationComponent):
+            return
+        teleport_comp.linked_portal = target
+        if target is None or not target.has_component("teleportation"):
+            return
+        target_comp: Optional[BaseComponent] = target.get_component("teleportation")
+        if isinstance(target_comp, TeleportationComponent):
+            target_comp.linked_portal = self
 
     def update_systems(self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None) -> None:
         super().update_systems(dt, centers)
@@ -61,26 +68,26 @@ class BaseStructure(BaseEntity):
             return
 
         behavior: BaseBehavior = self.mod_manager.custom_behavior
-        if isinstance(behavior, BaseStructureBehavior):
-            try:
-                behavior.on_update(cast(IStructure, self), dt)
-            except Exception as e:
-                print(f"Custom Structure on_update Error: {e}")
+        if not isinstance(behavior, BaseStructureBehavior): return
+        try:
+            behavior.on_update(cast("IStructure", self), dt)
+        except Exception as e:
+            print(f"Custom Structure on_update Error: {e}")
 
-            # Check interaction collision with living entities
-            if self.world is None: return
-            
-            struct_rect: QRectF = self.sceneBoundingRect()
-            for entity in list(self.world.active_entities):
-                if (
-                    entity.is_dead or
-                    not struct_rect.intersects(entity.sceneBoundingRect())
-                ):
-                    return
-                try:
-                    behavior.on_interact(cast(IStructure, self), cast(IEntity, entity))
-                except Exception as e:
-                    print(f"Custom Structure on_interact Error: {e}")
+        # Check interaction collision with living entities
+        if self.world is None: return
+        
+        struct_rect: QRectF = self.sceneBoundingRect()
+        for entity in list(self.world.active_entities):
+            if (
+                entity.is_dead or
+                not struct_rect.intersects(entity.sceneBoundingRect())
+            ):
+                return
+            try:
+                behavior.on_interact(cast("IStructure", self), cast("IEntity", entity))
+            except Exception as e:
+                print(f"Custom Structure on_interact Error: {e}")
 
     def attach_teleportation(
         self,
@@ -118,6 +125,6 @@ class BaseStructure(BaseEntity):
         behavior: BaseBehavior = self.mod_manager.custom_behavior
         if isinstance(behavior, BaseStructureBehavior):
             try:
-                behavior.on_destroy(cast(IStructure, self))
+                behavior.on_destroy(cast("IStructure", self))
             except Exception as e:
                 print(f"Custom Structure on_destroy Error: {e}")

@@ -11,7 +11,9 @@ if TYPE_CHECKING:
 
 
 class LiveControlsPanel(QWidget):
-    """Panel displaying active world statistics and providing entity/structure life-cycle controls."""
+    """
+    Panel displaying active world statistics and providing entity/structure life-cycle controls.
+    """
 
     def __init__(self, manager: EntityManager, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -20,14 +22,12 @@ class LiveControlsPanel(QWidget):
 
     def _create_separator(self) -> QFrame:
         sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setObjectName("MenuSeparator")
+        sep.setFrameShape(QFrame.Shape.HLine); sep.setObjectName("MenuSeparator")
         return sep
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(8)
 
         # Section Header
         live_label = QLabel("Live Controls:")
@@ -38,8 +38,7 @@ class LiveControlsPanel(QWidget):
         alive_frame = QFrame()
         alive_frame.setObjectName("ActionRow")
         alive_layout = QHBoxLayout(alive_frame)
-        alive_layout.setContentsMargins(10, 5, 10, 5)
-        alive_layout.setSpacing(6)
+        alive_layout.setContentsMargins(10, 5, 10, 5); alive_layout.setSpacing(6)
 
         self.alive_count_label = QLabel("Alive: 0")
         self.alive_count_label.setObjectName("StatAliveLabel")
@@ -64,8 +63,7 @@ class LiveControlsPanel(QWidget):
         dead_frame = QFrame()
         dead_frame.setObjectName("ActionRow")
         dead_layout = QHBoxLayout(dead_frame)
-        dead_layout.setContentsMargins(10, 5, 10, 5)
-        dead_layout.setSpacing(6)
+        dead_layout.setContentsMargins(10, 5, 10, 5); dead_layout.setSpacing(6)
 
         self.dead_count_label = QLabel("Dead: 0")
         self.dead_count_label.setObjectName("StatDeadLabel")
@@ -90,8 +88,7 @@ class LiveControlsPanel(QWidget):
         struct_frame = QFrame()
         struct_frame.setObjectName("ActionRow")
         struct_layout = QHBoxLayout(struct_frame)
-        struct_layout.setContentsMargins(10, 5, 10, 5)
-        struct_layout.setSpacing(6)
+        struct_layout.setContentsMargins(10, 5, 10, 5); struct_layout.setSpacing(6)
 
         self.struct_count_label = QLabel("Structures: 0")
         self.struct_count_label.setObjectName("StatStructLabel")
@@ -110,8 +107,7 @@ class LiveControlsPanel(QWidget):
         item_frame = QFrame()
         item_frame.setObjectName("ActionRow")
         item_layout = QHBoxLayout(item_frame)
-        item_layout.setContentsMargins(10, 5, 10, 5)
-        item_layout.setSpacing(6)
+        item_layout.setContentsMargins(10, 5, 10, 5); item_layout.setSpacing(6)
 
         self.item_count_label = QLabel("Items: 0")
         self.item_count_label.setObjectName("StatItemLabel")
@@ -133,8 +129,7 @@ class LiveControlsPanel(QWidget):
         global_label.setObjectName("SectionHeader")
         layout.addWidget(global_label)
 
-        global_layout = QHBoxLayout()
-        global_layout.setSpacing(8)
+        global_layout = QHBoxLayout(); global_layout.setSpacing(8)
 
         self.close_all_entities_btn = QPushButton("Close All Entities")
         self.close_all_entities_btn.setToolTip("Close all entities regardless of alive/dead state")

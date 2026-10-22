@@ -3,17 +3,19 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Optional, cast, Any
 
-from PySide6.QtWidgets import QGraphicsItem, QGraphicsTextItem, QStyleOptionGraphicsItem, QWidget
-from PySide6.QtGui import (
-    QPainterPath, QPainter, QColor, QPen, QBrush, QFont, QTextDocument, QTextOption
-)
+from PySide6.QtWidgets import QGraphicsItem, QGraphicsTextItem
+from PySide6.QtGui import QPainterPath, QPainter, QColor, QPen, QBrush, QFont
 from PySide6.QtCore import QRectF, Qt
 
 if TYPE_CHECKING:
+    from PySide6.QtWidgets import QWidget, QStyleOptionGraphicsItem
+    from PySide6.QtGui import QTextOption, QTextDocument
     from pytoningans.core.entity.living_entity import Entity
 
 class SpeechBubble(QGraphicsItem):
-    """Interactive speech bubble with typewriter animation, impact shake, and interruption override."""
+    """
+    Interactive speech bubble with typewriter animation, impact shake, and interruption override.
+    """
     def __init__(self, parent_entity: Entity) -> None:
         super().__init__(parent_entity)
         self.entity: Optional[Entity] = parent_entity
@@ -22,12 +24,11 @@ class SpeechBubble(QGraphicsItem):
         self.text_item: Optional[QGraphicsTextItem] = QGraphicsTextItem(self)
         self.text_item.setDefaultTextColor(QColor("#FFFFFF"))
         
-        font = QFont("Pixel Code", 11)
+        font = QFont("Pixel Code", 11); font.setStyleHint(QFont.StyleHint.Monospace)
         self.text_item.setFont(font)
         
         # Target layout bounds
-        self._target_w: float = 0.0
-        self._target_h: float = 0.0
+        self._target: tuple[float, float] = (0.0, 0.0)
         self.time_left: int = 0
         
         # Typewriter animation state
@@ -46,8 +47,7 @@ class SpeechBubble(QGraphicsItem):
         self.shake_time_left: int = 0
         self.shake_duration: int = 0
         self.shake_amplitude: float = 0.0
-        self._shake_offset_x: float = 0.0
-        self._shake_offset_y: float = 0.0
+        self._shake_offset: tuple[float, float] = (0.0, 0.0)
         
         self.hide()
 
@@ -79,12 +79,12 @@ class SpeechBubble(QGraphicsItem):
             
         self.prepareGeometryChange()
         text_rect: QRectF = self.text_item.boundingRect()
-        self._target_w = text_rect.width()
-        self._target_h = text_rect.height()
+        self._target = (text_rect.width(), text_rect.height())
         
         # Center the text item horizontally within the bubble and position above comic tail
         # (15 tail + 10 padding = 25)
-        self.text_item.setPos(-self._target_w / 2.0, -self._target_h - 25.0)
+        target_w, target_h = self._target
+        self.text_item.setPos(-target_w / 2.0, -target_h - 25.0)
         
         # Start typewriter animation
         if len(text) > 0:
@@ -131,9 +131,9 @@ class SpeechBubble(QGraphicsItem):
                 
             self.prepareGeometryChange()
             text_rect: QRectF = self.text_item.boundingRect()
-            self._target_w = text_rect.width()
-            self._target_h = text_rect.height()
-            self.text_item.setPos(-self._target_w / 2.0, -self._target_h - 25.0)
+            self._target = (text_rect.width(), text_rect.height())
+            target_w, target_h = self._target
+            self.text_item.setPos(-target_w / 2.0, -target_h - 25.0)
             
             # Violent impact shake
             self.shake(amplitude=7.0, duration_ms=400)
@@ -166,27 +166,39 @@ class SpeechBubble(QGraphicsItem):
         self._pending_override_text = None
         self.is_typewriting = False
         self.shake_time_left = 0
-        self._shake_offset_x = 0.0
-        self._shake_offset_y = 0.0
+        self._shake_offset = (0.0 ,0.0)
         self.time_left = 0
 
     def boundingRect(self) -> QRectF:
         padding: int = 10
-        text_w: float = self.text_item.boundingRect().width() if self.text_item is not None else 0.0
-        text_h: float = self.text_item.boundingRect().height() if self.text_item is not None else 0.0
-        w: float = (self._target_w if self._target_w > 0 else text_w) + (padding * 2) + 4
-        height: float = (self._target_h if self._target_h > 0 else text_h) + (padding * 2) + 15 + 4
+        text_w: float = (
+            self.text_item.boundingRect().width() if self.text_item is not None else 0.0
+        )
+        text_h: float = (
+            self.text_item.boundingRect().height() if self.text_item is not None else 0.0
+        )
+        target_w, target_h = self._target
+        w: float = (target_w if target_w > 0 else text_w) + (padding * 2) + 4
+        height: float = (
+            (target_h if target_h > 0 else text_h) +
+            (padding * 2) + 15 + 4
+        )
         return QRectF(-w / 2.0, -height, w, height)
 
     def paint(
-        self, painter: QPainter, _: QStyleOptionGraphicsItem,
-        /, widget: Optional[QWidget] = None
+        self, painter: QPainter, _: QStyleOptionGraphicsItem, /,
+        widget: Optional[QWidget] = None
     ) -> None:
         padding: int = 10
-        text_w: float = self.text_item.boundingRect().width() if self.text_item is not None else 0.0
-        text_h: float = self.text_item.boundingRect().height() if self.text_item is not None else 0.0
-        w: float = (self._target_w if self._target_w > 0 else text_w) + (padding * 2)
-        h: float = (self._target_h if self._target_h > 0 else text_h) + (padding * 2)
+        text_w: float = (
+            self.text_item.boundingRect().width() if self.text_item is not None else 0.0
+        )
+        text_h: float = (
+            self.text_item.boundingRect().height() if self.text_item is not None else 0.0
+        )
+        target_w, target_h = self._target
+        w: float = (target_w if target_w > 0 else text_w) + (padding * 2)
+        h: float = (target_h if target_h > 0 else text_h) + (padding * 2)
         
         # Shift the main rectangle up by 15px to leave room for the comic tail
         x: float = -w / 2.0
@@ -213,13 +225,14 @@ class SpeechBubble(QGraphicsItem):
         if self.shake_time_left > 0:
             self.shake_time_left -= dt
             if self.shake_time_left <= 0:
-                self._shake_offset_x = 0.0
-                self._shake_offset_y = 0.0
+                self._shake_offset = (0.0, 0.0)
             else:
                 progress: float = 1.0 - (self.shake_time_left / max(1, self.shake_duration))
                 damping: float = (1.0 - progress) ** 1.2
-                self._shake_offset_x = math.sin(progress * 35.0) * self.shake_amplitude * damping
-                self._shake_offset_y = math.cos(progress * 25.0) * (self.shake_amplitude * 0.4) * damping
+                self._shake_offset = (
+                    math.sin(progress * 35.0) * self.shake_amplitude * damping,
+                    math.cos(progress * 25.0) * (self.shake_amplitude * 0.4) * damping
+                )
             self.update_position()
             self.update()
 
@@ -228,8 +241,8 @@ class SpeechBubble(QGraphicsItem):
             self._interrupt_hold_left -= dt
             if self._interrupt_hold_left <= 0:
                 if self._pending_override_text is not None:
-                    text_to_speak = self._pending_override_text
-                    duration = self._pending_override_duration
+                    text_to_speak: str = self._pending_override_text
+                    duration: int = self._pending_override_duration
                     self._pending_override_text = None
                     self.speak(text_to_speak, duration)
             return
@@ -277,12 +290,13 @@ class SpeechBubble(QGraphicsItem):
         ):
             y = -18.0
         
-        self.setPos(x + self._shake_offset_x, y + self._shake_offset_y)
+        shake_offset_x, shake_offset_y = self._shake_offset
+        self.setPos(x + shake_offset_x, y + shake_offset_y)
 
     def detach(self) -> None:
         """Tears down scene attachment, child text item, and parent circular reference."""
         self.setParentItem(cast(Any, None))
-        if self.scene():
+        if self.scene() is not None:
             self.scene().removeItem(self)
         if self.text_item is not None:
             self.text_item.setParentItem(cast(Any, None))

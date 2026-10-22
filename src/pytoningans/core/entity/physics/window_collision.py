@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 from dataclasses import dataclass
-from PySide6.QtCore import QRect
 
 from pytoningans.core.constants import EntityState
 from .helpers import get_effective_hitbox, get_world_horizontal_range
 
 if TYPE_CHECKING:
+    from PySide6.QtCore import QRect
     from pytoningans.core.entity.base_entity import BaseEntity
     from pytoningans.core.entity.ai import AISystem
 
@@ -29,14 +29,12 @@ def _detect_side_collision(
     dx: float,
     win: QRect,
     hitbox: QRect,
-    curr_left: float,
-    curr_right: float,
-    step_left: float,
-    step_right: float,
+    curr_left: float, curr_right: float,
+    step_left: float, step_right: float,
 ) -> Optional[_SideCollision]:
     """
-    Checks if horizontal step enters a window wall from outside.
-    Returns (side, aligned_x, adjusted_x, push_step, atk_facing_left, block_facing_left) or None.
+    Checks if horizontal step enters a window wall from outside.\n
+    Returns `SideCollision` dataclass or `None`.
     """
     aligned_x: float = 0.0
     adjusted_x: float = 0.0
@@ -48,7 +46,10 @@ def _detect_side_collision(
         aligned_x = float(win.left() - hitbox.x() - hitbox.width())
         adjusted_x = aligned_x - 1.0
         push_step = max(1, int(round(step_right - win.left())))
-        return _SideCollision("left", aligned_x, adjusted_x, push_step, False, True)
+        return _SideCollision(
+            "left", aligned_x, adjusted_x, push_step,
+            atk_facing_left=False, block_facing_left=True
+        )
 
     # Moving LEFT: entering window right wall from outside
     if dx < 0 and curr_left >= win.right() - 6:
@@ -57,7 +58,10 @@ def _detect_side_collision(
         aligned_x = float(win.right() - hitbox.x())
         adjusted_x = aligned_x + 1.0
         push_step = min(-1, int(round(step_left - win.right())))
-        return _SideCollision("right", aligned_x, adjusted_x, push_step, True, False)
+        return _SideCollision(
+            "right", aligned_x, adjusted_x, push_step,
+            atk_facing_left=True, block_facing_left=False
+        )
 
     return None
 
@@ -83,7 +87,9 @@ def _try_trigger_attack(entity: BaseEntity, facing_left: bool) -> bool:
 def _block_and_turn(
     entity: BaseEntity, facing_left: bool, adjusted_x: float
 ) -> tuple[float, bool]:
-    """Stops the entity at the window wall, turns it around, and enters IDLE state."""
+    """
+    Stops the entity at the window wall, turns it around, and enters IDLE state.
+    """
     entity.facing_left = facing_left
     entity.target_pos = None
     entity.sprite_rotation = 0.0
@@ -175,8 +181,8 @@ def resolve_window_side_collisions(
     entity: BaseEntity, curr_x: float, step_x: float, dx: float
 ) -> tuple[float, bool]:
     """
-    Checks horizontal movement against active desktop windows.
-    Returns (adjusted_step_x, did_collide).
+    Checks horizontal movement against active desktop windows.\n
+    Returns `(adjusted_step_x, did_collide)`.
     """
     if (
         dx == 0 or
@@ -200,13 +206,13 @@ def resolve_window_side_collisions(
         not entity.mod_manager.can_fly and
         entity.physics_sys is not None and
         not getattr(entity, "is_dead", False) and
-        not getattr(entity, "is_dragged", False)
+        not entity.is_dragged
     )
 
     can_move_win: bool = (
         entity.mod_manager.can_move_windows and
         not getattr(entity, "is_dead", False) and
-        not getattr(entity, "is_dragged", False)
+        not entity.is_dragged
     )
     move_mode: str = entity.mod_manager.window_move_mode
 
@@ -222,10 +228,8 @@ def resolve_window_side_collisions(
             dx=dx,
             win=win,
             hitbox=hitbox,
-            curr_left=curr_left,
-            curr_right=curr_right,
-            step_left=step_left,
-            step_right=step_right,
+            curr_left=curr_left, curr_right=curr_right,
+            step_left=step_left, step_right=step_right,
         )
         if collision is None:
             continue
@@ -238,7 +242,7 @@ def resolve_window_side_collisions(
         #? Window pushing
         if can_move_win and move_mode in ("push", "both"):
             if entity.world.move_window(win, collision.push_step, 0):
-                new_aligned_x = (
+                new_aligned_x: float = (
                     float(win.left() - hitbox.x() - hitbox.width())
                     if collision.side == "left" else
                     float(win.right() - hitbox.x())
@@ -300,8 +304,8 @@ def find_candidate_platforms(
     entity: BaseEntity, ground_y: float, current_gravity: float
 ) -> tuple[float, Optional[QRect]]:
     """
-    Finds the highest applicable platform floor beneath or crossed by the entity during this frame.
-    Returns (effective_ground_y, matched_platform_rect).
+    Finds the highest applicable platform floor beneath or crossed by the entity during this frame.\n
+    Returns `(effective_ground_y, matched_platform_rect)`.
     """
     if entity.world is None or not entity.should_use_window_physics:
         return ground_y, None
@@ -337,8 +341,8 @@ def find_candidate_platforms(
 
 def check_window_ceiling_collision(entity: BaseEntity, new_y: float) -> tuple[float, bool]:
     """
-    Checks if an upward moving entity hits the bottom of an active desktop window.
-    Returns (adjusted_new_y, did_collide).
+    Checks if an upward moving entity hits the bottom of an active desktop window.\n
+    Returns `(adjusted_new_y, did_collide)`.
     """
     if (
         entity.velocity_y >= 0 or
@@ -404,7 +408,7 @@ def resolve_window_vertical_collisions(
     can_move_win: bool = (
         entity.mod_manager.can_move_windows and
         not getattr(entity, "is_dead", False) and
-        not getattr(entity, "is_dragged", False)
+        not entity.is_dragged
     )
     move_mode: str = entity.mod_manager.window_move_mode
 

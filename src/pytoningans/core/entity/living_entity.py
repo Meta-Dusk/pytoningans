@@ -1,26 +1,26 @@
 from __future__ import annotations
 
 import random
-from typing import Optional, cast, TYPE_CHECKING, Union
+from typing import Optional, cast, TYPE_CHECKING
 
 from PySide6.QtCore import QEasingCurve, QPointF, QVariantAnimation
-from PySide6.QtWidgets import QGraphicsSceneContextMenuEvent
 
-from pytoningans.core.api import BaseBehavior, BaseEntityBehavior, IEntity, Pos2D
+from pytoningans.core.api import BaseEntityBehavior
 from pytoningans.core.constants import AnimationMeta, DeathAnimation, EntityState
+from pytoningans.core.settings import SettingsManager
 
 from pytoningans.core.entity.ai import AISystem
 from pytoningans.core.entity.base_entity import BaseEntity
 from pytoningans.core.entity.indicators import HealthBarItem
 from pytoningans.core.entity.speech_bubble import SpeechBubble
 
-from pytoningans.core.mod_manager import ModManager
-from pytoningans.core.world import WorldOverlay
-from pytoningans.core.settings import SettingsManager
-
 if TYPE_CHECKING:
+    from PySide6.QtWidgets import QGraphicsSceneContextMenuEvent
     from pytoningans.core.entity_manager import EntityManager
     from pytoningans.core.entity.base_item import BaseItem
+    from pytoningans.core.mod_manager import ModManager
+    from pytoningans.core.world import WorldOverlay
+    from pytoningans.core.api import BaseBehavior, IEntity
 
 
 class Entity(BaseEntity):
@@ -33,8 +33,8 @@ class Entity(BaseEntity):
         self.entity_manager = entity_manager
 
         self.is_dead: bool = False
-        self.current_health: int = mod_manager.max_health if mod_manager else 100
-        self.regen_rate: float = mod_manager.regen_rate if mod_manager is not None else 0.0
+        self.current_health: int = mod_manager.max_health
+        self.regen_rate: float = mod_manager.regen_rate
         self._regen_accumulator: float = 0.0
         self.damage_tint_time_left: int = 0
         self.revive_time_left: int = 0
@@ -118,7 +118,7 @@ class Entity(BaseEntity):
             if behavior is None: return
             if isinstance(behavior, BaseEntityBehavior):
                 try:
-                    behavior.on_update(cast(IEntity, self), dt)
+                    behavior.on_update(cast("IEntity", self), dt)
                 except Exception as e:
                     print(f"Custom Entity on_update Error: {e}")
 
@@ -305,7 +305,9 @@ class Entity(BaseEntity):
         self._on_revive()
 
     def say(self, text: str, duration_ms: int = 4000, is_death: bool = False) -> None:
-        """Displays a speech bubble with the given text and notifies custom behavior."""
+        """
+        Displays a speech bubble with the given text and notifies custom behavior.
+        """
         if self.is_dead and not is_death: return
         if self.bubble is None:
             self.bubble = SpeechBubble(self)
@@ -349,21 +351,21 @@ class Entity(BaseEntity):
         behavior: Optional[BaseBehavior] = self.behavior
         if not isinstance(behavior, BaseEntityBehavior): return
 
-        entity_api: IEntity = cast(IEntity, self)
+        entity_api: IEntity = cast("IEntity", self)
         behavior.on_death(entity_api)
 
     def _on_revive(self) -> None:
         behavior: Optional[BaseBehavior] = self.behavior
         if not isinstance(behavior, BaseEntityBehavior): return
 
-        entity_api: IEntity = cast(IEntity, self)
+        entity_api: IEntity = cast("IEntity", self)
         behavior.on_revive(entity_api)
 
     def _on_speak(self, text: str) -> None:
         behavior: Optional[BaseBehavior] = self.behavior
         if not isinstance(behavior, BaseEntityBehavior): return
         try:
-            behavior.on_speak(cast(IEntity, self), text)
+            behavior.on_speak(cast("IEntity", self), text)
         except Exception as e:
             print(f"Custom Entity on_speak Error: {e}")
 
@@ -371,7 +373,7 @@ class Entity(BaseEntity):
         behavior: Optional[BaseBehavior] = self.behavior
         if not isinstance(behavior, BaseEntityBehavior): return
         try:
-            behavior.on_damage(cast(IEntity, self), amount)
+            behavior.on_damage(cast("IEntity", self), amount)
         except Exception as e:
             print(f"Custom Entity on_damage Error: {e}")
 

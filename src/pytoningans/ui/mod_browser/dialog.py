@@ -505,56 +505,56 @@ class ModBrowserDialog(QDialog):
         if target_dir.exists():
             dialog = ModInspectorDialog(target_dir, self)
             dialog.exec()
-        else:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                preview_dir: Path = Path(temp_dir) / item.id
-                preview_dir.mkdir(parents=True, exist_ok=True)
+            return
+        with tempfile.TemporaryDirectory() as temp_dir:
+            preview_dir: Path = Path(temp_dir) / item.id
+            preview_dir.mkdir(parents=True, exist_ok=True)
 
-                if item.is_pack:
-                    (preview_dir / "pack.json").write_text(
+            if item.is_pack:
+                (preview_dir / "pack.json").write_text(
+                    json.dumps({
+                        "id": item.id,
+                        "name": item.name,
+                        "version": item.version,
+                        "author": item.author,
+                        "description": item.description,
+                    }, indent=2),
+                    encoding="utf-8",
+                )
+                (preview_dir / "pack.py").write_text(
+                    f'"""Shared controller for {item.name}."""\n'
+                    "from pytoningans.core.api import BaseModPack, PackMenuAction\n\n"
+                    "class PackController(BaseModPack):\n"
+                    "    def on_pack_loaded(self) -> None:\n"
+                    "        pass\n",
+                    encoding="utf-8",
+                )
+                for entity_name in item.contained_entities:
+                    slug: str = entity_name.lower().replace(" ", "_")
+                    entity_path: Path = preview_dir / "entities" / slug
+                    entity_path.mkdir(parents=True, exist_ok=True)
+                    (entity_path / "config.json").write_text(
                         json.dumps({
-                            "id": item.id,
-                            "name": item.name,
-                            "version": item.version,
-                            "author": item.author,
-                            "description": item.description,
-                        }, indent=2),
-                        encoding="utf-8",
-                    )
-                    (preview_dir / "pack.py").write_text(
-                        f'"""Shared controller for {item.name}."""\n'
-                        "from pytoningans.core.api import BaseModPack, PackMenuAction\n\n"
-                        "class PackController(BaseModPack):\n"
-                        "    def on_pack_loaded(self) -> None:\n"
-                        "        pass\n",
-                        encoding="utf-8",
-                    )
-                    for entity_name in item.contained_entities:
-                        slug: str = entity_name.lower().replace(" ", "_")
-                        entity_path: Path = preview_dir / "entities" / slug
-                        entity_path.mkdir(parents=True, exist_ok=True)
-                        (entity_path / "config.json").write_text(
-                            json.dumps({
-                                "name": entity_name,
-                                "entity_type": EntityType.ENTITY.value,
-                                "version": CURRENT_CONFIG_VERSION,
-                            }, indent=2),
-                            encoding="utf-8",
-                        )
-                        self.client._create_placeholder_sprite(entity_path / "sprite_sheet.png")
-                else:
-                    (preview_dir / "config.json").write_text(
-                        json.dumps({
-                            "name": item.name,
-                            "entity_type": item.entity_type,
+                            "name": entity_name,
+                            "entity_type": EntityType.ENTITY.value,
                             "version": CURRENT_CONFIG_VERSION,
                         }, indent=2),
                         encoding="utf-8",
                     )
-                    self.client._create_placeholder_sprite(preview_dir / "sprite_sheet.png")
+                    self.client._create_placeholder_sprite(entity_path / "sprite_sheet.png")
+            else:
+                (preview_dir / "config.json").write_text(
+                    json.dumps({
+                        "name": item.name,
+                        "entity_type": item.entity_type,
+                        "version": CURRENT_CONFIG_VERSION,
+                    }, indent=2),
+                    encoding="utf-8",
+                )
+                self.client._create_placeholder_sprite(preview_dir / "sprite_sheet.png")
 
-                dialog = ModInspectorDialog(preview_dir, self)
-                dialog.exec()
+            dialog = ModInspectorDialog(preview_dir, self)
+            dialog.exec()
 
     def _on_rate_requested(self, item: CommunityModItem) -> None:
         """Opens rating dialog to submit a score."""

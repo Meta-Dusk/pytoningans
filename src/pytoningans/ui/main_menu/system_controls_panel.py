@@ -24,14 +24,12 @@ class SystemControlsPanel(QWidget):
 
     def _create_separator(self) -> QFrame:
         sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setObjectName("MenuSeparator")
+        sep.setFrameShape(QFrame.Shape.HLine); sep.setObjectName("MenuSeparator")
         return sep
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(8)
 
         # Mod Management and Settings Section
         mod_label = QLabel("Management and Settings:")

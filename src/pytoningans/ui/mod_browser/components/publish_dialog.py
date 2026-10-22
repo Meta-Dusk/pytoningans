@@ -254,7 +254,6 @@ class PublishModDialog(QDialog):
             self.security_status_label.style().unpolish(self.security_status_label)
             self.security_status_label.style().polish(self.security_status_label)
 
-    # FIXME: Publishing modpacks doesn't work!
     def _on_publish_clicked(self) -> None:
         target_id: Optional[str] = self.mod_combo.currentData()
         if target_id is None or not target_id:

@@ -9,7 +9,7 @@ Provides an interactive modal dialog for:
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtWidgets import (
@@ -20,8 +20,11 @@ from PySide6.QtWidgets import (
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.utils.assets import get_main_icon, get_google_icon, get_github_icon
 from pytoningans.utils.avatar import AvatarLabel
-from ..auth import AuthManager, UserProfile
+from ..auth import AuthManager
 from ..async_workers import AuthWorker
+
+if TYPE_CHECKING:
+    from ..auth import UserProfile
 
 
 class AuthDialog(QDialog):
@@ -33,8 +36,7 @@ class AuthDialog(QDialog):
         self._auth_worker: Optional[AuthWorker] = None
 
 
-        self.setWindowTitle("Creator Account")
-        self.setWindowIcon(get_main_icon())
+        self.setWindowTitle("Creator Account"); self.setWindowIcon(get_main_icon())
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.resize(460, 520)
@@ -94,8 +96,7 @@ class AuthDialog(QDialog):
 
         # Tab 1: Sign In
         sign_in_tab = QWidget()
-        si_layout = QVBoxLayout(sign_in_tab)
-        si_layout.setSpacing(10)
+        si_layout = QVBoxLayout(sign_in_tab); si_layout.setSpacing(10)
 
         si_layout.addWidget(QLabel("Email Address:"))
         self.si_email_input = QLineEdit()
@@ -146,8 +147,7 @@ class AuthDialog(QDialog):
 
         # Tab 2: Create Account
         su_tab = QWidget()
-        su_layout = QVBoxLayout(su_tab)
-        su_layout.setSpacing(10)
+        su_layout = QVBoxLayout(su_tab); su_layout.setSpacing(10)
 
         su_layout.addWidget(QLabel("Creator Username:"))
         self.su_username_input = QLineEdit()
@@ -220,7 +220,9 @@ class AuthDialog(QDialog):
         # Bottom Bar: Offline Mode / Advanced Server Settings + Cancel
         btn_layout = QHBoxLayout()
         self.offline_creator_btn = QPushButton("Continue in Offline Mode")
-        self.offline_creator_btn.setToolTip("Set up a local creator profile for offline mod management")
+        self.offline_creator_btn.setToolTip(
+            "Set up a local creator profile for offline mod management"
+        )
         self.offline_creator_btn.setObjectName("LinkBtn")
         self.offline_creator_btn.clicked.connect(self._on_offline_creator_clicked)
         btn_layout.addWidget(self.offline_creator_btn)
@@ -257,7 +259,7 @@ class AuthDialog(QDialog):
             text="LocalCreator",
         )
         if ok and username.strip():
-            user = self.auth.sign_in_locally(username.strip())
+            user: UserProfile = self.auth.sign_in_locally(username.strip())
             QMessageBox.information(
                 self, "Offline Mode", f"Operating in offline mode as '{user.username}'."
             )

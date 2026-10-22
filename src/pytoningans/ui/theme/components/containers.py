@@ -173,6 +173,16 @@ QLabel#StatusBadgeOffline {{
     padding: 4px 8px;
 }}
 
+QLabel#BadgeLocal {{
+    background-color: rgba(203, 166, 247, 0.2);
+    color: #cba6f7;
+    border: 1px solid #cba6f7;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: bold;
+}}
+
 /* --- Banners and Verification Frames --- */
 QLabel#UserBanner {{
     background-color: {p.badge_info_bg};

@@ -44,6 +44,7 @@ def main() -> None:
         default_font.setStyleStrategy(QFont.StyleStrategy.PreferBitmap)
         default_font.setKerning(True)
         default_font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
+        default_font.setStyleHint(QFont.StyleHint.Monospace)
         
         app.setFont(default_font)
     

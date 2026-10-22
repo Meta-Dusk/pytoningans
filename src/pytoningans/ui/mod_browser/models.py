@@ -12,6 +12,7 @@ from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
 from pytoningans.core.roles import get_github_for_creator, is_developer_account
 from pytoningans.utils.paths import get_app_version, _DEFAULT_APP_VERSION
+from pytoningans.utils.format import formatted_size
 
 
 def parse_semver(ver: str) -> tuple[int, ...]:
@@ -126,12 +127,7 @@ class CommunityModItem:
     @property
     def formatted_size(self) -> str:
         """Returns human-readable size string (e.g. 1.2 MB)."""
-        if self.size_bytes < 1024:
-            return f"{self.size_bytes} B"
-        elif self.size_bytes < 1024 * 1024:
-            return f"{self.size_bytes / 1024:.1f} KB"
-        else:
-            return f"{self.size_bytes / (1024 * 1024):.1f} MB"
+        return formatted_size(self.size_bytes)
 
     @property
     def formatted_rating(self) -> str:

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import math
 from typing import TYPE_CHECKING, Optional
-from PySide6.QtCore import QPointF, QRect
+from PySide6.QtCore import QPointF
 
 from pytoningans.core.constants import EntityState
 from .helpers import get_effective_hitbox
 
 if TYPE_CHECKING:
+    from PySide6.QtCore import QRect
     from pytoningans.core.entity.base_entity import BaseEntity
     from pytoningans.core.entity.base_structure import BaseStructure
     from pytoningans.core.entity.living_entity import Entity
@@ -18,11 +19,10 @@ def apply_soft_repulsion(
     current_move_speed: float,
     centers: Optional[dict[BaseEntity, QPointF]] = None,
 ) -> None:
-    """Gently repels overlapping entities and structures to prevent dense clustering."""
-    if (
-        entity.mod_manager is None or
-        entity.world is None
-    ):
+    """
+    Gently repels overlapping entities and structures to prevent dense clustering.
+    """
+    if entity.mod_manager is None or entity.world is None:
         return
     if entity.state in (EntityState.DRAG, EntityState.MOVING):
         return
@@ -33,7 +33,9 @@ def apply_soft_repulsion(
         entity.x() + hitbox.center().x(),
         entity.y() + hitbox.center().y(),
     )
-    my_center: Optional[QPointF] = centers.get(entity) if centers else fallback_center
+    my_center: Optional[QPointF] = (
+        centers.get(entity) if centers is not None else fallback_center
+    )
 
     repel_x, repel_y = 0.0, 0.0
     min_dist: float = hitbox.width() * 0.6
@@ -51,7 +53,9 @@ def apply_soft_repulsion(
             other.x() + other.current_hitbox.center().x(),
             other.y() + other.current_hitbox.center().y(),
         )
-        other_center: Optional[QPointF] = centers.get(other) if centers else other_fallback
+        other_center: Optional[QPointF] = (
+            centers.get(other) if centers is not None else other_fallback
+        )
         if other_center is None or my_center is None:
             continue
 

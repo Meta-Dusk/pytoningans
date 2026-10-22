@@ -234,9 +234,8 @@ class BaseEntity(
 
     @move_speed.setter
     def move_speed(self, value: float) -> None:
-        val = float(value)
         if self.physics_sys is not None:
-            self.physics_sys.move_speed = val
+            self.physics_sys.move_speed = value
 
     @property
     def is_interactable(self) -> bool:

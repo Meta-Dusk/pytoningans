@@ -46,8 +46,7 @@ class MainMenu(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
 
         main_layout: QVBoxLayout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, 0); main_layout.setSpacing(0)
 
         self.title_bar: CustomTitleBar = CustomTitleBar(self, "Control Panel")
         main_layout.addWidget(self.title_bar)
@@ -169,4 +168,3 @@ class MainMenu(QWidget):
 
     def _on_browser_destroyed(self) -> None:
         self.browser_dialog = None
-

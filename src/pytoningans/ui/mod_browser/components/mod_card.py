@@ -20,12 +20,23 @@ from ..models import CommunityModItem
 class ModCardWidget(QFrame):
     """Card widget representing an individual community mod or modpack listing."""
 
-    install_requested = Signal(object)    # CommunityModItem
-    uninstall_requested = Signal(object)  # CommunityModItem
-    update_requested = Signal(object)     # CommunityModItem
-    inspect_requested = Signal(object)    # CommunityModItem
-    rate_requested = Signal(object)       # CommunityModItem
-    publish_requested = Signal(object)    # CommunityModItem
+    install_requested = Signal(object)
+    """Passes object of type `CommunityModItem`."""
+    
+    uninstall_requested = Signal(object)
+    """Passes object of type `CommunityModItem`."""
+    
+    update_requested = Signal(object)
+    """Passes object of type `CommunityModItem`."""
+    
+    inspect_requested = Signal(object)
+    """Passes object of type `CommunityModItem`."""
+    
+    rate_requested = Signal(object)
+    """Passes object of type `CommunityModItem`."""
+    
+    publish_requested = Signal(object)
+    """Passes object of type `CommunityModItem`."""
 
     def __init__(self, item: CommunityModItem, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -33,8 +44,7 @@ class ModCardWidget(QFrame):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.setFrameShape(QFrame.Shape.StyledPanel)
-        self.setObjectName("ModCardWidget")
+        self.setFrameShape(QFrame.Shape.StyledPanel); self.setObjectName("ModCardWidget")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12); layout.setSpacing(8)
@@ -62,7 +72,7 @@ class ModCardWidget(QFrame):
 
         # Outdated warning badge
         if self.item.is_outdated:
-            reasons_text = "\n• ".join(self.item.outdated_reasons)
+            reasons_text: str = "\n• ".join(self.item.outdated_reasons)
             outdated_badge = QLabel("Outdated")
             outdated_badge.setToolTip(f"Outdated Compatibility Warning:\n• {reasons_text}")
             outdated_badge.setObjectName("BadgeWarning")
@@ -72,19 +82,10 @@ class ModCardWidget(QFrame):
         if self.item.is_local_only:
             local_badge = QLabel(f"★ Local Creation (v{self.item.version})")
             local_badge.setObjectName("BadgeLocal")
-            local_badge.setStyleSheet("""
-                background-color: rgba(203, 166, 247, 0.2);
-                color: #cba6f7;
-                border: 1px solid #cba6f7;
-                border-radius: 4px;
-                padding: 2px 6px;
-                font-size: 10px;
-                font-weight: bold;
-            """)
             header_layout.addWidget(local_badge)
         elif self.item.is_installed:
             if self.item.has_update:
-                update_badge = QLabel(f"↑ Update Available (v{self.item.version})")
+                update_badge = QLabel(f"➜] Update Available (v{self.item.version})")
                 update_badge.setToolTip(
                     f"Installed: v{self.item.installed_version} → Latest: v{self.item.version}"
                 )
@@ -211,7 +212,7 @@ class ModCardWidget(QFrame):
             footer_layout.addWidget(rating_lbl)
 
             # Downloads display
-            dl_lbl = QLabel(f"↓ {self.item.downloads}")
+            dl_lbl = QLabel(f"🡻 {self.item.downloads}")
             dl_lbl.setStyleSheet("color: #a6adc8; font-size: 12px;")
             footer_layout.addWidget(dl_lbl)
 
@@ -227,7 +228,7 @@ class ModCardWidget(QFrame):
 
             # Action 1: Rate button
             rate_btn = QPushButton("Rate")
-            rate_btn.setToolTip(f"Submit a rating (1-10) for {self.item.name}")
+            rate_btn.setToolTip(f"Submit a rating (1.0-10.0) for {self.item.name}")
             rate_btn.setStyleSheet("padding: 4px 8px; font-size: 11px;")
             rate_btn.clicked.connect(lambda: self.rate_requested.emit(self.item))
             footer_layout.addWidget(rate_btn)

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, Literal
-from PySide6.QtCore import QPointF, QRect
 
 from pytoningans.core.constants import EntityState
 from .gravity import tick_gravity_and_collisions
@@ -10,6 +9,7 @@ from .movement import tick_movement
 from .repulsion import apply_soft_repulsion
 
 if TYPE_CHECKING:
+    from PySide6.QtCore import QPointF, QRect
     from pytoningans.core.entity.base_entity import BaseEntity
     from pytoningans.core.mod_manager import ModManager
 
