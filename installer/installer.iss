@@ -46,7 +46,7 @@ Name: "custom"; Description: "Custom installation"; Flags: iscustom
 Name: "core"; Description: "Core Engine Files"; Types: full custom; Flags: fixed
 
 ; Modding API package
-Name: "api"; Description: "Modding API Package (api/)"; Types: full custom; Flags: fixed
+Name: "mods\api"; Description: "Modding API Package (api/)"; Types: full custom; Flags: fixed
 
 [Files]
 ; Core Application
