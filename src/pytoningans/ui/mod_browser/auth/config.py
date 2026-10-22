@@ -78,22 +78,46 @@ class AuthConfig:
     # ------------------------------------------------------------------
 
     def _load(self) -> None:
+        base_path: Path = get_base_path()
+        print(f"[AuthConfig] Resolving configuration. Base path: {base_path}")
         self._load_bundled_config()
         self._load_env_file()
         self._load_env_vars()
         self._load_user_override()
+        print(
+            "[AuthConfig] Configuration status: "
+            f"is_cloud_configured={self.is_cloud_configured}, "
+            f"url={'[SET]' if self.supabase_url else '[EMPTY]'}, "
+            f"key={'[SET]' if self.supabase_pub_key else '[EMPTY]'}"
+        )
 
     def _load_bundled_config(self) -> None:
         """Applies credentials from the installer-bundled cloud_config.json, if present."""
-        bundled_config: Path = get_base_path() / "cloud_config.json"
-        if not bundled_config.is_file():
+        base_path: Path = get_base_path()
+        bundled_config: Path = base_path / "cloud_config.json"
+        parent_config: Path = base_path.parent / "cloud_config.json"
+        
+        target_path: Optional[Path] = None
+        if bundled_config.is_file():
+            target_path = bundled_config
+        elif parent_config.is_file():
+            target_path = parent_config
+
+        if not target_path:
+            print(
+                f"[AuthConfig] Bundled cloud_config.json not found at {bundled_config} "
+                f"(also checked {parent_config})"
+            )
             return
+
+        print(f"[AuthConfig] Found cloud configuration at {target_path}")
         try:
-            data: dict[str, Any] = json.loads(bundled_config.read_text(encoding="utf-8"))
+            data: dict[str, Any] = json.loads(target_path.read_text(encoding="utf-8"))
             self.supabase_url = data.get("supabase_url", self.supabase_url)
             self.supabase_pub_key = data.get("supabase_anon_key", self.supabase_pub_key)
-        except Exception:
-            pass
+            print(f"[AuthConfig] Successfully loaded bundled config from {target_path}")
+        except Exception as e:
+            print(f"[AuthConfig] Error parsing {target_path}: {e}")
 
     def _load_env_file(self) -> None:
         """Applies credentials from a local .env file in the project root."""

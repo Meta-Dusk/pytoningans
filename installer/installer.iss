@@ -55,7 +55,7 @@ Source: "..\assets\icon.ico"; DestDir: "{app}"; Flags: ignoreversion; Components
 Source: "..\cloud_config.json"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: core
 
 ; Modding API
-Source: "..\src\pytoningans\core\api\*"; DestDir: "{userdocs}\{#MyAppName}\mods\api"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: api
+Source: "..\src\pytoningans\core\api\*"; DestDir: "{userdocs}\{#MyAppName}\mods\api"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: mods\api
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}\PyToNingans.dist"; IconFilename: "{app}\icon.ico"

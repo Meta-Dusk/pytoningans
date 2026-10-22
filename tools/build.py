@@ -39,6 +39,14 @@ def run_deploy(mode: str) -> None:
         print(f"\n[ERROR] pyside6-deploy failed for {mode} mode.")
         sys.exit(1)
 
+    # Ensure cloud_config.json is present in the build distribution folder if available in root
+    src_config: Path = ROOT_DIR / "cloud_config.json"
+    dist_dir: Path = ROOT_DIR / "build" / "PyToNingans.dist"
+    if src_config.is_file() and dist_dir.is_dir():
+        dest_config: Path = dist_dir / "cloud_config.json"
+        shutil.copy2(src_config, dest_config)
+        print(f"[INFO] Copied {src_config.name} to {dest_config}")
+
 def run_inno_setup(suffix: str) -> None:
     print(f"\n{'='*40}")
     print(f"📦 PACKAGING INSTALLER {suffix.upper()}")
