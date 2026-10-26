@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional, Any, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -25,6 +25,7 @@ from pytoningans.core.mod_manager import (
 from pytoningans.core.mod_manager.modpack import ModPack
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.utils.assets import get_main_icon
+from pytoningans.utils.format import formatted_size
 from ..auth import AuthManager
 from ..models import CommunityModItem, parse_semver
 from .auth_dialog import AuthDialog
@@ -338,13 +339,14 @@ class PublishModDialog(QDialog):
             QMessageBox.information(
                 self,
                 "Publication Success",
-                f"{pub_msg}\n\nPackage archive prepared ({size_bytes} bytes)."
+                f"{pub_msg}\n\nPackage archive prepared ({formatted_size(size_bytes)})."
             )
         else:
             QMessageBox.information(
                 self,
                 "Package Prepared",
-                f"Successfully prepared package archive for '{entity_name}' ({size_bytes} bytes)."
+                "Successfully prepared package archive for "
+                f"'{entity_name}' ({formatted_size(size_bytes)})."
             )
 
         self.accept()

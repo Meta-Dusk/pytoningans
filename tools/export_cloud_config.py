@@ -29,10 +29,10 @@ def main() -> None:
     env_vars: dict[str, str] = parse_env_file(env_file)
 
     url: str = os.environ.get("SUPABASE_URL") or env_vars.get("SUPABASE_URL", "")
-    key: str = os.environ.get("SUPABASE_ANON_KEY") or env_vars.get("SUPABASE_ANON_KEY", "")
+    key: str = os.environ.get("SUPABASE_PUB_KEY") or env_vars.get("SUPABASE_PUB_KEY", "")
 
     if not url or not key:
-        print("[WARN]  SUPABASE_URL or SUPABASE_ANON_KEY not found in .env or environment variables.")
+        print("[WARN]  SUPABASE_URL or SUPABASE_PUB_KEY not found in .env or environment variables.")
         print("[INFO]  To configure:")
         print("        1. Copy .env.example to .env")
         print("        2. Fill in your project URL and public anon key")
@@ -42,7 +42,7 @@ def main() -> None:
     target: Path = ROOT_DIR / "cloud_config.json"
     payload: dict[str, str] = {
         "supabase_url": url,
-        "supabase_anon_key": key,
+        "supabase_pub_key": key,
     }
     target.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print(f"[OK]    Successfully generated {target.name} from .env!")

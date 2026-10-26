@@ -19,14 +19,14 @@ class AuthConfig:
     Loads configuration in hierarchical priority:
     1. Bundled cloud_config.json in application folder (packaged by installer)
     2. Local .env file in project root (for developer convenience)
-    3. OS environment variables (SUPABASE_URL, SUPABASE_ANON_KEY)
+    3. OS environment variables (SUPABASE_URL, SUPABASE_PUB_KEY)
     4. User documents override (if customized via Advanced Server settings)
     """
 
     def __init__(self) -> None:
         self._config_path: Path = get_settings_path().parent / "supabase_config.json"
         self.supabase_url: str = os.environ.get("SUPABASE_URL", "")
-        self.supabase_pub_key: str = os.environ.get("SUPABASE_ANON_KEY", "")
+        self.supabase_pub_key: str = os.environ.get("SUPABASE_PUB_KEY", "")
         self._load()
 
     # ------------------------------------------------------------------
@@ -67,7 +67,7 @@ class AuthConfig:
         try:
             payload: dict[str, str] = {
                 "supabase_url": self.supabase_url,
-                "supabase_anon_key": self.supabase_pub_key,
+                "supabase_pub_key": self.supabase_pub_key,
             }
             self._config_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         except Exception:
@@ -114,7 +114,7 @@ class AuthConfig:
         try:
             data: dict[str, Any] = json.loads(target_path.read_text(encoding="utf-8"))
             self.supabase_url = data.get("supabase_url", self.supabase_url)
-            self.supabase_pub_key = data.get("supabase_anon_key", self.supabase_pub_key)
+            self.supabase_pub_key = data.get("supabase_pub_key", self.supabase_pub_key)
             print(f"[AuthConfig] Successfully loaded bundled config from {target_path}")
         except Exception as e:
             print(f"[AuthConfig] Error parsing {target_path}: {e}")
@@ -124,13 +124,13 @@ class AuthConfig:
         env_vars: dict[str, str] = self._read_env_file(get_base_path() / ".env")
         if "SUPABASE_URL" in env_vars:
             self.supabase_url = env_vars["SUPABASE_URL"]
-        if "SUPABASE_ANON_KEY" in env_vars:
-            self.supabase_pub_key = env_vars["SUPABASE_ANON_KEY"]
+        if "SUPABASE_PUB_KEY" in env_vars:
+            self.supabase_pub_key = env_vars["SUPABASE_PUB_KEY"]
 
     def _load_env_vars(self) -> None:
         """Applies credentials from OS environment variables."""
         self.supabase_url = os.environ.get("SUPABASE_URL", self.supabase_url)
-        self.supabase_pub_key = os.environ.get("SUPABASE_ANON_KEY", self.supabase_pub_key)
+        self.supabase_pub_key = os.environ.get("SUPABASE_PUB_KEY", self.supabase_pub_key)
 
     def _load_user_override(self) -> None:
         """Applies credentials from the user's personal server settings override file."""
@@ -139,7 +139,7 @@ class AuthConfig:
         try:
             data: dict[str, Any] = json.loads(self._config_path.read_text(encoding="utf-8"))
             self.supabase_url = data.get("supabase_url", self.supabase_url)
-            self.supabase_pub_key = data.get("supabase_anon_key", self.supabase_pub_key)
+            self.supabase_pub_key = data.get("supabase_pub_key", self.supabase_pub_key)
         except Exception:
             pass
 

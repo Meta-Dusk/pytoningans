@@ -123,7 +123,6 @@ class CommunityModItem:
             )
         return reasons
     
-    # TODO: Add formatted size to Mod Inspector window as well
     @property
     def formatted_size(self) -> str:
         """Returns human-readable size string (e.g. 1.2 MB)."""

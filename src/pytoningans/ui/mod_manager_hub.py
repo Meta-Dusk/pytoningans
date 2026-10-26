@@ -56,12 +56,10 @@ class ModManagerHub(QWidget):
         content_layout.setContentsMargins(16, 16, 16, 16); content_layout.setSpacing(16)
         
         # --- Left Column: Search and Table ---
-        table_layout = QVBoxLayout()
-        table_layout.setSpacing(8)
+        table_layout = QVBoxLayout(); table_layout.setSpacing(8)
         
         # Filter and Search Bar
-        filter_layout = QHBoxLayout()
-        filter_layout.setSpacing(8)
+        filter_layout = QHBoxLayout(); filter_layout.setSpacing(8)
         
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Filter by name, pack, or folder...")
@@ -401,8 +399,7 @@ class ModManagerHub(QWidget):
             self.mods_updated.emit()
             if dialog.is_pack_creation:
                 QMessageBox.information(
-                    self,
-                    "Modpack Created",
+                    self, "Modpack Created",
                     f"Modpack bundle '{dialog.new_mod_folder}' was successfully created.\n\n"
                     "You can now add entities, items, or structures into this modpack by selecting "
                     "'Add Object into Existing Modpack' in the Mod Creator.",

@@ -226,21 +226,23 @@ def get_available_packs(
 
 
 def resolve_mod_path(
-    mods_dir: Path, mod_id: str
+    mods_dir: Path, mod_id: str, debug: bool = False
 ) -> tuple[Optional[Path], Optional[str], Optional[str]]:
     """
     Resolves any mod_id (standalone folder name, 'pack:sub_id', or relative path)
     to (mod_dir_path, pack_id, sub_id).
     Returns (None, None, None) if not found.
     """
-    print(
-        "[resolve_mod_path] Attempting to resolve:\n"
-        f" -> mods_dir: {mods_dir}\n"
-        f" -> mod_id: {mod_id}"
-    )
+    if debug:
+        print(
+            "[resolve_mod_path] Attempting to resolve:\n"
+            f" -> mods_dir: {mods_dir}\n"
+            f" -> mod_id: {mod_id}"
+        )
     
     if not mods_dir.exists():
-        print(f"[resolve_mod_path] mods_dir doesn't exist!")
+        if debug:
+            print(f"[resolve_mod_path] mods_dir doesn't exist!")
         return None, None, None
 
     # Handle namespaced modpack ID: "pack_id:sub_path"
@@ -272,7 +274,8 @@ def resolve_mod_path(
             if cand.is_dir() and (
                 (cand / "config.json").exists() or (cand / "sprite_sheet.png").exists()
             ):
-                print(f"=> Returning: {cand}, {pack_id}, {sub_path}")
+                if debug:
+                    print(f"=> Returning: {cand}, {pack_id}, {sub_path}")
                 return cand, pack_id, sub_path
 
         # If sub_path was e.g. "entities/hero", also try basename "hero"
@@ -287,10 +290,12 @@ def resolve_mod_path(
             if cand.is_dir() and (
                 (cand / "config.json").exists() or (cand / "sprite_sheet.png").exists()
             ):
-                print(f"=> Returning: {cand}, {pack_id}, {sub_path}")
+                if debug:
+                    print(f"=> Returning: {cand}, {pack_id}, {sub_path}")
                 return cand, pack_id, sub_path
         
-        print(f"=> Returning: None, {pack_id}, {sub_path}")
+        if debug:
+            print(f"=> Returning: None, {pack_id}, {sub_path}")
         return None, pack_id, sub_path
 
     # Handle direct standalone mod
@@ -298,14 +303,16 @@ def resolve_mod_path(
     if direct_path.is_dir() and (
         (direct_path / "config.json").exists() or (direct_path / "sprite_sheet.png").exists()
     ):
-        print(f"=> Returning: {direct_path}, None, None")
+        if debug:
+            print(f"=> Returning: {direct_path}, None, None")
         return direct_path, None, None
     
     # Check if modpack
     if direct_path.is_dir() and (
         (direct_path / "pack.json").exists() or (direct_path / "pack.py").exists()
     ):
-        print(f"=> Returning: {direct_path}, None, None")
+        if debug:
+            print(f"=> Returning: {direct_path}, None, None")
         return direct_path, None, None
 
     # Fallback: check if mod_id matches a sub-entity inside any modpack
@@ -323,10 +330,12 @@ def resolve_mod_path(
             if cand.is_dir() and (
                 (cand / "config.json").exists() or (cand / "sprite_sheet.png").exists()
             ):
-                print(f"=> Returning: {cand}, {pack_id}, {mod_id}")
+                if debug:
+                    print(f"=> Returning: {cand}, {pack_id}, {mod_id}")
                 return cand, pack_id, mod_id
-    
-    print(f"=> Failed...")
+            
+    if debug:
+        print(f"=> Failed...")
     return None, None, None
 
 
