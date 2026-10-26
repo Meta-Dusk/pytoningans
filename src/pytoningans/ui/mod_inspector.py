@@ -1,6 +1,6 @@
 """
 PyToNingans Mod and Modpack Inspector Dialog
-=========================================
+============================================
 Interactive UI for inspecting mod files, reading Python/JSON sources, previewing spritesheets,
 and viewing automated AST Security Scanner audit reports before running or enabling mods.
 """
@@ -8,21 +8,104 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
+import re
 
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QFont, QPixmap
+from PySide6.QtGui import QFont, QPixmap, QTextCharFormat, QSyntaxHighlighter, QColor
 from PySide6.QtWidgets import (
-    QDialog, QLayoutItem, QVBoxLayout, QHBoxLayout, QSplitter, QTreeWidget, QTreeWidgetItem,
+    QDialog, QVBoxLayout, QHBoxLayout, QSplitter, QTreeWidget, QTreeWidgetItem,
     QTabWidget, QWidget, QLabel, QPlainTextEdit, QTableWidget, QTableWidgetItem,
-    QHeaderView, QPushButton, QFrame
+    QHeaderView, QPushButton, QFrame, QTextBrowser
 )
 
 from pytoningans.core.mod_manager.security import (
-    scan_mod_or_pack, SecurityReport, SecurityRiskLevel,
+    scan_mod_or_pack, SecurityReport, SecurityRiskLevel, SecuritySeverity,
 )
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.utils.assets import get_main_icon
 from pytoningans.utils.format import formatted_size
+
+
+class PythonSyntaxHighlighter(QSyntaxHighlighter):
+    """Syntax highlighter for Python code in the code viewer."""
+
+    def __init__(self, document) -> None:
+        super().__init__(document)
+        self._rules: list[tuple[re.Pattern, QTextCharFormat]] = []
+
+        # Keywords
+        keyword_format = QTextCharFormat()
+        keyword_format.setForeground(QColor("#ff79c6"))
+        keyword_format.setFontWeight(QFont.Weight.Bold)
+        keywords = [
+            "and", "as", "assert", "async", "await", "break", "class", "continue",
+            "def", "del", "elif", "else", "except", "finally", "for", "from",
+            "global", "if", "import", "in", "is", "lambda", "nonlocal", "not",
+            "or", "pass", "raise", "return", "try", "while", "with", "yield",
+            "True", "False", "None", "self", "cls"
+        ]
+        for word in keywords:
+            pattern = re.compile(rf"\b{word}\b")
+            self._rules.append((pattern, keyword_format))
+
+        # Built-in functions
+        builtin_format = QTextCharFormat()
+        builtin_format.setForeground(QColor("#8be9fd"))
+        builtins = [
+            "print", "len", "range", "enumerate", "zip", "map", "filter", "sorted",
+            "list", "dict", "set", "tuple", "str", "int", "float", "bool", "bytes",
+            "open", "isinstance", "issubclass", "hasattr", "getattr", "setattr",
+            "super", "property", "staticmethod", "classmethod", "type", "object",
+            "min", "max", "sum", "abs", "round", "pow", "divmod", "all", "any",
+            "next", "iter", "reversed", "slice", "vars", "locals", "globals",
+            "dir", "help", "id", "hash", "repr", "ascii", "format", "chr", "ord",
+            "bin", "hex", "oct", "complex", "memoryview", "bytearray", "frozenset"
+        ]
+        for word in builtins:
+            pattern = re.compile(rf"\b{word}\b")
+            self._rules.append((pattern, builtin_format))
+
+        # Decorators
+        decorator_format = QTextCharFormat()
+        decorator_format.setForeground(QColor("#f1fa8c"))
+        self._rules.append((re.compile(r"@\w+"), decorator_format))
+
+        # Strings
+        string_format = QTextCharFormat()
+        string_format.setForeground(QColor("#f1fa8c"))
+        self._rules.append((re.compile(r'""".*?"""', re.DOTALL), string_format))
+        self._rules.append((re.compile(r"'''.*?'''", re.DOTALL), string_format))
+        self._rules.append((re.compile(r'".*?"'), string_format))
+        self._rules.append((re.compile(r"'.*?'"), string_format))
+
+        # Comments
+        comment_format = QTextCharFormat()
+        comment_format.setForeground(QColor("#6272a4"))
+        comment_format.setFontItalic(True)
+        self._rules.append((re.compile(r"#.*"), comment_format))
+
+        # Numbers
+        number_format = QTextCharFormat()
+        number_format.setForeground(QColor("#bd93f9"))
+        self._rules.append((re.compile(r"\b\d+\.?\d*\b"), number_format))
+
+        # Function definitions
+        func_format = QTextCharFormat()
+        func_format.setForeground(QColor("#50fa7b"))
+        func_format.setFontWeight(QFont.Weight.Bold)
+        self._rules.append((re.compile(r"\bdef\s+(\w+)"), func_format))
+
+        # Class definitions
+        class_format = QTextCharFormat()
+        class_format.setForeground(QColor("#50fa7b"))
+        class_format.setFontWeight(QFont.Weight.Bold)
+        self._rules.append((re.compile(r"\bclass\s+(\w+)"), class_format))
+
+    def highlightBlock(self, text: str) -> None:
+        for pattern, fmt in self._rules:
+            for match in pattern.finditer(text):
+                start, end = match.span()
+                self.setFormat(start, end - start, fmt)
 
 
 class ModInspectorDialog(QDialog):
@@ -125,10 +208,14 @@ class ModInspectorDialog(QDialog):
         caps_header.setStyleSheet("font-weight: bold; font-size: 13px; margin-top: 4px;")
         layout.addWidget(caps_header)
 
-        self.caps_container = QWidget()
-        self.caps_layout = QHBoxLayout(self.caps_container)
-        self.caps_layout.setContentsMargins(0, 0, 0, 0); self.caps_layout.setSpacing(6)
-        layout.addWidget(self.caps_container)
+        self.caps_browser = QTextBrowser()
+        self.caps_browser.setStyleSheet(
+            "background-color: #374151; color: #e5e7eb; border-radius: 4px; "
+            "padding: 6px; font-size: 11px; line-height: 1.4; max-height: 100px;"
+        )
+        self.caps_browser.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.caps_browser.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        layout.addWidget(self.caps_browser)
 
         # Issues Table
         issues_header = QLabel("Audit Flags and Security Details:")
@@ -160,6 +247,8 @@ class ModInspectorDialog(QDialog):
         self.code_viewer = QPlainTextEdit(); self.code_viewer.setReadOnly(True)
         mono_font = QFont("Pixel Code", 10); mono_font.setStyleHint(QFont.StyleHint.Monospace)
         self.code_viewer.setFont(mono_font)
+        # Enable syntax highlighting
+        self._highlighter = PythonSyntaxHighlighter(self.code_viewer.document())
         layout.addWidget(self.code_viewer)
 
         self.image_viewer = QLabel()
@@ -198,28 +287,15 @@ class ModInspectorDialog(QDialog):
         self.risk_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {title_color};")
         self.risk_summary.setText(f"{self.report.summary}\n{self.report.detailed_explanation}")
 
-        #? Add capability chips
+        #? Add capability text
         # Clear previous
-        while self.caps_layout.count():
-            item: Optional[QLayoutItem] = self.caps_layout.takeAt(0)
-            if item is None: continue
-            widget: Optional[QWidget] = item.widget()
-            if widget is not None:
-                widget.deleteLater()
+        self.caps_browser.clear()
 
         if self.report.capabilities:
-            for capability in self.report.capabilities:
-                chip = QLabel(f" {capability} ")
-                chip.setStyleSheet(
-                    "background-color: #374151; color: #e5e7eb; border-radius: 4px; "
-                    "padding: 3px 6px; font-size: 11px; font-weight: 500;"
-                )
-                self.caps_layout.addWidget(chip)
+            caps_text = "  |  ".join(self.report.capabilities)
+            self.caps_browser.setText(caps_text)
         else:
-            empty_lbl = QLabel("None detected (standard entity assets).")
-            empty_lbl.setStyleSheet("color: gray; font-style: italic;")
-            self.caps_layout.addWidget(empty_lbl)
-        self.caps_layout.addStretch()
+            self.caps_browser.setText("None detected (standard entity assets).")
 
         # Populate Issues Table
         self.issues_table.setRowCount(len(self.report.issues))
@@ -246,9 +322,18 @@ class ModInspectorDialog(QDialog):
 
     def _populate_file_tree(self) -> None:
         self.file_tree.clear()
-        root_item = QTreeWidgetItem(self.file_tree, [self.target_dir.name])
+        root_item = QTreeWidgetItem(self.file_tree, [self.target_dir.name + "/"])
         root_item.setData(0, Qt.ItemDataRole.UserRole, str(self.target_dir))
         root_item.setExpanded(True)
+
+        # Build a set of file paths that have security issues, keyed by relative path
+        self._issue_files: dict[str, SecuritySeverity] = {}
+        for issue in self.report.issues:
+            rel_path: str = issue.file
+            # Keep the highest severity per file
+            existing = self._issue_files.get(rel_path)
+            if existing is None or issue.severity == SecuritySeverity.DANGER:
+                self._issue_files[rel_path] = issue.severity
 
         def add_dir(dir_path: Path, parent_item: QTreeWidgetItem) -> None:
             for child in sorted(
@@ -256,13 +341,44 @@ class ModInspectorDialog(QDialog):
             ):
                 if child.name.startswith(("_", ".")) or child.name == "__pycache__":
                     continue
-                item = QTreeWidgetItem(parent_item, [child.name])
+                rel_path = str(child.relative_to(self.target_dir)).replace("\\", "/")
+                display_name = child.name + ("/" if child.is_dir() else "")
+                item = QTreeWidgetItem(parent_item, [display_name])
                 item.setData(0, Qt.ItemDataRole.UserRole, str(child))
+                self._color_tree_item(item, child, rel_path)
                 if child.is_dir():
                     item.setExpanded(True)
                     add_dir(child, item)
 
         add_dir(self.target_dir, root_item)
+
+    def _color_tree_item(self, item: QTreeWidgetItem, file_path: Path, rel_path: str) -> None:
+        """Apply color coding to tree items based on file type and security issues."""
+        # Check security issues first (highest priority)
+        if rel_path in self._issue_files:
+            severity: SecuritySeverity = self._issue_files[rel_path]
+            if severity == SecuritySeverity.DANGER:
+                item.setForeground(0, Qt.GlobalColor.red)
+            elif severity == SecuritySeverity.WARNING:
+                item.setForeground(0, Qt.GlobalColor.yellow)
+            else:
+                item.setForeground(0, Qt.GlobalColor.cyan)
+            return
+
+        # Color by file type
+        suffix: str = file_path.suffix.lower()
+        if suffix in (".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"):
+            # Spritesheets and images
+            item.setForeground(0, Qt.GlobalColor.cyan)
+        elif suffix == ".py":
+            # Behavior scripts
+            item.setForeground(0, Qt.GlobalColor.green)
+        elif suffix in (".json", ".toml", ".yaml", ".yml", ".ini", ".cfg"):
+            # Config files (no special color)
+            pass
+        else:
+            # Other/unexpected files
+            item.setForeground(0, Qt.GlobalColor.darkYellow)
 
     def _on_file_selected(self, item: QTreeWidgetItem, column: int) -> None:
         file_path_str: Optional[str] = item.data(0, Qt.ItemDataRole.UserRole)
