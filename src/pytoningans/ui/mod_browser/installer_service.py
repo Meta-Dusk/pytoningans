@@ -13,10 +13,10 @@ from typing import Any, Optional, TYPE_CHECKING
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
 from pytoningans.core.mod_manager import resolve_mod_path, extract_mod_or_pack_from_zip
-from .models import CommunityModItem
 
 if TYPE_CHECKING:
     from .supabase_client import SupabaseClient
+    from .models import CommunityModItem
 
 
 def create_placeholder_sprite(path: Path) -> None:

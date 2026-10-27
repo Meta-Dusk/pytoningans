@@ -18,21 +18,23 @@ from PySide6.QtWidgets import (
     QSpinBox, QPushButton, QFrame, QWidget, QTabWidget, QMessageBox,
     QScrollArea, QLineEdit, QFormLayout, QMenu, QFileDialog
 )
-from PySide6.QtCore import Qt, QUrl, QRect, QSize
-from PySide6.QtGui import QDesktopServices, QResizeEvent, QGuiApplication, QScreen, QAction
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QDesktopServices, QGuiApplication
 
 from pytoningans.core.settings import SettingsManager, HealthBarMode
 from pytoningans.utils.paths import get_settings_path, get_base_path
 from pytoningans.utils.assets import get_google_icon, get_github_icon
 from pytoningans.utils.avatar import AvatarLabel, get_avatar_cache_dir
-from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.ui.mod_editor.components import CustomSizeGrip
-from pytoningans.ui.mod_browser.client import ModBrowserClient
-from pytoningans.ui.mod_browser.auth import AuthManager
-from pytoningans.ui.mod_browser.components.auth_dialog import AuthDialog
+from ..ui.title_bar import CustomTitleBar
+from ..ui.mod_editor.components import CustomSizeGrip
+from ..ui.mod_browser.client import ModBrowserClient
+from ..ui.mod_browser.auth import AuthManager
+from ..ui.mod_browser.components.auth_dialog import AuthDialog
 
 if TYPE_CHECKING:
-    from pytoningans.ui.mod_browser.auth import UserProfile
+    from PySide6.QtCore import QRect, QSize
+    from PySide6.QtGui import QScreen, QAction, QResizeEvent
+    from ..ui.mod_browser.auth import UserProfile
 
 
 @unique
@@ -42,7 +44,7 @@ class SettingsTab(IntEnum):
     SpawningAndEnvironment = 2
     DeveloperAndDebugging = 3
 
-
+# TODO: Refactor SettingsDialog to be more modular
 class SettingsDialog(QDialog):
     """
     Central settings dialog allowing users to customize:

@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import json, tempfile
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional, Any, TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal, QRect, QThread
-from PySide6.QtGui import QAction, QGuiApplication, QScreen, QResizeEvent, QCloseEvent
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
     QWidget, QMessageBox, QFrame, QMenu, QProgressBar
@@ -37,6 +37,10 @@ from .components.mod_card import ModCardWidget
 from .components.filter_bar import FilterBarWidget
 from .components.rating_dialog import RatingDialog
 from .components.publish_dialog import PublishModDialog
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QThread, QRect
+    from PySide6.QtGui import QCloseEvent, QResizeEvent, QScreen, QAction
 
 
 class ModBrowserDialog(QDialog):

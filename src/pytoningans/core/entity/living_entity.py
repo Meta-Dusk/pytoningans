@@ -5,22 +5,22 @@ from typing import Optional, cast, TYPE_CHECKING
 
 from PySide6.QtCore import QEasingCurve, QPointF, QVariantAnimation
 
-from pytoningans.core.api import BaseEntityBehavior
-from pytoningans.core.constants import AnimationMeta, DeathAnimation, EntityState
-from pytoningans.core.settings import SettingsManager
+from ..api import BaseEntityBehavior
+from ..constants import AnimationMeta, DeathAnimation, EntityState
+from ..settings import SettingsManager
 
-from pytoningans.core.entity.ai import AISystem
-from pytoningans.core.entity.base_entity import BaseEntity
-from pytoningans.core.entity.indicators import HealthBarItem
-from pytoningans.core.entity.speech_bubble import SpeechBubble
+from ..entity.ai import AISystem
+from ..entity.base_entity import BaseEntity
+from ..entity.indicators import HealthBarItem
+from ..entity.speech_bubble import SpeechBubble
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QGraphicsSceneContextMenuEvent
-    from pytoningans.core.entity_manager import EntityManager
-    from pytoningans.core.entity.base_item import BaseItem
-    from pytoningans.core.mod_manager import ModManager
-    from pytoningans.core.world import WorldOverlay
-    from pytoningans.core.api import BaseBehavior, IEntity
+    from ..entity_manager import EntityManager
+    from ..entity.base_item import BaseItem
+    from ..mod_manager import ModManager
+    from ..world import WorldOverlay
+    from ..api import BaseBehavior, IEntity
 
 
 class Entity(BaseEntity):

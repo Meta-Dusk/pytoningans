@@ -1,38 +1,47 @@
+from __future__ import annotations
+
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from PySide6.QtWidgets import (
-    QAbstractButton, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QLabel, QMessageBox, QDialog, QTableWidget, QTableWidgetItem,
     QHeaderView, QAbstractItemView, QLineEdit, QComboBox, QFileDialog
 )
-from PySide6.QtCore import QModelIndex, QRect, Qt, Signal, QUrl
-from PySide6.QtGui import QGuiApplication, QDesktopServices, QScreen, QResizeEvent, QCloseEvent
+from PySide6.QtCore import Qt, Signal, QUrl
+from PySide6.QtGui import QGuiApplication, QDesktopServices
 
+from pytoningans.core.constants import EntityType
 from pytoningans.core.mod_manager import (
     ModManager, extract_mod_or_pack_from_zip, export_mod_or_pack_to_zip, resolve_mod_path,
     ModEntryInfo,
 )
-from pytoningans.core.constants import EntityType
+
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.mod_creation_dialog import ModCreationDialog
 from pytoningans.ui.mod_editor import ModEditorWindow
 from pytoningans.ui.mod_editor.components import CustomSizeGrip
 from pytoningans.ui.mod_inspector import ModInspectorDialog
-from pytoningans.ui.mod_browser import ModBrowserDialog
+
 from pytoningans.utils.assets import get_main_icon
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QRect, QModelIndex
+    from PySide6.QtGui import QScreen, QResizeEvent, QCloseEvent
+    from PySide6.QtWidgets import QAbstractButton
+    from .main_menu import MainMenu
 
 
 class ModManagerHub(QWidget):
     mods_updated = Signal()
     
-    def __init__(self, mod_manager: ModManager) -> None:
+    def __init__(self, main_menu: MainMenu) -> None:
         super().__init__(
-            windowTitle="Mod Manager Hub",
-            windowIcon=get_main_icon()
+            windowTitle="Mod Manager Hub", windowIcon=get_main_icon()
         )
-        self.mod_manager: ModManager = mod_manager
+        self.main_menu: MainMenu = main_menu
+        self.mod_manager: ModManager = main_menu.manager.mod_manager
         self.editor_window: Optional[ModEditorWindow] = None
         self._current_sort_col: int = 1
         self._current_sort_order: Qt.SortOrder = Qt.SortOrder.AscendingOrder
@@ -127,7 +136,7 @@ class ModManagerHub(QWidget):
         self.browser_btn = QPushButton("Browse Online Mods")
         self.browser_btn.setToolTip("Explore, install, and rate community mods and modpacks")
         self.browser_btn.setStyleSheet("background-color: #3b82f6; color: white; font-weight: bold;")
-        self.browser_btn.clicked.connect(self._on_browser_clicked)
+        self.browser_btn.clicked.connect(self.main_menu._open_browser)
         btn_layout.addWidget(self.browser_btn)
 
         self.create_btn = QPushButton("Create New Mod")
@@ -384,12 +393,6 @@ class ModManagerHub(QWidget):
         dialog = ModInspectorDialog(target_dir, self)
         dialog.exec()
 
-    def _on_browser_clicked(self) -> None:
-        dialog = ModBrowserDialog(self.mod_manager, self)
-        dialog.mods_updated.connect(self._refresh_list)
-        dialog.mods_updated.connect(self.mods_updated.emit)
-        dialog.exec()
-
     def _on_create_clicked(self) -> None:
         dialog = ModCreationDialog(self.mod_manager.mods_dir, self)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -442,10 +445,8 @@ class ModManagerHub(QWidget):
 
     def _on_import_clicked(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Import Mod or Modpack Package",
-            "",
-            "Zip Archives (*.zip);;All Files (*.*)"
+            self, "Import Mod or Modpack Package", dir="",
+            filter="Zip Archives (*.zip);;All Files (*.*)"
         )
         if not file_path:
             return
@@ -497,10 +498,9 @@ class ModManagerHub(QWidget):
                 default_name = resolved_path.name
 
         save_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Export Mod / Pack (.zip)",
-            f"{default_name}.zip",
-            "Zip Archives (*.zip);;All Files (*.*)"
+            self, "Export Mod / Pack (.zip)",
+            dir=f"{default_name}.zip",
+            filter="Zip Archives (*.zip);;All Files (*.*)"
         )
         if not save_path:
             return

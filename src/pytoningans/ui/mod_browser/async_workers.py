@@ -8,9 +8,10 @@ Keeps the main desktop UI responsive with 0ms freezing.
 from __future__ import annotations
 
 from typing import Optional, TYPE_CHECKING
-from PySide6.QtCore import QThread, Signal, QObject
+from PySide6.QtCore import QThread, Signal
 
 if TYPE_CHECKING:
+    from PySide6.QtCore import QObject
     from .client import ModBrowserClient
     from .models import CommunityModItem
     from .auth import AuthManager
@@ -19,7 +20,8 @@ if TYPE_CHECKING:
 class CatalogSyncWorker(QThread):
     """Background worker for querying and synchronizing community catalog from Supabase."""
 
-    sync_completed = Signal(bool, str, int)  # success, message, total_mods_count
+    sync_completed = Signal(bool, str, int)
+    """Broadcasts the following: `(success, message, total_mods_count)`."""
 
     def __init__(self, client: ModBrowserClient, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)

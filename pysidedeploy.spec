@@ -69,7 +69,7 @@ macos.permissions =
 mode = standalone
 
 # specify any extra nuitka arguments
-extra_args = --quiet --noinclude-qt-translations --include-data-dir=assets=assets --include-data-files=cloud_config.json=cloud_config.json --windows-company-name="MetaDusk Inc." --windows-product-name="PyToNingans" --windows-file-version=0.8.2.0 --windows-product-version=0.8.2.0 --output-filename="PyToNingans.exe" --nofollow-import-to="pytoningans.tests" --windows-console-mode=force
+extra_args = --quiet --noinclude-qt-translations --include-data-dir=assets=assets --include-data-files=cloud_config.json=cloud_config.json --windows-company-name="MetaDusk Inc." --windows-product-name="PyToNingans" --windows-file-version=0.8.3.0 --windows-product-version=0.8.3.0 --output-filename="PyToNingans.exe" --nofollow-import-to="pytoningans.tests" --windows-console-mode=force
 
 [buildozer]
 

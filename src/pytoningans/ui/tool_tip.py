@@ -1,15 +1,18 @@
-from typing import Optional, cast
+from __future__ import annotations
 
-from PySide6.QtCore import (
-    QAbstractItemModel, QEvent, QModelIndex, QPoint, QPointF, QRect, Qt, QObject, QTimer
-)
-from PySide6.QtGui import (
-    QGuiApplication, QPainter, QPaintEvent, QScreen, QHelpEvent, QMouseEvent
-)
+from typing import Optional, cast, TYPE_CHECKING
+
+from PySide6.QtCore import QEvent, QPoint, Qt, QObject, QTimer
+from PySide6.QtGui import QGuiApplication, QPainter, QHelpEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication, QGraphicsItem, QHBoxLayout, QLabel, QStyle, QStyleOption, QWidget,
     QAbstractItemView, QHeaderView, QGraphicsView
 )
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPointF, QRect
+    from PySide6.QtGui import QScreen, QPaintEvent
+
 
 class CustomToolTip(QWidget):
     """A completely customized overlay widget acting as a modern tooltip."""
@@ -24,13 +27,10 @@ class CustomToolTip(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 8, 10, 8)
+        layout = QHBoxLayout(self); layout.setContentsMargins(10, 8, 10, 8)
 
-        self.label = QLabel(text)
-        self.label.setObjectName("ToolTipText")
-        self.label.setWordWrap(True)
-        self.label.setMaximumWidth(280)
+        self.label = QLabel(text); self.label.setObjectName("ToolTipText")
+        self.label.setWordWrap(True); self.label.setMaximumWidth(280)
 
         layout.addWidget(self.label)
         self.setObjectName("ToolTipLabel")

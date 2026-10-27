@@ -6,10 +6,11 @@ from typing import TYPE_CHECKING, Callable, Optional
 from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QPainter, QPixmap
 
-from .cache import CacheKey, clear_shared_cache, shared_frame_cache
+from .cache import clear_shared_cache, shared_frame_cache
 
 if TYPE_CHECKING:
-    from pytoningans.core.constants import AnimationMeta
+    from ..constants import AnimationMeta
+    from .cache import CacheKey
 
 
 def resolve_dimensions(

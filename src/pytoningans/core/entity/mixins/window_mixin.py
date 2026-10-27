@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, cast
 
-from PySide6.QtCore import QRect, QRectF
-from pytoningans.core.settings import SettingsManager
+from PySide6.QtCore import QRect
+from ...settings import SettingsManager
 
 if TYPE_CHECKING:
-    from pytoningans.core.mod_manager import ModManager
-    from pytoningans.core.world import WorldOverlay
-    from pytoningans.core.entity.physics import PhysicsSystem
-    from pytoningans.core.entity.base_entity import BaseEntity
+    from PySide6.QtCore import QRectF
+    from ...mod_manager import ModManager
+    from ...world import WorldOverlay
+    from ...entity.physics import PhysicsSystem
+    from ...entity.base_entity import BaseEntity
 
 
 class EntityWindowMixin:

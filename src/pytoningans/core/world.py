@@ -4,20 +4,22 @@ import ctypes
 from ctypes import wintypes
 from typing import TYPE_CHECKING, cast, Optional
 
-from PySide6.QtCore import QRect, Qt, QPoint, QPointF, QEvent, QObject
-from PySide6.QtGui import QScreen, QMouseEvent, QKeyEvent, QColor, QBrush
+from PySide6.QtCore import Qt, QPoint, QPointF, QEvent
+from PySide6.QtGui import QColor, QBrush
 from PySide6.QtWidgets import QMainWindow, QGraphicsView, QGraphicsScene, QApplication
 
-from pytoningans.core.entity.indicators import DamageNumberItem
-from pytoningans.core.vision_worker import HTCLIENT, HTTRANSPARENT
-from pytoningans.core.window_tracker import TrackedWindow
+from .entity.indicators import DamageNumberItem
+from .vision_worker import HTCLIENT, HTTRANSPARENT
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity_manager import EntityManager
-    from pytoningans.core.entity.base_entity import BaseEntity
-    from pytoningans.core.entity.base_structure import BaseStructure
-    from pytoningans.core.entity.base_item import BaseItem
-    from pytoningans.core.entity.living_entity import Entity
+    from PySide6.QtCore import QRect, QObject
+    from PySide6.QtGui import QScreen, QKeyEvent, QMouseEvent
+    from .entity_manager import EntityManager
+    from .entity.base_entity import BaseEntity
+    from .entity.base_structure import BaseStructure
+    from .entity.base_item import BaseItem
+    from .entity.living_entity import Entity
+    from .window_tracker import TrackedWindow
 
 
 class WorldView(QGraphicsView):
@@ -39,13 +41,13 @@ class WorldView(QGraphicsView):
             spawning_sys = self.overlay.manager.spawning_system
             match event.type():
                 case QEvent.Type.MouseMove:
-                    if spawning_sys.handle_mouse_move(self.overlay, cast(QMouseEvent, event)):
+                    if spawning_sys.handle_mouse_move(self.overlay, cast("QMouseEvent", event)):
                         return True
                 case QEvent.Type.MouseButtonPress:
-                    if spawning_sys.handle_mouse_press(self.overlay, cast(QMouseEvent, event)):
+                    if spawning_sys.handle_mouse_press(self.overlay, cast("QMouseEvent", event)):
                         return True
                 case QEvent.Type.MouseButtonRelease:
-                    if spawning_sys.handle_mouse_release(self.overlay, cast(QMouseEvent, event)):
+                    if spawning_sys.handle_mouse_release(self.overlay, cast("QMouseEvent", event)):
                         return True
         return super().eventFilter(watched, event)
 

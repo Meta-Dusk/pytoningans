@@ -10,13 +10,17 @@ from __future__ import annotations
 import hashlib, threading
 import urllib.request
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, TYPE_CHECKING
 
 from PySide6.QtCore import Qt, QRectF, QTimer
-from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPixmap
-from PySide6.QtWidgets import QLabel, QWidget
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPixmap
+from PySide6.QtWidgets import QLabel
 
 from pytoningans.utils.paths import get_settings_path, _DEFAULT_APP_VERSION
+
+if TYPE_CHECKING:
+    from PySide6.QtGui import QFont
+    from PySide6.QtWidgets import QWidget
 
 
 def get_avatar_cache_dir() -> Path:

@@ -1,27 +1,32 @@
+from __future__ import annotations
+
 import gc, random
-from typing import cast, Optional
+from typing import cast, Optional, TYPE_CHECKING
 
-from PySide6.QtCore import QTimer, QElapsedTimer, QThreadPool, QRect
-from PySide6.QtGui import QPixmapCache, QGuiApplication, QScreen
+from PySide6.QtCore import QTimer, QElapsedTimer, QThreadPool
+from PySide6.QtGui import QPixmapCache, QGuiApplication
 
-from pytoningans.core.vision_worker import VisionWorker
-from pytoningans.core.window_tracker import WindowTracker
-from pytoningans.core.settings import SettingsManager
+from .vision_worker import VisionWorker
+from .window_tracker import WindowTracker
+from .settings import SettingsManager
 
-from pytoningans.core.entity.base_structure import BaseStructure
-from pytoningans.core.entity.base_item import BaseItem
-from pytoningans.core.entity.living_entity import Entity
-from pytoningans.core.entity.base_entity import BaseEntity
-from pytoningans.core.entity.animation import AnimationSystem
+from .entity.base_structure import BaseStructure
+from .entity.base_item import BaseItem
+from .entity.living_entity import Entity
+from .entity.animation import AnimationSystem
 
-from pytoningans.core.world import WorldOverlay
-from pytoningans.core.mod_manager import ModManager
-from pytoningans.core.spawning import SpawningSystem
-from pytoningans.core.api import (
-    IEntity, IStructure, IItem, BaseStructureBehavior, BaseEntityBehavior,
-    BaseItemBehavior, BaseBehavior
-)
-from pytoningans.core.constants import EntityType
+from .world import WorldOverlay
+from .mod_manager import ModManager
+from .spawning import SpawningSystem
+from .api import BaseStructureBehavior, BaseEntityBehavior, BaseItemBehavior
+from .constants import EntityType
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QRect
+    from PySide6.QtGui import QScreen
+    from .api import BaseBehavior, IEntity, IStructure, IItem
+    from .entity.base_entity import BaseEntity
+    
 
 class EntityManager:
     """The central nervous system managing active worlds and global loops."""
@@ -131,9 +136,9 @@ class EntityManager:
             mod_display_name: str = mod_manager.current_mod_name or mod_folder
             if mod_manager.instance_names:
                 all_active: list[BaseEntity] = (
-                    cast(list[BaseEntity], self.active_entities) +
-                    cast(list[BaseEntity], self.active_structures) +
-                    cast(list[BaseEntity], self.active_items)
+                    cast(list["BaseEntity"], self.active_entities) +
+                    cast(list["BaseEntity"], self.active_structures) +
+                    cast(list["BaseEntity"], self.active_items)
                 )
                 used_names: set[str] = {
                     e.instance_name for e in all_active
@@ -147,9 +152,9 @@ class EntityManager:
             else:
                 existing_count: int = sum(
                     1 for e in (
-                        cast(list[BaseEntity], self.active_entities) +
-                        cast(list[BaseEntity], self.active_structures) +
-                        cast(list[BaseEntity], self.active_items)
+                        cast(list["BaseEntity"], self.active_entities) +
+                        cast(list["BaseEntity"], self.active_structures) +
+                        cast(list["BaseEntity"], self.active_items)
                     )
                     if e.mod_manager and e.mod_manager.current_mod_folder == mod_folder
                 )
@@ -194,13 +199,13 @@ class EntityManager:
         
         try:
             if isinstance(entity, Entity) and isinstance(behavior, BaseEntityBehavior):
-                behavior.on_spawn(cast(IEntity, entity))
+                behavior.on_spawn(cast("IEntity", entity))
                 
             elif isinstance(entity, BaseStructure) and isinstance(behavior, BaseStructureBehavior):
-                behavior.on_spawn(cast(IStructure, entity))
+                behavior.on_spawn(cast("IStructure", entity))
 
             elif isinstance(entity, BaseItem) and isinstance(behavior, BaseItemBehavior):
-                behavior.on_spawn(cast(IItem, entity))
+                behavior.on_spawn(cast("IItem", entity))
         except Exception as e:
             mod_folder: str = "?" if self.mod_manager is None else self.mod_manager.current_mod_folder
             print(
@@ -224,17 +229,17 @@ class EntityManager:
         # Remove from the specific world it inhabits
         for world in self.active_worlds:
             if entity in world.active_entities:
-                world.active_entities.remove(cast(Entity, entity))
+                world.active_entities.remove(cast("Entity", entity))
                 if entity.scene():
                     world.scene.removeItem(entity)
                 break
             elif entity in world.active_structures:
-                world.active_structures.remove(cast(BaseStructure, entity))
+                world.active_structures.remove(cast("BaseStructure", entity))
                 if entity.scene():
                     world.scene.removeItem(entity)
                 break
             elif entity in world.active_items:
-                world.active_items.remove(cast(BaseItem, entity))
+                world.active_items.remove(cast("BaseItem", entity))
                 if entity.scene():
                     world.scene.removeItem(entity)
                 break
@@ -243,9 +248,9 @@ class EntityManager:
         # prune its sprite sheets and frame cache
         if mod_folder is not None and mod_folder:
             all_remaining: list[BaseEntity] = (
-                cast(list[BaseEntity], self.active_entities) +
-                cast(list[BaseEntity], self.active_structures) +
-                cast(list[BaseEntity], self.active_items)
+                cast(list["BaseEntity"], self.active_entities) +
+                cast(list["BaseEntity"], self.active_structures) +
+                cast(list["BaseEntity"], self.active_items)
             )
             has_other: bool = any(
                 entity.mod_manager and

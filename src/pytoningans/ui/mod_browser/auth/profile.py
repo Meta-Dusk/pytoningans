@@ -18,8 +18,8 @@ from .models import is_known_developer
 if TYPE_CHECKING:
     from .manager import AuthManager
     from .models import UserProfile
-    from pytoningans.ui.mod_browser.auth.models import AuthSession
-    from pytoningans.ui.mod_browser.auth.session import AuthSessionStore
+    from ..auth.models import AuthSession
+    from ..auth.session import AuthSessionStore
 
 
 class AuthProfileMixin(BaseAuthMixin):

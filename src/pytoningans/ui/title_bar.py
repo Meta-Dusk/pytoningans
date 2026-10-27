@@ -1,10 +1,16 @@
-from typing import Optional
+from __future__ import annotations
+
+from typing import Optional, TYPE_CHECKING
 
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton, QStyle, QStyleOption
 from PySide6.QtCore import Qt, QPoint
-from PySide6.QtGui import QMouseEvent, QPainter, QPaintEvent
+from PySide6.QtGui import QPainter
 
 from pytoningans.utils.paths import get_app_version
+
+if TYPE_CHECKING:
+    from PySide6.QtGui import QMouseEvent, QPaintEvent
+
 
 class CustomTitleBar(QWidget):
     def __init__(

@@ -5,11 +5,12 @@ from typing import TYPE_CHECKING, Optional, cast
 
 from PySide6.QtCore import QPointF, QRectF, QRect
 
-from pytoningans.core.api import BaseBehavior, BaseEntityBehavior, IEntity
-from pytoningans.core.constants import AttackType, BehaviorType, EntityState
+from ...api import BaseEntityBehavior
+from ...constants import AttackType, BehaviorType, EntityState
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.living_entity import Entity
+    from ...entity.living_entity import Entity
+    from ...api import BaseBehavior, IEntity
     from .system import AISystem
 
 
@@ -94,8 +95,8 @@ def on_combat_check(ai: AISystem, other_entity: Entity) -> bool:
     if not isinstance(behavior, BaseEntityBehavior):
         return False
     try:
-        entity_api: IEntity = cast(IEntity, ai.entity)
-        other_entity_api: IEntity = cast(IEntity, other_entity)
+        entity_api: IEntity = cast("IEntity", ai.entity)
+        other_entity_api: IEntity = cast("IEntity", other_entity)
         return behavior.on_attack(entity_api, other_entity_api)
     except Exception as e:
         print(f"Custom AI Error (Attack): {e}")

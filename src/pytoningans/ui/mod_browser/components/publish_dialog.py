@@ -19,19 +19,19 @@ from PySide6.QtWidgets import (
 
 from pytoningans.core.constants import EntityType
 from pytoningans.core.mod_manager import (
-    ModManager, resolve_mod_path, export_mod_or_pack_to_zip, scan_mod_or_pack,
-    SecurityRiskLevel, SecurityReport,
+    resolve_mod_path, export_mod_or_pack_to_zip, scan_mod_or_pack, SecurityRiskLevel
 )
-from pytoningans.core.mod_manager.modpack import ModPack
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.utils.assets import get_main_icon
 from pytoningans.utils.format import formatted_size
 from ..auth import AuthManager
-from ..models import CommunityModItem, parse_semver
+from ..models import parse_semver
 from .auth_dialog import AuthDialog
 
 if TYPE_CHECKING:
+    from pytoningans.core.mod_manager import ModPack, SecurityReport, ModManager
     from ..client import ModBrowserClient
+    from ..models import CommunityModItem
 
 
 class PublishModDialog(QDialog):

@@ -29,7 +29,7 @@ from .auth import AuthManager
 
 if TYPE_CHECKING:
     from pytoningans.core.mod_manager.modpack import ModPack
-    from pytoningans.ui.mod_browser.auth import UserProfile
+    from .auth import UserProfile
 
 __all__ = ["ModBrowserClient", "DEFAULT_CATALOG_DATA"]
 

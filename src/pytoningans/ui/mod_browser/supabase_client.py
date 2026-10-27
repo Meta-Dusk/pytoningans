@@ -17,7 +17,7 @@ from pytoningans.core.roles import save_cached_roles
 from .auth import AuthManager
 
 if TYPE_CHECKING:
-    from pytoningans.ui.mod_browser.auth import AuthSession, UserProfile
+    from .auth import AuthSession, UserProfile
 
 
 class SupabaseClient:

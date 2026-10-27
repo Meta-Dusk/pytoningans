@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
-from pytoningans.core.config_schema import ModConfig
-from pytoningans.core.constants import (
+from ..config_schema import ModConfig
+from ..constants import (
     AnimationMeta, EntityState, EntityType, ItemState, StructureState,
 )
 

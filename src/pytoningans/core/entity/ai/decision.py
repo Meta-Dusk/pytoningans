@@ -3,13 +3,15 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING, Optional, cast
 
-from PySide6.QtCore import QPointF, QRect, QRectF
+from PySide6.QtCore import QPointF
 
-from pytoningans.core.api import BaseBehavior, BaseEntityBehavior, IEntity
-from pytoningans.core.constants import EntityState
+from ...api import BaseEntityBehavior
+from ...constants import EntityState
 from .item_seeking import check_item_seeking
 
 if TYPE_CHECKING:
+    from PySide6.QtCore import QRect, QRectF
+    from ...api import IEntity, BaseBehavior
     from .system import AISystem
 
 
@@ -44,7 +46,7 @@ def on_ai_decision_tick(ai: AISystem) -> bool:
     if behavior is None or not isinstance(behavior, BaseEntityBehavior):
         return False
     try:
-        entity_api: IEntity = cast(IEntity, ai.entity)
+        entity_api: IEntity = cast("IEntity", ai.entity)
         if behavior.on_decision_tick(entity_api):
             return True
     except Exception as e:

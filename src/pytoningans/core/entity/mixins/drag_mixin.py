@@ -2,19 +2,21 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, cast
 
-from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtWidgets import (
-    QGraphicsSceneMouseEvent, QGraphicsSceneContextMenuEvent
-)
+from PySide6.QtCore import Qt
 
-from pytoningans.core.constants import EntityState, EntityType, SystemLocks
+from ...constants import EntityState, EntityType
 
 if TYPE_CHECKING:
-    from pytoningans.core.mod_manager import ModManager
-    from pytoningans.core.world import WorldOverlay
-    from pytoningans.core.entity.animation import AnimationSystem
-    from pytoningans.core.entity.physics import PhysicsSystem
-    from pytoningans.core.entity.base_entity import BaseEntity
+    from PySide6.QtCore import QPointF, QRectF
+    from PySide6.QtWidgets import (
+        QGraphicsSceneMouseEvent, QGraphicsSceneContextMenuEvent
+    )
+    from ...constants import SystemLocks
+    from ...mod_manager import ModManager
+    from ...world import WorldOverlay
+    from ...entity.animation import AnimationSystem
+    from ...entity.physics import PhysicsSystem
+    from ...entity.base_entity import BaseEntity
 
 
 class EntityDragMixin:

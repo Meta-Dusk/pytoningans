@@ -10,11 +10,11 @@ import json, importlib.util, inspect, sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, cast
 
-from pytoningans.core.config_schema import ModPackConfig
-from pytoningans.core.api import BaseModPack, PackMenuAction,IEntity
+from ..config_schema import ModPackConfig
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.base_entity import BaseEntity
+    from ..entity.base_entity import BaseEntity
+    from ..api import IEntity, BaseModPack, PackMenuAction
 
 
 class ModPack:
@@ -63,7 +63,7 @@ class ModPack:
         """
         if self.controller is not None:
             try:
-                return self.controller.get_context_menu_actions(cast(IEntity, entity))
+                return self.controller.get_context_menu_actions(cast("IEntity", entity))
             except Exception as e:
                 print(f"Error in {self.id} get_context_menu_actions: {e}")
         return []
@@ -145,7 +145,7 @@ def compile_pack_controller(
         for _, obj in inspect.getmembers(module, inspect.isclass):
             mro_names: list[str] = [base.__name__ for base in inspect.getmro(obj)]
             if target_base_name in mro_names and obj.__name__ != target_base_name:
-                pack_cls = cast(type[BaseModPack], obj)
+                pack_cls = cast(type["BaseModPack"], obj)
                 instance: BaseModPack
                 try:
                     instance = pack_cls(pack_info=manifest)

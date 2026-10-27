@@ -10,7 +10,7 @@ from PySide6.QtCore import QRectF, Qt
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QWidget, QStyleOptionGraphicsItem
     from PySide6.QtGui import QTextOption, QTextDocument
-    from pytoningans.core.entity.living_entity import Entity
+    from ..entity.living_entity import Entity
 
 class SpeechBubble(QGraphicsItem):
     """

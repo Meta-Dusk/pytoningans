@@ -3,14 +3,15 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Optional, cast, Any
 
-from PySide6.QtWidgets import QGraphicsItem, QStyleOptionGraphicsItem, QWidget
+from PySide6.QtWidgets import QGraphicsItem
 from PySide6.QtGui import QPainter, QColor, QFont, QPen, QBrush, QFontMetrics
 from PySide6.QtCore import QRectF, Qt
 
-from pytoningans.core.settings import SettingsManager, HealthBarMode
+from ...settings import SettingsManager, HealthBarMode
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.living_entity import Entity
+    from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget
+    from ...entity.living_entity import Entity
 
 
 class HealthBarItem(QGraphicsItem):
@@ -50,7 +51,7 @@ class HealthBarItem(QGraphicsItem):
         self.fade_time_left: int = 0
         self.is_hovered: bool = False
 
-        from pytoningans.core.settings import SettingsManager
+        from ...settings import SettingsManager
         SettingsManager.get().settings_changed.connect(self.apply_settings)
         self._signals_connected: bool = True
 

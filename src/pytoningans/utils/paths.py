@@ -52,7 +52,7 @@ def get_settings_path() -> Path:
     app_dir.mkdir(parents=True, exist_ok=True)
     return app_dir / "settings.json"
 
-_DEFAULT_APP_VERSION: str = "0.8.2"
+_DEFAULT_APP_VERSION: str = "0.8.3"
 _CACHED_APP_VERSION: Optional[str] = None
 
 def get_app_version() -> str:

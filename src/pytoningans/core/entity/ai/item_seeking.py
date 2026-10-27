@@ -5,11 +5,12 @@ from typing import TYPE_CHECKING, Optional, cast
 
 from PySide6.QtCore import QPointF
 
-from pytoningans.core.api import BaseBehavior, BaseEntityBehavior, IEntity, IItem
-from pytoningans.core.constants import EntityState
+from ...api import BaseEntityBehavior
+from ...constants import EntityState
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.base_item import BaseItem
+    from ...api import BaseBehavior, IEntity, IItem
+    from ...entity.base_item import BaseItem
     from .system import AISystem
 
 
@@ -26,7 +27,7 @@ def check_item_seeking(ai: AISystem) -> bool:
     # Gather ground items available in the world (excluding held, dragged, or cooldown items)
     world_items: list[BaseItem] = ai.entity.world.active_items
     ground_items: list[IItem] = [
-        cast(IItem, item) for item in world_items
+        cast("IItem", item) for item in world_items
         if item.is_interactable and not (
             item._last_holder is ai.entity and
             item._pickup_cooldown > 0
@@ -37,7 +38,7 @@ def check_item_seeking(ai: AISystem) -> bool:
     behavior: Optional[BaseBehavior] = ai.entity.behavior
     if isinstance(behavior, BaseEntityBehavior):
         try:
-            entity_api: IEntity = cast(IEntity, ai.entity)
+            entity_api: IEntity = cast("IEntity", ai.entity)
             custom_result = behavior.on_seek_item(entity_api, ground_items)
             if custom_result is True:
                 return True

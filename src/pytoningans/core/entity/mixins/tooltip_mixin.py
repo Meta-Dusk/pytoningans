@@ -2,26 +2,23 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, cast
 
-from PySide6.QtCore import QPoint
 from PySide6.QtGui import QCursor
-from PySide6.QtWidgets import QGraphicsSceneHoverEvent
+from PySide6.QtWidgets import QGraphicsPixmapItem
 
-from pytoningans.core.api import (
-    IEntity, BaseEntityBehavior, BaseBehavior, BaseStructureBehavior, IStructure,
-    BaseItemBehavior, IItem
+from ...api import (
+    BaseEntityBehavior, BaseStructureBehavior, BaseItemBehavior
 )
 from pytoningans.ui.tool_tip import CustomToolTipManager
 
 if TYPE_CHECKING:
-    from PySide6.QtWidgets import QGraphicsPixmapItem
-    from pytoningans.core.mod_manager import ModManager
-    from pytoningans.core.entity.base_entity import BaseEntity
-    _MixinBase = QGraphicsPixmapItem
-else:
-    _MixinBase = object
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QGraphicsSceneHoverEvent
+    from ...mod_manager import ModManager
+    from ...entity.base_entity import BaseEntity
+    from ...api import IEntity, IStructure, IItem, BaseBehavior
 
 
-class EntityTooltipMixin(_MixinBase):
+class EntityTooltipMixin(QGraphicsPixmapItem):
     """Encapsulates hover detection, tooltip display, and identification naming for entities."""
 
     _instance_name: Optional[str]
@@ -134,11 +131,11 @@ class EntityTooltipMixin(_MixinBase):
         if behavior is None: return
         try:
             if isinstance(behavior, BaseEntityBehavior):
-                behavior.on_hover_enter(cast(IEntity, self))
+                behavior.on_hover_enter(cast("IEntity", self))
             elif isinstance(behavior, BaseStructureBehavior):
-                behavior.on_hover_enter(cast(IStructure, self))
+                behavior.on_hover_enter(cast("IStructure", self))
             elif isinstance(behavior, BaseItemBehavior):
-                behavior.on_hover_enter(cast(IItem, self))
+                behavior.on_hover_enter(cast("IItem", self))
         except Exception as e:
             print(f"Custom Behavior on_hover_enter Error: {e}")
 
@@ -147,10 +144,10 @@ class EntityTooltipMixin(_MixinBase):
         if behavior is None: return
         try:
             if isinstance(behavior, BaseEntityBehavior):
-                behavior.on_hover_leave(cast(IEntity, self))
+                behavior.on_hover_leave(cast("IEntity", self))
             elif isinstance(behavior, BaseStructureBehavior):
-                behavior.on_hover_leave(cast(IStructure, self))
+                behavior.on_hover_leave(cast("IStructure", self))
             elif isinstance(behavior, BaseItemBehavior):
-                behavior.on_hover_leave(cast(IItem, self))
+                behavior.on_hover_leave(cast("IItem", self))
         except Exception as e:
             print(f"Custom Behavior on_hover_leave Error: {e}")

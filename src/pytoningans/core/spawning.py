@@ -5,23 +5,22 @@ from enum import StrEnum, unique
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from PySide6.QtCore import QObject, QPoint, QPointF, QRect, QRectF, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QKeyEvent, QMouseEvent, QPen, QPixmap
+from PySide6.QtCore import QObject, QPoint, QRect, QRectF, Qt, Signal
+from PySide6.QtGui import QBrush, QColor, QFont, QPen, QPixmap
 from PySide6.QtWidgets import (
-    QApplication,
-    QGraphicsColorizeEffect,
-    QGraphicsPixmapItem,
-    QGraphicsRectItem,
-    QGraphicsSimpleTextItem,
+    QApplication, QGraphicsColorizeEffect, QGraphicsPixmapItem,
+    QGraphicsRectItem, QGraphicsSimpleTextItem
 )
 
-from pytoningans.core.constants import EntityState
-from pytoningans.core.mod_manager import ModManager
+from .constants import EntityState
+from .mod_manager import ModManager
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.base_entity import BaseEntity
-    from pytoningans.core.entity_manager import EntityManager
-    from pytoningans.core.world import WorldOverlay
+    from PySide6.QtCore import QPointF
+    from PySide6.QtGui import QKeyEvent, QMouseEvent
+    from .entity.base_entity import BaseEntity
+    from .entity_manager import EntityManager
+    from .world import WorldOverlay
 
 
 @unique

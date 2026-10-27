@@ -6,7 +6,7 @@ tags, outdated badges, update buttons, and one-click actions.
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
@@ -14,7 +14,9 @@ from PySide6.QtWidgets import (
 )
 
 from pytoningans.core.constants import EntityType
-from ..models import CommunityModItem
+
+if TYPE_CHECKING:
+    from ..models import CommunityModItem
 
 
 class ModCardWidget(QFrame):

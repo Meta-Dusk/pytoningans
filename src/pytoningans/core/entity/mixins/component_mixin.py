@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, cast
 
-from pytoningans.core.components.base_component import BaseComponent
-
 if TYPE_CHECKING:
-    from pytoningans.core.entity.base_entity import BaseEntity
+    from ...entity.base_entity import BaseEntity
+    from ...components.base_component import BaseComponent
 
 
 class EntityComponentMixin:

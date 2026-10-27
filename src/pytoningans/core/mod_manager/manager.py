@@ -2,22 +2,19 @@ from __future__ import annotations
 
 import json, sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
-from PySide6.QtCore import QPoint, QRect
 from PySide6.QtGui import QPixmap
 
-from pytoningans.core.api import BaseBehavior
-from pytoningans.core.config_schema import (
+from ..config_schema import (
     CURRENT_CONFIG_VERSION, BehaviorConfig, DialogueConfig, ModConfig,
 )
-from pytoningans.core.constants import (
+from ..constants import (
     AnimationMeta, AttackType, BehaviorType, DeathAnimation, EntityType,
 )
 from .behavior_loader import compile_behavior_mod
 from .cache import (
-    CacheKey, clear_mod_cache, clear_shared_cache, shared_frame_cache,
-    shared_sheets,
+    clear_mod_cache, clear_shared_cache, shared_frame_cache, shared_sheets
 )
 from .config_io import (
     ensure_config_file, ensure_fallback_animations, parse_animations,
@@ -25,11 +22,18 @@ from .config_io import (
 )
 from .discovery import (
     IGNORED_MOD_FOLDERS, get_available_mods_with_type, get_detailed_mod_list,
-    get_available_packs, resolve_mod_path, ModEntryInfo,
+    get_available_packs, resolve_mod_path,
 )
-from .modpack import ModPack, ModPackRegistry
+from .modpack import ModPackRegistry
 from .physics import get_frame_physics, get_frame_hold_point
 from .sprites import bake_sprite_sheet, get_frame, resolve_dimensions
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QPoint, QRect
+    from .modpack import ModPack
+    from .discovery import ModEntryInfo
+    from .cache import CacheKey
+    from ..api import BaseBehavior
 
 
 class ModManager:

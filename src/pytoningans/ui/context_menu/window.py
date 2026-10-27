@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Optional, Any, TYPE_CHECKING
 
-from PySide6.QtCore import QRect, QRectF, Qt, QPoint
-from PySide6.QtGui import QGuiApplication, QPixmap, QScreen, QResizeEvent, QMouseEvent
+from PySide6.QtCore import Qt, QPoint
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QDialog, QLayoutItem, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox,
     QFrame, QWidget, QScrollArea, QLayout
@@ -15,6 +15,8 @@ from .helpers import create_separator
 from .actions import populate_actions
 
 if TYPE_CHECKING:
+    from PySide6.QtCore import QRect, QRectF
+    from PySide6.QtGui import QPixmap, QScreen, QResizeEvent, QMouseEvent
     from pytoningans.core.entity.base_entity import BaseEntity
 
 

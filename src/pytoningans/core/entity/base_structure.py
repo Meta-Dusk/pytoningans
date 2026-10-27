@@ -4,16 +4,16 @@ from typing import Optional, cast, TYPE_CHECKING
 
 from PySide6.QtCore import QPointF, QRectF
 
-from pytoningans.core.api import BaseStructureBehavior
-from pytoningans.core.components.teleportation import TeleportationComponent
-from pytoningans.core.constants import StructureState
-from pytoningans.core.entity.base_entity import BaseEntity
+from ..api import BaseStructureBehavior
+from ..components.teleportation import TeleportationComponent
+from ..constants import StructureState
+from ..entity.base_entity import BaseEntity
 
 if TYPE_CHECKING:
-    from pytoningans.core.api import BaseBehavior, IEntity, IStructure
-    from pytoningans.core.world import WorldOverlay
-    from pytoningans.core.mod_manager import ModManager
-    from pytoningans.core.components.base_component import BaseComponent
+    from ..api import BaseBehavior, IEntity, IStructure
+    from ..world import WorldOverlay
+    from ..mod_manager import ModManager
+    from ..components.base_component import BaseComponent
 
 
 class BaseStructure(BaseEntity):

@@ -3,10 +3,14 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
-from pytoningans.core.constants import EntityType
-from .modpack import ModPack, ModPackRegistry, load_pack_manifest, ModPackConfig
+from ..constants import EntityType
+from .modpack import ModPackRegistry, load_pack_manifest
+
+if TYPE_CHECKING:
+    from .modpack import ModPack, ModPackConfig
+
 
 IGNORED_MOD_FOLDERS: set[str] = {"api", "__pycache__"}
 

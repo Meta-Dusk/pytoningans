@@ -8,15 +8,14 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QPoint, QPointF, QRect, QVariantAnimation
 from PySide6.QtGui import QColor, QPixmap, QTransform
 
-from pytoningans.core.constants import EntityState, SystemLocks
-from pytoningans.core.entity.animation import AnimationSystem
-from pytoningans.core.entity.physics import PhysicsSystem
-from pytoningans.core.entity.indicators import HighlightOutlineItem, DebugHitboxOverlayItem
-from pytoningans.core.api import (
-    IEntity, BaseEntityBehavior, BaseBehavior, BaseStructureBehavior, IStructure,
-    BaseItemBehavior, IItem, Pos2D
+from ..constants import EntityState, SystemLocks
+from ..entity.animation import AnimationSystem
+from ..entity.physics import PhysicsSystem
+from ..entity.indicators import HighlightOutlineItem, DebugHitboxOverlayItem
+from ..api import (
+    BaseEntityBehavior, BaseStructureBehavior, BaseItemBehavior
 )
-from pytoningans.core.entity.mixins import (
+from ..entity.mixins import (
     EntityCursorMixin,
     EntityDragMixin,
     EntityWindowMixin,
@@ -26,8 +25,9 @@ from pytoningans.core.entity.mixins import (
 )
 
 if TYPE_CHECKING:
-    from pytoningans.core.mod_manager import ModManager
-    from pytoningans.core.world import WorldOverlay
+    from ..api import IEntity, IItem, IStructure, BaseBehavior, Pos2D
+    from ..mod_manager import ModManager
+    from ..world import WorldOverlay
     from pytoningans.ui.context_menu import EntityContextMenu
 
 
@@ -247,11 +247,11 @@ class BaseEntity(
         if behavior is None: return
         try:
             if isinstance(behavior, BaseEntityBehavior):
-                behavior.on_state_change(cast(IEntity, self), old_state, new_state)
+                behavior.on_state_change(cast("IEntity", self), old_state, new_state)
             elif isinstance(behavior, BaseStructureBehavior):
-                behavior.on_state_change(cast(IStructure, self), old_state, new_state)
+                behavior.on_state_change(cast("IStructure", self), old_state, new_state)
             elif isinstance(behavior, BaseItemBehavior):
-                behavior.on_state_change(cast(IItem, self), old_state, new_state)
+                behavior.on_state_change(cast("IItem", self), old_state, new_state)
         except Exception as e:
             print(f"Custom Behavior on_state_change Error: {e}")
 

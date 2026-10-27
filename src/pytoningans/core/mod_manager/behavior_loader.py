@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import importlib.util, inspect, sys
 from pathlib import Path
-from typing import Optional, cast
+from typing import Optional, cast, TYPE_CHECKING
 
-from pytoningans.core.api import BaseBehavior
-from pytoningans.core.constants import EntityType
+from ..constants import EntityType
+
+if TYPE_CHECKING:
+    from ..api import BaseBehavior
 
 
 def compile_behavior_mod(
@@ -52,7 +54,7 @@ def compile_behavior_mod(
         for _, obj in inspect.getmembers(module, inspect.isclass):
             mro_names: list[str] = [base.__name__ for base in inspect.getmro(obj)]
             if target_base_name in mro_names and obj.__name__ != target_base_name:
-                return cast(BaseBehavior, obj())
+                return cast("BaseBehavior", obj())
 
     except Exception as e:
         print(f"Failed to load behavior.py for {mod_folder_name}: {e}")

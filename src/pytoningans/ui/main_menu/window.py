@@ -2,23 +2,24 @@ from __future__ import annotations
 
 from typing import Optional, TYPE_CHECKING
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QFrame, QHBoxLayout
-)
-from PySide6.QtCore import QSize, Qt, QTimer
-from PySide6.QtGui import QResizeEvent, QShowEvent, QHideEvent, QKeyEvent
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QFrame, QHBoxLayout
+from PySide6.QtCore import Qt, QTimer
 
-from pytoningans.ui.mod_manager_hub import ModManagerHub
-from pytoningans.ui.mod_browser import ModBrowserDialog
-from pytoningans.ui.settings_dialog import SettingsDialog
-from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.ui.mod_editor.components import CustomSizeGrip
-from pytoningans.ui.main_menu.spawn_panel import SpawnPanel
-from pytoningans.ui.main_menu.live_controls_panel import LiveControlsPanel
-from pytoningans.ui.main_menu.system_controls_panel import SystemControlsPanel
+from ..mod_manager_hub import ModManagerHub
+from ..mod_browser import ModBrowserDialog
+from ..settings_dialog import SettingsDialog
+from ..title_bar import CustomTitleBar
+from ..mod_editor.components import CustomSizeGrip
+
+from .spawn_panel import SpawnPanel
+from .live_controls_panel import LiveControlsPanel
+from .system_controls_panel import SystemControlsPanel
+
 from pytoningans.utils.assets import get_main_icon
 
 if TYPE_CHECKING:
+    from PySide6.QtCore import QSize
+    from PySide6.QtGui import QResizeEvent, QShowEvent, QHideEvent, QKeyEvent
     from pytoningans.core.entity_manager import EntityManager
 
 
@@ -128,7 +129,7 @@ class MainMenu(QWidget):
 
     def _open_hub(self) -> None:
         if self.hub_window is None or not self.hub_window.isVisible():
-            self.hub_window = ModManagerHub(self.manager.mod_manager)
+            self.hub_window = ModManagerHub(self)
             self.hub_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
             self.hub_window.destroyed.connect(self._on_hub_destroyed)
             self.hub_window.mods_updated.connect(self.spawn_panel.refresh_spawn_list)

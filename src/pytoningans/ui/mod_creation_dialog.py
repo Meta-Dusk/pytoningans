@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import json, re, shutil
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional, Any, TYPE_CHECKING
 
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDragEnterEvent, QDropEvent, QPixmap
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QComboBox, QDialog, QFileDialog, QFormLayout, QHBoxLayout,
     QLabel, QLineEdit, QMessageBox, QPushButton, QSpinBox, QVBoxLayout,
@@ -22,10 +22,14 @@ from pytoningans.core.config_schema import ModConfig
 from pytoningans.core.constants import (
     AnimationMeta, EntityState, EntityType, ItemState, StructureState
 )
-from pytoningans.core.mod_manager import get_available_packs, ModPack
+from pytoningans.core.mod_manager import get_available_packs
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.ui.tool_tip import ToolTipLabel
 from pytoningans.ui.mod_browser.auth import AuthManager
+
+if TYPE_CHECKING:
+    from PySide6.QtGui import QDragEnterEvent, QDropEvent
+    from pytoningans.core.mod_manager import ModPack
 
 
 class ModCreationDialog(QDialog):

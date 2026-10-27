@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ctypes, os
 from ctypes import Array, wintypes
-from typing import Optional
 
 from PySide6.QtCore import QObject, QRect
 

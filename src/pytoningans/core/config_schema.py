@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field, asdict
 from typing import Any
 
-from pytoningans.core.constants import (
+from .constants import (
     EntityState, BehaviorType, AnimationMeta, AttackType, DeathAnimation, EntityType
 )
 

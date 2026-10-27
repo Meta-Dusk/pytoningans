@@ -3,17 +3,17 @@ from __future__ import annotations
 from typing import Optional, TYPE_CHECKING, cast
 from PySide6.QtCore import Qt
 
-from pytoningans.core.api import BaseItemBehavior, BaseEntityBehavior
-from pytoningans.core.constants import ItemState
-from pytoningans.core.entity.base_entity import BaseEntity
+from ..api import BaseItemBehavior, BaseEntityBehavior
+from ..constants import ItemState
+from ..entity.base_entity import BaseEntity
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QPoint, QRectF, QPointF
     from PySide6.QtWidgets import QGraphicsSceneMouseEvent
-    from pytoningans.core.api import BaseBehavior, IItem, IEntity
-    from pytoningans.core.mod_manager import ModManager
-    from pytoningans.core.world import WorldOverlay
-    from pytoningans.core.entity.living_entity import Entity
+    from ..api import BaseBehavior, IItem, IEntity
+    from ..mod_manager import ModManager
+    from ..world import WorldOverlay
+    from ..entity.living_entity import Entity
 
 
 class BaseItem(BaseEntity):
