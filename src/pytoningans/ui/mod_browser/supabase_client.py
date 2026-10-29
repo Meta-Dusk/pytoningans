@@ -7,7 +7,7 @@ Designed with timeouts and graceful error handling for robust offline/online res
 """
 from __future__ import annotations
 
-import json
+import json, time
 from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING
 import urllib.error, urllib.parse, urllib.request
@@ -346,3 +346,80 @@ class SupabaseClient:
                 destination_path.unlink()
             return False, f"Failed to download package: {e}"
 
+    def is_admin(self, *, allow_devs: bool = True) -> bool:
+        """Checks if the current authenticated user is an admin."""
+        if not self.is_configured:
+            return False
+
+        user: Optional[UserProfile] = self.auth.current_user
+        if user is None or not user.id:
+            return False
+        
+        if allow_devs and user.is_developer:
+            return True
+
+        endpoint: str = f"{self.base_url}/rest/v1/admins?select=user_id&user_id=eq.{user.id}"
+        headers: dict[str, str] = self._headers(requires_auth=True)
+        req = urllib.request.Request(endpoint, headers=headers, method="GET")
+
+        try:
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                data: list[dict[str, Any]] = json.loads(resp.read().decode("utf-8"))
+                return len(data) > 0
+        except Exception:
+            return False
+
+    def fetch_pending_mods(self) -> tuple[bool, str, list[dict[str, Any]]]:
+        """Fetches all mods with verification_status = 'pending' for admin review."""
+        if not self.is_configured:
+            return False, "Supabase cloud is not configured.", []
+
+        endpoint: str = (
+            f"{self.base_url}/rest/v1/mods?select=*,"
+            "mod_releases(*)&verification_status=eq.pending&order=created_at.desc"
+        )
+        headers: dict[str, str] = self._headers(requires_auth=True)
+        req = urllib.request.Request(endpoint, headers=headers, method="GET")
+
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data: list[dict[str, Any]] = json.loads(resp.read().decode("utf-8"))
+                return True, f"Loaded {len(data)} pending mods.", data
+        except urllib.error.HTTPError as e:
+            return False, f"Cloud query failed: HTTP {e.code}", []
+        except Exception as e:
+            return False, f"Network error connecting to cloud: {e}", []
+
+    def verify_mod(
+        self, mod_id: str, status: str, verified_by: str,
+    ) -> tuple[bool, str]:
+        """Approves or rejects a mod's verification status (admin only)."""
+        if not self.is_configured:
+            return False, "Supabase cloud is not configured."
+
+        if status not in ("approved", "rejected"):
+            return False, "Invalid verification status. Must be 'approved' or 'rejected'."
+
+        endpoint: str = f"{self.base_url}/rest/v1/mods?id=eq.{urllib.parse.quote(mod_id)}"
+        headers: dict[str, str] = self._headers(requires_auth=True)
+        headers["Prefer"] = "return=representation"
+
+        payload: dict[str, Any] = {
+            "verification_status": status,
+            "verified_by": verified_by,
+            "verified_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        payload_bytes: bytes = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(endpoint, data=payload_bytes, headers=headers, method="PATCH")
+
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data: list[dict[str, Any]] = json.loads(resp.read().decode("utf-8"))
+                if data:
+                    return True, f"Mod {mod_id} {status} successfully."
+                return False, f"Mod {mod_id} not found or not updated."
+        except urllib.error.HTTPError as e:
+            err_body: str = e.read().decode("utf-8", errors="replace")
+            return False, f"Failed to verify mod (HTTP {e.code}): {err_body}"
+        except Exception as e:
+            return False, f"Failed to verify mod: {e}"

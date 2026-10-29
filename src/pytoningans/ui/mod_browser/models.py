@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
-from pytoningans.core.constants import EntityType
+from pytoningans.core.constants import EntityType, VerificationStatus
 from pytoningans.core.roles import get_github_for_creator, is_developer_account
 from pytoningans.utils.paths import get_app_version, _DEFAULT_APP_VERSION
 from pytoningans.utils.format import formatted_size
@@ -73,6 +73,9 @@ class CommunityModItem:
     author_id: Optional[str] = None
     author_badges: list[str] = field(default_factory=list)
     github_username: Optional[str] = None
+    verification_status: VerificationStatus = VerificationStatus.PENDING
+    verified_by: Optional[str] = None
+    verified_at: Optional[str] = None
 
     @property
     def is_developer(self) -> bool:

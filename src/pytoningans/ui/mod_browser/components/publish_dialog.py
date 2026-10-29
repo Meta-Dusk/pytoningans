@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QTextEdit, QPushButton, QMessageBox, QWidget, QFrame
 )
 
-from pytoningans.core.constants import EntityType
+from pytoningans.core.constants import EntityType, VerificationStatus
 from pytoningans.core.mod_manager import (
     resolve_mod_path, export_mod_or_pack_to_zip, scan_mod_or_pack, SecurityRiskLevel
 )
@@ -141,7 +141,23 @@ class PublishModDialog(QDialog):
         self.security_status_label = QLabel("Security Status: Ready to audit.")
         self.security_status_label.setStyleSheet("font-size: 11px; font-weight: bold;")
         sec_layout.addWidget(self.security_status_label)
-        layout.addWidget(self.security_frame)
+
+        # Verification Status Frame
+        self.verification_frame = QFrame()
+        self.verification_frame.setFrameShape(QFrame.Shape.StyledPanel)
+        ver_layout = QVBoxLayout(self.verification_frame)
+        ver_layout.setContentsMargins(10, 8, 10, 8)
+
+        self.verification_status_label = QLabel("Verification Status: Pending")
+        self.verification_status_label.setStyleSheet("font-size: 11px; font-weight: bold;")
+        ver_layout.addWidget(self.verification_status_label)
+
+        # Verification info
+        self.verification_info_label = QLabel("")
+        self.verification_info_label.setStyleSheet("font-size: 10px; color: #888888;")
+        ver_layout.addWidget(self.verification_info_label)
+
+        layout.addWidget(self.verification_frame)
 
         layout.addStretch()
 
@@ -213,6 +229,9 @@ class PublishModDialog(QDialog):
             self.ver_hint_label.setText(f"(Current catalog version: v{existing_item.version})")
             self.publish_btn.setText(f"Publish Release Update (v{suggested_ver})")
             self.publish_btn.setObjectName("InfoBtn")
+
+            # Show verification status for existing items
+            self._update_verification_status(existing_item)
         else:
             self.mode_banner.setText("Publishing Mode: New Mod Listing")
             self.mode_banner.setObjectName("ModeBanner")
@@ -220,6 +239,11 @@ class PublishModDialog(QDialog):
             self.ver_hint_label.setText("(Initial release)")
             self.publish_btn.setText("Package and Publish")
             self.publish_btn.setObjectName("SuccessBtn")
+
+            # New mods start as pending verification
+            self.verification_status_label.setText("Verification Status: Pending")
+            self.verification_status_label.setObjectName("BadgeWarning")
+            self.verification_info_label.setText("New submissions require admin review before public visibility.")
 
         self.mode_banner.style().unpolish(self.mode_banner)
         self.mode_banner.style().polish(self.mode_banner)
@@ -337,16 +361,44 @@ class PublishModDialog(QDialog):
                 return
 
             QMessageBox.information(
-                self,
-                "Publication Success",
-                f"{pub_msg}\n\nPackage archive prepared ({formatted_size(size_bytes)})."
+                self, "Publication Success",
+                f"{pub_msg}\n\nPackage archive prepared ({formatted_size(size_bytes)}).\n\n"
+                f"Status: Pending admin verification."
             )
         else:
             QMessageBox.information(
-                self,
-                "Package Prepared",
+                self, "Package Prepared",
                 "Successfully prepared package archive for "
                 f"'{entity_name}' ({formatted_size(size_bytes)})."
             )
-
+            
         self.accept()
+
+    def _update_verification_status(self, item: CommunityModItem) -> None:
+        """Updates the verification status display for an existing catalog item."""
+        status: VerificationStatus = item.verification_status
+        verified_by: Optional[str] = item.verified_by
+        verified_at: Optional[str] = item.verified_at
+        
+        match status:
+            case VerificationStatus.APPROVED:
+                self.verification_status_label.setText("Verification Status: Approved")
+                self.verification_status_label.setObjectName("BadgeSuccess")
+                self.verification_info_label.setText(
+                    f"Approved by {verified_by or 'admin'} on {verified_at or 'unknown date'}."
+                )
+            case VerificationStatus.REJECTED:
+                self.verification_status_label.setText("Verification Status: Rejected")
+                self.verification_status_label.setObjectName("BadgeDanger")
+                self.verification_info_label.setText(
+                    f"Rejected by {verified_by or 'admin'} on {verified_at or 'unknown date'}."
+                )
+            case VerificationStatus.PENDING:
+                self.verification_status_label.setText("Verification Status: Pending")
+                self.verification_status_label.setObjectName("BadgeWarning")
+                self.verification_info_label.setText("Awaiting admin review before public visibility.")
+
+        self.verification_status_label.style().unpolish(self.verification_status_label)
+        self.verification_status_label.style().polish(self.verification_status_label)
+        self.verification_info_label.style().unpolish(self.verification_info_label)
+        self.verification_info_label.style().polish(self.verification_info_label)

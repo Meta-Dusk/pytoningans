@@ -1,5 +1,18 @@
 -- ==============================================================================
--- PyToNingans Community Mod Browser - Supabase Database Schema and Storage
+-- OPTIONAL: FULL DATABASE RESET FOR LOCAL / TESTING RE-RUNS
+-- ==============================================================================
+-- Uncomment the four lines below if you want to completely wipe and rebuild
+-- the public schema when running this script:
+drop schema if exists public cascade;
+
+create schema public;
+
+grant all on schema public to postgres;
+
+grant all on schema public to public;
+
+-- ==============================================================================
+-- PyToNingans Community Mod Browser - Supabase Database Schema
 -- ==============================================================================
 -- MODS TABLE
 create table if not exists public.mods (
@@ -14,19 +27,28 @@ create table if not exists public.mods (
   is_pack boolean not null default false,
   contained_entities text[] not null default '{}',
   config_version integer not null default 10,
-  target_app_version text not null default '0.8.0',
+  target_app_version text not null default '0.8.3',
   package_url text,
   icon_url text,
   downloads integer not null default 0,
   size_bytes bigint not null default 0,
+  verification_status text not null default 'pending' check (
+    verification_status in ('pending', 'approved', 'rejected')
+  ),
+  verified_by uuid references auth.users (id) on delete set null,
+  verified_at timestamp with time zone,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now()
 );
 
--- Foreign key covering index (Performance Advisor: unindexed_foreign_keys)
+-- Foreign Key & Filter Indexes
 create index if not exists idx_mods_author_id on public.mods (author_id);
 
--- MOD RELEASES TABLE (Git-like version history)
+create index if not exists idx_mods_verification_status on public.mods (verification_status);
+
+create index if not exists idx_mods_verified_by on public.mods (verified_by);
+
+-- MOD RELEASES TABLE
 create table if not exists public.mod_releases (
   id uuid primary key default gen_random_uuid(),
   mod_id text not null references public.mods (id) on delete cascade,
@@ -35,14 +57,12 @@ create table if not exists public.mod_releases (
   download_url text,
   size_bytes bigint not null default 0,
   config_version integer not null default 10,
-  target_app_version text not null default '0.8.0',
+  target_app_version text not null default '0.8.3',
   created_at timestamp with time zone not null default now(),
   unique (mod_id, version)
 );
 
--- Note: 'unique (mod_id, version)' automatically indexes mod_id as the leading column,
--- so an extra index on mod_id alone is not needed.
--- MOD RATINGS TABLE (1.0 to 10.0 per user per mod)
+-- MOD RATINGS TABLE
 create table if not exists public.mod_ratings (
   mod_id text not null references public.mods (id) on delete cascade,
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -54,10 +74,9 @@ create table if not exists public.mod_ratings (
   primary key (mod_id, user_id)
 );
 
--- Foreign key covering index (Performance Advisor: unindexed_foreign_keys)
 create index if not exists idx_mod_ratings_user_id on public.mod_ratings (user_id);
 
--- CREATOR ROLES TABLE (Cryptographic user_id UUID developer verification)
+-- CREATOR ROLES TABLE
 create table if not exists public.creator_roles (
   user_id uuid primary key references auth.users (id) on delete cascade,
   role text not null default 'developer',
@@ -68,12 +87,37 @@ create table if not exists public.creator_roles (
   created_at timestamp with time zone not null default now()
 );
 
-create index if not exists idx_creator_roles_user_id on public.creator_roles (user_id);
+-- ADMINS TABLE
+create table if not exists public.admins (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  granted_by uuid references auth.users (id) on delete set null,
+  granted_at timestamp with time zone not null default now(),
+  note text default '',
+  created_at timestamp with time zone not null default now()
+);
+
+create index if not exists idx_admins_granted_by on public.admins (granted_by);
+
+-- ==============================================================================
+-- AUTOMATIC UPDATED_AT TRIGGER (WITH SEARCH_PATH FIX)
+-- ==============================================================================
+create or replace function public.handle_updated_at () returns trigger language plpgsql
+set
+  search_path = '' as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists set_mods_updated_at on public.mods;
+
+create trigger set_mods_updated_at
+before update on public.mods for each row
+execute function public.handle_updated_at ();
 
 -- ==============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
--- Note: Subqueries (select auth.<function>()) prevent row-by-row re-evaluation.
--- Every policy uses DROP POLICY IF EXISTS first to allow idempotent re-running.
 -- ==============================================================================
 alter table public.mods enable row level security;
 
@@ -83,14 +127,28 @@ alter table public.mod_ratings enable row level security;
 
 alter table public.creator_roles enable row level security;
 
--- --- Creator Roles RLS Policies ---
+alter table public.admins enable row level security;
+
+-- --- Creator Roles Policies ---
 drop policy if exists "Creator roles are viewable by everyone" on public.creator_roles;
 
 create policy "Creator roles are viewable by everyone" on public.creator_roles for
 select
   using (true);
 
--- Seed / link official core developer account by user UUID or email in auth.users
+-- --- Admins Table Policies ---
+drop policy if exists "Admins are viewable by authenticated users" on public.admins;
+
+create policy "Admins are viewable by authenticated users" on public.admins for
+select
+  using (
+    (
+      select
+        auth.role ()
+    ) = 'authenticated'
+  );
+
+-- Seed Core Developer Account (using metadata mapping)
 insert into
   public.creator_roles (
     user_id,
@@ -110,14 +168,13 @@ select
 from
   auth.users
 where
-  email = 'andredcxxv@gmail.com'
-  or raw_user_meta_data ->> 'user_name' = 'Meta-Dusk'
+  raw_user_meta_data ->> 'user_name' = 'Meta-Dusk'
 on conflict (user_id) do update
 set role = excluded.role,
 handle = excluded.handle,
 github_username = excluded.github_username;
 
--- --- Mods RLS Policies ---
+-- --- Mods Policies ---
 drop policy if exists "Mods are viewable by everyone" on public.mods;
 
 create policy "Mods are viewable by everyone" on public.mods for
@@ -135,15 +192,23 @@ with
     ) = 'authenticated'
   );
 
-drop policy if exists "Creators can update their own mods" on public.mods;
+drop policy if exists "Creators and admins can update mods" on public.mods;
 
-create policy "Creators can update their own mods" on public.mods
+create policy "Creators and admins can update mods" on public.mods
 for update
   using (
     (
       select
         auth.uid ()
     ) = author_id
+    or exists (
+      select
+        1
+      from
+        public.admins
+      where
+        user_id = auth.uid ()
+    )
   );
 
 drop policy if exists "Creators can delete their own mods" on public.mods;
@@ -155,7 +220,7 @@ create policy "Creators can delete their own mods" on public.mods for delete usi
   ) = author_id
 );
 
--- --- Releases RLS Policies ---
+-- --- Releases Policies ---
 drop policy if exists "Releases are viewable by everyone" on public.mod_releases;
 
 create policy "Releases are viewable by everyone" on public.mod_releases for
@@ -201,15 +266,12 @@ create policy "Creators can delete releases of their own mods" on public.mod_rel
   )
 );
 
--- --- Ratings RLS Policies ---
+-- --- Ratings Policies ---
 drop policy if exists "Ratings are viewable by everyone" on public.mod_ratings;
 
 create policy "Ratings are viewable by everyone" on public.mod_ratings for
 select
   using (true);
-
--- Drop old legacy policy if present
-drop policy if exists "Authenticated users can submit or update their ratings" on public.mod_ratings;
 
 drop policy if exists "Authenticated users can submit ratings" on public.mod_ratings;
 
@@ -250,7 +312,7 @@ create policy "Authenticated users can delete their ratings" on public.mod_ratin
 );
 
 -- ==============================================================================
--- STORAGE BUCKET FOR MOD ZIP PACKAGES
+-- STORAGE BUCKET FOR MOD PACKAGES (HARDENED FOR PUBLIC CDN USE)
 -- ==============================================================================
 insert into
   storage.buckets (id, name, public)
@@ -258,10 +320,12 @@ values
   ('mods', 'mods', true)
 on conflict (id) do nothing;
 
--- Security Advisor: Public buckets do not need a broad SELECT policy on storage.objects
--- (Public CDN URLs serve objects directly; dropping broad SELECT prevents scraping/listing).
+-- Remove broad object listing policy (prevents public.bucket_allows_listing warning)
+drop policy if exists "Authenticated users can select mod packages" on storage.objects;
+
 drop policy if exists "Mod packages are publicly downloadable" on storage.objects;
 
+-- Restrict write/update/delete operations to authenticated users
 drop policy if exists "Authenticated creators can upload mod packages" on storage.objects;
 
 create policy "Authenticated creators can upload mod packages" on storage.objects for insert
@@ -330,6 +394,10 @@ grant
 select
   on table public.creator_roles to anon,
   authenticated;
+
+grant
+select
+  on table public.admins to authenticated;
 
 grant usage,
 select

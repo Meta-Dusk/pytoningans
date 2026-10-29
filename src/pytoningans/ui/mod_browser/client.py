@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING
 
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
-from pytoningans.core.constants import EntityType
+from pytoningans.core.constants import EntityType, VerificationStatus
 from pytoningans.core.mod_manager import (
     get_available_mods_with_type, get_available_packs,
 )
@@ -650,6 +650,7 @@ class ModBrowserClient:
                 "target_app_version": get_app_version(),
                 "package_url": package_url,
                 "size_bytes": size_bytes,
+                "verification_status": VerificationStatus.PENDING.value,
             }
             release_data: dict[str, Any] = {
                 "mod_id": mod_id,

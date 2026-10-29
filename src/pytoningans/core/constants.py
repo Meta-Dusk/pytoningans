@@ -3,6 +3,12 @@ from enum import StrEnum, unique
 from typing import Any
 
 @unique
+class VerificationStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+@unique
 class EntityType(StrEnum):
     ENTITY = "entity"
     STRUCTURE = "structure"

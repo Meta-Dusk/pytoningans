@@ -22,11 +22,11 @@ from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
 from pytoningans.core.settings import SettingsManager
-from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.ui.mod_editor.components import CustomSizeGrip
-from pytoningans.ui.mod_inspector import ModInspectorDialog
-from pytoningans.ui.settings_dialog import SettingsDialog, SettingsTab
 from pytoningans.utils.assets import get_main_icon
+from ...ui.title_bar import CustomTitleBar
+from ...ui.mod_editor.components import CustomSizeGrip
+from ...ui.mod_inspector import ModInspectorDialog
+from ...ui.settings_dialog import SettingsDialog, SettingsTab
 
 from .auth import AuthManager, UserProfile
 from .client import ModBrowserClient
@@ -37,6 +37,7 @@ from .components.mod_card import ModCardWidget
 from .components.filter_bar import FilterBarWidget
 from .components.rating_dialog import RatingDialog
 from .components.publish_dialog import PublishModDialog
+from .components.verification_dialog import VerificationDialog
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QThread, QRect
@@ -125,6 +126,13 @@ class ModBrowserDialog(QDialog):
         self.publish_btn.setObjectName("PrimaryBtn")
         self.publish_btn.clicked.connect(self._on_publish_clicked)
         top_bar.addWidget(self.publish_btn)
+
+        # Admin Verification button (visible only to admins)
+        self.admin_verify_btn = QPushButton("Admin Verify ▾")
+        self.admin_verify_btn.setObjectName("SecondaryBtn")
+        self.admin_verify_btn.setToolTip("Review and approve/reject pending mod submissions")
+        self.admin_verify_btn.clicked.connect(self._open_verification_panel)
+        top_bar.addWidget(self.admin_verify_btn)
 
         content_layout.addLayout(top_bar)
 
@@ -623,3 +631,9 @@ class ModBrowserDialog(QDialog):
             dlg = SettingsDialog(self)
             dlg.tabs.setCurrentIndex(SettingsTab.DeveloperAndDebugging)
             dlg.exec()
+    
+    def _open_verification_panel(self) -> None:
+        ver_dlg = VerificationDialog(self.client, self)
+        result: int = ver_dlg.exec()
+        print(f"Opened verification panel, returned: {QDialog.DialogCode(result).name}")
+    
