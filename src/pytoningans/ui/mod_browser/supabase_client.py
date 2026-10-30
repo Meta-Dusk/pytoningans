@@ -10,6 +10,7 @@ from __future__ import annotations
 import json, time
 from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING
+from pprint import pprint
 import urllib.error, urllib.parse, urllib.request
 
 from pytoningans.utils.paths import get_app_version
@@ -212,7 +213,7 @@ class SupabaseClient:
                 err_text = e.read().decode("utf-8")
             except Exception:
                 err_text = str(e)
-            print(
+            pprint(
                 "[upload_package] Upload status...\n"
                 " ok=False\n"
                 f" msg=\"Storage upload failed (HTTP {e.code}): {err_text}\"\n"
@@ -248,7 +249,7 @@ class SupabaseClient:
                 pass
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="replace")
-            print(f"[publish_new_mod] Failed to register mod (HTTP {e.code}): {err_body}")
+            pprint(f"[publish_new_mod] Failed to register mod (HTTP {e.code}): {err_body}")
             return False, f"Failed to register mod (HTTP {e.code}): {err_body}"
         except Exception as e:
             print(f"[publish_new_mod] Connection error registering mod: {e}")
@@ -265,7 +266,7 @@ class SupabaseClient:
                 return True, "Successfully registered mod and release in cloud database."
         except urllib.error.HTTPError as e:
             err_body: str = e.read().decode("utf-8", errors="replace")
-            print(f"[publish_new_mod] Mod registered, but release entry failed (HTTP {e.code}): {err_body}")
+            pprint(f"[publish_new_mod] Mod registered, but release entry failed (HTTP {e.code}): {err_body}")
             return False, f"Mod registered, but release entry failed (HTTP {e.code}): {err_body}"
         except Exception as e:
             print(f"[publish_new_mod] Mod registered, but release entry failed: {e}")
@@ -423,3 +424,85 @@ class SupabaseClient:
             return False, f"Failed to verify mod (HTTP {e.code}): {err_body}"
         except Exception as e:
             return False, f"Failed to verify mod: {e}"
+    
+    def delete_package(self, filename: str) -> tuple[bool, str]:
+        """Deletes a package zip archive from the 'mods' storage bucket."""
+        if not self.is_configured:
+            return False, "Cloud storage not configured."
+
+        clean_filename: str = urllib.parse.quote(filename.replace(" ", "_"), safe="/")
+        endpoint: str = f"{self.base_url}/storage/v1/object/mods/{clean_filename}"
+        headers: dict[str, str] = self._headers(requires_auth=True, is_upload=True)
+
+        req = urllib.request.Request(endpoint, headers=headers, method="DELETE")
+
+        try:
+            with urllib.request.urlopen(req, timeout=10):
+                print(f"[delete_package] Successfully deleted '{filename}' from cloud storage.")
+                return True, f"Deleted package '{filename}' from cloud storage."
+        except urllib.error.HTTPError as e:
+            err_text = e.read().decode("utf-8", errors="replace")
+            pprint(f"[delete_package] Failed to delete '{filename}' (HTTP {e.code}): {err_text}")
+            return False, f"Storage delete failed (HTTP {e.code}): {err_text}"
+        except Exception as e:
+            print(f"[delete_package] Connection error deleting package '{filename}': {e}")
+            return False, f"Failed to delete package: {e}"
+
+    def unpublish_mod(self, mod_id: str) -> tuple[bool, str]:
+        """Deletes a mod, its associated releases, and its storage package files from the cloud."""
+        if not self.is_configured:
+            return False, "Supabase cloud is not configured."
+
+        headers: dict[str, str] = self._headers(requires_auth=True)
+
+        # Fetch mod and release package URLs prior to DB row deletion
+        fetch_url: str = (
+            f"{self.base_url}/rest/v1/mods?"
+            f"id=eq.{urllib.parse.quote(mod_id)}&select=package_url,mod_releases(download_url)"
+        )
+        fetch_req = urllib.request.Request(fetch_url, headers=headers, method="GET")
+
+        filenames_to_delete: set[str] = set()
+        try:
+            with urllib.request.urlopen(fetch_req, timeout=8) as resp:
+                raw_fetch = resp.read().decode("utf-8").strip()
+                if raw_fetch:
+                    mod_rows = json.loads(raw_fetch)
+                    if mod_rows:
+                        mod_data = mod_rows[0]
+                        # Extract main mod package filename
+                        if main_url := mod_data.get("package_url"):
+                            fname = urllib.parse.unquote(main_url.rstrip("/").split("/")[-1])
+                            if fname:
+                                filenames_to_delete.add(fname)
+                        # Extract release package filenames
+                        for rel in mod_data.get("mod_releases", []):
+                            if dl_url := rel.get("download_url"):
+                                fname = urllib.parse.unquote(dl_url.rstrip("/").split("/")[-1])
+                                if fname:
+                                    filenames_to_delete.add(fname)
+        except Exception as e:
+            print(f"[unpublish_mod] Warning: Could not pre-fetch package files for cleanup: {e}")
+
+        # Delete storage files
+        for filename in filenames_to_delete:
+            self.delete_package(filename)
+
+        # Delete row from public.mods
+        # Note: Foreign key ON DELETE CASCADE in PostgreSQL automatically cleans up public.mod_releases
+        headers["Prefer"] = "return=representation"
+        mod_endpoint: str = f"{self.base_url}/rest/v1/mods?id=eq.{urllib.parse.quote(mod_id)}"
+        mod_req = urllib.request.Request(mod_endpoint, headers=headers, method="DELETE")
+
+        try:
+            with urllib.request.urlopen(mod_req, timeout=10) as resp:
+                raw_body = resp.read().decode("utf-8").strip()
+                data = json.loads(raw_body) if raw_body else []
+                if data or resp.status in (200, 204):
+                    return True, f"Mod '{mod_id}' unpublished successfully."
+                return False, f"Mod '{mod_id}' not found or not deleted."
+        except urllib.error.HTTPError as e:
+            err_body: str = e.read().decode("utf-8", errors="replace")
+            return False, f"Failed to unpublish mod (HTTP {e.code}): {err_body}"
+        except Exception as e:
+            return False, f"Failed to unpublish mod: {e}"

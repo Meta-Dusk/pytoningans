@@ -17,7 +17,7 @@ from pytoningans.core.constants import EntityType, VerificationStatus
 from pytoningans.core.mod_manager import (
     get_available_mods_with_type, get_available_packs,
 )
-from pytoningans.utils.paths import get_app_version, get_settings_path
+from pytoningans.utils.paths import get_app_version, get_settings_path, _DEFAULT_APP_VERSION
 from .catalog_seed import DEFAULT_CATALOG_DATA
 from .installer_service import (
     install_catalog_item, update_installed_mod, uninstall_installed_mod,
@@ -106,7 +106,7 @@ class ModBrowserClient:
                     changelog=release.get("changelog", ""),
                     created_at=release.get("created_at", "2026-10-18"),
                     target_app_version=release.get(
-                        "target_app_version", entry.get("target_app_version", "0.8.0")
+                        "target_app_version", entry.get("target_app_version", _DEFAULT_APP_VERSION)
                     ),
                     config_version=int(
                         release.get(
@@ -138,7 +138,7 @@ class ModBrowserClient:
             created_at=entry.get("created_at", "2026-10-18"),
             updated_at=entry.get("updated_at", "2026-10-19"),
             config_version=int(entry.get("config_version", CURRENT_CONFIG_VERSION)),
-            target_app_version=entry.get("target_app_version", "0.8.0"),
+            target_app_version=entry.get("target_app_version", _DEFAULT_APP_VERSION),
             releases=releases,
             author_badges=list(entry.get("author_badges") or []),
             github_username=entry.get("github_username"),
@@ -690,6 +690,38 @@ class ModBrowserClient:
             return True, f"Your rating of {score:.1f}/10 has been recorded!"
 
         return False, f"Mod '{mod_id}' was not found in catalog."
+
+    def unpublish_mod(self, mod_id: str) -> tuple[bool, str]:
+        """Unpublishes a mod or modpack from the community catalog (owner only).
+
+        Args:
+            mod_id (str): The mod's ID
+
+        Returns:
+            tuple[bool, str]: (success, msg)
+        """
+        current_user: Optional[UserProfile] = AuthManager.get().current_user
+        if current_user is None or not current_user.id:
+            return False, "You must be signed in to unpublish mods."
+
+        # Check if user owns this mod
+        item: Optional[CommunityModItem] = self.get_mod_by_id(mod_id)
+        if item is None:
+            return False, f"Mod '{mod_id}' not found in catalog."
+
+        # Verify ownership
+        if item.author_id != current_user.id:
+            return False, "You can only unpublish mods that you own."
+
+        if not self.cloud.is_configured:
+            return False, "Cloud database not configured."
+
+        success, msg = self.cloud.unpublish_mod(mod_id)
+        if success:
+            self.clear_catalog_cache()
+            return True, f"Mod '{item.name}' unpublished successfully."
+
+        return False, msg
 
     def _create_placeholder_sprite(self, path: Path) -> None:
         """Generates a valid 32x32 transparent colored PNG sprite sheet placeholder."""

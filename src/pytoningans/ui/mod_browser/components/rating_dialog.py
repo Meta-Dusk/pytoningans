@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QPushButton, QWidget
 )
 
-from pytoningans.ui.title_bar import CustomTitleBar
+from ...title_bar import CustomTitleBar
 from pytoningans.utils.assets import get_main_icon
 
 if TYPE_CHECKING:
@@ -104,4 +104,3 @@ class RatingDialog(QDialog):
 
     def _on_submit(self) -> None:
         self.accept()
-

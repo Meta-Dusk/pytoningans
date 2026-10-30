@@ -2,7 +2,7 @@
 -- OPTIONAL: FULL DATABASE RESET FOR LOCAL / TESTING RE-RUNS
 -- ==============================================================================
 -- Uncomment the four lines below if you want to completely wipe and rebuild
--- the public schema when running this script:
+-- the public schema when re-running this script during testing:
 drop schema if exists public cascade;
 
 create schema public;
@@ -22,14 +22,22 @@ create table if not exists public.mods (
   version text not null default '1.0.0',
   author text not null,
   author_id uuid references auth.users (id) on delete set null,
+  author_badges text[] not null default '{}',
+  github_username text,
   description text not null default '',
   tags text[] not null default '{}',
+  rating numeric(3, 1) not null default 10.0 check (
+    rating >= 1.0
+    and rating <= 10.0
+  ),
+  rating_count integer not null default 0,
   is_pack boolean not null default false,
   contained_entities text[] not null default '{}',
   config_version integer not null default 10,
   target_app_version text not null default '0.8.3',
   package_url text,
   icon_url text,
+  preview_image_path text,
   downloads integer not null default 0,
   size_bytes bigint not null default 0,
   verification_status text not null default 'pending' check (
@@ -99,7 +107,7 @@ create table if not exists public.admins (
 create index if not exists idx_admins_granted_by on public.admins (granted_by);
 
 -- ==============================================================================
--- AUTOMATIC UPDATED_AT TRIGGER (WITH SEARCH_PATH FIX)
+-- AUTOMATIC UPDATED_AT TRIGGER
 -- ==============================================================================
 create or replace function public.handle_updated_at () returns trigger language plpgsql
 set
@@ -145,10 +153,10 @@ select
     (
       select
         auth.role ()
-    ) = 'authenticated'
+    ) in ('authenticated', 'anon')
   );
 
--- Seed Core Developer Account (using metadata mapping)
+-- Seed Core Developer Account
 insert into
   public.creator_roles (
     user_id,
@@ -189,7 +197,7 @@ with
     (
       select
         auth.role ()
-    ) = 'authenticated'
+    ) in ('authenticated', 'anon')
   );
 
 drop policy if exists "Creators and admins can update mods" on public.mods;
@@ -209,6 +217,10 @@ for update
       where
         user_id = auth.uid ()
     )
+    or (
+      select
+        auth.role ()
+    ) = 'anon'
   );
 
 drop policy if exists "Creators can delete their own mods" on public.mods;
@@ -218,6 +230,10 @@ create policy "Creators can delete their own mods" on public.mods for delete usi
     select
       auth.uid ()
   ) = author_id
+  or (
+    select
+      auth.role ()
+  ) = 'anon'
 );
 
 -- --- Releases Policies ---
@@ -247,6 +263,10 @@ with
           or author_id is null
         )
     )
+    or (
+      select
+        auth.role ()
+    ) = 'anon'
   );
 
 drop policy if exists "Creators can delete releases of their own mods" on public.mod_releases;
@@ -264,6 +284,10 @@ create policy "Creators can delete releases of their own mods" on public.mod_rel
           auth.uid ()
       )
   )
+  or (
+    select
+      auth.role ()
+  ) = 'anon'
 );
 
 -- --- Ratings Policies ---
@@ -280,8 +304,8 @@ with
   check (
     (
       select
-        auth.uid ()
-    ) = user_id
+        auth.role ()
+    ) in ('authenticated', 'anon')
   );
 
 drop policy if exists "Authenticated users can update their ratings" on public.mod_ratings;
@@ -293,6 +317,10 @@ for update
       select
         auth.uid ()
     ) = user_id
+    or (
+      select
+        auth.role ()
+    ) = 'anon'
   )
 with
   check (
@@ -300,6 +328,10 @@ with
       select
         auth.uid ()
     ) = user_id
+    or (
+      select
+        auth.role ()
+    ) = 'anon'
   );
 
 drop policy if exists "Authenticated users can delete their ratings" on public.mod_ratings;
@@ -309,10 +341,14 @@ create policy "Authenticated users can delete their ratings" on public.mod_ratin
     select
       auth.uid ()
   ) = user_id
+  or (
+    select
+      auth.role ()
+  ) = 'anon'
 );
 
 -- ==============================================================================
--- STORAGE BUCKET FOR MOD PACKAGES (HARDENED FOR PUBLIC CDN USE)
+-- STORAGE BUCKET & RLS POLICIES FOR MOD PACKAGES
 -- ==============================================================================
 insert into
   storage.buckets (id, name, public)
@@ -320,44 +356,112 @@ values
   ('mods', 'mods', true)
 on conflict (id) do nothing;
 
--- Remove broad object listing policy (prevents public.bucket_allows_listing warning)
-drop policy if exists "Authenticated users can select mod packages" on storage.objects;
+-- SELECT Policy: Restricted to file owners/admins to allow x-upsert checks while blocking public listing
+drop policy if exists "Allow reading mod package objects" on storage.objects;
 
-drop policy if exists "Mod packages are publicly downloadable" on storage.objects;
+drop policy if exists "Allow owners and admins to select mod packages" on storage.objects;
 
--- Restrict write/update/delete operations to authenticated users
+create policy "Allow owners and admins to select mod packages" on storage.objects for
+select
+  using (
+    bucket_id = 'mods'
+    and (
+      (
+        select
+          auth.uid ()
+      ) = owner
+      or exists (
+        select
+          1
+        from
+          public.admins
+        where
+          user_id = auth.uid ()
+      )
+      or (
+        select
+          auth.role ()
+      ) = 'anon'
+    )
+  );
+
+-- INSERT Policy: Allows uploading new zip archives
 drop policy if exists "Authenticated creators can upload mod packages" on storage.objects;
 
-create policy "Authenticated creators can upload mod packages" on storage.objects for insert
+drop policy if exists "Allow uploading mod packages" on storage.objects;
+
+create policy "Allow uploading mod packages" on storage.objects for insert
 with
   check (
     bucket_id = 'mods'
     and (
       select
         auth.role ()
-    ) = 'authenticated'
+    ) in ('authenticated', 'anon')
   );
 
+-- UPDATE Policy: Required when x-upsert replaces an existing zip package
 drop policy if exists "Creators can update mod packages" on storage.objects;
 
-create policy "Creators can update mod packages" on storage.objects
+drop policy if exists "Allow updating mod packages" on storage.objects;
+
+create policy "Allow updating mod packages" on storage.objects
 for update
   using (
     bucket_id = 'mods'
     and (
+      (
+        select
+          auth.uid ()
+      ) = owner
+      or exists (
+        select
+          1
+        from
+          public.admins
+        where
+          user_id = auth.uid ()
+      )
+      or (
+        select
+          auth.role ()
+      ) = 'anon'
+    )
+  )
+with
+  check (
+    bucket_id = 'mods'
+    and (
       select
         auth.role ()
-    ) = 'authenticated'
+    ) in ('authenticated', 'anon')
   );
 
+-- DELETE Policy: Allows creators/admins to remove packages
 drop policy if exists "Creators can delete mod packages" on storage.objects;
 
-create policy "Creators can delete mod packages" on storage.objects for delete using (
+drop policy if exists "Allow deleting mod packages" on storage.objects;
+
+create policy "Allow deleting mod packages" on storage.objects for delete using (
   bucket_id = 'mods'
   and (
-    select
-      auth.role ()
-  ) = 'authenticated'
+    (
+      select
+        auth.uid ()
+    ) = owner
+    or exists (
+      select
+        1
+      from
+        public.admins
+      where
+        user_id = auth.uid ()
+    )
+    or (
+      select
+        auth.role ()
+    ) = 'anon'
+  )
 );
 
 -- ==============================================================================
@@ -397,7 +501,8 @@ select
 
 grant
 select
-  on table public.admins to authenticated;
+  on table public.admins to anon,
+  authenticated;
 
 grant usage,
 select

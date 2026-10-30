@@ -34,12 +34,10 @@ from .client import ModBrowserClient
 from .models import CommunityModItem
 from .async_workers import CatalogSyncWorker, ModInstallWorker
 
-from .components.auth_dialog import AuthDialog
-from .components.mod_card import ModCardWidget
-from .components.filter_bar import FilterBarWidget
-from .components.rating_dialog import RatingDialog
-from .components.publish_dialog import PublishModDialog
-from .components.verification_dialog import VerificationDialog
+from .components import (
+    AuthDialog, ModCardWidget, FilterBarWidget, RatingDialog,
+    PublishModDialog, VerificationDialog, UnpublishModDialog
+)
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QThread, QRect
@@ -92,56 +90,61 @@ class ModBrowserDialog(QDialog):
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(16, 14, 16, 12); content_layout.setSpacing(12)
 
-        # --- Top Header and Actions Bar ---
-        top_bar = QHBoxLayout(); top_bar.setSpacing(10)
+        # --- Primary Header and Actions Bar ---
+        primary_bar = QHBoxLayout(); primary_bar.setSpacing(10)
 
         # Online Status Indicator and Cloud Connect Toggle
         self.status_badge = QLabel("● Offline Catalog")
         self.status_badge.setObjectName("StatusBadgeOffline")
-        top_bar.addWidget(self.status_badge)
+        primary_bar.addWidget(self.status_badge)
 
         self.cloud_btn = QPushButton("Connect to Cloud")
         self.cloud_btn.setObjectName("PrimaryBtn")
         self.cloud_btn.setToolTip("Connect to Supabase Cloud to view live community catalog")
         self.cloud_btn.clicked.connect(self._on_cloud_toggle_clicked)
-        top_bar.addWidget(self.cloud_btn)
+        primary_bar.addWidget(self.cloud_btn)
 
-        top_bar.addStretch()
+        primary_bar.addStretch()
 
         # Creator Account / Sign-in Pill Button
         self.auth_btn = QPushButton("Sign In / Register")
         self.auth_btn.setObjectName("SecondaryBtn")
         self.auth_btn.clicked.connect(self._on_auth_btn_clicked)
-        top_bar.addWidget(self.auth_btn)
+        primary_bar.addWidget(self.auth_btn)
 
         # Refresh button
         self.refresh_btn = QPushButton("Refresh")
         self.refresh_btn.setToolTip("Reload community catalog")
         self.refresh_btn.clicked.connect(self._refresh_catalog)
-        top_bar.addWidget(self.refresh_btn)
-
-        # Debug Tools Menu Button (Visible only when Developer Mode is enabled in Settings)
-        self.debug_btn = QPushButton("Debug ▾")
-        self.debug_btn.setObjectName("SecondaryBtn")
-        self.debug_btn.setToolTip("Developer and Testing Tools")
-        self.debug_btn.clicked.connect(self._on_debug_btn_clicked)
-        top_bar.addWidget(self.debug_btn)
+        primary_bar.addWidget(self.refresh_btn)
 
         # Publish Mod button
         self.publish_btn = QPushButton("Publish Mod/Pack")
         self.publish_btn.setToolTip("Package and publish your local mod or pack to the community")
         self.publish_btn.setObjectName("PrimaryBtn")
         self.publish_btn.clicked.connect(self._on_publish_clicked)
-        top_bar.addWidget(self.publish_btn)
+        primary_bar.addWidget(self.publish_btn)
 
+        content_layout.addLayout(primary_bar)
+        
+        # --- Secondary Header and Actions Bar ---
+        secondary_bar = QHBoxLayout(); secondary_bar.setSpacing(10)
+        
+        # Debug Tools Menu Button (Visible only when Developer Mode is enabled in Settings)
+        self.debug_btn = QPushButton("Debug ▾")
+        self.debug_btn.setObjectName("SecondaryBtn")
+        self.debug_btn.setToolTip("Developer and Testing Tools")
+        self.debug_btn.clicked.connect(self._on_debug_btn_clicked)
+        secondary_bar.addWidget(self.debug_btn)
+        
         # Admin Verification button (visible only to admins)
-        self.admin_verify_btn = QPushButton("Admin Verify ▾")
+        self.admin_verify_btn = QPushButton("(Admin) Verify Mods ▾")
         self.admin_verify_btn.setObjectName("SecondaryBtn")
         self.admin_verify_btn.setToolTip("Review and approve/reject pending mod submissions")
         self.admin_verify_btn.clicked.connect(self._open_verification_panel)
-        top_bar.addWidget(self.admin_verify_btn)
-
-        content_layout.addLayout(top_bar)
+        secondary_bar.addWidget(self.admin_verify_btn)
+        
+        content_layout.addLayout(secondary_bar)
 
         # --- Search and Filter Bar ---
         self.filter_bar = FilterBarWidget(self)
@@ -405,13 +408,14 @@ class ModBrowserDialog(QDialog):
         self._apply_filters()
         if not success:
             QMessageBox.warning(
-                self,
-                "Cloud Connection",
+                self, "Cloud Connection",
                 f"Could not connect to Supabase Cloud:\n{message}\n\nRunning in offline catalog mode.",
             )
 
-    def _refresh_catalog(self) -> None:
+    def _refresh_catalog(self, *, clear_cache: bool = True) -> None:
         """Refreshes catalog entries either from live cloud or local offline storage."""
+        if clear_cache:
+            self.client.clear_catalog_cache()
         if self.client.is_online and self.client.cloud.is_configured:
             self._start_cloud_sync()
         else:
@@ -458,6 +462,7 @@ class ModBrowserDialog(QDialog):
             card.inspect_requested.connect(self._on_inspect_requested)
             card.rate_requested.connect(self._on_rate_requested)
             card.publish_requested.connect(self._on_card_publish_requested)
+            card.unpublish_requested.connect(self._on_unpublish_requested)
 
             self.cards_layout.addWidget(card)
             self._cards.append(card)
@@ -648,7 +653,28 @@ class ModBrowserDialog(QDialog):
                 print(f"Opened settings panel, returned: {QDialog.DialogCode(result).name}")
     
     def _open_verification_panel(self) -> None:
+        """Opens the verification dialog, available to only the admins."""
         verification_dlg = VerificationDialog(self.client, self)
         result: int = verification_dlg.exec()
         print(f"Opened verification panel, returned: {QDialog.DialogCode(result).name}")
+    
+    def _on_unpublish_requested(self, item: CommunityModItem) -> None:
+        """Opens the unpublish modal dialog."""
+        unpublish_dlg = UnpublishModDialog(item, self)
+        result: int = unpublish_dlg.exec()
+        print(f"Opened unpublish panel, returned: {QDialog.DialogCode(result).name}")
+        if result != QDialog.DialogCode.Accepted: return
+        
+        success, msg = self.client.unpublish_mod(item.id)
+        print(f"[unpublish_request] {msg}")
+        
+        if success:
+            QMessageBox.information(
+                self, f"Unpublished {"Modpack" if item.is_pack else "Mod"}", msg
+            )
+            self._apply_filters()
+        else:
+            QMessageBox.critical(
+                self, f"Failed to Unpublish {"Modpack" if item.is_pack else "Mod"}", msg
+            )
     

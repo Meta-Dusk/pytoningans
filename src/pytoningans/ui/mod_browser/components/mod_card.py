@@ -1,6 +1,6 @@
 """
 PyToNingans Mod Browser - Mod Card Component
-============================================
+===========================================
 Visual card widget rendering community mod details, ratings, download stats,
 tags, outdated badges, update buttons, and one-click actions.
 """
@@ -13,10 +13,12 @@ from PySide6.QtWidgets import (
     QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QWidget, QMessageBox
 )
 
-from pytoningans.core.constants import EntityType
+from pytoningans.core.constants import EntityType, VerificationStatus
+from ...mod_browser.auth import AuthManager
 
 if TYPE_CHECKING:
     from ..models import CommunityModItem
+    from ...mod_browser.auth import UserProfile
 
 
 class ModCardWidget(QFrame):
@@ -39,11 +41,56 @@ class ModCardWidget(QFrame):
     
     publish_requested = Signal(object)
     """Passes object of type `CommunityModItem`."""
+    
+    unpublish_requested = Signal(object)
+    """Passes object of type `CommunityModItem`."""
 
     def __init__(self, item: CommunityModItem, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.item: CommunityModItem = item
         self._setup_ui()
+
+    def _is_owner(self) -> bool:
+        """Determines if the currently logged-in user owns this mod/modpack."""
+        user: Optional[UserProfile] = AuthManager.get().current_user
+        if user is None or not user.id or user.id.startswith("local_"):
+            return False
+        return self.item.author_id == user.id
+
+    def _get_verification_status_text(self) -> str:
+        """Returns a human-readable verification status string."""
+        match self.item.verification_status:
+            case VerificationStatus.APPROVED:
+                return "✓ Approved"
+            case VerificationStatus.REJECTED:
+                return "✗ Rejected"
+        return "◷ Pending"
+
+    def _get_verification_badge(self) -> Optional[QLabel]:
+        """Returns a verification status badge widget if applicable."""
+        if self.item.verification_status == VerificationStatus.APPROVED:
+            badge = QLabel("✓ Verified")
+            badge.setObjectName("BadgeSuccess")
+            badge.setToolTip(
+                f"Verified by: {self._get_verifier_name()}\n"
+                f"Verified at: {self.item.verified_at[:10] if self.item.verified_at else 'Unknown'}"
+            )
+            return badge
+        elif self.item.verification_status == VerificationStatus.REJECTED:
+            badge = QLabel("✗ Rejected")
+            badge.setObjectName("BadgeWarning")
+            badge.setToolTip(
+                f"Rejected by: {self._get_verifier_name()}\n"
+                f"Reason: Community review did not approve this mod."
+            )
+            return badge
+        return None
+
+    def _get_verifier_name(self) -> str:
+        """Returns the display name of the user who verified this mod."""
+        if self.item.verified_by:
+            return f"User {self.item.verified_by[:8]}"
+        return "Unknown"
 
     def _setup_ui(self) -> None:
         self.setFrameShape(QFrame.Shape.StyledPanel); self.setObjectName("ModCardWidget")
@@ -98,6 +145,11 @@ class ModCardWidget(QFrame):
                 installed_badge = QLabel(f"✓ Installed (v{ver_display})")
                 installed_badge.setObjectName("BadgeSuccess")
                 header_layout.addWidget(installed_badge)
+
+        # Verification status badge
+        verification_badge: Optional[QLabel] = self._get_verification_badge()
+        if verification_badge is not None:
+            header_layout.addWidget(verification_badge)
 
         layout.addLayout(header_layout)
 
@@ -261,6 +313,14 @@ class ModCardWidget(QFrame):
                 install_btn.clicked.connect(lambda: self.install_requested.emit(self.item))
                 footer_layout.addWidget(install_btn)
 
+            # Action 4: Unpublish button (owner only)
+            if self._is_owner():
+                unpub_btn = QPushButton("Unpublish")
+                unpub_btn.setObjectName("DangerBtn")
+                unpub_btn.setToolTip(f"Remove '{self.item.name}' from the community catalog")
+                unpub_btn.setStyleSheet("padding: 4px 10px; font-size: 11px;")
+                unpub_btn.clicked.connect(lambda: self.unpublish_requested.emit(self.item))
+                footer_layout.addWidget(unpub_btn)
 
         layout.addLayout(footer_layout)
 
