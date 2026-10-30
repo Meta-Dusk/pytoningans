@@ -23,6 +23,7 @@ from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
 from pytoningans.core.settings import SettingsManager
 from pytoningans.utils.assets import get_main_icon
+
 from ...ui.title_bar import CustomTitleBar
 from ...ui.mod_editor.components import CustomSizeGrip
 from ...ui.mod_inspector import ModInspectorDialog
@@ -32,6 +33,7 @@ from .auth import AuthManager, UserProfile
 from .client import ModBrowserClient
 from .models import CommunityModItem
 from .async_workers import CatalogSyncWorker, ModInstallWorker
+
 from .components.auth_dialog import AuthDialog
 from .components.mod_card import ModCardWidget
 from .components.filter_bar import FilterBarWidget
@@ -42,6 +44,7 @@ from .components.verification_dialog import VerificationDialog
 if TYPE_CHECKING:
     from PySide6.QtCore import QThread, QRect
     from PySide6.QtGui import QCloseEvent, QResizeEvent, QScreen, QAction
+    from ..main_menu import MainMenu
 
 
 class ModBrowserDialog(QDialog):
@@ -49,9 +52,13 @@ class ModBrowserDialog(QDialog):
 
     mods_updated = Signal()
 
-    def __init__(self, mod_manager: ModManager, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self, mod_manager: ModManager, parent: Optional[QWidget] = None, *,
+        main_menu: Optional[MainMenu] = None
+    ) -> None:
         super().__init__(parent)
         self.mod_manager: ModManager = mod_manager
+        self.main_menu: Optional[MainMenu] = main_menu
         self.client: ModBrowserClient = ModBrowserClient(self.mod_manager.mods_dir)
         self.auth: AuthManager = AuthManager.get()
         self.settings_mgr: SettingsManager = SettingsManager.get()
@@ -285,9 +292,13 @@ class ModBrowserDialog(QDialog):
 
         action: QAction = menu.exec(self.auth_btn.mapToGlobal(self.auth_btn.rect().bottomLeft()))
         if action == profile_action:
-            settings_dlg = SettingsDialog(self)
-            settings_dlg.open_profile_tab()
-            settings_dlg.exec()
+            if self.main_menu is not None:
+                self.main_menu.open_settings()
+            else:
+                settings_dlg = SettingsDialog(self)
+                settings_dlg.set_tab(SettingsTab.CreatorProfile)
+                result: int = settings_dlg.exec()
+                print(f"Opened verification panel, returned: {QDialog.DialogCode(result).name}")
             self._update_auth_ui(self.auth.current_user)
         elif action == settings_action:
             dlg = AuthDialog(self)
@@ -601,20 +612,20 @@ class ModBrowserDialog(QDialog):
     def _on_debug_btn_clicked(self) -> None:
         """Opens developer and testing tools popup menu."""
         menu = QMenu(self)
-        title_action = menu.addAction("Developer and Testing Tools")
+        title_action: QAction = menu.addAction("Developer and Testing Tools")
         title_action.setEnabled(False)
         menu.addSeparator()
 
-        seed_action = menu.addAction("Load Demo / Seed Catalog")
+        seed_action: QAction = menu.addAction("Load Demo / Seed Catalog")
         seed_action.setToolTip("Inject built-in demo mods into the catalog cache for offline testing")
 
-        clear_cache_action = menu.addAction("Clear Local Catalog Cache")
+        clear_cache_action: QAction = menu.addAction("Clear Local Catalog Cache")
         clear_cache_action.setToolTip("Wipe cached community items to test empty catalog state")
 
         menu.addSeparator()
         settings_action = menu.addAction("Configure Developer Settings...")
 
-        action = menu.exec(self.debug_btn.mapToGlobal(self.debug_btn.rect().bottomLeft()))
+        action: QAction = menu.exec(self.debug_btn.mapToGlobal(self.debug_btn.rect().bottomLeft()))
         if action == seed_action:
             added = self.client.load_seed_catalog()
             self._apply_filters()
@@ -628,12 +639,16 @@ class ModBrowserDialog(QDialog):
                 self, "Cache Cleared", "Local community catalog cache has been reset."
             )
         elif action == settings_action:
-            dlg = SettingsDialog(self)
-            dlg.tabs.setCurrentIndex(SettingsTab.DeveloperAndDebugging)
-            dlg.exec()
+            if self.main_menu is not None:
+                self.main_menu.open_settings()
+            else:
+                settings_dlg = SettingsDialog(self)
+                settings_dlg.set_tab(SettingsTab.DeveloperAndDebugging)
+                result: int = settings_dlg.exec()
+                print(f"Opened settings panel, returned: {QDialog.DialogCode(result).name}")
     
     def _open_verification_panel(self) -> None:
-        ver_dlg = VerificationDialog(self.client, self)
-        result: int = ver_dlg.exec()
+        verification_dlg = VerificationDialog(self.client, self)
+        result: int = verification_dlg.exec()
         print(f"Opened verification panel, returned: {QDialog.DialogCode(result).name}")
     

@@ -136,7 +136,7 @@ class ModManagerHub(QWidget):
         self.browser_btn = QPushButton("Browse Online Mods")
         self.browser_btn.setToolTip("Explore, install, and rate community mods and modpacks")
         self.browser_btn.setStyleSheet("background-color: #3b82f6; color: white; font-weight: bold;")
-        self.browser_btn.clicked.connect(self.main_menu._open_browser)
+        self.browser_btn.clicked.connect(self.main_menu.open_browser)
         btn_layout.addWidget(self.browser_btn)
 
         self.create_btn = QPushButton("Create New Mod")

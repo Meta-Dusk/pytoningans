@@ -33,7 +33,7 @@ from ..ui.mod_browser.components.auth_dialog import AuthDialog
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QRect, QSize
-    from PySide6.QtGui import QScreen, QAction, QResizeEvent
+    from PySide6.QtGui import QScreen, QAction, QResizeEvent, QCloseEvent
     from ..ui.mod_browser.auth import UserProfile
 
 
@@ -60,11 +60,12 @@ class SettingsDialog(QDialog):
         self._is_loading: bool = True
         self._setup_ui()
         self._load_current_values()
-        self._adjust_size_for_content()
         self._center_window()
         self._is_loading = False
 
-        AuthManager.get().auth_state_changed.connect(lambda _: self._update_profile_status_ui())
+        self._auth_state_connection = AuthManager.get().auth_state_changed.connect(
+            lambda _: self._update_profile_status_ui()
+        )
 
     def _create_separator(self) -> QFrame:
         sep = QFrame()
@@ -72,7 +73,9 @@ class SettingsDialog(QDialog):
         return sep
 
     def _wrap_tab_in_scroll(self, widget: QWidget) -> QScrollArea:
-        """Wraps tab content in a borderless scroll area so contents never get clipped on small screens or high DPI."""
+        """
+        Wraps tab content in a borderless scroll area so contents never get clipped on small screens or high DPI.
+        """
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -103,7 +106,7 @@ class SettingsDialog(QDialog):
 
         # Tab Widget for generic category organization
         self.tabs = QTabWidget()
-        self.tabs.currentChanged.connect(lambda _: self._adjust_size_for_content())
+        self.tabs.currentChanged.connect(lambda _: self.adjust_size_for_content())
 
         # -------------------------------------------------------------
         # Tab 1: Creator Profile
@@ -268,7 +271,7 @@ class SettingsDialog(QDialog):
 
         # Helper note
         tip_lbl = QLabel(
-            "💡 Tip: Setting your creator handle here ensures you won't need to retype it "
+            "(?) Tip: Setting your creator handle here ensures you won't need to retype it "
             "each time you create a mod, modpack, or release update."
         )
         tip_lbl.setStyleSheet("color: #89b4fa; font-size: 11px; font-style: italic;")
@@ -484,7 +487,7 @@ class SettingsDialog(QDialog):
             self.height() - self.grip.height(),
         )
 
-    def _adjust_size_for_content(self) -> None:
+    def adjust_size_for_content(self) -> None:
         """Dynamically computes required dimensions to display all content comfortably without clipping."""
         max_tab_w: int = 0
         max_tab_h: int = 0
@@ -528,16 +531,24 @@ class SettingsDialog(QDialog):
         window_geom.moveCenter(screen_geom.center())
         self.move(window_geom.topLeft())
 
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Disconnects auth state signal to prevent callbacks on deleted C++ object."""
+        try:
+            AuthManager.get().auth_state_changed.disconnect(self._auth_state_connection)
+        except (TypeError, RuntimeError):
+            pass
+        super().closeEvent(event)
+
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self.grip.move(
             self.width() - self.grip.width(),
             self.height() - self.grip.height(),
         )
-
-    def open_profile_tab(self) -> None:
-        """Switches directly to the Creator Profile tab."""
-        self.tabs.setCurrentIndex(0)
+    
+    def set_tab(self, tab: SettingsTab) -> None:
+        """Set directly the current tab to display."""
+        self.tabs.setCurrentIndex(tab)
 
     def _update_profile_status_ui(self) -> None:
         auth: AuthManager = AuthManager.get()
@@ -674,10 +685,9 @@ class SettingsDialog(QDialog):
 
     def _on_change_avatar_clicked(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select Profile Picture",
-            "",
-            "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)",
+            self, "Select Profile Picture",
+            dir="",
+            filter="Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)",
         )
         if not file_path:
             return
