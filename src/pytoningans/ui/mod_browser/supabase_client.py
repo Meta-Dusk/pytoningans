@@ -347,16 +347,20 @@ class SupabaseClient:
                 destination_path.unlink()
             return False, f"Failed to download package: {e}"
 
-    def is_admin(self, *, allow_devs: bool = True) -> bool:
+    def is_admin(self, *, allow_devs: bool = False) -> bool:
         """Checks if the current authenticated user is an admin."""
+        print("[is_admin] Checking if user is an admin... [1/2]")
         if not self.is_configured:
+            print("[is_admin] Cloud Client not configured! [2/2]")
             return False
 
         user: Optional[UserProfile] = self.auth.current_user
         if user is None or not user.id:
+            print("[is_admin] Current user is nonexistent. [2/2]")
             return False
         
         if allow_devs and user.is_developer:
+            print("[is_admin] Detected developer (allow_devs). [2/2]")
             return True
 
         endpoint: str = f"{self.base_url}/rest/v1/admins?select=user_id&user_id=eq.{user.id}"
@@ -366,12 +370,20 @@ class SupabaseClient:
         try:
             with urllib.request.urlopen(req, timeout=6) as resp:
                 data: list[dict[str, Any]] = json.loads(resp.read().decode("utf-8"))
-                return len(data) > 0
-        except Exception:
+                data_check: bool = len(data) > 0
+                print(f"[is_admin] User is {"" if data_check else "NOT"} an admin [2/2]")
+                return data_check
+        except Exception as e:
+            pprint(f"[is_admin] Failed to check [2/2]:\n{e}")
             return False
 
     def fetch_pending_mods(self) -> tuple[bool, str, list[dict[str, Any]]]:
-        """Fetches all mods with verification_status = 'pending' for admin review."""
+        """
+        Fetches all mods with `verification_status = 'pending'` for admin review.
+
+        Returns:
+            tuple[bool, str, list[dict[str, Any]]]: (success, msg, data)
+        """
         if not self.is_configured:
             return False, "Supabase cloud is not configured.", []
 
@@ -394,7 +406,17 @@ class SupabaseClient:
     def verify_mod(
         self, mod_id: str, status: str, verified_by: str,
     ) -> tuple[bool, str]:
-        """Approves or rejects a mod's verification status (admin only)."""
+        """
+        Approves or rejects a mod's verification status (admin only).
+
+        Args:
+            mod_id (str): Mod ID
+            status (str): Mod verification status "(approved | pending | rejected)"
+            verified_by (str): UUID of who verified
+
+        Returns:
+            tuple[bool, str]: (success, msg)
+        """
         if not self.is_configured:
             return False, "Supabase cloud is not configured."
 
@@ -489,7 +511,7 @@ class SupabaseClient:
             self.delete_package(filename)
 
         # Delete row from public.mods
-        # Note: Foreign key ON DELETE CASCADE in PostgreSQL automatically cleans up public.mod_releases
+        #? Note: Foreign key ON DELETE CASCADE in PostgreSQL automatically cleans up public.mod_releases
         headers["Prefer"] = "return=representation"
         mod_endpoint: str = f"{self.base_url}/rest/v1/mods?id=eq.{urllib.parse.quote(mod_id)}"
         mod_req = urllib.request.Request(mod_endpoint, headers=headers, method="DELETE")

@@ -74,6 +74,7 @@ class ModBrowserDialog(QDialog):
         self._update_auth_ui(self.auth.current_user)
         self.settings_mgr.settings_changed.connect(self._update_debug_visibility)
         self._update_debug_visibility()
+        self._update_admin_verify_visibility()
         self._update_status_indicator()
         self._apply_filters()
         self._center_window()
@@ -91,60 +92,61 @@ class ModBrowserDialog(QDialog):
         content_layout.setContentsMargins(16, 14, 16, 12); content_layout.setSpacing(12)
 
         # --- Primary Header and Actions Bar ---
-        primary_bar = QHBoxLayout(); primary_bar.setSpacing(10)
+        primary_layout = QHBoxLayout(); primary_layout.setSpacing(10)
 
         # Online Status Indicator and Cloud Connect Toggle
         self.status_badge = QLabel("● Offline Catalog")
         self.status_badge.setObjectName("StatusBadgeOffline")
-        primary_bar.addWidget(self.status_badge)
+        primary_layout.addWidget(self.status_badge)
 
         self.cloud_btn = QPushButton("Connect to Cloud")
         self.cloud_btn.setObjectName("PrimaryBtn")
         self.cloud_btn.setToolTip("Connect to Supabase Cloud to view live community catalog")
         self.cloud_btn.clicked.connect(self._on_cloud_toggle_clicked)
-        primary_bar.addWidget(self.cloud_btn)
+        primary_layout.addWidget(self.cloud_btn)
 
-        primary_bar.addStretch()
+        primary_layout.addStretch()
 
         # Creator Account / Sign-in Pill Button
         self.auth_btn = QPushButton("Sign In / Register")
         self.auth_btn.setObjectName("SecondaryBtn")
         self.auth_btn.clicked.connect(self._on_auth_btn_clicked)
-        primary_bar.addWidget(self.auth_btn)
+        primary_layout.addWidget(self.auth_btn)
 
         # Refresh button
         self.refresh_btn = QPushButton("Refresh")
         self.refresh_btn.setToolTip("Reload community catalog")
         self.refresh_btn.clicked.connect(self._refresh_catalog)
-        primary_bar.addWidget(self.refresh_btn)
+        primary_layout.addWidget(self.refresh_btn)
 
         # Publish Mod button
         self.publish_btn = QPushButton("Publish Mod/Pack")
         self.publish_btn.setToolTip("Package and publish your local mod or pack to the community")
         self.publish_btn.setObjectName("PrimaryBtn")
         self.publish_btn.clicked.connect(self._on_publish_clicked)
-        primary_bar.addWidget(self.publish_btn)
+        primary_layout.addWidget(self.publish_btn)
 
-        content_layout.addLayout(primary_bar)
+        content_layout.addLayout(primary_layout)
         
         # --- Secondary Header and Actions Bar ---
-        secondary_bar = QHBoxLayout(); secondary_bar.setSpacing(10)
+        secondary_layout = QHBoxLayout()
+        secondary_layout.setSpacing(10)
         
         # Debug Tools Menu Button (Visible only when Developer Mode is enabled in Settings)
         self.debug_btn = QPushButton("Debug ▾")
         self.debug_btn.setObjectName("SecondaryBtn")
         self.debug_btn.setToolTip("Developer and Testing Tools")
         self.debug_btn.clicked.connect(self._on_debug_btn_clicked)
-        secondary_bar.addWidget(self.debug_btn)
+        secondary_layout.addWidget(self.debug_btn)
         
         # Admin Verification button (visible only to admins)
         self.admin_verify_btn = QPushButton("(Admin) Verify Mods ▾")
         self.admin_verify_btn.setObjectName("SecondaryBtn")
         self.admin_verify_btn.setToolTip("Review and approve/reject pending mod submissions")
         self.admin_verify_btn.clicked.connect(self._open_verification_panel)
-        secondary_bar.addWidget(self.admin_verify_btn)
+        secondary_layout.addWidget(self.admin_verify_btn)
         
-        content_layout.addLayout(secondary_bar)
+        content_layout.addLayout(secondary_layout)
 
         # --- Search and Filter Bar ---
         self.filter_bar = FilterBarWidget(self)
@@ -613,6 +615,14 @@ class ModBrowserDialog(QDialog):
         self.debug_btn.setVisible(self.settings_mgr.settings.enable_debug_mode)
         if not self._cards:
             self._apply_filters()
+    
+    def _update_admin_verify_visibility(self) -> None:
+        """Toggles visibility of the admin verify button based on admin status."""
+        is_admin: bool = self.client.cloud.is_admin()
+        print(f"User is {"" if is_admin else "not"} an admin.")
+        self.admin_verify_btn.setVisible(is_admin)
+        if not self._cards:
+            self._apply_filters()
 
     def _on_debug_btn_clicked(self) -> None:
         """Opens developer and testing tools popup menu."""
@@ -657,24 +667,26 @@ class ModBrowserDialog(QDialog):
         verification_dlg = VerificationDialog(self.client, self)
         result: int = verification_dlg.exec()
         print(f"Opened verification panel, returned: {QDialog.DialogCode(result).name}")
+        self._apply_filters()
     
-    def _on_unpublish_requested(self, item: CommunityModItem) -> None:
+    def _on_unpublish_requested(self, mod_item: CommunityModItem) -> None:
         """Opens the unpublish modal dialog."""
-        unpublish_dlg = UnpublishModDialog(item, self)
+        unpublish_dlg = UnpublishModDialog(mod_item, self)
         result: int = unpublish_dlg.exec()
         print(f"Opened unpublish panel, returned: {QDialog.DialogCode(result).name}")
         if result != QDialog.DialogCode.Accepted: return
         
-        success, msg = self.client.unpublish_mod(item.id)
+        success, msg = self.client.unpublish_mod(mod_item.id)
         print(f"[unpublish_request] {msg}")
+        mod_pack_type: str = "Modpack" if mod_item.is_pack else "Mod"
         
         if success:
             QMessageBox.information(
-                self, f"Unpublished {"Modpack" if item.is_pack else "Mod"}", msg
+                self, f"Unpublished {mod_pack_type}", msg
             )
             self._apply_filters()
         else:
             QMessageBox.critical(
-                self, f"Failed to Unpublish {"Modpack" if item.is_pack else "Mod"}", msg
+                self, f"Failed to Unpublish {mod_pack_type}", msg
             )
     

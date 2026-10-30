@@ -15,11 +15,13 @@ from PySide6.QtWidgets import (
 )
 
 from pytoningans.core.constants import VerificationStatus
-from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.utils.assets import get_main_icon
+from ...title_bar import CustomTitleBar
 from ..auth import AuthManager
+from ...mod_editor.components import CustomSizeGrip
 
 if TYPE_CHECKING:
+    from PySide6.QtGui import QResizeEvent
     from ..client import ModBrowserClient
     from ..auth.models import UserProfile
 
@@ -87,13 +89,13 @@ class VerificationDialog(QDialog):
     
     def _check_admin(self) -> bool:
         """Check if current user is an admin."""
-        return self.client.cloud.is_admin(allow_devs=False)
+        return self.client.cloud.is_admin()
     
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0); main_layout.setSpacing(0)
         
-        self.title_bar = CustomTitleBar(self, "Admin Verification Panel")
+        self.title_bar = CustomTitleBar(self, "Admin Verification Panel", can_minimize=False)
         main_layout.addWidget(self.title_bar)
         
         content = QWidget()
@@ -190,6 +192,21 @@ class VerificationDialog(QDialog):
         
         layout.addWidget(splitter)
         main_layout.addWidget(content)
+        
+        # Resize grip at the bottom-right corner
+        self.grip = CustomSizeGrip(self)
+        self.grip.setFixedSize(16, 16)
+        self.grip.move(
+            self.width() - self.grip.width(),
+            self.height() - self.grip.height(),
+        )
+    
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self.grip.move(
+            self.width() - self.grip.width(),
+            self.height() - self.grip.height(),
+        )
     
     def _load_pending_mods(self) -> None:
         """Load pending mods from the cloud."""
