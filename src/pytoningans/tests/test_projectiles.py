@@ -30,11 +30,11 @@ class Projectile(QGraphicsPixmapItem):
         super().__init__()
         self.setPixmap(pixmap)
         self.setPos(x, y)
-        self.vx = vx
-        self.vy = vy
-        self.lifetime = lifetime
-        self.time_alive = 0.0
-        self.is_dead = False
+        self.vx: float = vx
+        self.vy: float = vy
+        self.lifetime: float = lifetime
+        self.time_alive: float = 0.0
+        self.is_dead: bool = False
         
         # Flag used by WorldOverlay nativeEvent to bypass click-testing
         self.passthrough_mouse = True
@@ -151,10 +151,10 @@ class WorldOverlay(QMainWindow):
         self.entities.append(entity)
 
     def spawn_projectiles(self, count: int) -> None:
-        geom: QRect = self.screen().availableGeometry()
+        geometry: QRect = self.screen().availableGeometry()
         for _ in range(count):
-            x: float = random.uniform(100, geom.width() - 100)
-            y: float = random.uniform(100, geom.height() - 100)
+            x: float = random.uniform(100, geometry.width() - 100)
+            y: float = random.uniform(100, geometry.height() - 100)
             vx: float = random.uniform(-400, 400)
             vy: float = random.uniform(-400, 400)
             
@@ -165,17 +165,17 @@ class WorldOverlay(QMainWindow):
     def update_systems(self, dt_sec: float) -> None:
         bounds: QRect = self.screen().availableGeometry()
         
-        for ent in self.entities:
-            ent.update_systems(dt_sec, bounds.width(), bounds.height())
+        for entity in self.entities:
+            entity.update_systems(dt_sec, bounds.width(), bounds.height())
 
         # Update and purge dead projectiles
         alive_projectiles: list[Projectile] = []
-        for proj in self.projectiles:
-            proj.update_systems(dt_sec, bounds.width(), bounds.height())
-            if proj.is_dead:
-                self.scene.removeItem(proj)
+        for projectile in self.projectiles:
+            projectile.update_systems(dt_sec, bounds.width(), bounds.height())
+            if projectile.is_dead:
+                self.scene.removeItem(projectile)
             else:
-                alive_projectiles.append(proj)
+                alive_projectiles.append(projectile)
                 
         self.projectiles = alive_projectiles
 
@@ -255,6 +255,14 @@ def sigint_handler(*args):
     sys.exit(0)
 
 if __name__ == "__main__":
+    print("=" * 30)
+    print("Projectiles Benchmark Test")
+    print("=" * 30)
+    print(
+        "Controls:\n"
+        "\tCtrl + C -> (In terminal) Force Terminate Application\n"
+        "\tEscape -> Exit Application\n"
+    )
     app = QApplication(sys.argv)
 
     # Attach custom SIGINT handler

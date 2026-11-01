@@ -2,8 +2,13 @@ from __future__ import annotations
 
 import ctypes, os
 from ctypes import Array, wintypes
+from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QObject, QRect
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QPointF
+
 
 user32: ctypes.WinDLL = ctypes.windll.user32
 dwmapi: ctypes.WinDLL = ctypes.windll.dwmapi
@@ -255,3 +260,24 @@ class WindowTracker(QObject):
                 tw.rect = QRect(clamped_x, clamped_y, w, h)
                 break
         return success, actual_dx, actual_dy
+    
+    def check_point_collision(
+        self, point: QPointF, screen_geom: Optional[QRect] = None
+    ) -> bool:
+        """
+        Checks if a 2D coordinate falls within any active desktop window bounds.
+        If screen_geom is provided, converts local screen scene points to global coordinates.
+        """
+        px = int(point.x())
+        py = int(point.y())
+
+        # Offset local scene points to global desktop coordinates for multi-monitor support
+        if screen_geom is not None:
+            px += screen_geom.x()
+            py += screen_geom.y()
+
+        for tracked_win in self.active_global_windows:
+            if tracked_win.rect.contains(px, py):
+                return True
+
+        return False

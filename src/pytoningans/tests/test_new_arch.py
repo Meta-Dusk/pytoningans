@@ -1,12 +1,20 @@
+from __future__ import annotations
+
 import sys, ctypes, signal
 from ctypes import wintypes
+from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
 )
 from PySide6.QtCore import QPointF, QRect, Qt, QPoint, QTimer, QElapsedTimer
-from PySide6.QtGui import QPixmap, QColor, QKeyEvent
-from PySide6.QtWidgets import QGraphicsSceneMouseEvent
+from PySide6.QtGui import QPixmap, QColor
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QByteArray
+    from PySide6.QtGui import QKeyEvent
+    from PySide6.QtWidgets import QGraphicsSceneMouseEvent
+
 
 HTTRANSPARENT = -1
 HTCLIENT = 1
@@ -16,8 +24,8 @@ class Entity(QGraphicsPixmapItem):
     def __init__(self, x: int, y: int):
         super().__init__()
         self.setPos(x, y)
-        self.vx = 3
-        self.vy = 3
+        self.vx: int = 3
+        self.vy: int = 3
         
         self.red_pix = QPixmap(100, 100)
         self.red_pix.fill(QColor("red"))
@@ -79,16 +87,19 @@ class WorldOverlay(QMainWindow):
         self.entities: list[Entity] = []
 
     def spawn_entity(self, x: int, y: int) -> None:
-        ent = Entity(x, y)
-        self.scene.addItem(ent)
-        self.entities.append(ent)
+        entity = Entity(x, y)
+        self.scene.addItem(entity)
+        self.entities.append(entity)
 
     def update_systems(self, dt: int) -> None:
         bounds: QRect = self.screen().availableGeometry()
-        for ent in self.entities:
-            ent.update_systems(dt, bounds.width(), bounds.height())
+        for entity in self.entities:
+            entity.update_systems(dt, bounds.width(), bounds.height())
 
-    def nativeEvent(self, eventType, message):
+    def nativeEvent(
+        self, eventType: QByteArray | bytes | bytearray | memoryview[int],
+        message: int
+    ) -> object:
         msg: wintypes.MSG = wintypes.MSG.from_address(message.__int__())
         if msg.message == 0x0084: # WM_NCHITTEST
             x: int = ctypes.c_short(msg.lParam & 0xFFFF).value
@@ -144,6 +155,14 @@ def sigint_handler(*args):
     sys.exit(0)
 
 if __name__ == "__main__":
+    print("=" * 30)
+    print("New Architecture Test")
+    print("=" * 30)
+    print(
+        "Controls:\n"
+        "\tCtrl + C -> (In terminal) Force Terminate Application\n"
+        "\tEscape -> Exit Application\n"
+    )
     app = QApplication(sys.argv)
 
     # Attach custom SIGINT handler
