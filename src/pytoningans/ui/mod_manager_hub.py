@@ -17,14 +17,13 @@ from pytoningans.core.mod_manager import (
     ModManager, extract_mod_or_pack_from_zip, export_mod_or_pack_to_zip, resolve_mod_path,
     ModEntryInfo,
 )
-
-from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.ui.mod_creation_dialog import ModCreationDialog
-from pytoningans.ui.mod_editor import ModEditorWindow
-from pytoningans.ui.mod_editor.components import CustomSizeGrip
-from pytoningans.ui.mod_inspector import ModInspectorDialog
-
 from pytoningans.utils.assets import get_main_icon
+
+from ..ui.title_bar import CustomTitleBar
+from ..ui.mod_creation_dialog import ModCreationDialog
+from ..ui.mod_editor import ModEditorWindow
+from ..ui.mod_editor.components import CustomSizeGrip
+from ..ui.mod_inspector import ModInspectorDialog
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QRect, QModelIndex

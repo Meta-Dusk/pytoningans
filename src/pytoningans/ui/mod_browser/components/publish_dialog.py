@@ -281,14 +281,14 @@ class PublishModDialog(QDialog):
 
     def _on_publish_clicked(self) -> None:
         target_id: Optional[str] = self.mod_combo.currentData()
-        if target_id is None or not target_id:
+        if target_id is None or self.client is None:
             return
 
         author: str = self.author_input.text().strip() or "Modder"
         version_str: str = self.version_input.text().strip() or "1.0.0"
         desc: str = self.desc_input.toPlainText().strip()
         changelog: str = self.changelog_input.toPlainText().strip()
-        
+
         resolved, pack_id, _ = resolve_mod_path(self.mod_manager.mods_dir, target_id)
         target_dir: Optional[Path] = (
             (self.mod_manager.mods_dir / pack_id) if pack_id is not None else resolved
@@ -308,18 +308,54 @@ class PublishModDialog(QDialog):
         contained_entities: list[str] = []
 
         if is_pack:
+            print("[PublishModDialog::publish] Detected modpack...")
+            pack_json_path: Path = target_dir / "pack.json"
+            pack_data: dict = {}
+
             try:
-                p_data = json.loads((target_dir / "pack.json").read_text(encoding="utf-8"))
-                entity_name = p_data.get("name", entity_name)
-                for sub in p_data.get("sub_mods", []):
-                    sub_cfg = target_dir / sub / "config.json"
-                    if sub_cfg.exists():
+                pack_data = json.loads(pack_json_path.read_text(encoding="utf-8"))
+                entity_name = pack_data.get("name", entity_name)
+            except Exception as e:
+                print(f"[PublishModDialog::publish] Error reading pack.json: {e}")
+
+            seen_config_paths: set[Path] = set()
+
+            # Parse explicitly declared sub_mods from pack.json if present
+            explicit_subs = pack_data.get("sub_mods", [])
+            for sub in explicit_subs:
+                sub_cfg: Path = target_dir / Path(sub) / "config.json"
+                if sub_cfg.exists():
+                    seen_config_paths.add(sub_cfg.resolve())
+                    try:
                         sub_data = json.loads(sub_cfg.read_text(encoding="utf-8"))
-                        contained_entities.append(sub_data.get("name", Path(sub).name))
-            except Exception:
-                pass
+                        contained_entities.append(sub_data.get("name", sub_cfg.parent.name))
+                    except Exception:
+                        contained_entities.append(sub_cfg.parent.name)
+
+            #? Always scan all subdirectories (entities/, items/, structures/, etc.)
+            #? for remaining config.json files
+            for cfg_path in target_dir.rglob("config.json"):
+                # Skip root config.json or cache/hidden directories
+                if cfg_path.parent == target_dir:
+                    continue
+                if any(part.startswith(".") or part == "__pycache__" for part in cfg_path.parts):
+                    continue
+
+                resolved_cfg = cfg_path.resolve()
+                if resolved_cfg in seen_config_paths:
+                    continue
+                seen_config_paths.add(resolved_cfg)
+
+                try:
+                    sub_data = json.loads(cfg_path.read_text(encoding="utf-8"))
+                    entity_title = sub_data.get("name", cfg_path.parent.name)
+                    contained_entities.append(entity_title)
+                except Exception as e:
+                    print(f"[PublishModDialog::publish] Failed to parse {cfg_path}: {e}")
+                    contained_entities.append(cfg_path.parent.name)
+
         else:
-            cfg_path = target_dir / "config.json"
+            cfg_path: Path = target_dir / "config.json"
             if cfg_path.exists():
                 try:
                     c_data = json.loads(cfg_path.read_text(encoding="utf-8"))
@@ -333,46 +369,51 @@ class PublishModDialog(QDialog):
         staging_dir.mkdir(parents=True, exist_ok=True)
         zip_path: Path = staging_dir / f"{target_dir.name}_v{version_str}.zip"
 
-        success, msg, out_path = export_mod_or_pack_to_zip(target_dir, zip_path)
-        if not success or out_path is None:
-            QMessageBox.critical(self, "Export Failed", f"Failed to prepare package: {msg}")
-            return
-
-        self.published_package_path = out_path
-        size_bytes: int = out_path.stat().st_size
-
-        if self.client is not None:
-            pub_ok, pub_msg, _ = self.client.publish_or_update(
-                mod_id=target_id,
-                name=entity_name,
-                author=author,
-                version=version_str,
-                description=desc or f"{entity_name} created by {author}",
-                entity_type=entity_type,
-                is_pack=is_pack,
-                tags=["pack", "community"] if is_pack else ["custom", entity_type],
-                changelog=changelog,
-                contained_entities=contained_entities,
-                size_bytes=size_bytes,
-                zip_path=out_path,
-            )
-            if not pub_ok:
-                QMessageBox.warning(self, "Publication Conflict", pub_msg)
+        try:
+            success, msg, out_path = export_mod_or_pack_to_zip(target_dir, zip_path)
+            if not success or out_path is None:
+                QMessageBox.critical(self, "Export Failed", f"Failed to prepare package: {msg}")
                 return
 
-            QMessageBox.information(
-                self, "Publication Success",
-                f"{pub_msg}\n\nPackage archive prepared ({formatted_size(size_bytes)}).\n\n"
-                f"Status: Pending admin verification."
-            )
-        else:
-            QMessageBox.information(
-                self, "Package Prepared",
-                "Successfully prepared package archive for "
-                f"'{entity_name}' ({formatted_size(size_bytes)})."
-            )
-            
-        self.accept()
+            self.published_package_path = out_path
+            size_bytes: int = out_path.stat().st_size
+
+            if self.client is not None:
+                pub_ok, pub_msg, _ = self.client.publish_or_update(
+                    mod_id=target_id,
+                    name=entity_name,
+                    author=author,
+                    version=version_str,
+                    description=desc or f"{entity_name} created by {author}",
+                    entity_type=entity_type,
+                    is_pack=is_pack,
+                    tags=["pack", "community"] if is_pack else ["custom", entity_type],
+                    changelog=changelog,
+                    contained_entities=contained_entities,
+                    size_bytes=size_bytes,
+                    zip_path=out_path,
+                )
+                if not pub_ok:
+                    QMessageBox.warning(self, "Publication Conflict", pub_msg)
+                    return
+
+                QMessageBox.information(
+                    self, "Publication Success",
+                    f"{pub_msg}\n\nPackage archive prepared ({formatted_size(size_bytes)}).\n\n"
+                    f"Status: Pending admin verification."
+                )
+            else:
+                QMessageBox.information(
+                    self, "Package Prepared",
+                    "Successfully prepared package archive for "
+                    f"'{entity_name}' ({formatted_size(size_bytes)})."
+                )
+
+            self.accept()
+
+        finally:
+            if zip_path.exists():
+                zip_path.unlink(missing_ok=True)
 
     def _update_verification_status(self, item: CommunityModItem) -> None:
         """Updates the verification status display for an existing catalog item."""

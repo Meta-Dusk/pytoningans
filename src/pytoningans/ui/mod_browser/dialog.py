@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from PySide6.QtCore import QThread, QRect
     from PySide6.QtGui import QCloseEvent, QResizeEvent, QScreen, QAction
     from ..main_menu import MainMenu
+    from pytoningans.core.settings import AppSettings
 
 
 class ModBrowserDialog(QDialog):
@@ -59,7 +60,7 @@ class ModBrowserDialog(QDialog):
         self.main_menu: Optional[MainMenu] = main_menu
         self.client: ModBrowserClient = ModBrowserClient(self.mod_manager.mods_dir)
         self.auth: AuthManager = AuthManager.get()
-        self.settings_mgr: SettingsManager = SettingsManager.get()
+        self.settings_manager: SettingsManager = SettingsManager.get()
         self._active_workers: list[Any] = []
 
         self.setWindowTitle("Community Mod Browser")
@@ -70,14 +71,23 @@ class ModBrowserDialog(QDialog):
 
         self._cards: list[ModCardWidget] = []
         self._setup_ui()
+        
         self.auth.auth_state_changed.connect(self._update_auth_ui)
         self._update_auth_ui(self.auth.current_user)
-        self.settings_mgr.settings_changed.connect(self._update_debug_visibility)
+        
+        self.settings_manager.settings_changed.connect(self._update_debug_visibility)
+        
         self._update_debug_visibility()
         self._update_admin_verify_visibility()
         self._update_status_indicator()
+        
+        self._refresh_catalog()
         self._apply_filters()
         self._center_window()
+    
+    @property
+    def _settings(self) -> AppSettings:
+        return self.settings_manager.settings
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
@@ -432,7 +442,7 @@ class ModBrowserDialog(QDialog):
         sort_by: str = self.filter_bar.sort_by
         installed_only: bool = self.filter_bar.installed_only
 
-        items: list[CommunityModItem] = self.client.fetch_mods(
+        mod_items: list[CommunityModItem] = self.client.fetch_mods(
             query=query,
             category=category,
             sort_by=sort_by,
@@ -443,8 +453,8 @@ class ModBrowserDialog(QDialog):
             card.deleteLater()
         self._cards.clear()
 
-        if not items:
-            if self.settings_mgr.settings.enable_debug_mode:
+        if not mod_items:
+            if self._settings.enable_debug_mode:
                 self.empty_label.setText(
                     "No mods found matching your search criteria.\n"
                     "(Developer Mode Active: Use 'Debug ▾' above to load sample mods)"
@@ -456,8 +466,8 @@ class ModBrowserDialog(QDialog):
             return
 
         self.empty_label.setVisible(False)
-        for item in items:
-            card = ModCardWidget(item)
+        for mod_item in mod_items:
+            card = ModCardWidget(mod_item, online_mode=self._settings.online_mode)
             card.install_requested.connect(self._on_install_requested)
             card.uninstall_requested.connect(self._on_uninstall_requested)
             card.update_requested.connect(self._on_update_requested)
@@ -469,8 +479,8 @@ class ModBrowserDialog(QDialog):
             self.cards_layout.addWidget(card)
             self._cards.append(card)
 
-        installed_count: int = sum(1 for item in items if item.is_installed)
-        self.count_label.setText(f"Showing {len(items)} mods ({installed_count} installed)")
+        installed_count: int = sum(1 for item in mod_items if item.is_installed)
+        self.count_label.setText(f"Showing {len(mod_items)} mods ({installed_count} installed)")
 
     def _on_card_publish_requested(self, item: CommunityModItem) -> None:
         """Opens publish dialog with this specific local mod/modpack preselected."""
@@ -612,14 +622,13 @@ class ModBrowserDialog(QDialog):
 
     def _update_debug_visibility(self) -> None:
         """Toggles visibility of the debug tools menu based on developer settings."""
-        self.debug_btn.setVisible(self.settings_mgr.settings.enable_debug_mode)
+        self.debug_btn.setVisible(self._settings.enable_debug_mode)
         if not self._cards:
             self._apply_filters()
     
     def _update_admin_verify_visibility(self) -> None:
         """Toggles visibility of the admin verify button based on admin status."""
         is_admin: bool = self.client.cloud.is_admin()
-        print(f"User is {"" if is_admin else "not"} an admin.")
         self.admin_verify_btn.setVisible(is_admin)
         if not self._cards:
             self._apply_filters()
@@ -642,7 +651,7 @@ class ModBrowserDialog(QDialog):
 
         action: QAction = menu.exec(self.debug_btn.mapToGlobal(self.debug_btn.rect().bottomLeft()))
         if action == seed_action:
-            added = self.client.load_seed_catalog()
+            added: int = self.client.load_seed_catalog()
             self._apply_filters()
             QMessageBox.information(
                 self, "Demo Catalog Loaded", f"Injected {added} demo mods into your local catalog."
@@ -681,12 +690,8 @@ class ModBrowserDialog(QDialog):
         mod_pack_type: str = "Modpack" if mod_item.is_pack else "Mod"
         
         if success:
-            QMessageBox.information(
-                self, f"Unpublished {mod_pack_type}", msg
-            )
-            self._apply_filters()
+            QMessageBox.information(self, f"Unpublished {mod_pack_type}", msg)
+            self._refresh_catalog()
         else:
-            QMessageBox.critical(
-                self, f"Failed to Unpublish {mod_pack_type}", msg
-            )
+            QMessageBox.critical(self, f"Failed to Unpublish {mod_pack_type}", msg)
     

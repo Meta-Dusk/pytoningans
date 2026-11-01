@@ -13,8 +13,10 @@ from typing import Any, Optional, TYPE_CHECKING
 from pprint import pprint
 import urllib.error, urllib.parse, urllib.request
 
-from pytoningans.utils.paths import get_app_version
+from pytoningans.utils.paths import get_app_version, _DEFAULT_APP_VERSION
 from pytoningans.core.roles import save_cached_roles
+from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
+from pytoningans.core.constants import VerificationStatus
 from .auth import AuthManager
 
 if TYPE_CHECKING:
@@ -83,9 +85,8 @@ class SupabaseClient:
         try:
             with urllib.request.urlopen(req, timeout=6) as resp:
                 data: list[dict[str, Any]] = json.loads(resp.read().decode("utf-8"))
-                if isinstance(data, list):
-                    save_cached_roles(data)
-                    return data
+                save_cached_roles(data)
+                return data
         except Exception:
             pass
         return []
@@ -107,7 +108,7 @@ class SupabaseClient:
 
         try:
             with urllib.request.urlopen(req, timeout=8) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
+                data: list[dict[str, Any]] = json.loads(resp.read().decode("utf-8"))
                 formatted_items: list[dict[str, Any]] = []
 
                 for row in data:
@@ -141,17 +142,20 @@ class SupabaseClient:
                         "contained_entities": list(row.get("contained_entities") or []),
                         "icon_url": row.get("icon_url"),
                         "package_url": row.get("package_url"),
-                        "config_version": int(row.get("config_version", 10)),
-                        "target_app_version": row.get("target_app_version", "0.8.0"),
+                        "config_version": int(row.get("config_version", CURRENT_CONFIG_VERSION)),
+                        "target_app_version": row.get("target_app_version", _DEFAULT_APP_VERSION),
                         "created_at": str(row.get("created_at", ""))[:10],
                         "updated_at": str(row.get("updated_at", ""))[:10],
+                        "verification_status": row.get("verification_status", VerificationStatus.PENDING.value),
+                        "verified_at": row.get("verified_at"),
+                        "verified_by": row.get("verified_by"),
                         "releases": [
                             {
                                 "version": r.get("version"),
                                 "changelog": r.get("changelog", ""),
                                 "created_at": str(r.get("created_at", ""))[:10],
-                                "config_version": int(r.get("config_version", 10)),
-                                "target_app_version": r.get("target_app_version", "0.8.0"),
+                                "config_version": int(r.get("config_version", CURRENT_CONFIG_VERSION)),
+                                "target_app_version": r.get("target_app_version", _DEFAULT_APP_VERSION),
                                 "download_url": r.get("download_url"),
                             }
                             for r in releases_list
@@ -371,7 +375,7 @@ class SupabaseClient:
             with urllib.request.urlopen(req, timeout=6) as resp:
                 data: list[dict[str, Any]] = json.loads(resp.read().decode("utf-8"))
                 data_check: bool = len(data) > 0
-                print(f"[is_admin] User is {"" if data_check else "NOT"} an admin [2/2]")
+                print(f"[is_admin] User is{"" if data_check else " NOT"} an admin [2/2]")
                 return data_check
         except Exception as e:
             pprint(f"[is_admin] Failed to check [2/2]:\n{e}")

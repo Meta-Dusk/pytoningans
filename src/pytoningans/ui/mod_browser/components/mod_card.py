@@ -45,9 +45,13 @@ class ModCardWidget(QFrame):
     unpublish_requested = Signal(object)
     """Passes object of type `CommunityModItem`."""
 
-    def __init__(self, mod_item: CommunityModItem, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self, mod_item: CommunityModItem, parent: Optional[QWidget] = None,
+        *, online_mode: bool = False
+    ) -> None:
         super().__init__(parent)
         self.mod_item: CommunityModItem = mod_item
+        self.online_mode: bool = online_mode
         self._setup_ui()
 
     def _is_owner(self) -> bool:
@@ -57,9 +61,9 @@ class ModCardWidget(QFrame):
             return False
         return self.mod_item.author_id == user.id
 
-    def _get_verification_badge(self) -> Optional[QLabel]:
+    def _get_verification_badge(self) -> QLabel:
         """Returns a verification status badge widget if applicable."""
-        badge: Optional[QLabel] = None
+        badge: QLabel
         match self.mod_item.verification_status:
             case VerificationStatus.APPROVED:
                 badge = QLabel("✓ Verified")
@@ -85,10 +89,11 @@ class ModCardWidget(QFrame):
                 badge.setObjectName("BadgeInfo")
                 badge.setToolTip("Pending verification by an admin.")
         return badge
-
+    
+    # TODO: Figure out a way to securely get verifier handle
     def _get_verifier_name(self) -> str:
         """Returns the display name of the user who verified this mod."""
-        if self.mod_item.verified_by:
+        if self.mod_item.verified_by is not None:
             return f"User {self.mod_item.verified_by[:8]}"
         return "Unknown"
 
@@ -141,14 +146,14 @@ class ModCardWidget(QFrame):
                 update_badge.setObjectName("BadgeInfo")
                 header_layout.addWidget(update_badge)
             else:
-                ver_display = self.mod_item.installed_version or self.mod_item.version
+                ver_display: str = self.mod_item.installed_version or self.mod_item.version
                 installed_badge = QLabel(f"✓ Installed (v{ver_display})")
                 installed_badge.setObjectName("BadgeSuccess")
                 header_layout.addWidget(installed_badge)
 
         # Verification status badge
-        verification_badge: Optional[QLabel] = self._get_verification_badge()
-        if verification_badge is not None:
+        if self.online_mode and not self.mod_item.is_local_only:
+            verification_badge: QLabel = self._get_verification_badge()
             header_layout.addWidget(verification_badge)
 
         layout.addLayout(header_layout)
@@ -261,6 +266,7 @@ class ModCardWidget(QFrame):
             pub_btn.setToolTip(f"Package and publish '{self.mod_item.name}' to the community catalog")
             pub_btn.setStyleSheet("padding: 4px 12px; font-size: 11px; font-weight: bold;")
             pub_btn.clicked.connect(lambda: self.publish_requested.emit(self.mod_item))
+            pub_btn.setVisible(self.online_mode)
             footer_layout.addWidget(pub_btn)
         else:
             # Rating display
@@ -288,6 +294,7 @@ class ModCardWidget(QFrame):
             rate_btn.setToolTip(f"Submit a rating (1.0-10.0) for {self.mod_item.name}")
             rate_btn.setStyleSheet("padding: 4px 8px; font-size: 11px;")
             rate_btn.clicked.connect(lambda: self.rate_requested.emit(self.mod_item))
+            rate_btn.setVisible(self.online_mode)
             footer_layout.addWidget(rate_btn)
 
             # Action 2: Inspect and Safety button

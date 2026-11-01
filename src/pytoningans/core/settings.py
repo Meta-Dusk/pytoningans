@@ -33,6 +33,7 @@ class AppSettings:
     creator_name: str = "Modder"
     creator_bio: str = ""
     creator_avatar_path: str = ""
+    online_mode: bool = False
 
 
 class SettingsManager(QObject):
@@ -68,6 +69,7 @@ class SettingsManager(QObject):
                     creator_name=data.get("creator_name", "Modder"),
                     creator_bio=data.get("creator_bio", ""),
                     creator_avatar_path=data.get("creator_avatar_path", ""),
+                    online_mode=data.get("online_mode", False),
                 )
             except Exception as e:
                 print(f"Warning: Failed to load settings from {path}: {e}")
@@ -96,6 +98,7 @@ class SettingsManager(QObject):
         creator_name: Optional[str] = None,
         creator_bio: Optional[str] = None,
         creator_avatar_path: Optional[str] = None,
+        online_mode: Optional[bool] = None,
     ) -> None:
         changed: bool = False
         if health_bar_mode is not None and self.settings.health_bar_mode != health_bar_mode:
@@ -133,6 +136,9 @@ class SettingsManager(QObject):
             changed = True
         if creator_avatar_path is not None and self.settings.creator_avatar_path != creator_avatar_path.strip():
             self.settings.creator_avatar_path = creator_avatar_path.strip()
+            changed = True
+        if online_mode is not None and self.settings.online_mode != online_mode:
+            self.settings.online_mode = online_mode
             changed = True
 
         if changed:

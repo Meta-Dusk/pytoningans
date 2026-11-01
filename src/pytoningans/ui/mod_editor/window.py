@@ -1,34 +1,38 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QScrollArea, QFrame, QSplitter,
     QMessageBox, QLabel, QLineEdit, QFileDialog
 )
-from PySide6.QtCore import QRect, Qt, Signal, QUrl, QTimer
-from PySide6.QtGui import QGuiApplication, QResizeEvent, QDesktopServices, QScreen, QCloseEvent
+from PySide6.QtCore import Qt, Signal, QUrl, QTimer
+from PySide6.QtGui import QGuiApplication, QDesktopServices
 
-from pytoningans.core.mod_manager import (
-    ModManager, CURRENT_CONFIG_VERSION, get_mod_type_display
-)
+from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION, get_mod_type_display
 from pytoningans.core.constants import EntityType
-from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.ui.mod_editor.components import CustomSizeGrip
-from pytoningans.ui.mod_editor.controller import ModEditorController
-from pytoningans.ui.mod_editor.panels import (
-    BasePanel, AnimationSubsystem, BehaviorStatsPanel, BehaviorScriptPanel,
-    StructureBehaviorPanel, ItemBehaviorPanel, DialoguePanel, PhysicsPanel, InstanceNamesPanel,
-    TagsPanel
-)
 from pytoningans.utils.assets import get_main_icon
+
+from ...ui.title_bar import CustomTitleBar
+from ...ui.mod_editor.components import CustomSizeGrip
+from ...ui.mod_editor.controller import ModEditorController
+from ...ui.mod_editor.panels import (
+    BasePanel, AnimationSubsystem, BehaviorStatsPanel, BehaviorScriptPanel, StructureBehaviorPanel,
+    ItemBehaviorPanel, DialoguePanel, PhysicsPanel, InstanceNamesPanel, TagsPanel
+)
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QRect
+    from PySide6.QtGui import QScreen, QCloseEvent, QResizeEvent
+
 
 class ModEditorWindow(QWidget):
     mods_updated = Signal()
     
     def __init__(self, mod_manager: ModManager) -> None:
         super().__init__(
-            windowTitle="Mod Editor",
-            windowIcon=get_main_icon()
+            windowTitle="Mod Editor", windowIcon=get_main_icon()
         )
         self.controller = ModEditorController(mod_manager)
         self._current_loaded_mod: Optional[str] = None

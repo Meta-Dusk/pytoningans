@@ -17,7 +17,8 @@ from pytoningans.core.constants import EntityType, VerificationStatus
 from pytoningans.core.mod_manager import (
     get_available_mods_with_type, get_available_packs,
 )
-from pytoningans.utils.paths import get_app_version, get_settings_path, _DEFAULT_APP_VERSION
+from pytoningans.core.settings import SettingsManager
+from pytoningans.utils.paths import get_app_version, get_settings_path
 from .catalog_seed import DEFAULT_CATALOG_DATA
 from .installer_service import (
     install_catalog_item, update_installed_mod, uninstall_installed_mod,
@@ -29,21 +30,38 @@ from .auth import AuthManager
 
 if TYPE_CHECKING:
     from pytoningans.core.mod_manager.modpack import ModPack
+    from pytoningans.core.settings import AppSettings
     from .auth import UserProfile
 
 __all__ = ["ModBrowserClient", "DEFAULT_CATALOG_DATA"]
 
 
 class ModBrowserClient:
-    """Manages community mod browsing, catalog searching, package downloads, and local installations."""
+    """
+    Manages community mod browsing, catalog searching, package downloads, and local installations.
+    """
 
     def __init__(self, mods_dir: Path) -> None:
         self.mods_dir: Path = mods_dir.resolve()
+        self.settings_manager: SettingsManager = SettingsManager.get()
         self.cloud: SupabaseClient = SupabaseClient()
         self._cache_file: Path = get_settings_path().parent / "catalog_cache.json"
         self._user_ratings: dict[str, float] = {}
-        self.is_online: bool = False
         self._load_local_catalog()
+    
+    @property
+    def _settings(self) -> AppSettings:
+        return self.settings_manager.settings
+    
+    @property
+    def is_online(self) -> bool:
+        """Returns the internal settings flag `online_mode`."""
+        return self._settings.online_mode
+    
+    @is_online.setter
+    def is_online(self, value: bool) -> None:
+        """Update the internal settings flag for `online_mode`."""
+        self.settings_manager.update_settings(online_mode=value)
 
     def go_offline(self) -> None:
         """Switches client to offline mode and restores local catalog items."""
@@ -60,7 +78,7 @@ class ModBrowserClient:
             try:
                 cached_data = json.loads(self._cache_file.read_text(encoding="utf-8"))
                 for entry in cached_data:
-                    item = self._dict_to_item(entry)
+                    item: CommunityModItem = CommunityModItem.from_dict(entry)
                     catalog_map[item.id] = item
             except Exception:
                 pass
@@ -75,7 +93,7 @@ class ModBrowserClient:
         existing_ids: set[str] = {item.id for item in self._catalog_items}
         added_count: int = 0
         for entry in DEFAULT_CATALOG_DATA:
-            item: CommunityModItem = self._dict_to_item(entry)
+            item: CommunityModItem = CommunityModItem.from_dict(entry)
             if item.id not in existing_ids:
                 self._catalog_items.append(item)
                 existing_ids.add(item.id)
@@ -95,97 +113,10 @@ class ModBrowserClient:
             except Exception:
                 pass
 
-    def _dict_to_item(self, entry: dict[str, Any]) -> CommunityModItem:
-        """Converts raw catalog dictionary data into a CommunityModItem."""
-        releases: list[ModRelease] = []
-        for release in entry.get("releases", []):
-            release: dict[str, Any]
-            releases.append(
-                ModRelease(
-                    version=release.get("version", entry.get("version", "1.0.0")),
-                    changelog=release.get("changelog", ""),
-                    created_at=release.get("created_at", "2026-10-18"),
-                    target_app_version=release.get(
-                        "target_app_version", entry.get("target_app_version", _DEFAULT_APP_VERSION)
-                    ),
-                    config_version=int(
-                        release.get(
-                            "config_version", entry.get("config_version", CURRENT_CONFIG_VERSION)
-                        )
-                    ),
-                    download_url=release.get("download_url"),
-                )
-            )
-
-        return CommunityModItem(
-            id=entry["id"],
-            name=entry["name"],
-            entity_type=entry["entity_type"],
-            version=entry["version"],
-            author=entry["author"],
-            author_id=entry.get("author_id"),
-            description=entry.get("description", ""),
-            tags=list(entry.get("tags") or []),
-            rating=float(entry.get("rating", 10.0)),
-            rating_count=int(entry.get("rating_count", 0)),
-            downloads=int(entry.get("downloads", 0)),
-            size_bytes=int(entry.get("size_bytes", 32000)),
-            is_pack=bool(entry.get("is_pack", False)),
-            contained_entities=list(entry.get("contained_entities") or []),
-            icon_url=entry.get("icon_url"),
-            preview_image_path=entry.get("preview_image_path"),
-            package_url=entry.get("package_url"),
-            created_at=entry.get("created_at", "2026-10-18"),
-            updated_at=entry.get("updated_at", "2026-10-19"),
-            config_version=int(entry.get("config_version", CURRENT_CONFIG_VERSION)),
-            target_app_version=entry.get("target_app_version", _DEFAULT_APP_VERSION),
-            releases=releases,
-            author_badges=list(entry.get("author_badges") or []),
-            github_username=entry.get("github_username"),
-        )
-
-    def _item_to_dict(self, item: CommunityModItem) -> dict[str, Any]:
-        """Serializes a CommunityModItem for JSON caching."""
-        return {
-            "id": item.id,
-            "name": item.name,
-            "entity_type": item.entity_type,
-            "version": item.version,
-            "author": item.author,
-            "author_id": item.author_id,
-            "author_badges": item.author_badges,
-            "github_username": item.github_username,
-            "description": item.description,
-            "tags": item.tags,
-            "rating": item.rating,
-            "rating_count": item.rating_count,
-            "downloads": item.downloads,
-            "size_bytes": item.size_bytes,
-            "is_pack": item.is_pack,
-            "contained_entities": item.contained_entities,
-            "icon_url": item.icon_url,
-            "package_url": item.package_url,
-            "config_version": item.config_version,
-            "target_app_version": item.target_app_version,
-            "created_at": item.created_at,
-            "updated_at": item.updated_at,
-            "releases": [
-                {
-                    "version": release.version,
-                    "changelog": release.changelog,
-                    "created_at": release.created_at,
-                    "config_version": release.config_version,
-                    "target_app_version": release.target_app_version,
-                    "download_url": release.download_url,
-                }
-                for release in item.releases
-            ],
-        }
-
     def _save_cache(self) -> None:
         """Saves current catalog items to local disk cache."""
         try:
-            data: list[dict[str, Any]] = [self._item_to_dict(item) for item in self._catalog_items]
+            data: list[dict[str, Any]] = [item.to_dict() for item in self._catalog_items]
             self._cache_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
         except Exception:
             pass
@@ -207,7 +138,7 @@ class ModBrowserClient:
         existing_map: dict[str, CommunityModItem] = {item.id: item for item in self._catalog_items}
 
         for row in cloud_items:
-            cloud_item = self._dict_to_item(row)
+            cloud_item: CommunityModItem = CommunityModItem.from_dict(row)
             existing_map[cloud_item.id] = cloud_item
 
         self._catalog_items = list(existing_map.values())
@@ -554,7 +485,7 @@ class ModBrowserClient:
             existing_item.size_bytes = size_bytes or existing_item.size_bytes
             existing_item.config_version = CURRENT_CONFIG_VERSION
             existing_item.target_app_version = get_app_version()
-            if package_url:
+            if package_url is not None:
                 existing_item.package_url = package_url
             if tags:
                 existing_item.tags = list(set(existing_item.tags + tags))
@@ -633,34 +564,10 @@ class ModBrowserClient:
         self._catalog_items.insert(0, new_item)
 
         if self.cloud.is_configured:
-            mod_data: dict[str, Any] = {
-                "id": mod_id,
-                "name": name,
-                "entity_type": entity_type,
-                "version": version,
-                "author": author,
-                "author_id": author_id,
-                "author_badges": author_badges,
-                "github_username": author_gh,
-                "description": description,
-                "tags": tags,
-                "is_pack": is_pack,
-                "contained_entities": contained_entities,
-                "config_version": CURRENT_CONFIG_VERSION,
-                "target_app_version": get_app_version(),
-                "package_url": package_url,
-                "size_bytes": size_bytes,
-                "verification_status": VerificationStatus.PENDING.value,
-            }
-            release_data: dict[str, Any] = {
-                "mod_id": mod_id,
-                "version": version,
-                "changelog": changelog or "Initial community release.",
-                "download_url": package_url,
-                "size_bytes": size_bytes,
-                "config_version": CURRENT_CONFIG_VERSION,
-                "target_app_version": get_app_version(),
-            }
+            mod_data: dict[str, Any] = new_item.to_dict_cloud()
+            release_data: dict[str, Any] = initial_release.to_dict_cloud(
+                mod_id=mod_id, size_bytes=size_bytes
+            )
             self.cloud.publish_new_mod(mod_data, release_data)
 
         self._save_cache()
@@ -718,7 +625,8 @@ class ModBrowserClient:
 
         success, msg = self.cloud.unpublish_mod(mod_id)
         if success:
-            self.clear_catalog_cache()
+            # self.clear_catalog_cache()
+            self.refresh_catalog_from_cloud()
             return True, f"Mod '{item.name}' unpublished successfully."
 
         return False, msg
