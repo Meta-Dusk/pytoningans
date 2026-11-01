@@ -137,10 +137,23 @@ class GameManager:
             world.update_systems(dt)
 
 
+def sigint_handler(*args):
+    """Gracefully shuts down Qt and returns control to the terminal."""
+    print("\n[GameManager] Terminating process via Ctrl+C...")
+    QApplication.quit()
+    sys.exit(0)
+
 if __name__ == "__main__":
-    # Ensure Python catches Ctrl+C in the terminal
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
-    
     app = QApplication(sys.argv)
+
+    # Attach custom SIGINT handler
+    signal.signal(signal.SIGINT, sigint_handler)
+
+    # Heartbeat timer: forces the Python interpreter to periodically run 
+    # and process incoming OS signals like SIGINT while Qt's event loop is running
+    signal_timer = QTimer()
+    signal_timer.start(100)
+    signal_timer.timeout.connect(lambda: None)
+
     manager = GameManager()
     sys.exit(app.exec())
