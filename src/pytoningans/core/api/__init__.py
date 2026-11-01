@@ -8,7 +8,7 @@ in any standalone development environment or IDE.
 Modular Package Structure:
 - `api.types`: Coordinates, primitives, geometry protocols, and state enums.
 - `api.components`: Entity and structure component system base classes and protocols.
-- `api.protocols`: Structural subtyping interfaces for entities, structures, managers, and worlds.
+- `api.protocols`: Structural subtyping interfaces for entities, structures, managers, worlds, and particles.
 - `api.behaviors`: Base hook classes for writing custom entity and structure AI in `behavior.py`.
 """
 from __future__ import annotations
@@ -43,6 +43,9 @@ from .protocols import (
     IEntity,
     IStructure,
     IItem,
+    IParticle,
+    IParticleEmitter,
+    IParticleAPI,
 )
 
 # Behaviors
@@ -79,10 +82,13 @@ __all__ = [
     "BaseComponent",
     "ITeleportationComponent",
     
-    # Engine and World Protocols
+    # Engine, World, and Particle Protocols
     "IModInfo",
     "IEntityManager",
     "IWorld",
+    "IParticle",
+    "IParticleEmitter",
+    "IParticleAPI",
     
     # Entity Protocols
     "IBaseEntity",
@@ -100,4 +106,3 @@ __all__ = [
     "BaseModPack",
     "PackMenuAction",
 ]
-

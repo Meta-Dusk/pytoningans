@@ -10,10 +10,12 @@ from PySide6.QtWidgets import QMainWindow, QGraphicsView, QGraphicsScene, QAppli
 
 from .entity.indicators import DamageNumberItem
 from .vision_worker import HTCLIENT, HTTRANSPARENT
+from .particle import ParticleManager
 
 if TYPE_CHECKING:
-    from PySide6.QtCore import QRect, QObject
+    from PySide6.QtCore import QRect, QRectF, QObject, QByteArray
     from PySide6.QtGui import QScreen, QKeyEvent, QMouseEvent
+    from PySide6.QtWidgets import QGraphicsItem, QGraphicsRectItem
     from .entity_manager import EntityManager
     from .entity.base_entity import BaseEntity
     from .entity.base_structure import BaseStructure
@@ -66,10 +68,9 @@ class WorldOverlay(QMainWindow):
     """The transparent, fullscreen monitor overlay that acts as a **World**."""
     def __init__(self, screen: QScreen, manager: EntityManager) -> None:
         super().__init__()
-        self.manager = manager
-        self.target_screen = screen
+        self.manager: EntityManager = manager
+        self.target_screen: QScreen = screen
         
-        # The World now manages multiple entity types natively
         self.active_entities: list[Entity] = []
         self.active_structures: list[BaseStructure] = []
         self.active_items: list[BaseItem] = []
@@ -90,14 +91,16 @@ class WorldOverlay(QMainWindow):
         screen_geom: QRect = self.target_screen.availableGeometry()
         self.scene.setSceneRect(0, 0, screen_geom.width(), screen_geom.height())
         
-        # Invisible alpha=1 backing to enable Windows DWM hit testing when placement mode is active
-        self.capture_item = self.scene.addRect(
+        #? Invisible alpha=1 backing to enable Windows DWM hit testing when placement mode is active
+        self.capture_item: QGraphicsRectItem = self.scene.addRect(
             0, 0, screen_geom.width(), screen_geom.height(),
             brush=QBrush(QColor(0, 0, 0, 1)),
             pen=Qt.PenStyle.NoPen
         )
         self.capture_item.setZValue(-1000)
         self.capture_item.setVisible(False)
+        
+        self.particle_manager = ParticleManager(self.scene)
 
         self.view = WorldView(self.scene, self)
         
@@ -109,7 +112,10 @@ class WorldOverlay(QMainWindow):
         self.capture_item.setVisible(enabled)
         self.view.viewport().update()
         
-    def nativeEvent(self, eventType, message):
+    def nativeEvent(
+        self, eventType: QByteArray | bytes | bytearray | memoryview[int],
+        message: int
+    ) -> object:
         msg: wintypes.MSG = wintypes.MSG.from_address(message.__int__())
         if msg.message == 0x0084: # WM_NCHITTEST
             x: int = ctypes.c_short(msg.lParam & 0xFFFF).value
@@ -126,8 +132,13 @@ class WorldOverlay(QMainWindow):
             local_pos: QPoint = self.view.mapFromGlobal(QPoint(x, y))
             scene_pos: QPointF = self.view.mapToScene(local_pos)
             
-            item = self.scene.itemAt(scene_pos, self.view.transform())
-            if item is not None and item != self.capture_item:
+            item: Optional[QGraphicsItem] = self.scene.itemAt(scene_pos, self.view.transform())
+            # Ignore background capture surface AND passthrough particles
+            if (
+                item is not None and
+                item != self.capture_item and
+                not getattr(item, "passthrough_mouse", False)
+            ):
                 return True, HTCLIENT
                 
             return True, HTTRANSPARENT
@@ -135,7 +146,7 @@ class WorldOverlay(QMainWindow):
         return super().nativeEvent(eventType, message)
 
     def spawn_damage_number(
-        self, amount: int, scene_pos: QPointF, is_heal: bool = False
+        self, amount: int, scene_pos: QPointF, *, is_heal: bool = False
     ) -> None:
         indicator = DamageNumberItem(amount, scene_pos, is_heal)
         self.scene.addItem(indicator)
@@ -195,6 +206,17 @@ class WorldOverlay(QMainWindow):
         # Tick items
         for item in list(self.active_items):
             item.update_systems(dt)
+        
+        # Tick particles, emitters, and projectile collisions
+        dt_sec: float = dt / 1000.0
+        scene_rect: QRectF = self.scene.sceneRect()
+        self.particle_manager.update(
+            dt_sec=dt_sec,
+            bounds_w=scene_rect.width(),
+            bounds_h=scene_rect.height(),
+            window_tracker=self.manager.window_tracker,
+            active_entities=cast(list["BaseEntity"], self.active_entities),
+        )
 
         # Tick floating combat numbers
         for num in list(self.active_damage_numbers):

@@ -6,12 +6,165 @@ worlds, entity managers, entities, and structures on the desktop.
 """
 from __future__ import annotations
 
-from typing import Protocol, Optional, Union, runtime_checkable, Any
+from typing import Protocol, Optional, Union, runtime_checkable, Any, Callable
 
 from .types import (
     Pos2D, IRect, EntityState, StructureState, ItemState, BehaviorType, AttackType, DeathAnimation
 )
 from .components import IComponent, ITeleportationComponent
+
+
+# =============================================================================
+#* Particle System Protocols
+# =============================================================================
+
+@runtime_checkable
+class IParticle(Protocol):
+    """Interface representing a moving particle or spell projectile instance."""
+    pos: Pos2D
+    velocity: Pos2D
+    gravity: float
+    lifetime: float
+    time_alive: float
+    is_dead: bool
+    local_space: bool
+    bounce_bounds: bool
+    passthrough_mouse: bool
+    collide_windows: bool
+    collide_entities: bool
+
+    def destroy(self) -> None:
+        """Destroys and removes the particle from the world scene."""
+        ...
+
+
+@runtime_checkable
+class IParticleEmitter(Protocol):
+    """Interface representing a continuous stream, burst, or trail particle emitter."""
+    pos: Pos2D
+    offset: Pos2D
+    target: Optional[IBaseEntity]
+    local_space: bool
+    rate: float
+    duration: Optional[float]
+    is_active: bool
+    is_finished: bool
+
+    def burst(self, count: int) -> list[IParticle]:
+        """Instantly emits a batch of particles with randomized properties."""
+        ...
+
+    def destroy(self) -> None:
+        """Stops the emitter and marks it for scene removal."""
+        ...
+
+
+@runtime_checkable
+class IParticleAPI(Protocol):
+    """Public interface for spawning particles, creating emitters, and triggering presets."""
+
+    def spawn_particle(
+        self,
+        texture: Union[str, Any],
+        pos: Pos2D,
+        velocity: Pos2D,
+        gravity: float = 0.0,
+        lifetime: float = 3.0,
+        fade_out: bool = True,
+        scale_over_time: float = 1.0,
+        rotation_speed: float = 0.0,
+        local_space: bool = False,
+        bounce_bounds: bool = True,
+        passthrough_mouse: bool = True,
+        collide_windows: bool = False,
+        collide_entities: bool = False,
+        on_hit_window: Optional[Callable[[IParticle, Pos2D], None]] = None,
+        on_hit_entity: Optional[Callable[[IParticle, IBaseEntity], None]] = None,
+        on_expire: Optional[Callable[[IParticle], None]] = None,
+        target: Optional[IBaseEntity] = None,
+    ) -> IParticle:
+        """Spawns a single particle or projectile into the current world overlay."""
+        ...
+
+    def create_emitter(
+        self,
+        texture: Union[str, Any],
+        pos: Pos2D = Pos2D(0.0, 0.0),
+        target: Optional[IBaseEntity] = None,
+        offset: Pos2D = Pos2D(0.0, 0.0),
+        local_space: bool = False,
+        rate: float = 0.0,
+        duration: Optional[float] = None,
+        velocity_x_range: tuple[float, float] = (-50.0, 50.0),
+        velocity_y_range: tuple[float, float] = (-50.0, 50.0),
+        gravity_range: tuple[float, float] = (0.0, 0.0),
+        lifetime_range: tuple[float, float] = (1.0, 2.5),
+        rotation_speed_range: tuple[float, float] = (0.0, 0.0),
+        scale_over_time_range: tuple[float, float] = (1.0, 1.0),
+        spawn_radius: float = 0.0,
+        fade_out: bool = True,
+        bounce_bounds: bool = True,
+        passthrough_mouse: bool = True,
+        collide_windows: bool = False,
+        collide_entities: bool = False,
+        on_hit_window: Optional[Callable[[IParticle, Pos2D], None]] = None,
+        on_hit_entity: Optional[Callable[[IParticle, IBaseEntity], None]] = None,
+        on_expire: Optional[Callable[[IParticle], None]] = None,
+    ) -> IParticleEmitter:
+        """Creates a continuous stream or timed duration particle emitter."""
+        ...
+
+    # --- Preset Helpers ---
+
+    def trigger_explosion(
+        self,
+        texture: Union[str, Any],
+        pos: Pos2D,
+        count: int = 30,
+        speed_min: float = 100.0,
+        speed_max: float = 300.0,
+        gravity: float = 200.0,
+        lifetime: float = 1.2,
+        collide_windows: bool = False,
+        collide_entities: bool = False,
+        on_hit_entity: Optional[Callable[[IParticle, IBaseEntity], None]] = None,
+    ) -> list[IParticle]:
+        """Triggers a radial burst explosion particle preset."""
+        ...
+
+    def attach_dust_trail(
+        self,
+        texture: Union[str, Any],
+        pos: Pos2D = Pos2D(0.0, 0.0),
+        target: Optional[IBaseEntity] = None,
+        offset: Pos2D = Pos2D(0.0, 0.0),
+        rate: float = 15.0,
+        duration: Optional[float] = None,
+    ) -> IParticleEmitter:
+        """Spawns a rising footstep dust trail emitter attached to a target entity or position."""
+        ...
+
+    def trigger_spark_impact(
+        self,
+        texture: Union[str, Any],
+        pos: Pos2D,
+        count: int = 12,
+    ) -> list[IParticle]:
+        """Triggers a short-lived spark burst preset."""
+        ...
+
+    def attach_ambient_aura(
+        self,
+        texture: Union[str, Any],
+        pos: Pos2D = Pos2D(0.0, 0.0),
+        target: Optional[IBaseEntity] = None,
+        offset: Pos2D = Pos2D(0.0, 0.0),
+        radius: float = 25.0,
+        rate: float = 10.0,
+        local_space: bool = True,
+    ) -> IParticleEmitter:
+        """Spawns an ambient aura levitation emitter surrounding a target entity or position."""
+        ...
 
 
 # =============================================================================

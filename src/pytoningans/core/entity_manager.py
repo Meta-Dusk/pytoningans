@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import gc, random
-from typing import cast, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, cast, Optional, Union
 
 from PySide6.QtCore import QTimer, QElapsedTimer, QThreadPool
 from PySide6.QtGui import QPixmapCache, QGuiApplication
@@ -164,7 +164,7 @@ class EntityManager:
                     chosen_name = mod_display_name
 
         # Route instantiation based on the declared entity type
-        entity: BaseStructure | BaseItem | Entity
+        entity: Union[BaseStructure, BaseItem, Entity]
         if mod_manager.entity_type == EntityType.STRUCTURE:
             entity = BaseStructure(x, y, mod_manager, world)
             if chosen_name:

@@ -13,12 +13,12 @@ from PySide6.QtGui import QPixmap, QColor
 
 from pytoningans.core.window_tracker import WindowTracker
 from pytoningans.core.particle import Particle, ParticleManager, ParticlePresets
-from pytoningans.core.entity.base_entity import BaseEntity
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QByteArray, QRect
     from PySide6.QtGui import QKeyEvent
     from PySide6.QtWidgets import QGraphicsSceneMouseEvent
+    from pytoningans.core.entity.base_entity import BaseEntity
 
 
 HTTRANSPARENT = -1
@@ -178,7 +178,7 @@ class WorldOverlay(QMainWindow):
             bounds_w=bounds.width(),
             bounds_h=bounds.height(),
             window_tracker=self.window_tracker,
-            active_entities=cast(list[BaseEntity], self.entities),
+            active_entities=cast(list["BaseEntity"], self.entities),
         )
 
     def nativeEvent(
