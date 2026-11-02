@@ -9,6 +9,9 @@ if TYPE_CHECKING:
     from PySide6.QtWidgets import QGraphicsItem
     from .particle import Particle
     from .particle_manager import ParticleManager
+    from .types import (
+        OptionalOnParticleExpireEmitterCallback, OptionalOnParticleSpawnEmitterCallback
+    )
 
 
 class ParticleEmitter:
@@ -32,18 +35,26 @@ class ParticleEmitter:
         lifetime_range: tuple[float, float] = (1.0, 2.5),
         rotation_speed_range: tuple[float, float] = (0.0, 0.0),
         scale_over_time_range: tuple[float, float] = (1.0, 1.0),
+        initial_rotation_range: tuple[float, float] = (0.0, 0.0),
         # Shape & Radius
         spawn_radius: float = 0.0,
+        # Motion & Steering & Tags
+        tags: Optional[set[str]] = None,
+        orient_to_velocity: bool = False,
+        homing_target: Optional[QGraphicsItem] = None,
+        homing_speed: float = 0.0,
         # Particle Flags
         fade_out: bool = True,
         bounce_bounds: bool = True,
         passthrough_mouse: bool = True,
         collide_windows: bool = False,
         collide_entities: bool = False,
-        # Particle Callbacks
+        # Particle Callbacks & Hooks
         on_hit_window: Optional[Callable] = None,
         on_hit_entity: Optional[Callable] = None,
         on_expire: Optional[Callable] = None,
+        on_particle_spawn_emitter: OptionalOnParticleSpawnEmitterCallback = None,
+        on_particle_expire_emitter: OptionalOnParticleExpireEmitterCallback = None,
     ) -> None:
         self.particle_manager: ParticleManager = particle_manager
         self.pixmap: QPixmap = pixmap
@@ -66,7 +77,14 @@ class ParticleEmitter:
         self.lifetime_range: tuple[float, float] = lifetime_range
         self.rotation_speed_range: tuple[float, float] = rotation_speed_range
         self.scale_over_time_range: tuple[float, float] = scale_over_time_range
+        self.initial_rotation_range: tuple[float, float] = initial_rotation_range
         self.spawn_radius: float = spawn_radius
+
+        # Motion & Tags
+        self.tags: Optional[set[str]] = tags
+        self.orient_to_velocity: bool = orient_to_velocity
+        self.homing_target: Optional[QGraphicsItem] = homing_target
+        self.homing_speed: float = homing_speed
 
         # Defaults
         self.fade_out: bool = fade_out
@@ -75,10 +93,15 @@ class ParticleEmitter:
         self.collide_windows: bool = collide_windows
         self.collide_entities: bool = collide_entities
 
-        # Callbacks
+        # Callbacks & Sub-Emitter Hooks
         self.on_hit_window = on_hit_window
         self.on_hit_entity = on_hit_entity
         self.on_expire = on_expire
+        self.on_particle_spawn_emitter = on_particle_spawn_emitter
+        self.on_particle_expire_emitter = on_particle_expire_emitter
+
+        # Hierarchical child emitter tracking
+        self.sub_emitters: list[ParticleEmitter] = []
 
     def update(self, dt_sec: float, pos_override: Optional[QPointF] = None) -> None:
         if not self.is_active or self.is_finished:
@@ -142,6 +165,11 @@ class ParticleEmitter:
                 fade_out=self.fade_out,
                 scale_over_time=scale_target,
                 rotation_speed=rot_speed,
+                tags=self.tags,
+                initial_rotation_range=self.initial_rotation_range,
+                orient_to_velocity=self.orient_to_velocity,
+                homing_target=self.homing_target,
+                homing_speed=self.homing_speed,
                 local_space=self.local_space,
                 bounce_bounds=self.bounce_bounds,
                 passthrough_mouse=self.passthrough_mouse,
@@ -150,8 +178,20 @@ class ParticleEmitter:
                 on_hit_window=self.on_hit_window,
                 on_hit_entity=self.on_hit_entity,
                 on_expire=self.on_expire,
+                on_particle_expire_emitter=self.on_particle_expire_emitter,
                 parent=parent_item,
             )
+
+            # Spawn sub-emitter hook: trigger child emitter targeting this particle
+            if self.on_particle_spawn_emitter is not None:
+                child_emitter = self.on_particle_spawn_emitter(self.particle_manager, particle)
+                if child_emitter is not None:
+                    particle.attached_emitters.append(child_emitter)
+                    self.sub_emitters.append(child_emitter)
+                    if child_emitter not in self.particle_manager.active_emitters:
+                        if child_emitter.rate > 0.0 or child_emitter.duration is not None:
+                            self.particle_manager.active_emitters.append(child_emitter)
+
             spawned_particles.append(particle)
 
         return spawned_particles
@@ -160,3 +200,6 @@ class ParticleEmitter:
         self.is_active = False
         self.is_finished = True
         self.target = None
+        for sub in self.sub_emitters:
+            sub.destroy()
+        self.sub_emitters.clear()

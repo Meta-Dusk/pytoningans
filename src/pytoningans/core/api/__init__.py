@@ -46,6 +46,7 @@ from .protocols import (
     IParticle,
     IParticleEmitter,
     IParticleAPI,
+    ParticleAPI,
 )
 
 # Behaviors
@@ -89,6 +90,7 @@ __all__ = [
     "IParticle",
     "IParticleEmitter",
     "IParticleAPI",
+    "ParticleAPI",
     
     # Entity Protocols
     "IBaseEntity",

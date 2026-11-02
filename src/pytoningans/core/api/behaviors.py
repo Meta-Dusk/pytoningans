@@ -6,7 +6,7 @@ and environmental triggers in a mod's `behavior.py`.
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
     from .protocols import IEntity, IStructure, IItem
@@ -195,5 +195,5 @@ class BaseItemBehavior:
         pass
 
 
-type BaseBehavior = BaseEntityBehavior | BaseStructureBehavior | BaseItemBehavior
+type BaseBehavior = Union[BaseEntityBehavior, BaseStructureBehavior, BaseItemBehavior]
 

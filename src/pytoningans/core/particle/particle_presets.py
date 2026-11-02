@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import QPointF
-from PySide6.QtGui import QPixmap
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QGraphicsItem
-    from ..entity.base_entity import BaseEntity
+    from PySide6.QtGui import QPixmap
     from .particle import Particle
     from .particle_emitter import ParticleEmitter
     from .particle_manager import ParticleManager
+    from .types import OptionalOnHitEntityCallback
 
 
 class ParticlePresets:
@@ -27,7 +27,7 @@ class ParticlePresets:
         lifetime: float = 1.2,
         collide_windows: bool = False,
         collide_entities: bool = False,
-        on_hit_entity: Optional[Callable[[Particle, BaseEntity], None]] = None,
+        on_hit_entity: OptionalOnHitEntityCallback = None,
     ) -> list[Particle]:
         """Creates a radial burst of particles that arc outward with gravity."""
         emitter: ParticleEmitter = manager.create_emitter(
