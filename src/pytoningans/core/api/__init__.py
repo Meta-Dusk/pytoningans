@@ -14,6 +14,22 @@ Modular Package Structure:
 from __future__ import annotations
 
 # Primitives, Coordinates, and Enums
+from .protocol.core import (
+    IEntityManager,
+    IModInfo
+)
+from .protocol.particle import (
+    IParticle,
+    IParticleAPI,
+    IParticleEmitter,
+    ParticleAPI
+)
+from .protocol.entity import (
+    IBaseEntity,
+    IEntity,
+    IItem,
+    IStructure
+)
 from .types import (
     Pos2D,
     Rect2D,
@@ -25,6 +41,11 @@ from .types import (
     BehaviorType,
     AttackType,
     DeathAnimation,
+    OptionalOnHitWindowCallback,
+    OptionalOnHitEntityCallback,
+    OptionalOnExpireCallback,
+    OptionalOnParticleSpawnEmitterCallback,
+    OptionalOnParticleExpireEmitterCallback
 )
 
 # Component System
@@ -35,18 +56,8 @@ from .components import (
 )
 
 # Protocols
-from .protocols import (
-    IModInfo,
-    IEntityManager,
+from .protocol.core.world import (
     IWorld,
-    IBaseEntity,
-    IEntity,
-    IStructure,
-    IItem,
-    IParticle,
-    IParticleEmitter,
-    IParticleAPI,
-    ParticleAPI,
 )
 
 # Behaviors
@@ -78,6 +89,13 @@ __all__ = [
     "AttackType",
     "DeathAnimation",
     
+    # Callback Types
+    "OptionalOnHitWindowCallback",
+    "OptionalOnHitEntityCallback",
+    "OptionalOnExpireCallback",
+    "OptionalOnParticleSpawnEmitterCallback",
+    "OptionalOnParticleExpireEmitterCallback",
+    
     # Components
     "IComponent",
     "BaseComponent",
@@ -106,5 +124,5 @@ __all__ = [
 
     # Modpacks
     "BaseModPack",
-    "PackMenuAction",
+    "PackMenuAction"
 ]

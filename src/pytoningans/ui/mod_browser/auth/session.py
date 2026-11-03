@@ -11,7 +11,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from pytoningans.utils.paths import get_settings_path
+from pytoningans.utils import get_settings_path
 from pytoningans.core.settings import SettingsManager
 
 from .models import AuthSession, UserProfile, is_known_developer

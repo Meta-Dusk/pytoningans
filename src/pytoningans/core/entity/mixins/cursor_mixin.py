@@ -11,11 +11,10 @@ from ...api import BaseEntityBehavior
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QRect
-    from ...api import IEntity, BaseBehavior
+    from ...api import BaseBehavior, IEntity
     from ...mod_manager import ModManager
     from ...world import WorldOverlay
-    from ...entity.animation import AnimationSystem
-    from ...entity.base_entity import BaseEntity
+    from ...entity import AnimationSystem, BaseEntity
 
 
 class EntityCursorMixin:

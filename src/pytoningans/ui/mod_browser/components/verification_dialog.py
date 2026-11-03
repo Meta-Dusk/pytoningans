@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from pytoningans.core.constants import VerificationStatus
-from pytoningans.utils.assets import get_main_icon
+from pytoningans.utils import get_main_icon
 from ...title_bar import CustomTitleBar
 from ..auth import AuthManager
 from ...mod_editor.components import CustomSizeGrip

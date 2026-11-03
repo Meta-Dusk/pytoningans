@@ -11,7 +11,7 @@ from ...settings import SettingsManager, HealthBarMode
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget
-    from ...entity.living_entity import Entity
+    from ...entity import Entity
 
 
 class HealthBarItem(QGraphicsItem):

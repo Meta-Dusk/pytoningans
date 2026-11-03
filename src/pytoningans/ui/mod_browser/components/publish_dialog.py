@@ -22,8 +22,7 @@ from pytoningans.core.mod_manager import (
     resolve_mod_path, export_mod_or_pack_to_zip, scan_mod_or_pack, SecurityRiskLevel
 )
 from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.utils.assets import get_main_icon
-from pytoningans.utils.format import formatted_size
+from pytoningans.utils import get_main_icon, formatted_size
 from ..auth import AuthManager
 from ..models import parse_semver
 from .auth_dialog import AuthDialog

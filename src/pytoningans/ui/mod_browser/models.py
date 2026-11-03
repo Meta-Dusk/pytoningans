@@ -11,8 +11,7 @@ from typing import Optional, Any
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType, VerificationStatus
 from pytoningans.core.roles import get_github_for_creator, is_developer_account
-from pytoningans.utils.paths import get_app_version, _DEFAULT_APP_VERSION
-from pytoningans.utils.format import formatted_size
+from ...utils import get_app_version, _DEFAULT_APP_VERSION, formatted_size
 
 
 def parse_semver(ver: str) -> tuple[int, ...]:

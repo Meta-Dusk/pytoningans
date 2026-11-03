@@ -3,13 +3,13 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Optional
 
-from pytoningans.core.constants import EntityState
+from ...constants import EntityState
 from .helpers import get_effective_hitbox, get_world_horizontal_range
 from .window_collision import resolve_window_side_collisions, resolve_window_vertical_collisions
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QPointF, QRectF, QRect
-    from pytoningans.core.entity.base_entity import BaseEntity
+    from ...entity import BaseEntity
 
 
 def tick_movement(entity: BaseEntity, current_move_speed: float) -> None:

@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-from typing import Optional, cast, TYPE_CHECKING
-
-from PySide6.QtCore import QPointF, QRectF
+from typing import TYPE_CHECKING, Optional, cast
 
 from ..api import BaseStructureBehavior
-from ..components.teleportation import TeleportationComponent
+from ..components import TeleportationComponent
 from ..constants import StructureState
-from ..entity.base_entity import BaseEntity
+from ..entity import BaseEntity
 
 if TYPE_CHECKING:
+    from PySide6.QtCore import QPointF, QRectF
     from ..api import BaseBehavior, IEntity, IStructure
     from ..world import WorldOverlay
     from ..mod_manager import ModManager
-    from ..components.base_component import BaseComponent
+    from ..components import BaseComponent
 
 
 class BaseStructure(BaseEntity):

@@ -21,8 +21,7 @@ from PySide6.QtWidgets import (
 from pytoningans.core.mod_manager.security import (
     scan_mod_or_pack, SecurityReport, SecurityRiskLevel, SecuritySeverity,
 )
-from pytoningans.utils.assets import get_main_icon
-from pytoningans.utils.format import formatted_size
+from ..utils import get_main_icon, formatted_size
 from ..ui.title_bar import CustomTitleBar
 
 

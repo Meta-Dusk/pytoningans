@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from pytoningans.core.constants import EntityState
+from ...constants import EntityState
 from .helpers import get_effective_hitbox
 from .window_collision import (
     resolve_window_depenetration, find_candidate_platforms, check_window_ceiling_collision,
@@ -10,7 +10,7 @@ from .window_collision import (
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QRect
-    from pytoningans.core.entity.base_entity import BaseEntity
+    from ...entity import BaseEntity
     from .system import PhysicsSystem
 
 

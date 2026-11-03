@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from PySide6.QtCore import QByteArray, QRect
     from PySide6.QtGui import QKeyEvent
     from PySide6.QtWidgets import QGraphicsSceneMouseEvent
-    from pytoningans.core.entity.base_entity import BaseEntity
+    from pytoningans.core.entity import BaseEntity
     from pytoningans.core.particle import ParticleEmitter
 
 

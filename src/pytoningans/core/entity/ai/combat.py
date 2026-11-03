@@ -9,7 +9,7 @@ from ...api import BaseEntityBehavior
 from ...constants import AttackType, BehaviorType, EntityState
 
 if TYPE_CHECKING:
-    from ...entity.living_entity import Entity
+    from ...entity import Entity
     from ...api import BaseBehavior, IEntity
     from .system import AISystem
 

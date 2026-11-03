@@ -22,9 +22,10 @@ from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QGuiApplication
 
 from pytoningans.core.settings import SettingsManager, HealthBarMode
-from pytoningans.utils.paths import get_settings_path, get_base_path
-from pytoningans.utils.assets import get_google_icon, get_github_icon
-from pytoningans.utils.avatar import AvatarLabel, get_avatar_cache_dir
+from ..utils import (
+    get_settings_path, get_base_path, get_google_icon, get_github_icon,
+    AvatarLabel, get_avatar_cache_dir
+)
 from ..ui.title_bar import CustomTitleBar
 from ..ui.mod_editor.components import CustomSizeGrip
 from ..ui.mod_browser.client import ModBrowserClient

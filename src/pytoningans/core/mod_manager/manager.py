@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json, sys
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from PySide6.QtGui import QPixmap
 

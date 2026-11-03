@@ -8,7 +8,7 @@ from typing import Optional, Any
 
 from PySide6.QtCore import QObject, Signal
 
-from pytoningans.utils.paths import get_settings_path
+from ..utils import get_settings_path
 
 
 @unique

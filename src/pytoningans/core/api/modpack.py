@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable
 from dataclasses import dataclass
 
 if TYPE_CHECKING:
-    from .protocols import IBaseEntity
+    from .protocol import IBaseEntity
 
 
 @dataclass(slots=True, kw_only=True)

@@ -14,8 +14,8 @@ if TYPE_CHECKING:
     from PySide6.QtCore import QPoint
     from PySide6.QtWidgets import QGraphicsSceneHoverEvent
     from ...mod_manager import ModManager
-    from ...entity.base_entity import BaseEntity
-    from ...api import IEntity, IStructure, IItem, BaseBehavior
+    from ...entity import BaseEntity
+    from ...api import BaseBehavior, IEntity, IItem, IStructure
 
 
 class EntityTooltipMixin(QGraphicsPixmapItem):

@@ -18,8 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.utils.assets import get_main_icon, get_google_icon, get_github_icon
-from pytoningans.utils.avatar import AvatarLabel
+from pytoningans.utils import get_main_icon, get_google_icon, get_github_icon, AvatarLabel
 from ..auth import AuthManager
 from ..async_workers import AuthWorker
 

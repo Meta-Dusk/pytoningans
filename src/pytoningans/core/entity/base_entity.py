@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING, cast, Any, Union
+from typing import TYPE_CHECKING, Optional, cast, Any, Union
 
 from PySide6.QtWidgets import (
     QGraphicsPixmapItem, QGraphicsColorizeEffect
@@ -9,8 +9,7 @@ from PySide6.QtCore import QPoint, QPointF, QRect, QVariantAnimation
 from PySide6.QtGui import QColor, QPixmap, QTransform
 
 from ..constants import EntityState, SystemLocks
-from ..entity.animation import AnimationSystem
-from ..entity.physics import PhysicsSystem
+from ..entity import AnimationSystem, PhysicsSystem
 from ..entity.indicators import HighlightOutlineItem, DebugHitboxOverlayItem
 from ..api import (
     BaseEntityBehavior, BaseStructureBehavior, BaseItemBehavior
@@ -25,10 +24,10 @@ from ..entity.mixins import (
 )
 
 if TYPE_CHECKING:
-    from ..api import IEntity, IItem, IStructure, BaseBehavior, Pos2D
+    from ..api import BaseBehavior, Pos2D, IEntity, IItem, IStructure
     from ..mod_manager import ModManager
     from ..world import WorldOverlay
-    from pytoningans.ui.context_menu import EntityContextMenu
+    from ..entity import EntityContextMenu
 
 
 type _UniPos2D = Union[Pos2D, QPointF, tuple[float, float], list[float]]

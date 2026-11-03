@@ -5,15 +5,11 @@ Reusable entity and structure component protocols and base classes.
 """
 from __future__ import annotations
 
-from typing import Protocol, Optional, TYPE_CHECKING, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, Optional, runtime_checkable
 
 if TYPE_CHECKING:
-    from .protocols import IBaseEntity, IWorld, IEntity, IStructure
+    from .protocol import IBaseEntity, IEntity, IStructure, IWorld
 
-
-# =============================================================================
-#* Component System
-# =============================================================================
 
 @runtime_checkable
 class IComponent(Protocol):

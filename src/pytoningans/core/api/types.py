@@ -6,9 +6,12 @@ used across the PyToNingans modding engine.
 """
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable, Optional, Callable, Any
 from enum import StrEnum, unique
 from dataclasses import dataclass
+
+if TYPE_CHECKING:
+    from .protocol import IParticle, IBaseEntity, IParticleEmitter
 
 
 # =============================================================================
@@ -115,4 +118,15 @@ class DeathAnimation(StrEnum):
     ROTATE_LEFT = "rotate_left"
     ROTATE_RIGHT = "rotate_right"
     ROTATE_LEFT_OR_RIGHT = "rotate_left_or_right"
+
+
+# =============================================================================
+#* Particle System Callbacks
+# =============================================================================
+
+type OptionalOnHitWindowCallback = Optional[Callable[[IParticle, Pos2D], None]]
+type OptionalOnHitEntityCallback = Optional[Callable[[IParticle, IBaseEntity], None]]
+type OptionalOnExpireCallback = Optional[Callable[[IParticle], None]]
+type OptionalOnParticleExpireEmitterCallback = Optional[Callable[[Any, Pos2D], None]]
+type OptionalOnParticleSpawnEmitterCallback = Optional[Callable[[Any, IParticle], Optional[IParticleEmitter]]]
 

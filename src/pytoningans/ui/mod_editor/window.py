@@ -12,7 +12,7 @@ from PySide6.QtGui import QGuiApplication, QDesktopServices
 
 from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION, get_mod_type_display
 from pytoningans.core.constants import EntityType
-from pytoningans.utils.assets import get_main_icon
+from pytoningans.utils import get_main_icon
 
 from ...ui.title_bar import CustomTitleBar
 from ...ui.mod_editor.components import CustomSizeGrip

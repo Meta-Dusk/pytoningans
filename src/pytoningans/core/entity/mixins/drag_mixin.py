@@ -14,9 +14,7 @@ if TYPE_CHECKING:
     from ...constants import SystemLocks
     from ...mod_manager import ModManager
     from ...world import WorldOverlay
-    from ...entity.animation import AnimationSystem
-    from ...entity.physics import PhysicsSystem
-    from ...entity.base_entity import BaseEntity
+    from ...entity import AnimationSystem, PhysicsSystem, BaseEntity
 
 
 class EntityDragMixin:

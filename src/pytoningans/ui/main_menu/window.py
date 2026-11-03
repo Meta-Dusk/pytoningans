@@ -15,7 +15,7 @@ from .spawn_panel import SpawnPanel
 from .live_controls_panel import LiveControlsPanel
 from .system_controls_panel import SystemControlsPanel
 
-from pytoningans.utils.assets import get_main_icon
+from ...utils import get_main_icon
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QSize

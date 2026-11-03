@@ -10,7 +10,7 @@ from ...constants import EntityState
 
 if TYPE_CHECKING:
     from ...api import BaseBehavior, IEntity, IItem
-    from ...entity.base_item import BaseItem
+    from ...entity import BaseItem
     from .system import AISystem
 
 

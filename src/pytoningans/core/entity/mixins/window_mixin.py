@@ -9,8 +9,7 @@ if TYPE_CHECKING:
     from PySide6.QtCore import QRectF
     from ...mod_manager import ModManager
     from ...world import WorldOverlay
-    from ...entity.physics import PhysicsSystem
-    from ...entity.base_entity import BaseEntity
+    from ...entity import PhysicsSystem, BaseEntity
 
 
 class EntityWindowMixin:

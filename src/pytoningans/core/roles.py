@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
-from pytoningans.utils.paths import get_settings_path
+from ..utils import get_settings_path
 
 
 def get_roles_cache_path() -> Path:

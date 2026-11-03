@@ -11,7 +11,7 @@ from .item_seeking import check_item_seeking
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QRect, QRectF
-    from ...api import IEntity, BaseBehavior
+    from ...api import BaseBehavior, IEntity
     from .system import AISystem
 
 

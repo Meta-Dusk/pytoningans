@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...title_bar import CustomTitleBar
-from pytoningans.utils.assets import get_main_icon
+from pytoningans.utils import get_main_icon
 
 if TYPE_CHECKING:
     from ..models import CommunityModItem

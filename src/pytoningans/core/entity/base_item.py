@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Optional, cast
 from PySide6.QtCore import Qt
 
 from ..api import BaseItemBehavior, BaseEntityBehavior
 from ..constants import ItemState
-from ..entity.base_entity import BaseEntity
+from ..entity import BaseEntity
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QPoint, QRectF, QPointF
     from PySide6.QtWidgets import QGraphicsSceneMouseEvent
-    from ..api import BaseBehavior, IItem, IEntity
+    from ..api import BaseBehavior, IEntity, IItem
     from ..mod_manager import ModManager
     from ..world import WorldOverlay
-    from ..entity.living_entity import Entity
+    from ..entity import Entity
 
 
 class BaseItem(BaseEntity):

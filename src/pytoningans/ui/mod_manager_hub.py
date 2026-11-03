@@ -17,7 +17,7 @@ from pytoningans.core.mod_manager import (
     ModManager, extract_mod_or_pack_from_zip, export_mod_or_pack_to_zip, resolve_mod_path,
     ModEntryInfo,
 )
-from pytoningans.utils.assets import get_main_icon
+from ..utils import get_main_icon
 
 from ..ui.title_bar import CustomTitleBar
 from ..ui.mod_creation_dialog import ModCreationDialog

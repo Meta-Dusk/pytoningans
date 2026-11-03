@@ -4,14 +4,12 @@ import math
 from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import QPointF
 
-from pytoningans.core.constants import EntityState
+from ...constants import EntityState
 from .helpers import get_effective_hitbox
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QRect
-    from pytoningans.core.entity.base_entity import BaseEntity
-    from pytoningans.core.entity.base_structure import BaseStructure
-    from pytoningans.core.entity.living_entity import Entity
+    from ...entity import BaseEntity, BaseStructure, Entity
 
 
 def apply_soft_repulsion(

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from pytoningans.core.mod_manager import ModManager
+    from ...mod_manager import ModManager
 
 
 class EntityTagMixin:

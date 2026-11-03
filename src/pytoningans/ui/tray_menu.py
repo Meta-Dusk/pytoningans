@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import QSystemTrayIcon, QMenu, QApplication
 from PySide6.QtGui import QIcon, QAction
 
-from pytoningans.ui.main_menu import MainMenu
-from pytoningans.core.constants import APP_CONFIG
-from pytoningans.utils.paths import get_asset_path
+from ..ui.main_menu import MainMenu
+from ..core.constants import APP_CONFIG
+from ..utils import get_asset_path
 
 class AppTray(QSystemTrayIcon):
     def __init__(self, main_menu: MainMenu, icon_path: str = "assets/icon.png") -> None:

@@ -17,10 +17,7 @@ if TYPE_CHECKING:
     from PySide6.QtGui import QScreen, QKeyEvent, QMouseEvent
     from PySide6.QtWidgets import QGraphicsItem, QGraphicsRectItem
     from .entity_manager import EntityManager
-    from .entity.base_entity import BaseEntity
-    from .entity.base_structure import BaseStructure
-    from .entity.base_item import BaseItem
-    from .entity.living_entity import Entity
+    from .entity import BaseEntity, BaseStructure, BaseItem, Entity
     from .window_tracker import TrackedWindow
 
 

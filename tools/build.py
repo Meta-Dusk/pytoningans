@@ -5,11 +5,11 @@ from typing import Optional
 
 # Resolve paths
 ROOT_DIR = Path(__file__).resolve().parent.parent
-SPEC_FILE = ROOT_DIR / "pysidedeploy.spec"
-INSTALLER_SCRIPT = ROOT_DIR / "installer" / "installer.iss"
+SPEC_FILE: Path = ROOT_DIR / "pysidedeploy.spec"
+INSTALLER_SCRIPT: Path = ROOT_DIR / "installer" / "installer.iss"
 
 # Locates Inno Setup Compiler.
-ISCC_PATH = shutil.which("iscc") or r"F:\Program Files (x86)\Inno Setup 7\ISCC.exe"
+ISCC_PATH: str = shutil.which("iscc") or r"F:\Program Files (x86)\Inno Setup 7\ISCC.exe"
 
 def set_console_mode(mode: str) -> None:
     content: str = SPEC_FILE.read_text(encoding="utf-8")

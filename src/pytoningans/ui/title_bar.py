@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton, QStyle,
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import QPainter
 
-from pytoningans.utils.paths import get_app_version
+from ..utils import get_app_version
 
 if TYPE_CHECKING:
     from PySide6.QtGui import QMouseEvent, QPaintEvent

@@ -10,10 +10,7 @@ from .vision_worker import VisionWorker
 from .window_tracker import WindowTracker
 from .settings import SettingsManager
 
-from .entity.base_structure import BaseStructure
-from .entity.base_item import BaseItem
-from .entity.living_entity import Entity
-from .entity.animation import AnimationSystem
+from .entity import BaseStructure, BaseItem, Entity, AnimationSystem
 
 from .world import WorldOverlay
 from .mod_manager import ModManager
@@ -24,8 +21,8 @@ from .constants import EntityType
 if TYPE_CHECKING:
     from PySide6.QtCore import QRect
     from PySide6.QtGui import QScreen
-    from .api import BaseBehavior, IEntity, IStructure, IItem
-    from .entity.base_entity import BaseEntity
+    from .api import BaseBehavior, IEntity, IItem, IStructure
+    from .entity import BaseEntity
     
 
 class EntityManager:

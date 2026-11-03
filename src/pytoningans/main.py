@@ -5,14 +5,14 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon, QFontDatabase, QFont
 from PySide6.QtCore import Qt
 
-from pytoningans.core.constants import APP_CONFIG, EntityType
-from pytoningans.core.mod_manager import ModManager
-from pytoningans.core.entity_manager import EntityManager
-from pytoningans.ui.main_menu import MainMenu
-from pytoningans.ui.tray_menu import AppTray
-from pytoningans.ui.theme import DARK_THEME
-from pytoningans.ui.tool_tip import install_global_tooltip_filter
-from pytoningans.utils.paths import get_mods_directory, get_asset_path
+from .core.constants import APP_CONFIG, EntityType
+from .core.mod_manager import ModManager
+from .core.entity_manager import EntityManager
+from .ui.main_menu import MainMenu
+from .ui.tray_menu import AppTray
+from .ui.theme import DARK_THEME
+from .ui.tool_tip import install_global_tooltip_filter
+from .utils import get_mods_directory, get_asset_path
 
 def main() -> None:
     signal.signal(signal.SIGINT, signal.SIG_DFL)

@@ -10,13 +10,13 @@ from __future__ import annotations
 import hashlib, threading
 import urllib.request
 from pathlib import Path
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Optional
 
 from PySide6.QtCore import Qt, QRectF, QTimer
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import QLabel
 
-from pytoningans.utils.paths import get_settings_path, _DEFAULT_APP_VERSION
+from .paths import get_settings_path, _DEFAULT_APP_VERSION
 
 if TYPE_CHECKING:
     from PySide6.QtGui import QFont

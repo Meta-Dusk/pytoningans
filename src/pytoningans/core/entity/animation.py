@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
-from PySide6.QtGui import QTransform, QPixmap
+from PySide6.QtGui import QTransform
 from PySide6.QtCore import Qt, QPoint, QPointF, QObject, Signal, QRect
 
-from pytoningans.core.constants import AnimationMeta, EntityState
+from ..constants import AnimationMeta, EntityState
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.base_entity import BaseEntity
-    from pytoningans.core.entity.base_item import BaseItem
-    from pytoningans.core.entity.indicators import DebugHitboxOverlayItem
+    from PySide6.QtGui import QPixmap
+    from ..entity import BaseEntity, BaseItem, DebugHitboxOverlayItem
 
 type _EntityTransforms = tuple[int, bool, int]
 

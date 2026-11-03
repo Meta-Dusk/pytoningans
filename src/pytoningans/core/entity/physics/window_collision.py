@@ -3,13 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 from dataclasses import dataclass
 
-from pytoningans.core.constants import EntityState
+from ...constants import EntityState
 from .helpers import get_effective_hitbox, get_world_horizontal_range
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QRect
-    from pytoningans.core.entity.base_entity import BaseEntity
-    from pytoningans.core.entity.ai import AISystem
+    from ...entity import BaseEntity, AISystem
 
 
 # =============================================================================

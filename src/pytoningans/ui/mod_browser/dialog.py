@@ -22,7 +22,7 @@ from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
 from pytoningans.core.settings import SettingsManager
-from pytoningans.utils.assets import get_main_icon
+from ...utils import get_main_icon
 
 from ...ui.title_bar import CustomTitleBar
 from ...ui.mod_editor.components import CustomSizeGrip

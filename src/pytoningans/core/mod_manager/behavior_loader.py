@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib.util, inspect, sys
 from pathlib import Path
-from typing import Optional, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, cast
 
 from ..constants import EntityType
 
@@ -24,7 +24,7 @@ def compile_behavior_mod(
         import pytoningans.core.api as core_api
         import pytoningans.core.api.types as api_types
         import pytoningans.core.api.components as api_components
-        import pytoningans.core.api.protocols as api_protocols
+        import pytoningans.core.api.protocol as api_protocols
         import pytoningans.core.api.behaviors as api_behaviors
         import pytoningans.core.api.modpack as api_modpack
 

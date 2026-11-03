@@ -8,7 +8,7 @@ from .combat import get_distance
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QPointF
-    from ...entity.living_entity import Entity
+    from ...entity import Entity
     from ...api import BaseBehavior, IEntity
     from .system import AISystem
 

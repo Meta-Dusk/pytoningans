@@ -18,7 +18,7 @@ from .mod_manager import ModManager
 if TYPE_CHECKING:
     from PySide6.QtCore import QPointF
     from PySide6.QtGui import QKeyEvent, QMouseEvent
-    from .entity.base_entity import BaseEntity
+    from .entity import BaseEntity
     from .entity_manager import EntityManager
     from .world import WorldOverlay
 

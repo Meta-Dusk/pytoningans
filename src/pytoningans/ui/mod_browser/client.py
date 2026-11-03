@@ -13,12 +13,12 @@ from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING
 
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
-from pytoningans.core.constants import EntityType, VerificationStatus
+from pytoningans.core.constants import EntityType
 from pytoningans.core.mod_manager import (
     get_available_mods_with_type, get_available_packs,
 )
 from pytoningans.core.settings import SettingsManager
-from pytoningans.utils.paths import get_app_version, get_settings_path
+from ...utils import get_app_version, get_settings_path
 from .catalog_seed import DEFAULT_CATALOG_DATA
 from .installer_service import (
     install_catalog_item, update_installed_mod, uninstall_installed_mod,

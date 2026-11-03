@@ -3,13 +3,12 @@ from __future__ import annotations
 from typing import Optional, TYPE_CHECKING
 from PySide6.QtCore import QRectF
 
-from pytoningans.core.constants import EntityState
-from pytoningans.core.components.base_component import BaseComponent
+from ..constants import EntityState
+from .base_component import BaseComponent
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.living_entity import Entity
-    from pytoningans.core.entity.base_structure import BaseStructure
-    from pytoningans.core.world import WorldOverlay
+    from ..entity import Entity, BaseStructure
+    from ..world import WorldOverlay
 
 class TeleportationComponent(BaseComponent):
     """Handles collision detection and teleportation of entities between worlds or portals."""

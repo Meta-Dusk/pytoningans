@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys, ctypes, signal, random
 from ctypes import wintypes
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtWidgets import (
     QApplication, QGraphicsItem, QMainWindow, QGraphicsView,

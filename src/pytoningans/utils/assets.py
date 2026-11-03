@@ -3,7 +3,7 @@ from typing import Optional
 
 from PySide6.QtGui import QIcon
 
-from pytoningans.utils.paths import get_asset_path
+from .paths import get_asset_path
 
 is_windows: bool = platform.system() == "Windows"
 

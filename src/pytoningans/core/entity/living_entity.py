@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from typing import Optional, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, cast
 
 from PySide6.QtCore import QEasingCurve, QPointF, QVariantAnimation
 
@@ -9,15 +9,13 @@ from ..api import BaseEntityBehavior
 from ..constants import AnimationMeta, DeathAnimation, EntityState
 from ..settings import SettingsManager
 
-from ..entity.ai import AISystem
-from ..entity.base_entity import BaseEntity
+from ..entity import AISystem, BaseEntity, SpeechBubble
 from ..entity.indicators import HealthBarItem
-from ..entity.speech_bubble import SpeechBubble
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QGraphicsSceneContextMenuEvent
     from ..entity_manager import EntityManager
-    from ..entity.base_item import BaseItem
+    from ..entity import BaseItem
     from ..mod_manager import ModManager
     from ..world import WorldOverlay
     from ..api import BaseBehavior, IEntity

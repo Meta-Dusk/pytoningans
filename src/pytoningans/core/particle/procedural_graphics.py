@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QPainter, QPen, QPixmap, QRadialGradient, QColor
 
+
 type QtColor = Union[QColor, str, Qt.GlobalColor]
 
 

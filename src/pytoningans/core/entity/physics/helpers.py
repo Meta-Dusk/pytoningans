@@ -5,7 +5,7 @@ from PySide6.QtCore import QRect
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QRectF
-    from pytoningans.core.entity.base_entity import BaseEntity
+    from ...entity import BaseEntity
 
 
 def get_effective_hitbox(entity: BaseEntity) -> QRect:

@@ -3,11 +3,11 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING, Optional
 
-from pytoningans.core.constants import EntityState
+from ...constants import EntityState
 
 if TYPE_CHECKING:
     from .system import AISystem
-    from pytoningans.core.entity.living_entity import Entity
+    from ...entity import Entity
 
 
 def check_environment(ai: AISystem) -> bool:

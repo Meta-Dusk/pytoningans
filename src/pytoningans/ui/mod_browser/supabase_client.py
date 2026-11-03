@@ -13,7 +13,7 @@ from typing import Any, Optional, TYPE_CHECKING
 from pprint import pprint
 import urllib.error, urllib.parse, urllib.request
 
-from pytoningans.utils.paths import get_app_version, _DEFAULT_APP_VERSION
+from ...utils import get_app_version, _DEFAULT_APP_VERSION
 from pytoningans.core.roles import save_cached_roles
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import VerificationStatus

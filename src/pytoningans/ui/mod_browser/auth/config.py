@@ -9,7 +9,7 @@ import json, os
 from pathlib import Path
 from typing import Any, Optional
 
-from pytoningans.utils.paths import get_settings_path, get_base_path, get_app_version
+from pytoningans.utils import get_settings_path, get_base_path, get_app_version
 
 
 class AuthConfig:

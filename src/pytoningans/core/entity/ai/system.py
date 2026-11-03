@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QPointF, QRect
 
-from pytoningans.core.constants import EntityState
+from ...constants import EntityState
 from .combat import check_combat as _do_check_combat
 from .combat import default_combat_logic as _do_default_combat_logic
 from .combat import get_distance as _do_get_distance
@@ -21,12 +21,12 @@ from .interaction import start_interaction as _do_start_interaction
 from .item_seeking import check_item_seeking as _do_check_item_seeking
 from .item_seeking import default_survival_seeking as _do_default_survival_seeking
 from .item_seeking import navigate_towards_item as _do_navigate_towards_item
-from pytoningans.core.entity.physics.helpers import get_effective_hitbox
-from pytoningans.core.entity.physics.window_collision import find_candidate_platforms
+from ...entity.physics.helpers import get_effective_hitbox
+from ...entity.physics.window_collision import find_candidate_platforms
 
 if TYPE_CHECKING:
-    from pytoningans.core.api import IItem
-    from pytoningans.core.entity.living_entity import Entity
+    from ...api.protocol.entity.base_item import IItem
+    from ...entity.living_entity import Entity
 
 
 class AISystem:
