@@ -85,7 +85,8 @@ plugins:
 nav:
   - Overview: index.md
   - Getting Started:
-      - Installation & Requirements: getting-started/installation.md
+      - Installation & Setup: getting-started/installation.md
+      - Building & Requirements: getting-started/building.md
       - Quickstart Guide: getting-started/quickstart.md
   - User Guide:
       - Desktop Window Physics: user-guide/desktop-physics.md

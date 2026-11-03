@@ -8,7 +8,8 @@ from ..constants import AnimationMeta, EntityState
 
 if TYPE_CHECKING:
     from PySide6.QtGui import QPixmap
-    from ..entity import BaseEntity, BaseItem, DebugHitboxOverlayItem
+    from ..entity import BaseEntity, BaseItem
+    from ..entity.indicators import DebugHitboxOverlayItem
 
 type _EntityTransforms = tuple[int, bool, int]
 
