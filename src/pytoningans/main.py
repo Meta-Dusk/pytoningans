@@ -1,18 +1,40 @@
+from __future__ import annotations
+
+import sys, signal, os, traceback
 from pathlib import Path
-import sys, signal, os
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from types import TracebackType
+
+def log_uncaught_exceptions(
+    exc_type: type[BaseException],
+    exc_value: BaseException,
+    exc_traceback: Optional[TracebackType]
+) -> None:
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    log_path: Path = Path(sys.executable).parent / "startup_crash.log"
+    with open(log_path, "w", encoding="utf-8") as f:
+        f.write("=== UNHANDLED CRASH LOG ===\n")
+        traceback.print_exception(exc_type, exc_value, exc_traceback, file=f)
+
+sys.excepthook = log_uncaught_exceptions
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon, QFontDatabase, QFont
 from PySide6.QtCore import Qt
 
-from .core.constants import APP_CONFIG, EntityType
-from .core.mod_manager import ModManager
-from .core.entity_manager import EntityManager
-from .ui.main_menu import MainMenu
-from .ui.tray_menu import AppTray
-from .ui.theme import DARK_THEME
-from .ui.tool_tip import install_global_tooltip_filter
-from .utils import get_mods_directory, get_asset_path
+from pytoningans.core.constants import APP_CONFIG, EntityType
+from pytoningans.core.mod_manager import ModManager
+from pytoningans.core.entity_manager import EntityManager
+from pytoningans.ui.main_menu import MainMenu
+from pytoningans.ui.tray_menu import AppTray
+from pytoningans.ui.theme import DARK_THEME
+from pytoningans.ui.tool_tip import install_global_tooltip_filter
+from pytoningans.utils import get_mods_directory, get_asset_path
+
 
 def main() -> None:
     signal.signal(signal.SIGINT, signal.SIG_DFL)
