@@ -17,10 +17,6 @@
 - [ ] Add a score counter (for time passed), where optionally, it can upgrade the *town hall*
 - [ ] Add an affection meter for pets
 
-## Additional Polish
-
-None for now
-
 ## Important Fixes
 
 - [ ] Make sure to bundle a modpack (such as the idle game part) in the installer, to fulfil the "Idler" and "Game" tags of the project
@@ -36,7 +32,3 @@ None for now
 - [ ] Add method to combine multiple sprite sheets, to lessen burden on the modder
 - [ ] Fix the interactive cropping feature, since it kinda doesn't work that well
 - [ ] Clean up mod editor (such as moving the buttons to make it make sense)
-
-## Documentation
-
-- [ ] Update the README

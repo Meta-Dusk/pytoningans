@@ -1,12 +1,14 @@
-from pytoningans.core.api.types import Pos2D
+from __future__ import annotations
 
+from typing import TYPE_CHECKING, Optional, Protocol, runtime_checkable
 
-from typing import Any, Optional, Protocol, runtime_checkable
+if TYPE_CHECKING:
+    from ...types import Pos2D, IGraphicsItem
 
 
 @runtime_checkable
 class IParticle(Protocol):
-    """Interface representing a moving particle or spell projectile instance."""
+    """Interface representing a moving particle (can be a projectile as well)."""
     pos: Pos2D
     velocity: Pos2D
     gravity: float
@@ -20,7 +22,7 @@ class IParticle(Protocol):
     collide_entities: bool
     tags: set[str]
     orient_to_velocity: bool
-    homing_target: Optional[Any]
+    homing_target: Optional[IGraphicsItem]
     homing_speed: float
 
     def has_tag(self, tag: str) -> bool:

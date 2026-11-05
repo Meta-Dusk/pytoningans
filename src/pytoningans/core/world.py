@@ -37,7 +37,7 @@ class WorldView(QGraphicsView):
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if watched == self.viewport():
-            spawning_sys = self.overlay.manager.spawning_system
+            spawning_sys = self.overlay.entity_manager.spawning_system
             match event.type():
                 case QEvent.Type.MouseMove:
                     if spawning_sys.handle_mouse_move(self.overlay, cast("QMouseEvent", event)):
@@ -55,7 +55,7 @@ class WorldView(QGraphicsView):
             for entity in self.overlay.active_entities:
                 if not entity.is_cursor_grabbed: continue
                 entity.release_cursor()
-        if self.overlay.manager.spawning_system.handle_key_press(self.overlay, event):
+        if self.overlay.entity_manager.spawning_system.handle_key_press(self.overlay, event):
             event.accept()
             return
         super().keyPressEvent(event)
@@ -65,7 +65,7 @@ class WorldOverlay(QMainWindow):
     """The transparent, fullscreen monitor overlay that acts as a **World**."""
     def __init__(self, screen: QScreen, manager: EntityManager) -> None:
         super().__init__()
-        self.manager: EntityManager = manager
+        self.entity_manager: EntityManager = manager
         self.target_screen: QScreen = screen
         
         self.active_entities: list[Entity] = []
@@ -119,10 +119,10 @@ class WorldOverlay(QMainWindow):
             y: int = ctypes.c_short((msg.lParam >> 16) & 0xFFFF).value
             
             # If interactive placement or region selection mode is active
-            if self.manager.spawning_system.is_active:
+            if self.entity_manager.spawning_system.is_active:
                 cursor_global = QPoint(x, y)
                 widget_under = QApplication.widgetAt(cursor_global)
-                if widget_under is not None and widget_under.window() not in self.manager.active_worlds:
+                if widget_under is not None and widget_under.window() not in self.entity_manager.active_worlds:
                     return True, HTTRANSPARENT
                 return True, HTCLIENT
 
@@ -154,7 +154,7 @@ class WorldOverlay(QMainWindow):
         Moves the desktop window associated with win_rect by (dx, dy).
         Updates local collision rects immediately and carries any entities standing on it.
         """
-        if self.manager.window_tracker is None:
+        if self.entity_manager.window_tracker is None:
             return False
 
         target_entry: Optional[tuple[TrackedWindow, QRect]] = None
@@ -167,7 +167,7 @@ class WorldOverlay(QMainWindow):
             return False
 
         tw, lr = target_entry
-        success, actual_dx, actual_dy = self.manager.window_tracker.move_window(tw.hwnd, dx, dy)
+        success, actual_dx, actual_dy = self.entity_manager.window_tracker.move_window(tw.hwnd, dx, dy)
         if success and (actual_dx != 0 or actual_dy != 0):
             lr.translate(actual_dx, actual_dy)
             if win_rect is not lr:
@@ -211,7 +211,7 @@ class WorldOverlay(QMainWindow):
             dt_sec=dt_sec,
             bounds_w=scene_rect.width(),
             bounds_h=scene_rect.height(),
-            window_tracker=self.manager.window_tracker,
+            window_tracker=self.entity_manager.window_tracker,
             active_entities=cast(list["BaseEntity"], self.active_entities),
         )
 

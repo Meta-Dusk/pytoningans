@@ -13,27 +13,39 @@ Modular Package Structure:
 """
 from __future__ import annotations
 
-# Primitives, Coordinates, and Enums
 from .protocol.core import (
     IEntityManager,
     IModInfo
 )
+
 from .protocol.particle import (
     IParticle,
-    IParticleAPI,
+    IAnimatedParticle,
+    IParticleManager,
     IParticleEmitter,
-    ParticleAPI
+    ParticleConfigDTO,
+    ParticleEmitterConfigDTO,
+    ParticlePresets
 )
+
 from .protocol.entity import (
     IBaseEntity,
     IEntity,
     IItem,
     IStructure
 )
+
 from .types import (
     Pos2D,
     Rect2D,
     IRect,
+    Colors,
+    IColor,
+    ColorType,
+    ITexture,
+    IGraphicsItem,
+    TupleTextureDescriptor,
+    ResolvableTexture,
     EntityType,
     EntityState,
     StructureState,
@@ -48,19 +60,14 @@ from .types import (
     OptionalOnParticleExpireEmitterCallback
 )
 
-# Component System
 from .components import (
     IComponent,
     BaseComponent,
     ITeleportationComponent,
 )
 
-# Protocols
-from .protocol.core.world import (
-    IWorld,
-)
+from .protocol.core import IWorld
 
-# Behaviors
 from .behaviors import (
     BaseEntityBehavior,
     BaseStructureBehavior,
@@ -68,17 +75,27 @@ from .behaviors import (
     BaseBehavior,
 )
 
-# Modpacks
 from .modpack import (
     BaseModPack,
     PackMenuAction,
 )
 
 __all__ = [
-    # Types and Geometry
+    # Core Types and Geometry
     "Pos2D",
     "Rect2D",
     "IRect",
+    
+    # Color Types
+    "Colors",
+    "IColor",
+    "ColorType",
+    
+    # Graphical Types
+    "ITexture",
+    "IGraphicsItem",
+    "TupleTextureDescriptor",
+    "ResolvableTexture",
     
     # Enums
     "EntityType",
@@ -101,14 +118,19 @@ __all__ = [
     "BaseComponent",
     "ITeleportationComponent",
     
-    # Engine, World, and Particle Protocols
+    # Engine, and World
     "IModInfo",
     "IEntityManager",
     "IWorld",
+    
+    # Particle Protocols
     "IParticle",
+    "IAnimatedParticle",
+    "IParticleManager",
     "IParticleEmitter",
-    "IParticleAPI",
-    "ParticleAPI",
+    "ParticleConfigDTO",
+    "ParticleEmitterConfigDTO",
+    "ParticlePresets",
     
     # Entity Protocols
     "IBaseEntity",

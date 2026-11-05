@@ -103,13 +103,13 @@ class BaseStructure(BaseEntity):
         self._on_destroy()
 
         # Clean up any other teleport components linking to this structure
-        if self.world is not None and self.world.manager is not None:
-            for other in list(self.world.manager.active_structures):
+        if self.world is not None and self.world.entity_manager is not None:
+            for other in list(self.world.entity_manager.active_structures):
                 if other is self: continue
                 other_comp: Optional[BaseComponent] = other.get_component("teleportation")
                 if isinstance(other_comp, TeleportationComponent) and other_comp.linked_portal is self:
                     other_comp.linked_portal = None
-            self.world.manager.remove_entity(self)
+            self.world.entity_manager.remove_entity(self)
         elif self.world is not None:
             if self in self.world.active_structures:
                 self.world.active_structures.remove(self)

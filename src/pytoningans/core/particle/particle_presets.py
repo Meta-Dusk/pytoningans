@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import QPointF
+from .types import ParticleEmitterConfig
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QGraphicsItem
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class ParticlePresets:
-    """Factory containing reusable particle effect configurations for companions and modders."""
+    """Factory containing reusable particle effect configurations."""
 
     @staticmethod
     def explode(
@@ -21,8 +22,7 @@ class ParticlePresets:
         pixmap: QPixmap,
         pos: QPointF,
         count: int = 30,
-        speed_min: float = 100.0,
-        speed_max: float = 300.0,
+        speed: float = 300.0,
         gravity: float = 200.0,
         lifetime: float = 1.2,
         collide_windows: bool = False,
@@ -30,11 +30,11 @@ class ParticlePresets:
         on_hit_entity: OptionalOnHitEntityCallback = None,
     ) -> list[Particle]:
         """Creates a radial burst of particles that arc outward with gravity."""
-        emitter: ParticleEmitter = manager.create_emitter(
+        config = ParticleEmitterConfig(
             pixmap=pixmap,
             pos=pos,
-            velocity_x_range=(-speed_max, speed_max),
-            velocity_y_range=(-speed_max, speed_max),
+            velocity_x_range=(-speed, speed),
+            velocity_y_range=(-speed, speed),
             gravity_range=(gravity, gravity * 1.5),
             lifetime_range=(lifetime * 0.5, lifetime),
             scale_over_time_range=(0.2, 0.8),
@@ -43,6 +43,7 @@ class ParticlePresets:
             collide_entities=collide_entities,
             on_hit_entity=on_hit_entity,
         )
+        emitter: ParticleEmitter = manager.create_emitter(config)
         return emitter.burst(count)
 
     @staticmethod
@@ -56,7 +57,7 @@ class ParticlePresets:
         duration: Optional[float] = None,
     ) -> ParticleEmitter:
         """Spawns soft, rising dust particles attached to a moving target or position."""
-        return manager.create_emitter(
+        config = ParticleEmitterConfig(
             pixmap=pixmap,
             pos=pos,
             target=target,
@@ -72,6 +73,7 @@ class ParticlePresets:
             bounce_bounds=False,
             passthrough_mouse=True,
         )
+        return manager.create_emitter(config)
 
     @staticmethod
     def spark_impact(
@@ -81,7 +83,7 @@ class ParticlePresets:
         count: int = 12,
     ) -> list[Particle]:
         """Fast, short-lived sparks emitted when a projectile hits a window or entity."""
-        emitter: ParticleEmitter = manager.create_emitter(
+        config = ParticleEmitterConfig(
             pixmap=pixmap,
             pos=pos,
             velocity_x_range=(-250.0, 250.0),
@@ -94,6 +96,7 @@ class ParticlePresets:
             bounce_bounds=False,
             passthrough_mouse=True,
         )
+        emitter: ParticleEmitter = manager.create_emitter(config)
         return emitter.burst(count)
 
     @staticmethod
@@ -107,8 +110,8 @@ class ParticlePresets:
         rate: float = 10.0,
         local_space: bool = False
     ) -> ParticleEmitter:
-        """Orbiting/floating particles surrounding magical pets or active portals."""
-        return manager.create_emitter(
+        """Orbiting/floating particles."""
+        config = ParticleEmitterConfig(
             pixmap=pixmap,
             pos=pos,
             target=target,
@@ -125,3 +128,4 @@ class ParticlePresets:
             bounce_bounds=False,
             passthrough_mouse=True,
         )
+        return manager.create_emitter(config)

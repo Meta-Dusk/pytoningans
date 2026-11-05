@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Union, Any, Optional
+from typing import TYPE_CHECKING, Union, Optional
 from pathlib import Path
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QPainter, QPen, QPixmap, QRadialGradient, QColor
 
-
-type QtColor = Union[QColor, str, Qt.GlobalColor]
+if TYPE_CHECKING:
+    from .types import QtColor, TupleTextureDescriptor, PixmapTypes
 
 
 class ProceduralGraphics:
@@ -17,7 +17,6 @@ class ProceduralGraphics:
 
     @staticmethod
     def _to_qcolor(color: Union[QtColor, tuple, int]) -> QColor:
-        from PySide6.QtGui import QColor
         if isinstance(color, QColor):
             return color
         return QColor(color)
@@ -113,10 +112,57 @@ class ProceduralGraphics:
 
         return pixmap
     
-    # FIXME: Update resolve_texture to guarantee QPixmap return or raise error if not
     @classmethod
-    def resolve_texture(cls, texture: Union[QPixmap, str, tuple, Any]) -> QPixmap:
-        """Resolves raw pixmaps, image paths, or procedural shape descriptors into cached QPixmaps."""
+    def resolve_texture(cls, texture: PixmapTypes) -> QPixmap:
+        """
+        Resolves raw pixmaps, image paths, or procedural shape descriptors into cached QPixmaps.\n
+        
+        ### Texture Mapping
+        
+        Passing a QPixmap will just return the same object.\n
+        For generating _procedural shapes_, you can either pass it as a `tuple`,
+        or a string in oneline.
+        
+        #### Syntax
+        
+        **shape** : _str_ \nChoose between: "dot, square, ring, glow_circle, or glow."
+        **radius** : _int_
+        **size** : _int_
+        **color** : _QtColor_ \nCan be of type `QColor`, `str`, or `GlobalColor`.
+        **core_color** : _QtColor_
+        **outer_color** : _QtColor_
+        
+        #### Formatting
+        
+        Passing a `tuple` for the `texture` will need the first member as the **shape**.
+        You can omit the rest, which will have defaults.\n
+        The following possible formats are (with **shape** filled in):\n
+        **("dot", radius, color)**; defaults to `radius=6, color="white"`\n
+        **("square", size, color)**; defaults to `size=10, color="white"`\n
+        **("ring", radius, color)**; defaults to `radius=10, color="white"`\n
+        **("glow_circle" or "glow", size, core_color, outer_color)**; defaults to\n
+        `size=15, core_color="white", outer_color="transparent"`\n\n
+        
+        An alternative is a oneline string, that is colon-separated. Except, it must start
+        with 'procedural:'.\n
+        `"procedural:dot:radius:color"`\n
+        `"procedural:square:shape:color"`\n
+        `"procedural:ring:radius:color"`\n
+        `"procedural:glow_circle:radius:core_color:outer_color"`\n
+        `"procedural:glow:radius:core_color:outer_color"`\n
+        
+        ---
+
+        Args:
+            texture (Union[QPixmap, str, tuple, Any]):
+                Refer to the examples section below for what you can pass here.
+
+        Raises:
+            TypeError: If provided `texture` is unresolvable.
+
+        Returns:
+            QPixmap: The resolved `QPixmap`.
+        """
         if isinstance(texture, QPixmap):
             return texture
 
@@ -125,26 +171,7 @@ class ProceduralGraphics:
             if cache_key in cls._CACHE:
                 return cls._CACHE[cache_key]
 
-            shape = str(texture[0]).lower()
-            pixmap: Optional[QPixmap] = None
-
-            if shape == "dot":
-                pixmap = cls.create_dot(int(texture[1]), texture[2] if len(texture) > 2 else "white")
-            elif shape == "square":
-                pixmap = cls.create_square(int(texture[1]), texture[2] if len(texture) > 2 else "white")
-            elif shape == "ring":
-                pixmap = cls.create_ring(
-                    int(texture[1]),
-                    int(texture[2]) if len(texture) > 2 else 2,
-                    texture[3] if len(texture) > 3 else "white"
-                )
-            elif shape in ("glow_circle", "glow"):
-                pixmap = cls.create_glow_circle(
-                    int(texture[1]),
-                    texture[2] if len(texture) > 2 else "white",
-                    texture[3] if len(texture) > 3 else "transparent"
-                )
-
+            pixmap: Optional[QPixmap] = cls._resolve_tuple_texture(texture)
             if pixmap is not None:
                 cls._CACHE[cache_key] = pixmap
                 return pixmap
@@ -155,34 +182,74 @@ class ProceduralGraphics:
                 if cache_key in cls._CACHE:
                     return cls._CACHE[cache_key]
 
-                parts = texture.split(":")
-                shape = parts[1].lower() if len(parts) > 1 else "dot"
-                pixmap = None
-
-                if shape == "dot":
-                    radius = int(parts[2]) if len(parts) > 2 else 6
-                    color = parts[3] if len(parts) > 3 else "white"
-                    pixmap = cls.create_dot(radius, color)
-                elif shape == "square":
-                    size = int(parts[2]) if len(parts) > 2 else 10
-                    color = parts[3] if len(parts) > 3 else "white"
-                    pixmap = cls.create_square(size, color)
-                elif shape == "ring":
-                    radius = int(parts[2]) if len(parts) > 2 else 10
-                    th = int(parts[3]) if len(parts) > 3 else 2
-                    color = parts[4] if len(parts) > 4 else "white"
-                    pixmap = cls.create_ring(radius, th, color)
-                elif shape in ("glow_circle", "glow"):
-                    radius = int(parts[2]) if len(parts) > 2 else 15
-                    core = parts[3] if len(parts) > 3 else "white"
-                    outer = parts[4] if len(parts) > 4 else "transparent"
-                    pixmap = cls.create_glow_circle(radius, core, outer)
-
+                pixmap: Optional[QPixmap] = cls._resolve_procedural_texture(texture)
                 if pixmap is not None:
                     cls._CACHE[cache_key] = pixmap
                     return pixmap
 
             if Path(texture).is_file():
                 return QPixmap(texture)
+        
+        raise TypeError(
+            "[ProceduralGraphics::resolve_texture] "
+            f"Texture '{texture}' is unresolvable!"
+        )
 
-        return QPixmap(texture)
+    @classmethod
+    def _resolve_procedural_texture(cls, texture: str) -> Optional[QPixmap]:
+        parts: list[str] = texture.split(":")
+        shape: str = parts[1].lower() if len(parts) > 1 else "dot"
+        match shape:
+            case "dot":
+                return cls.create_dot(
+                    radius=int(parts[2]) if len(parts) > 2 else 6,
+                    color=parts[3] if len(parts) > 3 else "white"
+                )
+            case "square":
+                return cls.create_square(
+                    size=int(parts[2]) if len(parts) > 2 else 10,
+                    color=parts[3] if len(parts) > 3 else "white"
+                )
+            case "ring":
+                return cls.create_ring(
+                    radius=int(parts[2]) if len(parts) > 2 else 10,
+                    thickness=int(parts[3]) if len(parts) > 3 else 2,
+                    color=parts[4] if len(parts) > 4 else "white"
+                )
+            case "glow_circle" | "glow":
+                return cls.create_glow_circle(
+                    radius=int(parts[2]) if len(parts) > 2 else 15,
+                    core_color=parts[3] if len(parts) > 3 else "white",
+                    outer_color=parts[4] if len(parts) > 4 else "transparent"
+                )
+            case _:
+                return None
+
+    @classmethod
+    def _resolve_tuple_texture(cls, texture: TupleTextureDescriptor) -> Optional[QPixmap]:
+        shape: str = texture[0].lower()
+        match shape:
+            case "dot":
+                return cls.create_dot(
+                    radius=int(texture[1]),
+                    color=texture[2] if len(texture) > 2 else "white"
+                )
+            case "square":
+                return cls.create_square(
+                    size=int(texture[1]),
+                    color=texture[2] if len(texture) > 2 else "white"
+                )
+            case "ring":
+                return cls.create_ring(
+                    radius=int(texture[1]),
+                    thickness=int(texture[2]) if len(texture) > 2 else 2,
+                    color=texture[3] if len(texture) > 3 else "white"
+                )
+            case "glow_circle" | "glow":
+                return cls.create_glow_circle(
+                    radius=int(texture[1]),
+                    core_color=texture[2] if len(texture) > 2 else "white",
+                    outer_color=texture[3] if len(texture) > 3 else "transparent"
+                )
+            case _:
+                return None

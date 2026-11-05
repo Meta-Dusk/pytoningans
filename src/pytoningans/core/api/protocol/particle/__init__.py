@@ -1,11 +1,21 @@
 from .particle import IParticle
-from .particle_manager import IParticleAPI
+from .animated_particle import IAnimatedParticle
+from .particle_manager import IParticleManager
 from .particle_emitter import IParticleEmitter
-from .particle_adapter import ParticleAPI
+from .particle_configs import ParticleEmitterConfigDTO, ParticleConfigDTO
+from .particle_presets import ParticlePresets
 
 __all__ = [
+    # Abstract Particle System Classes
     "IParticle",
-    "IParticleAPI",
+    "IAnimatedParticle",
+    "IParticleManager",
     "IParticleEmitter",
-    "ParticleAPI"
+    
+    # Particle Configs
+    "ParticleEmitterConfigDTO",
+    "ParticleConfigDTO",
+    
+    # Particle System Wrappers
+    "ParticlePresets"
 ]

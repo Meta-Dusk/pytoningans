@@ -12,7 +12,9 @@ from PySide6.QtCore import QPointF, Qt, QPoint, QTimer, QElapsedTimer
 from PySide6.QtGui import QPixmap, QColor, QPainter
 
 from pytoningans.core.window_tracker import WindowTracker
-from pytoningans.core.particle import Particle, ParticleManager, ParticlePresets
+from pytoningans.core.particle import (
+    ParticleManager, ParticlePresets, ParticleEmitterConfig, ParticleConfig
+)
 from pytoningans.core.particle import ProceduralGraphics as pg
 
 if TYPE_CHECKING:
@@ -20,7 +22,7 @@ if TYPE_CHECKING:
     from PySide6.QtGui import QKeyEvent
     from PySide6.QtWidgets import QGraphicsSceneMouseEvent
     from pytoningans.core.entity import BaseEntity
-    from pytoningans.core.particle import ParticleEmitter
+    from pytoningans.core.particle import ParticleEmitter, Particle
 
 
 HTTRANSPARENT = -1
@@ -37,7 +39,7 @@ def generate_animated_orb_spritesheet(
     painter = QPainter(sheet)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
-    palette = [
+    palette: list[QColor] = [
         QColor(0, 240, 255),
         QColor(255, 80, 220),
         QColor(255, 230, 0),
@@ -140,7 +142,7 @@ class WorldOverlay(QMainWindow):
         self.window_tracker: WindowTracker = window_tracker
         self.entities: list[InteractiveEntity] = []
 
-        # Core Particle Manager and Decoupled API Adapter
+        # Core Particle Manager
         self.particle_manager = ParticleManager(self.scene)
 
         # Procedural Textures & Sprite Sheets
@@ -155,6 +157,14 @@ class WorldOverlay(QMainWindow):
         entity = InteractiveEntity(x, y)
         self.scene.addItem(entity)
         self.entities.append(entity)
+        
+        config = ParticleConfig(
+            lifetime=9999.0,
+            fade_out=False,
+            local_space=False,
+            bounce_bounds=False,
+            passthrough_mouse=True,
+        )
 
         # Spawn an orbiting/looping AnimatedParticle attached to companion
         self.particle_manager.spawn_animated_particle(
@@ -166,11 +176,7 @@ class WorldOverlay(QMainWindow):
             frame_count=4,
             fps=8.0,
             loop=True,
-            lifetime=9999.0,
-            fade_out=False,
-            local_space=False,
-            bounce_bounds=False,
-            passthrough_mouse=True,
+            config=config
         )
 
         return entity
@@ -192,12 +198,8 @@ class WorldOverlay(QMainWindow):
                     pos=hit_pos,
                     count=16,
                 )
-
-            # Spawning through ParticleAPI wrapper with procedural descriptor
-            self.particle_manager.spawn_projectile(
-                pixmap=("glow_circle", 6, "cyan", "transparent"),
-                pos=QPointF(origin.x(), origin.y()),
-                velocity=QPointF(vx, vy),
+            
+            config = ParticleConfig(
                 gravity=220.0,
                 lifetime=6.0,
                 tags={"projectile", "energy_bolt"},
@@ -206,6 +208,13 @@ class WorldOverlay(QMainWindow):
                 collide_entities=True,
                 passthrough_mouse=True,
                 on_hit_window=on_hit_win,
+            )
+
+            self.particle_manager.spawn_projectile(
+                pixmap=("glow_circle", 6, "cyan", "transparent"),
+                pos=QPointF(origin.x(), origin.y()),
+                velocity=QPointF(vx, vy),
+                config=config
             )
 
     def launch_homing_missile(self) -> None:
@@ -228,7 +237,7 @@ class WorldOverlay(QMainWindow):
 
         # Sub-Emitter 1 (Spawn Trail Hook): Attaches a continuous smoke trail to this missile
         def smoke_trail_hook(manager: ParticleManager, missile: Particle) -> ParticleEmitter:
-            return manager.create_emitter(
+            config = ParticleEmitterConfig(
                 pixmap=self.smoke_pix,
                 target=missile,
                 offset=QPointF(4.0, 4.0),
@@ -241,10 +250,11 @@ class WorldOverlay(QMainWindow):
                 bounce_bounds=False,
                 passthrough_mouse=True,
             )
+            return manager.create_emitter(config=config)
 
         # Sub-Emitter 2 (Expire Cluster Hook): Bursts secondary falling spark cluster when missile dies
-        def cluster_expire_hook(pm: ParticleManager, impact_pos: QPointF) -> None:
-            cluster_em = pm.create_emitter(
+        def cluster_expire_hook(manager: ParticleManager, impact_pos: QPointF) -> None:
+            config = ParticleEmitterConfig(
                 pixmap=self.spark_pix,
                 pos=impact_pos,
                 velocity_x_range=(-250.0, 250.0),
@@ -256,10 +266,11 @@ class WorldOverlay(QMainWindow):
                 bounce_bounds=True,
                 passthrough_mouse=True,
             )
-            cluster_em.burst(25)
+            cluster_emitter: ParticleEmitter = manager.create_emitter(config)
+            cluster_emitter.burst(25)
 
         # Create single-burst emitter for the rocket with nested sub-emitters
-        emitter = self.particle_manager.create_emitter(
+        config = ParticleEmitterConfig(
             pixmap=self.rocket_pix,
             pos=QPointF(spawn_x, spawn_y),
             velocity_x_range=(init_vx - 50, init_vx + 50),
@@ -276,6 +287,7 @@ class WorldOverlay(QMainWindow):
             on_particle_spawn_emitter=smoke_trail_hook,
             on_particle_expire_emitter=cluster_expire_hook,
         )
+        emitter: ParticleEmitter = self.particle_manager.create_emitter(config)
         emitter.burst(1)
 
     def spawn_procedural_shapes_burst(self) -> None:
@@ -284,7 +296,7 @@ class WorldOverlay(QMainWindow):
         (dots, squares, rings, glow circles) at screen center.
         """
         center = QPointF(self.screen_geom.width() / 2.0, self.screen_geom.height() / 2.0)
-        shapes = [
+        shapes: list[tuple] = [
             ("dot", 8, "yellow"),
             ("square", 14, "magenta"),
             ("ring", 12, 3, "springgreen"),
@@ -297,16 +309,20 @@ class WorldOverlay(QMainWindow):
                 spd: float = random.uniform(120.0, 280.0)
                 vx: float = math.cos(angle) * spd
                 vy: float = math.sin(angle) * spd
-
-                self.particle_manager.spawn(
-                    pixmap=shape,
-                    pos=center,
-                    velocity=QPointF(vx, vy),
+                
+                config = ParticleConfig(
                     gravity=120.0,
                     lifetime=2.5,
                     rotation_speed=random.uniform(-180.0, 180.0),
                     fade_out=True,
                     bounce_bounds=True,
+                )
+
+                self.particle_manager.spawn(
+                    pixmap=shape,
+                    pos=center,
+                    velocity=QPointF(vx, vy),
+                    config=config
                 )
 
     def update_systems(self, dt_sec: float) -> None:

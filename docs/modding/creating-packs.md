@@ -54,7 +54,7 @@ Every Modpack can define a `pack.py` script that extends `BaseModPack`:
 
 ```python
 """Shared controller for Vocaloid Desktop Companions."""
-from pytoningans.core.api import BaseModPack, PackMenuAction
+from api import BaseModPack, PackMenuAction
 
 class PackController(BaseModPack):
     """Coordinates behavior and shared abilities across all pack members."""

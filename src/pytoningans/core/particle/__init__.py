@@ -4,13 +4,10 @@ from .particle_manager import ParticleManager
 from .particle_presets import ParticlePresets
 from .procedural_graphics import ProceduralGraphics
 from .animated_particle import AnimatedParticle
-# from .types import (
-#     OptionalOnExpireCallback,
-#     OptionalOnHitEntityCallback,
-#     OptionalOnHitWindowCallback,
-#     OptionalOnParticleExpireEmitterCallback,
-#     OptionalOnParticleSpawnEmitterCallback
-# )
+from .types import (
+    ParticleEmitterConfig,
+    ParticleConfig
+)
 
 __all__ = [
     # Core
@@ -21,10 +18,7 @@ __all__ = [
     "ProceduralGraphics",
     "AnimatedParticle",
     
-    # # Types
-    # "OptionalOnExpireCallback",
-    # "OptionalOnHitEntityCallback",
-    # "OptionalOnHitWindowCallback",
-    # "OptionalOnParticleExpireEmitterCallback",
-    # "OptionalOnParticleSpawnEmitterCallback"
+    # Types
+    "ParticleEmitterConfig",
+    "ParticleConfig"
 ]

@@ -12,13 +12,14 @@ from PySide6.QtCore import QPointF, Qt, QPoint, QTimer, QElapsedTimer
 from PySide6.QtGui import QPixmap, QColor
 
 from pytoningans.core.window_tracker import WindowTracker
-from pytoningans.core.particle import Particle, ParticleManager, ParticlePresets
+from pytoningans.core.particle import ParticleManager, ParticlePresets, ParticleConfig
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QByteArray, QRect
     from PySide6.QtGui import QKeyEvent
     from PySide6.QtWidgets import QGraphicsSceneMouseEvent
     from pytoningans.core.entity import BaseEntity
+    from pytoningans.core.particle import Particle
 
 
 HTTRANSPARENT = -1
@@ -150,11 +151,8 @@ class WorldOverlay(QMainWindow):
                     pos=hit_pos,
                     count=10,
                 )
-
-            self.particle_manager.spawn(
-                pixmap=self.dot_pix,
-                pos=origin,
-                velocity=QPointF(vx, vy),
+            
+            config = ParticleConfig(
                 gravity=180.0,
                 lifetime=5.0,
                 fade_out=False,
@@ -163,6 +161,13 @@ class WorldOverlay(QMainWindow):
                 collide_windows=True,
                 collide_entities=True,
                 on_hit_window=on_hit_win,
+            )
+
+            self.particle_manager.spawn(
+                pixmap=self.dot_pix,
+                pos=origin,
+                velocity=QPointF(vx, vy),
+                config=config
             )
 
     def update_systems(self, dt_sec: float) -> None:

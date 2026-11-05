@@ -304,8 +304,8 @@ class BaseItem(BaseEntity):
         self._on_destroy()
         if self.is_held: self.drop()
 
-        if self.world is not None and self.world.manager is not None:
-            self.world.manager.remove_entity(self)
+        if self.world is not None and self.world.entity_manager is not None:
+            self.world.entity_manager.remove_entity(self)
         elif self.world is not None:
             if self in self.world.active_items:
                 self.world.active_items.remove(self)

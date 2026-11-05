@@ -2,7 +2,7 @@
 
 PyToNingans is initially built for Windows environments, which means that I haven't tested
 the app in other Operating Systems. Setting up the app is very straightforward, as you only
-need to download the installer in the **Releases** section in the GitHub repository!
+need to download the installer in the **Releases** section in the :simple-github: GitHub repository!
 
 ---
 
@@ -10,7 +10,7 @@ need to download the installer in the **Releases** section in the GitHub reposit
 
 Before installing PyToNingans, ensure you have:
 
-- **Operating System**: Windows 10 or Windows 11 (64-bit).
+- **Operating System**: :fontawesome-brands-windows: Windows 10 or Windows 11 (64-bit).
 
 > That's mostly it for now.
 

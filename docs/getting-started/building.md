@@ -10,9 +10,9 @@ the installer for the application, please refer to the **Releases** section in t
 
 Before running PyToNingans, ensure you have:
 
-1. **Operating System**: Windows 10 or Windows 11 (64-bit).
-2. **Python**: Python 3.14 or newer.
-3. **Package Manager**: [uv](https://docs.astral.sh/uv/) (recommended for instant dependency resolution and execution).
+1. **Operating System**: :fontawesome-brands-windows: Windows 10 or Windows 11 (64-bit).
+2. **Python**: :simple-python: Python 3.14 or newer.
+3. **Package Manager**: [:simple-uv: uv](https://docs.astral.sh/uv/) (recommended for instant dependency resolution and execution).
 
 ---
 

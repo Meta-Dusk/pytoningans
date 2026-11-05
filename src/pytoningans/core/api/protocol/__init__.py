@@ -16,9 +16,12 @@ from .entity import (
 
 from .particle import (
     IParticle,
-    IParticleAPI,
+    IAnimatedParticle,
+    IParticleManager,
     IParticleEmitter,
-    ParticleAPI
+    ParticleConfigDTO,
+    ParticleEmitterConfigDTO,
+    ParticlePresets
 )
 
 from .core import (
@@ -36,9 +39,12 @@ __all__ = [
     
     # Particle Protocols
     "IParticle",
-    "IParticleAPI",
+    "IAnimatedParticle",
+    "IParticleManager",
     "IParticleEmitter",
-    "ParticleAPI",
+    "ParticleConfigDTO",
+    "ParticleEmitterConfigDTO",
+    "ParticlePresets",
     
     # Core
     "IEntityManager",
