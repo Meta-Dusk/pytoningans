@@ -1,5 +1,26 @@
+from __future__ import annotations
+
+import sys, signal, os, traceback
 from pathlib import Path
-import sys, signal, os
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from types import TracebackType
+
+def log_uncaught_exceptions(
+    exc_type: type[BaseException],
+    exc_value: BaseException,
+    exc_traceback: Optional[TracebackType]
+) -> None:
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    log_path: Path = Path(sys.executable).parent / "startup_crash.log"
+    with open(log_path, "w", encoding="utf-8") as f:
+        f.write("=== UNHANDLED CRASH LOG ===\n")
+        traceback.print_exception(exc_type, exc_value, exc_traceback, file=f)
+
+sys.excepthook = log_uncaught_exceptions
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon, QFontDatabase, QFont
@@ -12,14 +33,16 @@ from pytoningans.ui.main_menu import MainMenu
 from pytoningans.ui.tray_menu import AppTray
 from pytoningans.ui.theme import DARK_THEME
 from pytoningans.ui.tool_tip import install_global_tooltip_filter
-from pytoningans.utils.paths import get_mods_directory, get_asset_path
+from pytoningans.utils import get_mods_directory, get_asset_path
+
 
 def main() -> None:
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     
     os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
     QApplication.setHighDpiScaleFactorRoundingPolicy(
-        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+        Qt.HighDpiScaleFactorRoundingPolicy.Round
+    )
     
     app: QApplication = QApplication(sys.argv)
     install_global_tooltip_filter(app)
@@ -39,11 +62,12 @@ def main() -> None:
         font_families: list[str] = QFontDatabase.applicationFontFamilies(font_id)
         
         default_font = QFont(font_families[0])
-        default_font.setStyleStrategy(
-            QFont.StyleStrategy.PreferQuality | QFont.StyleStrategy.PreferAntialias)
-        default_font.setHintingPreference(QFont.HintingPreference.PreferFullHinting)
+        default_font.setPixelSize(14)
+        default_font.setStyleStrategy(QFont.StyleStrategy.PreferBitmap)
+        default_font.setKerning(True)
+        default_font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
+        default_font.setStyleHint(QFont.StyleHint.Monospace)
         
-        # Apply the crisp font settings to the entire application
         app.setFont(default_font)
     
     # Initialize Mod Manager

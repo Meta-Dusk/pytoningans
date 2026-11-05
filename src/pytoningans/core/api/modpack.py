@@ -10,10 +10,10 @@ from typing import TYPE_CHECKING, Any, Callable
 from dataclasses import dataclass
 
 if TYPE_CHECKING:
-    from .protocols import IBaseEntity
+    from .protocol import IBaseEntity
 
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class PackMenuAction:
     """Action button added to an entity's desktop context menu by its parent modpack."""
     label: str

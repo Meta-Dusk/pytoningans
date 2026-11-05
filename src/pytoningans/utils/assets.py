@@ -3,7 +3,7 @@ from typing import Optional
 
 from PySide6.QtGui import QIcon
 
-from pytoningans.utils.paths import get_asset_path
+from .paths import get_asset_path
 
 is_windows: bool = platform.system() == "Windows"
 
@@ -35,4 +35,18 @@ def get_google_icon() -> QIcon:
             _google_icon = QIcon(icon_path.as_posix())
         else:
             _google_icon = QIcon()
-    return _google_icon
+    return _google_icon
+
+
+_github_icon: Optional[QIcon] = None
+
+def get_github_icon() -> QIcon:
+    """Lazily loads and caches the GitHub logo icon."""
+    global _github_icon
+    if _github_icon is None:
+        icon_path = get_asset_path("assets/ui/github_icon.png")
+        if icon_path.exists():
+            _github_icon = QIcon(icon_path.as_posix())
+        else:
+            _github_icon = QIcon()
+    return _github_icon

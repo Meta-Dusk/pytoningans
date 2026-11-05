@@ -41,17 +41,20 @@ flowchart TD
     - **Transparent Overlay**: Frameless, click-through overlay that coexists seamlessly with your daily workflow.
     - **Desktop Window Physics**: Entities walk, jump, and stand on the borders of your active desktop application windows using low-level Win32 window hit-testing.
     - **Dynamic Spawning**: Spawn individual entities, full crews, or define desktop spawn exclusion rules.
+    - **Entity Interactions**: Entities can be made to interact with each other, or even your windows as physics, or just detect the window names for dialogue triggers and such.
+    - **Particle System**: Spawn particles for visual flair or make them act as projectiles, with both being able to physically interact with entities and windows on your desktop.
 
 === "Combat & Visuals"
     - **Interactive Combat**: Characters can battle and unleash animated attacks on your screen.
     - **Customizable Feedback**: Floating damage popups, proportional health bar impact shaking, numerical HP displays, and auto-hide timing.
-    - **Catppuccin Themes**: Hand-crafted Dark and Light themes with consistent aesthetics.
+    - **Minimalistic Themes**: I'm not that good of a UI designer, so I made it minimalistic instead.
 
 === "Community & Modding"
     - **Rich Modpacks**: Group multiple entities into cohesive bundles with shared controllers (`BaseModPack`) and global state.
     - **Safety First**: Integrated AST security analyzer checks imported packages for prohibited modules before execution.
     - **Offline-First Mod Browser**: Discover, install, rate, and update community mods without mandatory logins.
-    - **Cloud Sync**: Optional Supabase Cloud integration with Google Sign-In and Git-like release versioning.
+    - **Upload Your Mods**: You can publish your own mods if you login with a verified sign-in provider.
+    - **Cloud Sync**: Optional Supabase Cloud integration with sign-in for Google and Github, and Git-like release versioning.
 
 ---
 
@@ -59,13 +62,13 @@ flowchart TD
 
 | Topic | Documentation Guide | Description |
 | :--- | :--- | :--- |
-| 📥 **Setup** | [Installation & Setup](getting-started/installation.md) | Prerequisites, source cloning, and running with `uv` or Nuitka. |
-| 🎮 **Controls** | [Quickstart Guide](getting-started/quickstart.md) | Spawning characters, dragging entities, and Control Panel basics. |
-| 🪟 **Physics** | [Desktop Window Physics](user-guide/desktop-physics.md) | Win32 hit-testing and standing on desktop application windows. |
-| ⚔️ **Combat** | [Combat & Visual Feedback](user-guide/combat-visuals.md) | Damage numbers, impact shakes, and health bar modes. |
-| ⚙️ **Settings** | [Settings & Developer Tools](user-guide/settings.md) | Multi-category settings, DPI scaling, and Developer Mode. |
-| 📦 **Modding** | [Mod Architecture & Config](modding/mod-structure.md) | Manifest format, animation rows, and config schemas. |
-| 👥 **Modpacks** | [Modpacks & Shared Controllers](modding/creating-packs.md) | Bundling multi-entity rosters and custom `pack.py` controllers. |
-| 🛡️ **Security** | [Security Audit & AST](modding/inspector-audit.md) | Automated AST safety checks and package inspection. |
-| ☁️ **Publishing** | [Community Hub & Cloud](modding/publishing.md) | Supabase sync, Google Sign-In, ratings, and Git-like releases. |
-| 📜 **API** | [API Reference](api/reference.md) | Auto-generated Python API documentation and docstrings. |
+| :material-rocket-launch-outline: **Setup** | [Installation & Setup](getting-started/installation.md) | Prerequisites, source cloning, and running with `uv` or Nuitka. |
+| :material-gamepad-variant-outline: **Controls** | [Quickstart Guide](getting-started/quickstart.md) | Spawning characters, dragging entities, and Control Panel basics. |
+| :material-atom: **Physics** | [Desktop Window Physics](user-guide/desktop-physics.md) | Win32 hit-testing and standing on desktop application windows. |
+| :material-sword-cross: **Combat** | [Combat & Visual Feedback](user-guide/combat-visuals.md) | Damage numbers, impact shakes, and health bar modes. |
+| :material-tune: **Settings** | [Settings & Developer Tools](user-guide/settings.md) | Multi-category settings, DPI scaling, and Developer Mode. |
+| :material-puzzle-outline: **Modding** | [Mod Architecture & Config](modding/mod-structure.md) | Manifest format, animation rows, and config schemas. |
+| :material-package-variant-closed: **Modpacks** | [Modpacks & Shared Controllers](modding/creating-packs.md) | Bundling multi-entity rosters and custom `pack.py` controllers. |
+| :material-shield-check-outline: **Security** | [Security Audit & AST](modding/inspector-audit.md) | Automated AST safety checks and package inspection. |
+| :material-cloud-upload-outline: **Publishing** | [Community Hub & Cloud](modding/publishing.md) | Supabase sync, Google Sign-In, ratings, and Git-like releases. |
+| :material-code-braces: **API** | [API Reference](api/reference.md) | Auto-generated Python API documentation and docstrings. |

@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt, QPoint, QRect
 from pytoningans.core.constants import (
     AnimationMeta, EntityType, StructureState, EntityState, ItemState
 )
-from pytoningans.ui.mod_editor.components import CollapsibleSection, create_info_label
+from ...components import CollapsibleSection, create_info_label, VerticalResizeHandle
 from ..base_panel import BasePanel
 from .canvas import PhysicsCanvas
 
@@ -33,41 +33,68 @@ class PhysicsPanel(BasePanel):
         
         section = CollapsibleSection("Physics and Alignment")
         
-        # Top Controls
-        top_layout = QHBoxLayout()
+        # Top Controls (organized in 2 clean rows to prevent horizontal overflow)
+        top_controls_layout = QVBoxLayout()
+        top_controls_layout.setSpacing(6)
+
+        row_1 = QHBoxLayout()
         self.state_label = QLabel("State:")
         self.state_combo = QComboBox()
-            
         self.frame_spin = QSpinBox()
         self.frame_spin.setPrefix("Frame: "); self.frame_spin.setMinimum(0)
+        self.copy_btn = QPushButton("🗁⇤ Copy")
+        self.paste_btn = QPushButton("🗁↦ Paste")
+        self.paste_btn.setEnabled(False)
+        self.static_indicator = QLabel("Static Collision (Shared)")
+        self.static_indicator.setStyleSheet(
+            "color: #60a5fa; font-weight: bold; font-size: 11px;"
+        )
+        self.static_indicator.hide()
+
+        row_1.addWidget(self.state_label)
+        row_1.addWidget(self.state_combo)
+        row_1.addWidget(self.frame_spin)
+        row_1.addWidget(self.copy_btn)
+        row_1.addWidget(self.paste_btn)
+        row_1.addWidget(self.static_indicator)
+        row_1.addStretch()
+
+        row_2 = QHBoxLayout()
         self.zoom_spin = QSpinBox()
         self.zoom_spin.setPrefix("Zoom: "); self.zoom_spin.setSuffix("x")
         self.zoom_spin.setRange(1, 20)
-        
-        self.copy_btn = QPushButton("Copy")
-        self.paste_btn = QPushButton("Paste")
-        self.paste_btn.setEnabled(False)
-        
-        self.static_indicator = QLabel("Static Collision (Shared across all states)")
-        self.static_indicator.setStyleSheet("color: #60a5fa; font-weight: bold; font-size: 11px;")
-        self.static_indicator.hide()
+        self.reset_view_btn = QPushButton("⛶ Reset View")
+        self.expand_canvas_btn = QPushButton("[+] Expand")
+        self.expand_canvas_btn.setToolTip(
+            "Quickly toggle between standard (340px) and large (520px) canvas height"
+        )
+        self.expand_canvas_btn.clicked.connect(self._toggle_canvas_expand)
 
-        self.reset_view_btn = QPushButton("Reset View")
+        row_2.addWidget(self.zoom_spin)
+        row_2.addWidget(self.reset_view_btn)
+        row_2.addWidget(self.expand_canvas_btn)
+        row_2.addStretch()
 
-        top_layout.addWidget(self.state_label)
-        top_layout.addWidget(self.state_combo)
-        top_layout.addWidget(self.frame_spin)
-        top_layout.addWidget(self.copy_btn)
-        top_layout.addWidget(self.paste_btn)
-        top_layout.addWidget(self.static_indicator)
-        top_layout.addWidget(self.zoom_spin)
-        top_layout.addWidget(self.reset_view_btn)
-        top_layout.addStretch()
+        top_controls_layout.addLayout(row_1)
+        top_controls_layout.addLayout(row_2)
 
         # Canvas and Form Controls
         editor_layout = QHBoxLayout()
+        
+        canvas_container = QWidget()
+        canvas_layout = QVBoxLayout(canvas_container)
+        canvas_layout.setContentsMargins(0, 0, 0, 0); canvas_layout.setSpacing(0)
+
         self.canvas = PhysicsCanvas()
-        editor_layout.addWidget(self.canvas, stretch=1)
+        self.canvas.setFixedHeight(340)
+        self.canvas_handle = VerticalResizeHandle(
+            self.canvas, default_height=340, min_height=180, max_height=800
+        )
+        self.canvas_handle.height_changed.connect(self._on_canvas_height_changed)
+        canvas_layout.addWidget(self.canvas)
+        canvas_layout.addWidget(self.canvas_handle)
+
+        editor_layout.addWidget(canvas_container, stretch=1)
         self.zoom_spin.setValue(self.canvas.zoom)
         
         form_flags: Qt.AlignmentFlag = (
@@ -154,7 +181,7 @@ class PhysicsPanel(BasePanel):
 
         editor_layout.addLayout(self.form)
         
-        section.content_layout.addLayout(top_layout)
+        section.content_layout.addLayout(top_controls_layout)
         section.content_layout.addLayout(editor_layout)
         layout.addWidget(section)
 
@@ -236,8 +263,8 @@ class PhysicsPanel(BasePanel):
 
     def _sync_states_dropdown(self) -> None:
         """Populates the combo box from the active animations dictionary keys."""
-        prev_data = self.state_combo.currentData()
-        current_selection: Optional[str] = str(prev_data) if prev_data else None
+        prev_data: Optional[str] = self.state_combo.currentData()
+        current_selection: Optional[str] = prev_data if prev_data is not None else None
         
         self.state_combo.blockSignals(True)
         self.state_combo.clear()
@@ -279,7 +306,7 @@ class PhysicsPanel(BasePanel):
             self._sync_states_dropdown()
             
         state: Optional[str] = self.state_combo.currentData()
-        if not state:
+        if state is None:
             self._is_loading = False
             return
             
@@ -312,19 +339,19 @@ class PhysicsPanel(BasePanel):
         is_attack: bool = False
         atk_hitbox: QRect = QRect(0, 0, 0, 0)
         has_hold: bool = False
-        hold_x: int = 0
-        hold_y: int = 0
+        hold_x: int = 0; hold_y: int = 0
         
         meta: Optional[AnimationMeta] = self.controller.manager.animations.get(state)
         if meta is not None:
             has_hold = meta.has_hold_point
-            hold_x = meta.hold_x
-            hold_y = meta.hold_y
+            hold_x = meta.hold_x; hold_y = meta.hold_y
             total_frames: int = max(1, (meta.end_frame - meta.start_frame) + 1)
             self.frame_spin.setMaximum(total_frames - 1)
             self.frame_spin.setSuffix(f"/{total_frames - 1}")
             
-            mapped_index: int = frame_idx % total_frames if meta.loop else min(frame_idx, total_frames - 1)
+            mapped_index: int = (
+                frame_idx % total_frames if meta.loop else min(frame_idx, total_frames - 1)
+            )
             if meta.reverse: mapped_index = (total_frames - 1) - mapped_index
             
             frame_key: str = str(mapped_index)
@@ -376,12 +403,10 @@ class PhysicsPanel(BasePanel):
         self.canvas.attack_range = self.controller.manager.attack_range if is_combat_entity else 0
         
         self.canvas.update_data(
-            pixmap,
-            anchor,
-            hitbox,
-            atk_hitbox if is_combat_entity else QRect(),
-            QPoint(hold_x, hold_y) if is_living else None,
-            has_hold if is_living else False,
+            pixmap, anchor, hitbox,
+            atk_hitbox=atk_hitbox if is_combat_entity else QRect(),
+            hold_anchor=QPoint(hold_x, hold_y) if is_living else None,
+            has_hold_point=has_hold if is_living else False,
             is_attack_frame=is_attack if is_combat_entity else False
         )
         self._is_loading = False
@@ -427,7 +452,9 @@ class PhysicsPanel(BasePanel):
             self.atkw_spin.value(), self.atkh_spin.value()
         )
         has_hold: bool = self.hold_check.isChecked() if is_living else False
-        hold_anchor = QPoint(self.hold_x_spin.value(), self.hold_y_spin.value()) if is_living else QPoint(0, 0)
+        hold_anchor = (
+            QPoint(self.hold_x_spin.value(), self.hold_y_spin.value()) if is_living else QPoint(0, 0)
+        )
         is_attack: bool = self.attack_frame_check.isChecked() and not is_structure
 
         self.canvas.update_data(
@@ -633,3 +660,16 @@ class PhysicsPanel(BasePanel):
         self.canvas.show_attack_range = bool(state)
         self.canvas.update()
 
+    def _toggle_canvas_expand(self) -> None:
+        if self.canvas.height() >= 460:
+            self.canvas.setFixedHeight(340)
+            self.expand_canvas_btn.setText("[+] Expand")
+        else:
+            self.canvas.setFixedHeight(520)
+            self.expand_canvas_btn.setText("[-] Compact")
+
+    def _on_canvas_height_changed(self, height: int) -> None:
+        if height >= 460:
+            self.expand_canvas_btn.setText("[-] Compact")
+        else:
+            self.expand_canvas_btn.setText("[+] Expand")

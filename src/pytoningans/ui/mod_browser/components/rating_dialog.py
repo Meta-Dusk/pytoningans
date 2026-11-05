@@ -5,16 +5,18 @@ Interactive modal dialog allowing users to score mods on a 1-10 scale.
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QPushButton, QWidget
 )
 
-from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.utils.assets import get_main_icon
-from ..models import CommunityModItem
+from ...title_bar import CustomTitleBar
+from pytoningans.utils import get_main_icon
+
+if TYPE_CHECKING:
+    from ..models import CommunityModItem
 
 
 RATING_DESCRIPTIONS: dict[int, str] = {
@@ -102,4 +104,3 @@ class RatingDialog(QDialog):
 
     def _on_submit(self) -> None:
         self.accept()
-

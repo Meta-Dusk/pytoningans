@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING
-from PySide6.QtCore import QPointF, QRect, QRectF, Qt
+from typing import TYPE_CHECKING, Optional
+from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QBrush, QColor, QPainter, QPen
-from PySide6.QtWidgets import QGraphicsItem, QStyleOptionGraphicsItem, QWidget
+from PySide6.QtWidgets import QGraphicsItem
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.base_entity import BaseEntity
+    from PySide6.QtCore import QRect
+    from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget
+    from ...entity import BaseEntity
 
 
 class DebugHitboxOverlayItem(QGraphicsItem):

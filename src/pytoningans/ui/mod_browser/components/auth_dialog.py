@@ -9,7 +9,7 @@ Provides an interactive modal dialog for:
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtWidgets import (
@@ -18,9 +18,12 @@ from PySide6.QtWidgets import (
 )
 
 from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.utils.assets import get_main_icon, get_google_icon
-from ..auth import AuthManager, UserProfile
+from pytoningans.utils import get_main_icon, get_google_icon, get_github_icon, AvatarLabel
+from ..auth import AuthManager
 from ..async_workers import AuthWorker
+
+if TYPE_CHECKING:
+    from ..auth import UserProfile
 
 
 class AuthDialog(QDialog):
@@ -32,13 +35,13 @@ class AuthDialog(QDialog):
         self._auth_worker: Optional[AuthWorker] = None
 
 
-        self.setWindowTitle("Creator Account")
-        self.setWindowIcon(get_main_icon())
+        self.setWindowTitle("Creator Account"); self.setWindowIcon(get_main_icon())
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.resize(460, 480)
+        self.resize(460, 520)
 
         self._setup_ui()
+        self._update_session_banner()
         self.auth.auth_state_changed.connect(self._on_auth_state_changed)
 
     def _setup_ui(self) -> None:
@@ -54,13 +57,45 @@ class AuthDialog(QDialog):
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(18, 16, 18, 16); content_layout.setSpacing(12)
 
+        # Current Active Session Banner
+        self.session_banner = QFrame()
+        self.session_banner.setStyleSheet("""
+            QFrame {
+                background-color: rgba(30, 30, 46, 0.85);
+                border: 1px solid #89b4fa;
+                border-radius: 6px;
+            }
+        """)
+        sb_layout = QHBoxLayout(self.session_banner)
+        sb_layout.setContentsMargins(10, 8, 10, 8); sb_layout.setSpacing(10)
+
+        self.banner_avatar = AvatarLabel(size=38, border_color="#89b4fa", border_width=2)
+        sb_layout.addWidget(self.banner_avatar)
+
+        sb_text_layout = QVBoxLayout()
+        sb_text_layout.setSpacing(2)
+        self.banner_title_lbl = QLabel()
+        self.banner_title_lbl.setStyleSheet("font-size: 12px; font-weight: bold; color: #cdd6f4;")
+        self.banner_sub_lbl = QLabel()
+        self.banner_sub_lbl.setStyleSheet("font-size: 11px; color: #a6adc8;")
+        sb_text_layout.addWidget(self.banner_title_lbl)
+        sb_text_layout.addWidget(self.banner_sub_lbl)
+        sb_layout.addLayout(sb_text_layout, stretch=1)
+
+        self.banner_signout_btn = QPushButton("Sign Out")
+        self.banner_signout_btn.setObjectName("SecondaryBtn")
+        self.banner_signout_btn.setStyleSheet("padding: 3px 8px; font-size: 10px;")
+        self.banner_signout_btn.clicked.connect(self._on_banner_signout_clicked)
+        sb_layout.addWidget(self.banner_signout_btn)
+
+        content_layout.addWidget(self.session_banner)
+
         # Tab Widget for Sign In / Create Account / Cloud Config
         self.tabs = QTabWidget()
 
         # Tab 1: Sign In
         sign_in_tab = QWidget()
-        si_layout = QVBoxLayout(sign_in_tab)
-        si_layout.setSpacing(10)
+        si_layout = QVBoxLayout(sign_in_tab); si_layout.setSpacing(10)
 
         si_layout.addWidget(QLabel("Email Address:"))
         self.si_email_input = QLineEdit()
@@ -92,7 +127,14 @@ class AuthDialog(QDialog):
         sep_layout.addWidget(line_2)
         si_layout.addLayout(sep_layout)
 
-        # Google Sign-In Button
+        # OAuth Sign-In Buttons
+        self.github_btn = QPushButton("  Continue with GitHub")
+        self.github_btn.setIcon(get_github_icon()); self.github_btn.setIconSize(QSize(18, 18))
+        self.github_btn.setToolTip("Sign in via GitHub account in default browser")
+        self.github_btn.setObjectName("SecondaryBtn")
+        self.github_btn.clicked.connect(self._on_github_clicked)
+        si_layout.addWidget(self.github_btn)
+
         self.google_btn = QPushButton("  Continue with Google")
         self.google_btn.setIcon(get_google_icon()); self.google_btn.setIconSize(QSize(18, 18))
         self.google_btn.setToolTip("Sign in via Google account in default browser")
@@ -104,8 +146,7 @@ class AuthDialog(QDialog):
 
         # Tab 2: Create Account
         su_tab = QWidget()
-        su_layout = QVBoxLayout(su_tab)
-        su_layout.setSpacing(10)
+        su_layout = QVBoxLayout(su_tab); su_layout.setSpacing(10)
 
         su_layout.addWidget(QLabel("Creator Username:"))
         self.su_username_input = QLineEdit()
@@ -159,10 +200,10 @@ class AuthDialog(QDialog):
         self.cfg_url_input.setPlaceholderText("https://your-project.supabase.co")
         cfg_layout.addWidget(self.cfg_url_input)
 
-        cfg_layout.addWidget(QLabel("Supabase Anon Public API Key:"))
-        self.cfg_key_input = QLineEdit(self.auth.supabase_anon_key)
+        cfg_layout.addWidget(QLabel("Supabase Publishable API Key:"))
+        self.cfg_key_input = QLineEdit(self.auth.supabase_pub_key)
         self.cfg_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.cfg_key_input.setPlaceholderText("eyJh... (Public anon key)")
+        self.cfg_key_input.setPlaceholderText("sb_publishable... (Publishable key)")
         cfg_layout.addWidget(self.cfg_key_input)
 
         self.cfg_save_btn = QPushButton("Save Cloud Configuration")
@@ -178,7 +219,9 @@ class AuthDialog(QDialog):
         # Bottom Bar: Offline Mode / Advanced Server Settings + Cancel
         btn_layout = QHBoxLayout()
         self.offline_creator_btn = QPushButton("Continue in Offline Mode")
-        self.offline_creator_btn.setToolTip("Set up a local creator profile for offline mod management")
+        self.offline_creator_btn.setToolTip(
+            "Set up a local creator profile for offline mod management"
+        )
         self.offline_creator_btn.setObjectName("LinkBtn")
         self.offline_creator_btn.clicked.connect(self._on_offline_creator_clicked)
         btn_layout.addWidget(self.offline_creator_btn)
@@ -194,8 +237,7 @@ class AuthDialog(QDialog):
         btn_layout.addWidget(self.server_btn)
 
         btn_layout.addStretch()
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.clicked.connect(self.reject)
+        cancel_btn = QPushButton("Cancel"); cancel_btn.clicked.connect(self.reject)
 
         btn_layout.addWidget(cancel_btn)
         content_layout.addLayout(btn_layout)
@@ -216,9 +258,9 @@ class AuthDialog(QDialog):
             text="LocalCreator",
         )
         if ok and username.strip():
-            user = self.auth.sign_in_locally(username.strip())
+            user: UserProfile = self.auth.sign_in_locally(username.strip())
             QMessageBox.information(
-                self, "Offline Mode", f"Operating in offline mode as @{user.username}."
+                self, "Offline Mode", f"Operating in offline mode as '{user.username}'."
             )
             self.accept()
 
@@ -264,11 +306,15 @@ class AuthDialog(QDialog):
         self.su_submit_btn.setEnabled(False)
         self.su_submit_btn.setText("Creating Account...")
 
-        self._auth_worker = AuthWorker(self.auth, "signup", email, pwd, username=username, parent=self)
+        self._auth_worker = AuthWorker(
+            self.auth, "signup", email, pwd, username=username, parent=self
+        )
         self._auth_worker.auth_completed.connect(self._on_auth_completed)
         self._auth_worker.start()
 
-    def _on_auth_completed(self, success: bool, msg: str, user: Optional[UserProfile]) -> None:
+    def _on_auth_completed(
+        self, success: bool, msg: str, user: Optional[UserProfile]
+    ) -> None:
         self.si_submit_btn.setEnabled(True)
         self.si_submit_btn.setText("Sign In")
         self.su_submit_btn.setEnabled(True)
@@ -284,6 +330,13 @@ class AuthDialog(QDialog):
             target_lbl.setVisible(True)
 
 
+    def _on_github_clicked(self) -> None:
+        success, msg = self.auth.start_github_oauth()
+        if success:
+            QMessageBox.information(self, "Browser Sign-In", msg)
+        else:
+            QMessageBox.warning(self, "OAuth Error", msg)
+
     def _on_google_clicked(self) -> None:
         success, msg = self.auth.start_google_oauth()
         if success:
@@ -296,13 +349,59 @@ class AuthDialog(QDialog):
         key: str = self.cfg_key_input.text().strip()
         self.auth.save_config(url, key)
         QMessageBox.information(
-            self,
-            "Settings Saved",
+            self, "Settings Saved",
             "Supabase cloud configuration saved.\n"
             + ("Cloud sync is active!" if (url and key) else "Operating in offline-first mode.")
         )
 
+    def _update_session_banner(self) -> None:
+        """Refreshes the active session banner and provider buttons."""
+        user: Optional[UserProfile] = self.auth.current_user
+        if user is None:
+            self.session_banner.setVisible(False)
+            self.github_btn.setText("  Continue with GitHub")
+            self.google_btn.setText("  Continue with Google")
+            return
+        
+        self.session_banner.setVisible(True)
+        avatar_src: Optional[str] = self.auth.get_creator_avatar()
+        initial: str = (user.username[:1].upper()) if user.username else "M"
+        self.banner_avatar.set_avatar(avatar_src, initial=initial)
+
+        if user.is_developer:
+            self.banner_avatar.set_border_color("#cba6f7")
+        else:
+            self.banner_avatar.set_border_color("#89b4fa")
+
+        prov: str = user.display_provider
+        self.banner_title_lbl.setText(
+            f"You are currently logged in with <b>{prov}</b> as <b>{user.username}</b>"
+        )
+
+        badges_str: str = " ".join([f"[{b}]" for b in user.badges])
+        badge_suffix: str = f" • {badges_str}" if badges_str else ""
+        self.banner_sub_lbl.setText(f"{user.email}{badge_suffix}")
+
+        if "github" in user.providers or user.primary_provider == "github":
+            gh_user: str = user.github_username or user.username
+            self.github_btn.setText(f"  Continue with GitHub (Logged in as {gh_user})")
+        else:
+            self.github_btn.setText("  Continue with GitHub")
+
+        if "google" in user.providers or user.primary_provider == "google":
+            self.google_btn.setText(
+                f"  Continue with Google (Logged in as {user.google_email or user.email})"
+            )
+        else:
+            self.google_btn.setText("  Continue with Google")
+
+    def _on_banner_signout_clicked(self) -> None:
+        self.auth.sign_out()
+        self._update_session_banner()
+        QMessageBox.information(self, "Signed Out", "You have signed out of your account.")
+
     def _on_auth_state_changed(self, user: Optional[UserProfile]) -> None:
+        self._update_session_banner()
         if user is not None and self.isVisible():
             self.accept()
 

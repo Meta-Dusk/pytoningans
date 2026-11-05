@@ -1,15 +1,18 @@
-from typing import Optional, cast
+from __future__ import annotations
 
-from PySide6.QtCore import (
-    QAbstractItemModel, QEvent, QModelIndex, QPoint, QPointF, QRect, Qt, QObject, QTimer
-)
-from PySide6.QtGui import (
-    QGuiApplication, QPainter, QPaintEvent, QScreen, QHelpEvent, QMouseEvent
-)
+from typing import Optional, cast, TYPE_CHECKING
+
+from PySide6.QtCore import QEvent, QPoint, Qt, QObject, QTimer
+from PySide6.QtGui import QGuiApplication, QPainter, QHelpEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication, QGraphicsItem, QHBoxLayout, QLabel, QStyle, QStyleOption, QWidget,
     QAbstractItemView, QHeaderView, QGraphicsView
 )
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPointF, QRect
+    from PySide6.QtGui import QScreen, QPaintEvent
+
 
 class CustomToolTip(QWidget):
     """A completely customized overlay widget acting as a modern tooltip."""
@@ -17,21 +20,17 @@ class CustomToolTip(QWidget):
     def __init__(self, text: str = "", parent: Optional[QWidget] = None) -> None:
         super().__init__(
             parent,
-            Qt.WindowType.ToolTip
-            | Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint,
+            Qt.WindowType.ToolTip |
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.WindowStaysOnTopHint,
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 8, 10, 8)
+        layout = QHBoxLayout(self); layout.setContentsMargins(10, 8, 10, 8)
 
-        self.label = QLabel(text)
-        self.label.setObjectName("ToolTipText")
-        # Enable word wrapping and restrict width to prevent runaway horizontal growth
-        self.label.setWordWrap(True)
-        self.label.setMaximumWidth(280)
+        self.label = QLabel(text); self.label.setObjectName("ToolTipText")
+        self.label.setWordWrap(True); self.label.setMaximumWidth(280)
 
         layout.addWidget(self.label)
         self.setObjectName("ToolTipLabel")
@@ -93,7 +92,7 @@ class CustomToolTipManager(QObject):
             QGuiApplication.screenAt(pos)
             or QGuiApplication.primaryScreen()
         )
-        if screen:
+        if screen is not None:
             screen_geom: QRect = screen.availableGeometry()
 
             # Right edge clamp
@@ -228,7 +227,7 @@ class CustomToolTipManager(QObject):
         return ""
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        event_type = event.type()
+        event_type: QEvent.Type = event.type()
 
         if event_type == QEvent.Type.ToolTip:
             text: str = self._extract_tooltip_text(watched, event)
@@ -242,11 +241,16 @@ class CustomToolTipManager(QObject):
 
         elif event_type == QEvent.Type.MouseMove:
             if self._current_widget is not None and watched is self._current_widget:
-                is_view = isinstance(watched, (QGraphicsView, QAbstractItemView)) or (
-                    isinstance(watched, QWidget) and isinstance(watched.parent(), (QGraphicsView, QAbstractItemView))
+                is_view: bool = isinstance(watched, (QGraphicsView, QAbstractItemView)) or (
+                    isinstance(watched, QWidget) and isinstance(
+                        watched.parent(), (QGraphicsView, QAbstractItemView)
+                    )
                 )
                 if not is_view:
-                    mouse_pos = event.globalPos() if isinstance(event, (QMouseEvent, QHelpEvent)) else QPoint()
+                    mouse_pos: QPoint = (
+                        event.globalPos() if isinstance(event, (QMouseEvent, QHelpEvent))
+                        else QPoint()
+                    )
                     if (mouse_pos - self._show_pos).manhattanLength() > 25:
                         self.hide_tip()
 
@@ -271,7 +275,7 @@ class CustomToolTipManager(QObject):
 
 def install_global_tooltip_filter(app: Optional[QApplication] = None) -> CustomToolTipManager:
     """Installs the custom tooltip filter globally on the application."""
-    manager = CustomToolTipManager.get()
+    manager: CustomToolTipManager = CustomToolTipManager.get()
     target_app = app or QApplication.instance()
     if target_app and not getattr(target_app, "_custom_tooltip_installed", False):
         target_app.installEventFilter(manager)

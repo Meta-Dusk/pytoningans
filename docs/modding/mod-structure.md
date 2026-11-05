@@ -13,7 +13,6 @@ mods/
 └── my_cool_character/
     ├── config.json          # Main manifest, stats, and animation definitions
     └── sprite_sheet.png     # Grid of character animation frames
-    
 ```
 
 ---

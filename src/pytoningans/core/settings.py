@@ -8,7 +8,7 @@ from typing import Optional, Any
 
 from PySide6.QtCore import QObject, Signal
 
-from pytoningans.utils.paths import get_settings_path
+from ..utils import get_settings_path
 
 
 @unique
@@ -18,7 +18,7 @@ class HealthBarMode(StrEnum):
     HIDDEN = "hidden"
 
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class AppSettings:
     """Global user preferences and application configuration settings."""
     health_bar_mode: str = HealthBarMode.ON_DAMAGE
@@ -30,10 +30,10 @@ class AppSettings:
     avoid_window_spawn: bool = True
     spawn_area_mode: str = "screen"
     enable_debug_mode: bool = False
-
-
-# Backward compatibility alias
-CombatVisualSettings = AppSettings
+    creator_name: str = "Modder"
+    creator_bio: str = ""
+    creator_avatar_path: str = ""
+    online_mode: bool = False
 
 
 class SettingsManager(QObject):
@@ -66,6 +66,10 @@ class SettingsManager(QObject):
                     avoid_window_spawn=data.get("avoid_window_spawn", True),
                     spawn_area_mode=data.get("spawn_area_mode", "screen"),
                     enable_debug_mode=data.get("enable_debug_mode", False),
+                    creator_name=data.get("creator_name", "Modder"),
+                    creator_bio=data.get("creator_bio", ""),
+                    creator_avatar_path=data.get("creator_avatar_path", ""),
+                    online_mode=data.get("online_mode", False),
                 )
             except Exception as e:
                 print(f"Warning: Failed to load settings from {path}: {e}")
@@ -91,8 +95,12 @@ class SettingsManager(QObject):
         avoid_window_spawn: Optional[bool] = None,
         spawn_area_mode: Optional[str] = None,
         enable_debug_mode: Optional[bool] = None,
+        creator_name: Optional[str] = None,
+        creator_bio: Optional[str] = None,
+        creator_avatar_path: Optional[str] = None,
+        online_mode: Optional[bool] = None,
     ) -> None:
-        changed = False
+        changed: bool = False
         if health_bar_mode is not None and self.settings.health_bar_mode != health_bar_mode:
             self.settings.health_bar_mode = health_bar_mode
             changed = True
@@ -120,6 +128,18 @@ class SettingsManager(QObject):
         if enable_debug_mode is not None and self.settings.enable_debug_mode != enable_debug_mode:
             self.settings.enable_debug_mode = enable_debug_mode
             changed = True
+        if creator_name is not None and self.settings.creator_name != creator_name.strip():
+            self.settings.creator_name = creator_name.strip()
+            changed = True
+        if creator_bio is not None and self.settings.creator_bio != creator_bio.strip():
+            self.settings.creator_bio = creator_bio.strip()
+            changed = True
+        if creator_avatar_path is not None and self.settings.creator_avatar_path != creator_avatar_path.strip():
+            self.settings.creator_avatar_path = creator_avatar_path.strip()
+            changed = True
+        if online_mode is not None and self.settings.online_mode != online_mode:
+            self.settings.online_mode = online_mode
+            changed = True
 
         if changed:
             self.save()
@@ -129,4 +149,3 @@ class SettingsManager(QObject):
         self.settings = AppSettings()
         self.save()
         self.settings_changed.emit()
-

@@ -14,3 +14,7 @@ site/
 .env
 .env.*
 cloud_config.json
+
+# Zoo Code stuff
+.roomodes
+.roo/

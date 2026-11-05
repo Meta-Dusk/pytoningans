@@ -6,15 +6,14 @@ and environmental triggers in a mod's `behavior.py`.
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
-    from .protocols import IEntity, IStructure, IItem
+    from .protocol import IItem, IEntity, IStructure
 
 
-# =============================================================================
-#* Behavior Base Classes and Modding Hooks
-# =============================================================================
+type BaseBehavior = Union[BaseEntityBehavior, BaseStructureBehavior, BaseItemBehavior]
+
 
 class BaseEntityBehavior:
     """
@@ -193,7 +192,4 @@ class BaseItemBehavior:
     def on_destroy(self, item: IItem) -> None:
         """Called when the item is removed from the world or destroyed."""
         pass
-
-
-type BaseBehavior = BaseEntityBehavior | BaseStructureBehavior | BaseItemBehavior
 

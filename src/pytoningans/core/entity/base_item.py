@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING, cast
-from PySide6.QtCore import QPointF, QRectF, Qt, QPoint
-from PySide6.QtWidgets import QGraphicsSceneMouseEvent
+from typing import TYPE_CHECKING, Optional, cast
+from PySide6.QtCore import Qt
 
-from pytoningans.core.api import (
-    BaseBehavior, BaseItemBehavior, BaseEntityBehavior, IItem, IEntity
-)
-from pytoningans.core.constants import ItemState
-from pytoningans.core.entity.base_entity import BaseEntity
+from ..api import BaseItemBehavior, BaseEntityBehavior
+from ..constants import ItemState
+from ..entity import BaseEntity
 
 if TYPE_CHECKING:
-    from pytoningans.core.mod_manager import ModManager
-    from pytoningans.core.world import WorldOverlay
-    from pytoningans.core.entity.living_entity import Entity
+    from PySide6.QtCore import QPoint, QRectF, QPointF
+    from PySide6.QtWidgets import QGraphicsSceneMouseEvent
+    from ..api import BaseBehavior, IEntity, IItem
+    from ..mod_manager import ModManager
+    from ..world import WorldOverlay
+    from ..entity import Entity
 
 
 class BaseItem(BaseEntity):
@@ -93,7 +93,7 @@ class BaseItem(BaseEntity):
         behavior: Optional[BaseBehavior] = self.behavior
         if isinstance(behavior, BaseItemBehavior):
             try:
-                allowed: bool = behavior.on_pickup(cast(IItem, self), cast(IEntity, entity))
+                allowed: bool = behavior.on_pickup(cast("IItem", self), cast("IEntity", entity))
                 if not allowed: return False
             except Exception as e:
                 print(f"Custom Item on_pickup Error: {e}")
@@ -167,7 +167,7 @@ class BaseItem(BaseEntity):
         behavior: Optional[BaseBehavior] = self.behavior
         if isinstance(behavior, BaseItemBehavior):
             try:
-                behavior.on_drop(cast(IItem, self), cast(Optional[IEntity], prev_holder))
+                behavior.on_drop(cast("IItem", self), cast(Optional["IEntity"], prev_holder))
             except Exception as e:
                 print(f"Custom Item on_drop Error: {e}")
 
@@ -182,7 +182,7 @@ class BaseItem(BaseEntity):
         behavior: Optional[BaseBehavior] = self.behavior
         if isinstance(behavior, BaseItemBehavior):
             try:
-                handled = behavior.on_use(cast(IItem, self), cast(Optional[IEntity], caller))
+                handled = behavior.on_use(cast("IItem", self), cast(Optional["IEntity"], caller))
             except Exception as e:
                 print(f"Custom Item on_use Error: {e}")
                 handled = False
@@ -232,7 +232,7 @@ class BaseItem(BaseEntity):
         behavior: Optional[BaseBehavior] = self.behavior
         if isinstance(behavior, BaseItemBehavior):
             try:
-                behavior.on_update(cast(IItem, self), dt)
+                behavior.on_update(cast("IItem", self), dt)
             except Exception as e:
                 print(f"Custom Item on_update Error: {e}")
     
@@ -241,7 +241,7 @@ class BaseItem(BaseEntity):
         if isinstance(item_behavior, BaseItemBehavior):
             try:
                 handled_item: bool = item_behavior.on_interact(
-                    cast(IItem, self), cast(IEntity, entity)
+                    cast("IItem", self), cast("IEntity", entity)
                 )
                 if handled_item: return True
             except Exception as e:
@@ -253,7 +253,7 @@ class BaseItem(BaseEntity):
         if isinstance(entity_behavior, BaseEntityBehavior):
             try:
                 handled_entity: bool = entity_behavior.on_item_interact(
-                    cast(IEntity, entity), cast(IItem, self)
+                    cast("IEntity", entity), cast("IItem", self)
                 )
                 if handled_entity: return True
             except Exception as e:
@@ -296,7 +296,7 @@ class BaseItem(BaseEntity):
         behavior: Optional[BaseBehavior] = self.behavior
         if not isinstance(behavior, BaseItemBehavior): return
         try:
-            behavior.on_destroy(cast(IItem, self))
+            behavior.on_destroy(cast("IItem", self))
         except Exception as e:
             print(f"Custom Item on_destroy Error: {e}")
 
@@ -304,8 +304,8 @@ class BaseItem(BaseEntity):
         self._on_destroy()
         if self.is_held: self.drop()
 
-        if self.world is not None and self.world.manager is not None:
-            self.world.manager.remove_entity(self)
+        if self.world is not None and self.world.entity_manager is not None:
+            self.world.entity_manager.remove_entity(self)
         elif self.world is not None:
             if self in self.world.active_items:
                 self.world.active_items.remove(self)

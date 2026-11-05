@@ -2,9 +2,9 @@ import sys, re
 from pathlib import Path
 
 # Resolve project root (<root>/tools/bump_version.py -> <root>)
-ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 
-SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
+SEMVER_PATTERN: re.Pattern[str] = re.compile(r"^\d+\.\d+\.\d+$")
 
 def log_info(msg: str) -> None:
     print(f"[INFO]  {msg}")
@@ -142,7 +142,7 @@ def main() -> None:
     if all(results):
         log_success(f"All target configurations successfully updated to v{target_version}.")
     else:
-        failed = sum(1 for r in results if not r)
+        failed: int = sum(1 for r in results if not r)
         log_error(f"{failed} file(s) failed or had no matching patterns. Review logs above.")
         sys.exit(1)
 

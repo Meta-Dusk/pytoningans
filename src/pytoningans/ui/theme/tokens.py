@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ThemePalette:
     """Strongly typed color tokens and typography for the UI theme."""
 
@@ -336,7 +336,7 @@ DARK_PALETTE = ThemePalette(
 
     # Inputs / Controls
     input_bg="#2d2d2d",
-    input_border="#3d3d3d",
+    input_border="#45475a",
     accent="#4a90e2",
     checkbox_text="#e0e0e0",
     checkbox_indicator_bg="#252526",

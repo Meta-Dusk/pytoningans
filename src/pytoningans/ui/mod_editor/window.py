@@ -1,34 +1,38 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QScrollArea, QFrame,
+    QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QScrollArea, QFrame, QSplitter,
     QMessageBox, QLabel, QLineEdit, QFileDialog
 )
-from PySide6.QtCore import QRect, Qt, Signal, QUrl, QTimer
-from PySide6.QtGui import QGuiApplication, QResizeEvent, QDesktopServices, QScreen, QCloseEvent
+from PySide6.QtCore import Qt, Signal, QUrl, QTimer
+from PySide6.QtGui import QGuiApplication, QDesktopServices
 
-from pytoningans.core.mod_manager import (
-    ModManager, CURRENT_CONFIG_VERSION, get_mod_type_display
-)
+from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION, get_mod_type_display
 from pytoningans.core.constants import EntityType
-from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.ui.mod_editor.components import CustomSizeGrip
-from pytoningans.ui.mod_editor.controller import ModEditorController
-from pytoningans.ui.mod_editor.panels import (
-    BasePanel, AnimationSubsystem, BehaviorStatsPanel, BehaviorScriptPanel,
-    StructureBehaviorPanel, ItemBehaviorPanel, DialoguePanel, PhysicsPanel, InstanceNamesPanel,
-    TagsPanel
+from pytoningans.utils import get_main_icon
+
+from ...ui.title_bar import CustomTitleBar
+from ...ui.mod_editor.components import CustomSizeGrip
+from ...ui.mod_editor.controller import ModEditorController
+from ...ui.mod_editor.panels import (
+    BasePanel, AnimationSubsystem, BehaviorStatsPanel, BehaviorScriptPanel, StructureBehaviorPanel,
+    ItemBehaviorPanel, DialoguePanel, PhysicsPanel, InstanceNamesPanel, TagsPanel
 )
-from pytoningans.utils.assets import get_main_icon
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QRect
+    from PySide6.QtGui import QScreen, QCloseEvent, QResizeEvent
+
 
 class ModEditorWindow(QWidget):
     mods_updated = Signal()
     
     def __init__(self, mod_manager: ModManager) -> None:
         super().__init__(
-            windowTitle="Mod Editor",
-            windowIcon=get_main_icon()
+            windowTitle="Mod Editor", windowIcon=get_main_icon()
         )
         self.controller = ModEditorController(mod_manager)
         self._current_loaded_mod: Optional[str] = None
@@ -99,8 +103,9 @@ class ModEditorWindow(QWidget):
             self.physics_panel, self.instance_names_panel, self.tags_panel
         ]
 
-        # Scroll Areas
-        split_layout = QHBoxLayout()
+        # Scroll Areas & Responsive Splitter
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.setObjectName("EditorSplitter")
         
         left_scroll = QScrollArea()
         left_scroll.setWidgetResizable(True)
@@ -172,9 +177,12 @@ class ModEditorWindow(QWidget):
         
         left_scroll.setWidget(left_content)
         right_scroll.setWidget(right_content)
-        split_layout.addWidget(left_scroll, stretch=1)
-        split_layout.addWidget(right_scroll, stretch=1)
-        content_layout.addLayout(split_layout)
+        self.splitter.addWidget(left_scroll)
+        self.splitter.addWidget(right_scroll)
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setChildrenCollapsible(False)
+        content_layout.addWidget(self.splitter, stretch=1)
         main_layout.addWidget(content_widget, stretch=1)
         
         # Footer
@@ -182,19 +190,28 @@ class ModEditorWindow(QWidget):
         footer_layout.setContentsMargins(20, 10, 0, 15)
         
         self.open_folder_btn = QPushButton("Open Mod Folder")
-        self.open_folder_btn.setMinimumSize(150, 35)
+        self.open_folder_btn.setMinimumSize(140, 35)
+
+        self.publish_btn = QPushButton("Publish / Export")
+        self.publish_btn.setObjectName("SuccessBtn")
+        self.publish_btn.setMinimumSize(150, 35)
+        self.publish_btn.setToolTip(
+            "Package and publish this mod or pack to the community catalog"
+        )
         
         self.reload_btn = QPushButton("Discard Unsaved Changes")
-        self.reload_btn.setMinimumSize(200, 35)
+        self.reload_btn.setMinimumSize(180, 35)
          
         self.save_btn = QPushButton("Save config.json")
-        self.save_btn.setMinimumSize(200, 35)
+        self.save_btn.setMinimumSize(180, 35)
         
         footer_layout.addStretch()
         footer_layout.addWidget(self.open_folder_btn)
+        footer_layout.addSpacing(15)
+        footer_layout.addWidget(self.publish_btn)
         footer_layout.addStretch()
         footer_layout.addWidget(self.reload_btn)
-        footer_layout.addSpacing(35)
+        footer_layout.addSpacing(25)
         footer_layout.addWidget(self.save_btn)
         footer_layout.addStretch()
         
@@ -206,6 +223,7 @@ class ModEditorWindow(QWidget):
         self.mod_combo.currentIndexChanged.connect(self._on_combo_index_changed)
         self.name_input.textChanged.connect(self._on_name_changed)
         self.save_btn.clicked.connect(self._save_changes)
+        self.publish_btn.clicked.connect(self._on_publish_clicked)
         self.reload_btn.clicked.connect(self._on_reload_clicked)
         self.open_folder_btn.clicked.connect(self._on_open_folder_clicked)
         self.change_sheet_btn.clicked.connect(self._on_change_sheet_clicked)
@@ -341,6 +359,16 @@ class ModEditorWindow(QWidget):
             self.anim_sys._preview_timer.stop()
         super().closeEvent(event)
     
+    def _on_publish_clicked(self) -> None:
+        mod_folder: str = self.mod_combo.currentData()
+        if not mod_folder:
+            return
+        from pytoningans.ui.mod_browser.components.publish_dialog import PublishModDialog
+        from pytoningans.ui.mod_browser.client import ModBrowserClient
+        client = ModBrowserClient(self.controller.manager.mods_dir)
+        dlg = PublishModDialog(self.controller.manager, client, self, selected_mod_id=mod_folder)
+        dlg.exec()
+
     def _on_open_folder_clicked(self) -> None:
         mod_folder: str = self.mod_combo.currentData()
         if not mod_folder: return

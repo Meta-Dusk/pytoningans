@@ -2,23 +2,24 @@ from __future__ import annotations
 
 from typing import Optional, TYPE_CHECKING
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QFrame, QHBoxLayout
-)
-from PySide6.QtCore import QSize, Qt, QTimer
-from PySide6.QtGui import QResizeEvent, QShowEvent, QHideEvent, QKeyEvent
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QFrame, QHBoxLayout
+from PySide6.QtCore import Qt, QTimer
 
-from pytoningans.ui.mod_manager_hub import ModManagerHub
-from pytoningans.ui.mod_browser import ModBrowserDialog
-from pytoningans.ui.settings_dialog import SettingsDialog
-from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.ui.mod_editor.components import CustomSizeGrip
-from pytoningans.ui.main_menu.spawn_panel import SpawnPanel
-from pytoningans.ui.main_menu.live_controls_panel import LiveControlsPanel
-from pytoningans.ui.main_menu.system_controls_panel import SystemControlsPanel
-from pytoningans.utils.assets import get_main_icon
+from ..mod_manager_hub import ModManagerHub
+from ..mod_browser import ModBrowserDialog
+from ..settings_dialog import SettingsDialog
+from ..title_bar import CustomTitleBar
+from ..mod_editor.components import CustomSizeGrip
+
+from .spawn_panel import SpawnPanel
+from .live_controls_panel import LiveControlsPanel
+from .system_controls_panel import SystemControlsPanel
+
+from ...utils import get_main_icon
 
 if TYPE_CHECKING:
+    from PySide6.QtCore import QSize
+    from PySide6.QtGui import QResizeEvent, QShowEvent, QHideEvent, QKeyEvent
     from pytoningans.core.entity_manager import EntityManager
 
 
@@ -33,7 +34,6 @@ class MainMenu(QWidget):
         self.hub_window: Optional[ModManagerHub] = None
         self.browser_dialog: Optional[ModBrowserDialog] = None
         self.settings_dialog: Optional[SettingsDialog] = None
-        self.combat_settings_dialog: Optional[SettingsDialog] = None
         self._setup_ui()
 
     def _create_vertical_separator(self) -> QFrame:
@@ -46,8 +46,7 @@ class MainMenu(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
 
         main_layout: QVBoxLayout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, 0); main_layout.setSpacing(0)
 
         self.title_bar: CustomTitleBar = CustomTitleBar(self, "Control Panel")
         main_layout.addWidget(self.title_bar)
@@ -73,9 +72,9 @@ class MainMenu(QWidget):
         right_layout.addWidget(self.live_controls_panel)
 
         self.system_controls_panel = SystemControlsPanel(right_widget)
-        self.system_controls_panel.open_browser_requested.connect(self._open_browser)
+        self.system_controls_panel.open_browser_requested.connect(self.open_browser)
         self.system_controls_panel.open_hub_requested.connect(self._open_hub)
-        self.system_controls_panel.open_settings_requested.connect(self._open_settings)
+        self.system_controls_panel.open_settings_requested.connect(self.open_settings)
         right_layout.addWidget(self.system_controls_panel)
 
         right_layout.addStretch()
@@ -129,7 +128,7 @@ class MainMenu(QWidget):
 
     def _open_hub(self) -> None:
         if self.hub_window is None or not self.hub_window.isVisible():
-            self.hub_window = ModManagerHub(self.manager.mod_manager)
+            self.hub_window = ModManagerHub(self)
             self.hub_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
             self.hub_window.destroyed.connect(self._on_hub_destroyed)
             self.hub_window.mods_updated.connect(self.spawn_panel.refresh_spawn_list)
@@ -140,26 +139,22 @@ class MainMenu(QWidget):
     def _on_hub_destroyed(self) -> None:
         self.hub_window = None
 
-    def _open_settings(self) -> None:
+    def open_settings(self) -> None:
         if self.settings_dialog is None or not self.settings_dialog.isVisible():
             self.settings_dialog = SettingsDialog(self)
-            self.combat_settings_dialog = self.settings_dialog
             self.settings_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
             self.settings_dialog.destroyed.connect(self._on_settings_destroyed)
             self.settings_dialog.show()
         else:
             self.settings_dialog.activateWindow()
+        self.settings_dialog.adjust_size_for_content()
 
     def _on_settings_destroyed(self) -> None:
         self.settings_dialog = None
-        self.combat_settings_dialog = None
 
-    _open_combat_settings = _open_settings
-    _on_combat_settings_destroyed = _on_settings_destroyed
-
-    def _open_browser(self) -> None:
+    def open_browser(self) -> None:
         if self.browser_dialog is None or not self.browser_dialog.isVisible():
-            self.browser_dialog = ModBrowserDialog(self.manager.mod_manager)
+            self.browser_dialog = ModBrowserDialog(self.manager.mod_manager, main_menu=self)
             self.browser_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
             self.browser_dialog.destroyed.connect(self._on_browser_destroyed)
             self.browser_dialog.mods_updated.connect(self.spawn_panel.refresh_spawn_list)
@@ -169,4 +164,3 @@ class MainMenu(QWidget):
 
     def _on_browser_destroyed(self) -> None:
         self.browser_dialog = None
-

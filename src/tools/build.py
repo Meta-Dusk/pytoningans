@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import Optional
 
 # Resolve paths
-ROOT_DIR = Path(__file__).resolve().parent.parent
-SPEC_FILE = ROOT_DIR / "pysidedeploy.spec"
-INSTALLER_SCRIPT = ROOT_DIR / "installer" / "installer.iss"
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+SPEC_FILE: Path = ROOT_DIR / "pysidedeploy.spec"
+INSTALLER_SCRIPT: Path = ROOT_DIR / "installer" / "installer.iss"
 
 # Locates Inno Setup Compiler.
-ISCC_PATH = shutil.which("iscc") or r"F:\Program Files (x86)\Inno Setup 7\ISCC.exe"
+ISCC_PATH: str = shutil.which("iscc") or r"F:\Program Files (x86)\Inno Setup 7\ISCC.exe"
 
 def set_console_mode(mode: str) -> None:
     content: str = SPEC_FILE.read_text(encoding="utf-8")
@@ -38,6 +38,14 @@ def run_deploy(mode: str) -> None:
     if result.returncode != 0:
         print(f"\n[ERROR] pyside6-deploy failed for {mode} mode.")
         sys.exit(1)
+
+    # Ensure cloud_config.json is present in the build distribution folder if available in root
+    src_config: Path = ROOT_DIR / "cloud_config.json"
+    dist_dir: Path = ROOT_DIR / "build" / "PyToNingans.dist"
+    if src_config.is_file() and dist_dir.is_dir():
+        dest_config: Path = dist_dir / "cloud_config.json"
+        shutil.copy2(src_config, dest_config)
+        print(f"[INFO] Copied {src_config.name} to {dest_config}")
 
 def run_inno_setup(suffix: str) -> None:
     print(f"\n{'='*40}")

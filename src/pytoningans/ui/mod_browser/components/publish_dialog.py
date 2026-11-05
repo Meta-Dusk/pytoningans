@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional, Any, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -17,20 +17,20 @@ from PySide6.QtWidgets import (
     QTextEdit, QPushButton, QMessageBox, QWidget, QFrame
 )
 
-from pytoningans.core.constants import EntityType
+from pytoningans.core.constants import EntityType, VerificationStatus
 from pytoningans.core.mod_manager import (
-    ModManager, resolve_mod_path, export_mod_or_pack_to_zip, scan_mod_or_pack,
-    SecurityRiskLevel, SecurityReport,
+    resolve_mod_path, export_mod_or_pack_to_zip, scan_mod_or_pack, SecurityRiskLevel
 )
-from pytoningans.core.mod_manager.modpack import ModPack
 from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.utils.assets import get_main_icon
+from pytoningans.utils import get_main_icon, formatted_size
 from ..auth import AuthManager
-from ..models import CommunityModItem, parse_semver
+from ..models import parse_semver
 from .auth_dialog import AuthDialog
 
 if TYPE_CHECKING:
-    from pytoningans.ui.mod_browser.auth import UserProfile
+    from pytoningans.core.mod_manager import ModPack, SecurityReport, ModManager
+    from ..client import ModBrowserClient
+    from ..models import CommunityModItem
 
 
 class PublishModDialog(QDialog):
@@ -39,14 +39,16 @@ class PublishModDialog(QDialog):
     def __init__(
         self,
         mod_manager: ModManager,
-        client: Optional[Any] = None,
+        client: Optional[ModBrowserClient] = None,
         parent: Optional[QWidget] = None,
+        selected_mod_id: Optional[str] = None,
     ) -> None:
         super().__init__(parent)
         self.mod_manager: ModManager = mod_manager
-        self.client: Optional[Any] = client
+        self.client: Optional[ModBrowserClient] = client
         self.auth: AuthManager = AuthManager.get()
         self.published_package_path: Optional[Path] = None
+        self.selected_mod_id: Optional[str] = selected_mod_id
 
         self.setWindowTitle("Publish Mod or Modpack")
         self.setWindowIcon(get_main_icon())
@@ -74,9 +76,11 @@ class PublishModDialog(QDialog):
         layout.setContentsMargins(16, 16, 16, 16); layout.setSpacing(10)
 
         # Creator Account Banner
-        user: Optional[UserProfile] = self.auth.current_user
-        author_name: str = user.username if user else "GuestCreator"
-        user_banner = QLabel(f"Publishing as verified creator: <b>{author_name}</b>")
+        author_name: str = self.auth.get_creator_name()
+        if self.auth.is_authenticated:
+            user_banner = QLabel(f"Publishing as verified creator: <b>{author_name}</b>")
+        else:
+            user_banner = QLabel(f"Publishing as creator: <b>{author_name}</b> (Offline / Local Mode)")
         user_banner.setObjectName("UserBanner")
         layout.addWidget(user_banner)
 
@@ -113,9 +117,8 @@ class PublishModDialog(QDialog):
         # Changelog / Release Notes
         layout.addWidget(QLabel("Release Notes / Changelog:"))
         self.changelog_input = QTextEdit()
-        self.changelog_input.setPlaceholderText(
-            "What's new in this release? (e.g. Added idle dance animation, fixed collision hitbox)..."
-        )
+        self.changelog_input.setPlaceholderText("What's new in this release?")
+        self.changelog_input.setToolTip("e.g. Added idle dance animation, fixed collision hitbox")
         self.changelog_input.setMaximumHeight(65)
         layout.addWidget(self.changelog_input)
 
@@ -137,7 +140,23 @@ class PublishModDialog(QDialog):
         self.security_status_label = QLabel("Security Status: Ready to audit.")
         self.security_status_label.setStyleSheet("font-size: 11px; font-weight: bold;")
         sec_layout.addWidget(self.security_status_label)
-        layout.addWidget(self.security_frame)
+
+        # Verification Status Frame
+        self.verification_frame = QFrame()
+        self.verification_frame.setFrameShape(QFrame.Shape.StyledPanel)
+        ver_layout = QVBoxLayout(self.verification_frame)
+        ver_layout.setContentsMargins(10, 8, 10, 8)
+
+        self.verification_status_label = QLabel("Verification Status: Pending")
+        self.verification_status_label.setStyleSheet("font-size: 11px; font-weight: bold;")
+        ver_layout.addWidget(self.verification_status_label)
+
+        # Verification info
+        self.verification_info_label = QLabel("")
+        self.verification_info_label.setStyleSheet("font-size: 10px; color: #888888;")
+        ver_layout.addWidget(self.verification_info_label)
+
+        layout.addWidget(self.verification_frame)
 
         layout.addStretch()
 
@@ -153,7 +172,6 @@ class PublishModDialog(QDialog):
         self.publish_btn.setObjectName("SuccessBtn")
         self.publish_btn.clicked.connect(self._on_publish_clicked)
         btn_layout.addWidget(self.publish_btn)
-
 
         layout.addLayout(btn_layout)
         main_layout.addWidget(content)
@@ -176,6 +194,11 @@ class PublishModDialog(QDialog):
             self.mod_combo.addItem("No local mods found in mods folder", userData=None)
             self.publish_btn.setEnabled(False)
         else:
+            if self.selected_mod_id is not None:
+                for idx in range(self.mod_combo.count()):
+                    if self.mod_combo.itemData(idx) == self.selected_mod_id:
+                        self.mod_combo.setCurrentIndex(idx)
+                        break
             self._on_target_changed()
 
     def _on_target_changed(self) -> None:
@@ -205,6 +228,9 @@ class PublishModDialog(QDialog):
             self.ver_hint_label.setText(f"(Current catalog version: v{existing_item.version})")
             self.publish_btn.setText(f"Publish Release Update (v{suggested_ver})")
             self.publish_btn.setObjectName("InfoBtn")
+
+            # Show verification status for existing items
+            self._update_verification_status(existing_item)
         else:
             self.mode_banner.setText("Publishing Mode: New Mod Listing")
             self.mode_banner.setObjectName("ModeBanner")
@@ -212,6 +238,11 @@ class PublishModDialog(QDialog):
             self.ver_hint_label.setText("(Initial release)")
             self.publish_btn.setText("Package and Publish")
             self.publish_btn.setObjectName("SuccessBtn")
+
+            # New mods start as pending verification
+            self.verification_status_label.setText("Verification Status: Pending")
+            self.verification_status_label.setObjectName("BadgeWarning")
+            self.verification_info_label.setText("New submissions require admin review before public visibility.")
 
         self.mode_banner.style().unpolish(self.mode_banner)
         self.mode_banner.style().polish(self.mode_banner)
@@ -247,10 +278,9 @@ class PublishModDialog(QDialog):
             self.security_status_label.style().unpolish(self.security_status_label)
             self.security_status_label.style().polish(self.security_status_label)
 
-
     def _on_publish_clicked(self) -> None:
         target_id: Optional[str] = self.mod_combo.currentData()
-        if target_id is None or not target_id:
+        if target_id is None or self.client is None:
             return
 
         author: str = self.author_input.text().strip() or "Modder"
@@ -259,9 +289,16 @@ class PublishModDialog(QDialog):
         changelog: str = self.changelog_input.toPlainText().strip()
 
         resolved, pack_id, _ = resolve_mod_path(self.mod_manager.mods_dir, target_id)
-        target_dir: Optional[Path] = (self.mod_manager.mods_dir / pack_id) if pack_id else resolved
-        if not target_dir or not target_dir.exists():
-            QMessageBox.critical(self, "Error", "Target directory does not exist.")
+        target_dir: Optional[Path] = (
+            (self.mod_manager.mods_dir / pack_id) if pack_id is not None else resolved
+        )
+        if target_dir is None or not target_dir.exists():
+            QMessageBox.critical(
+                self, "Error",
+                f"Target directory '{str(target_dir)}' does not exist.\n"
+                f"resolved was: '{str(resolved)}'\n"
+                f"pack_id was: '{str(pack_id)}'"
+            )
             return
 
         is_pack: bool = (target_dir / "pack.json").exists()
@@ -270,18 +307,54 @@ class PublishModDialog(QDialog):
         contained_entities: list[str] = []
 
         if is_pack:
+            print("[PublishModDialog::publish] Detected modpack...")
+            pack_json_path: Path = target_dir / "pack.json"
+            pack_data: dict = {}
+
             try:
-                p_data = json.loads((target_dir / "pack.json").read_text(encoding="utf-8"))
-                entity_name = p_data.get("name", entity_name)
-                for sub in p_data.get("sub_mods", []):
-                    sub_cfg = target_dir / sub / "config.json"
-                    if sub_cfg.exists():
+                pack_data = json.loads(pack_json_path.read_text(encoding="utf-8"))
+                entity_name = pack_data.get("name", entity_name)
+            except Exception as e:
+                print(f"[PublishModDialog::publish] Error reading pack.json: {e}")
+
+            seen_config_paths: set[Path] = set()
+
+            # Parse explicitly declared sub_mods from pack.json if present
+            explicit_subs = pack_data.get("sub_mods", [])
+            for sub in explicit_subs:
+                sub_cfg: Path = target_dir / Path(sub) / "config.json"
+                if sub_cfg.exists():
+                    seen_config_paths.add(sub_cfg.resolve())
+                    try:
                         sub_data = json.loads(sub_cfg.read_text(encoding="utf-8"))
-                        contained_entities.append(sub_data.get("name", Path(sub).name))
-            except Exception:
-                pass
+                        contained_entities.append(sub_data.get("name", sub_cfg.parent.name))
+                    except Exception:
+                        contained_entities.append(sub_cfg.parent.name)
+
+            #? Always scan all subdirectories (entities/, items/, structures/, etc.)
+            #? for remaining config.json files
+            for cfg_path in target_dir.rglob("config.json"):
+                # Skip root config.json or cache/hidden directories
+                if cfg_path.parent == target_dir:
+                    continue
+                if any(part.startswith(".") or part == "__pycache__" for part in cfg_path.parts):
+                    continue
+
+                resolved_cfg = cfg_path.resolve()
+                if resolved_cfg in seen_config_paths:
+                    continue
+                seen_config_paths.add(resolved_cfg)
+
+                try:
+                    sub_data = json.loads(cfg_path.read_text(encoding="utf-8"))
+                    entity_title = sub_data.get("name", cfg_path.parent.name)
+                    contained_entities.append(entity_title)
+                except Exception as e:
+                    print(f"[PublishModDialog::publish] Failed to parse {cfg_path}: {e}")
+                    contained_entities.append(cfg_path.parent.name)
+
         else:
-            cfg_path = target_dir / "config.json"
+            cfg_path: Path = target_dir / "config.json"
             if cfg_path.exists():
                 try:
                     c_data = json.loads(cfg_path.read_text(encoding="utf-8"))
@@ -295,43 +368,77 @@ class PublishModDialog(QDialog):
         staging_dir.mkdir(parents=True, exist_ok=True)
         zip_path: Path = staging_dir / f"{target_dir.name}_v{version_str}.zip"
 
-        success, msg, out_path = export_mod_or_pack_to_zip(target_dir, zip_path)
-        if not success or out_path is None:
-            QMessageBox.critical(self, "Export Failed", f"Failed to prepare package: {msg}")
-            return
-
-        self.published_package_path = out_path
-        size_bytes: int = out_path.stat().st_size
-
-        if self.client is not None:
-            pub_ok, pub_msg, _ = self.client.publish_or_update(
-                mod_id=target_id,
-                name=entity_name,
-                author=author,
-                version=version_str,
-                description=desc or f"{entity_name} created by {author}",
-                entity_type=entity_type,
-                is_pack=is_pack,
-                tags=["pack", "community"] if is_pack else ["custom", entity_type],
-                changelog=changelog,
-                contained_entities=contained_entities,
-                size_bytes=size_bytes,
-                zip_path=out_path,
-            )
-            if not pub_ok:
-                QMessageBox.warning(self, "Publication Conflict", pub_msg)
+        try:
+            success, msg, out_path = export_mod_or_pack_to_zip(target_dir, zip_path)
+            if not success or out_path is None:
+                QMessageBox.critical(self, "Export Failed", f"Failed to prepare package: {msg}")
                 return
 
-            QMessageBox.information(
-                self,
-                "Publication Success",
-                f"{pub_msg}\n\nPackage archive prepared ({size_bytes} bytes)."
-            )
-        else:
-            QMessageBox.information(
-                self,
-                "Package Prepared",
-                f"Successfully prepared package archive for '{entity_name}' ({size_bytes} bytes)."
-            )
+            self.published_package_path = out_path
+            size_bytes: int = out_path.stat().st_size
 
-        self.accept()
+            if self.client is not None:
+                pub_ok, pub_msg, _ = self.client.publish_or_update(
+                    mod_id=target_id,
+                    name=entity_name,
+                    author=author,
+                    version=version_str,
+                    description=desc or f"{entity_name} created by {author}",
+                    entity_type=entity_type,
+                    is_pack=is_pack,
+                    tags=["pack", "community"] if is_pack else ["custom", entity_type],
+                    changelog=changelog,
+                    contained_entities=contained_entities,
+                    size_bytes=size_bytes,
+                    zip_path=out_path,
+                )
+                if not pub_ok:
+                    QMessageBox.warning(self, "Publication Conflict", pub_msg)
+                    return
+
+                QMessageBox.information(
+                    self, "Publication Success",
+                    f"{pub_msg}\n\nPackage archive prepared ({formatted_size(size_bytes)}).\n\n"
+                    f"Status: Pending admin verification."
+                )
+            else:
+                QMessageBox.information(
+                    self, "Package Prepared",
+                    "Successfully prepared package archive for "
+                    f"'{entity_name}' ({formatted_size(size_bytes)})."
+                )
+
+            self.accept()
+
+        finally:
+            if zip_path.exists():
+                zip_path.unlink(missing_ok=True)
+
+    def _update_verification_status(self, item: CommunityModItem) -> None:
+        """Updates the verification status display for an existing catalog item."""
+        status: VerificationStatus = item.verification_status
+        verified_by: Optional[str] = item.verified_by
+        verified_at: Optional[str] = item.verified_at
+        
+        match status:
+            case VerificationStatus.APPROVED:
+                self.verification_status_label.setText("Verification Status: Approved")
+                self.verification_status_label.setObjectName("BadgeSuccess")
+                self.verification_info_label.setText(
+                    f"Approved by {verified_by or 'admin'} on {verified_at or 'unknown date'}."
+                )
+            case VerificationStatus.REJECTED:
+                self.verification_status_label.setText("Verification Status: Rejected")
+                self.verification_status_label.setObjectName("BadgeDanger")
+                self.verification_info_label.setText(
+                    f"Rejected by {verified_by or 'admin'} on {verified_at or 'unknown date'}."
+                )
+            case VerificationStatus.PENDING:
+                self.verification_status_label.setText("Verification Status: Pending")
+                self.verification_status_label.setObjectName("BadgeWarning")
+                self.verification_info_label.setText("Awaiting admin review before public visibility.")
+
+        self.verification_status_label.style().unpolish(self.verification_status_label)
+        self.verification_status_label.style().polish(self.verification_status_label)
+        self.verification_info_label.style().unpolish(self.verification_info_label)
+        self.verification_info_label.style().polish(self.verification_info_label)

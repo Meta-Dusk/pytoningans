@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from .system import PhysicsSystem
-from .helpers import get_effective_hitbox, get_world_bounds, get_world_horizontal_range
+from .helpers import (
+    get_effective_hitbox,
+    get_world_bounds,
+    get_world_horizontal_range
+)
 from .movement import tick_movement
 from .repulsion import apply_soft_repulsion
 from .gravity import tick_gravity_and_collisions

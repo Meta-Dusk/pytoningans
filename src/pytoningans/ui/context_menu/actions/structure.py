@@ -58,9 +58,9 @@ def build_structure_actions(menu: EntityContextMenu, layout: QVBoxLayout, struct
         portal_combo.addItem("None (Unlinked)", userData=None)
 
         other_structures: list[BaseStructure] = []
-        if structure.world is not None and structure.world.manager is not None:
+        if structure.world is not None and structure.world.entity_manager is not None:
             other_structures = [
-                s for s in structure.world.manager.active_structures if s is not structure
+                s for s in structure.world.entity_manager.active_structures if s is not structure
             ]
 
         current_idx: int = 0

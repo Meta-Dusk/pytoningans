@@ -6,10 +6,11 @@ from typing import TYPE_CHECKING, Callable, Optional
 from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QPainter, QPixmap
 
-from .cache import CacheKey, clear_shared_cache, shared_frame_cache
+from .cache import clear_shared_cache, shared_frame_cache
 
 if TYPE_CHECKING:
-    from pytoningans.core.constants import AnimationMeta
+    from ..constants import AnimationMeta
+    from .cache import CacheKey
 
 
 def resolve_dimensions(
@@ -64,7 +65,7 @@ def get_frame(
     y_pos: int = (anim_meta.row * anim_meta.base_h) + anim_meta.offset_y
 
     crop_rect = QRect(x_pos, y_pos, final_w, final_h)
-    safe_rect = crop_rect.intersected(global_sheet.rect())
+    safe_rect: QRect = crop_rect.intersected(global_sheet.rect())
 
     if safe_rect.isEmpty(): return None
 

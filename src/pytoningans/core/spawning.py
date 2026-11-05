@@ -5,23 +5,22 @@ from enum import StrEnum, unique
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from PySide6.QtCore import QObject, QPoint, QPointF, QRect, QRectF, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QKeyEvent, QMouseEvent, QPen, QPixmap
+from PySide6.QtCore import QObject, QPoint, QRect, QRectF, Qt, Signal
+from PySide6.QtGui import QBrush, QColor, QFont, QPen, QPixmap
 from PySide6.QtWidgets import (
-    QApplication,
-    QGraphicsColorizeEffect,
-    QGraphicsPixmapItem,
-    QGraphicsRectItem,
-    QGraphicsSimpleTextItem,
+    QApplication, QGraphicsColorizeEffect, QGraphicsPixmapItem,
+    QGraphicsRectItem, QGraphicsSimpleTextItem
 )
 
-from pytoningans.core.constants import EntityState
-from pytoningans.core.mod_manager import ModManager
+from .constants import EntityState
+from .mod_manager import ModManager
 
 if TYPE_CHECKING:
-    from pytoningans.core.entity.base_entity import BaseEntity
-    from pytoningans.core.entity_manager import EntityManager
-    from pytoningans.core.world import WorldOverlay
+    from PySide6.QtCore import QPointF
+    from PySide6.QtGui import QKeyEvent, QMouseEvent
+    from .entity import BaseEntity
+    from .entity_manager import EntityManager
+    from .world import WorldOverlay
 
 
 @unique
@@ -51,9 +50,9 @@ def calculate_spawn_bounds(
         return QRect(50, 40, max(50, sw - 100), sh_air)
 
     elif (
-        area_mode == SpawnAreaMode.CUSTOM
-        and custom_rect is not None
-        and not custom_rect.isEmpty()
+        area_mode == SpawnAreaMode.CUSTOM and
+        custom_rect is not None and
+        not custom_rect.isEmpty()
     ):
         clamped: QRect = custom_rect.intersected(QRect(0, 0, sw, sh))
         if clamped.width() > 30 and clamped.height() > 30:
@@ -433,8 +432,8 @@ class SpawningSystem(QObject):
         pt: QPoint = event.position().toPoint()
         if self.is_selecting_region and self.selection_start_pos is not None:
             if (
-                event.button() == Qt.MouseButton.LeftButton
-                and self.selection_world == world
+                event.button() == Qt.MouseButton.LeftButton and
+                self.selection_world == world
             ):
                 curr_pos: QPointF = world.view.mapToScene(pt)
                 x1, y1 = self.selection_start_pos.x(), self.selection_start_pos.y()

@@ -1,5 +1,5 @@
 #define MyAppName "PyToNingans"
-#define MyAppVersion "0.8.1"
+#define MyAppVersion "0.8.5"
 #define MyAppPublisher "MetaDusk Inc."
 #define MyAppURL "https://github.com/Meta-Dusk/pytoningans"
 #define MyAppExeName "PyToNingans.dist\PyToNingans.exe"
@@ -46,7 +46,7 @@ Name: "custom"; Description: "Custom installation"; Flags: iscustom
 Name: "core"; Description: "Core Engine Files"; Types: full custom; Flags: fixed
 
 ; Modding API package
-Name: "api"; Description: "Modding API Package (api/)"; Types: full custom; Flags: fixed
+Name: "mods\api"; Description: "Modding API Package (api/)"; Types: full custom; Flags: fixed
 
 [Files]
 ; Core Application
@@ -55,7 +55,7 @@ Source: "..\assets\icon.ico"; DestDir: "{app}"; Flags: ignoreversion; Components
 Source: "..\cloud_config.json"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist; Components: core
 
 ; Modding API
-Source: "..\src\pytoningans\core\api\*"; DestDir: "{userdocs}\{#MyAppName}\mods\api"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: api
+Source: "..\src\pytoningans\core\api\*"; DestDir: "{userdocs}\{#MyAppName}\mods\api"; Flags: ignoreversion recursesubdirs createallsubdirs uninsneveruninstall; Components: mods\api
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}\PyToNingans.dist"; IconFilename: "{app}\icon.ico"

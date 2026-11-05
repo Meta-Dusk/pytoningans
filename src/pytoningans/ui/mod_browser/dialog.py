@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import json, tempfile
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional, Any, TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal, QRect, QThread
-from PySide6.QtGui import QAction, QGuiApplication, QScreen, QResizeEvent, QCloseEvent
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
     QWidget, QMessageBox, QFrame, QMenu, QProgressBar
@@ -22,20 +22,28 @@ from pytoningans.core.mod_manager import ModManager
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
 from pytoningans.core.settings import SettingsManager
-from pytoningans.ui.title_bar import CustomTitleBar
-from pytoningans.ui.mod_editor.components import CustomSizeGrip
-from pytoningans.ui.mod_inspector import ModInspectorDialog
-from pytoningans.utils.assets import get_main_icon
+from ...utils import get_main_icon
+
+from ...ui.title_bar import CustomTitleBar
+from ...ui.mod_editor.components import CustomSizeGrip
+from ...ui.mod_inspector import ModInspectorDialog
+from ...ui.settings_dialog import SettingsDialog, SettingsTab
 
 from .auth import AuthManager, UserProfile
 from .client import ModBrowserClient
 from .models import CommunityModItem
 from .async_workers import CatalogSyncWorker, ModInstallWorker
-from .components.auth_dialog import AuthDialog
-from .components.mod_card import ModCardWidget
-from .components.filter_bar import FilterBarWidget
-from .components.rating_dialog import RatingDialog
-from .components.publish_dialog import PublishModDialog
+
+from .components import (
+    AuthDialog, ModCardWidget, FilterBarWidget, RatingDialog,
+    PublishModDialog, VerificationDialog, UnpublishModDialog
+)
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QThread, QRect
+    from PySide6.QtGui import QCloseEvent, QResizeEvent, QScreen, QAction
+    from ..main_menu import MainMenu
+    from pytoningans.core.settings import AppSettings
 
 
 class ModBrowserDialog(QDialog):
@@ -43,12 +51,16 @@ class ModBrowserDialog(QDialog):
 
     mods_updated = Signal()
 
-    def __init__(self, mod_manager: ModManager, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self, mod_manager: ModManager, parent: Optional[QWidget] = None, *,
+        main_menu: Optional[MainMenu] = None
+    ) -> None:
         super().__init__(parent)
         self.mod_manager: ModManager = mod_manager
+        self.main_menu: Optional[MainMenu] = main_menu
         self.client: ModBrowserClient = ModBrowserClient(self.mod_manager.mods_dir)
         self.auth: AuthManager = AuthManager.get()
-        self.settings_mgr: SettingsManager = SettingsManager.get()
+        self.settings_manager: SettingsManager = SettingsManager.get()
         self._active_workers: list[Any] = []
 
         self.setWindowTitle("Community Mod Browser")
@@ -59,13 +71,23 @@ class ModBrowserDialog(QDialog):
 
         self._cards: list[ModCardWidget] = []
         self._setup_ui()
+        
         self.auth.auth_state_changed.connect(self._update_auth_ui)
         self._update_auth_ui(self.auth.current_user)
-        self.settings_mgr.settings_changed.connect(self._update_debug_visibility)
+        
+        self.settings_manager.settings_changed.connect(self._update_debug_visibility)
+        
         self._update_debug_visibility()
+        self._update_admin_verify_visibility()
         self._update_status_indicator()
+        
+        self._refresh_catalog()
         self._apply_filters()
         self._center_window()
+    
+    @property
+    def _settings(self) -> AppSettings:
+        return self.settings_manager.settings
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
@@ -79,49 +101,62 @@ class ModBrowserDialog(QDialog):
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(16, 14, 16, 12); content_layout.setSpacing(12)
 
-        # --- Top Header and Actions Bar ---
-        top_bar = QHBoxLayout(); top_bar.setSpacing(10)
+        # --- Primary Header and Actions Bar ---
+        primary_layout = QHBoxLayout(); primary_layout.setSpacing(10)
 
         # Online Status Indicator and Cloud Connect Toggle
         self.status_badge = QLabel("● Offline Catalog")
         self.status_badge.setObjectName("StatusBadgeOffline")
-        top_bar.addWidget(self.status_badge)
+        primary_layout.addWidget(self.status_badge)
 
         self.cloud_btn = QPushButton("Connect to Cloud")
         self.cloud_btn.setObjectName("PrimaryBtn")
         self.cloud_btn.setToolTip("Connect to Supabase Cloud to view live community catalog")
         self.cloud_btn.clicked.connect(self._on_cloud_toggle_clicked)
-        top_bar.addWidget(self.cloud_btn)
+        primary_layout.addWidget(self.cloud_btn)
 
-        top_bar.addStretch()
+        primary_layout.addStretch()
 
         # Creator Account / Sign-in Pill Button
         self.auth_btn = QPushButton("Sign In / Register")
         self.auth_btn.setObjectName("SecondaryBtn")
         self.auth_btn.clicked.connect(self._on_auth_btn_clicked)
-        top_bar.addWidget(self.auth_btn)
+        primary_layout.addWidget(self.auth_btn)
 
         # Refresh button
         self.refresh_btn = QPushButton("Refresh")
         self.refresh_btn.setToolTip("Reload community catalog")
         self.refresh_btn.clicked.connect(self._refresh_catalog)
-        top_bar.addWidget(self.refresh_btn)
-
-        # Debug Tools Menu Button (Visible only when Developer Mode is enabled in Settings)
-        self.debug_btn = QPushButton("Debug ▾")
-        self.debug_btn.setObjectName("SecondaryBtn")
-        self.debug_btn.setToolTip("Developer and Testing Tools")
-        self.debug_btn.clicked.connect(self._on_debug_btn_clicked)
-        top_bar.addWidget(self.debug_btn)
+        primary_layout.addWidget(self.refresh_btn)
 
         # Publish Mod button
         self.publish_btn = QPushButton("Publish Mod/Pack")
         self.publish_btn.setToolTip("Package and publish your local mod or pack to the community")
         self.publish_btn.setObjectName("PrimaryBtn")
         self.publish_btn.clicked.connect(self._on_publish_clicked)
-        top_bar.addWidget(self.publish_btn)
+        primary_layout.addWidget(self.publish_btn)
 
-        content_layout.addLayout(top_bar)
+        content_layout.addLayout(primary_layout)
+        
+        # --- Secondary Header and Actions Bar ---
+        secondary_layout = QHBoxLayout()
+        secondary_layout.setSpacing(10)
+        
+        # Debug Tools Menu Button (Visible only when Developer Mode is enabled in Settings)
+        self.debug_btn = QPushButton("Debug ▾")
+        self.debug_btn.setObjectName("SecondaryBtn")
+        self.debug_btn.setToolTip("Developer and Testing Tools")
+        self.debug_btn.clicked.connect(self._on_debug_btn_clicked)
+        secondary_layout.addWidget(self.debug_btn)
+        
+        # Admin Verification button (visible only to admins)
+        self.admin_verify_btn = QPushButton("(Admin) Verify Mods ▾")
+        self.admin_verify_btn.setObjectName("SecondaryBtn")
+        self.admin_verify_btn.setToolTip("Review and approve/reject pending mod submissions")
+        self.admin_verify_btn.clicked.connect(self._open_verification_panel)
+        secondary_layout.addWidget(self.admin_verify_btn)
+        
+        content_layout.addLayout(secondary_layout)
 
         # --- Search and Filter Bar ---
         self.filter_bar = FilterBarWidget(self)
@@ -189,24 +224,43 @@ class ModBrowserDialog(QDialog):
 
     def _update_auth_ui(self, user: Optional[UserProfile]) -> None:
         """Updates the top bar account badge according to the current session."""
-        if user is not None:
-            self.auth_btn.setText(user.username)
-            self.auth_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: rgba(59, 130, 246, 0.2);
-                    color: #93c5fd;
-                    border: 1px solid #3b82f6;
-                    border-radius: 4px;
-                    padding: 4px 10px;
-                    font-size: 11px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: rgba(59, 130, 246, 0.35);
-                }
-            """)
+        creator: str = self.auth.get_creator_name()
+        if user is not None and not user.id.startswith("local_"):
+            if user.is_developer:
+                self.auth_btn.setText(f"★ {user.username} (Dev)")
+                self.auth_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: rgba(203, 166, 247, 0.2);
+                        color: #cba6f7;
+                        border: 1px solid #cba6f7;
+                        border-radius: 4px;
+                        padding: 4px 10px;
+                        font-size: 11px;
+                        font-weight: bold;
+                    }
+                    QPushButton:hover {
+                        background-color: rgba(203, 166, 247, 0.35);
+                    }
+                """)
+            else:
+                prov_icon = "✓ " if ("github" in user.providers or "google" in user.providers) else ""
+                self.auth_btn.setText(f"{prov_icon}{user.username}")
+                self.auth_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: rgba(59, 130, 246, 0.2);
+                        color: #93c5fd;
+                        border: 1px solid #3b82f6;
+                        border-radius: 4px;
+                        padding: 4px 10px;
+                        font-size: 11px;
+                        font-weight: bold;
+                    }
+                    QPushButton:hover {
+                        background-color: rgba(59, 130, 246, 0.35);
+                    }
+                """)
         else:
-            self.auth_btn.setText("Sign In / Register")
+            self.auth_btn.setText(f"{creator} (Profile)")
             self.auth_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #313244;
@@ -223,29 +277,55 @@ class ModBrowserDialog(QDialog):
             """)
 
     def _on_auth_btn_clicked(self) -> None:
-        """Opens user account options menu or launches AuthDialog."""
+        """Opens user account options menu or launches Profile settings."""
         user: Optional[UserProfile] = self.auth.current_user
-        if user is not None:
-            menu = QMenu(self)
-            info_action: QAction = menu.addAction(f"Signed in as {user.username} ({user.email})")
+        menu = QMenu(self)
+
+        profile_action: QAction = menu.addAction("Creator Profile")
+        menu.addSeparator()
+
+        sign_in_action: Optional[QAction] = None
+        sign_out_action: Optional[QAction] = None
+
+        if user is not None and not user.id.startswith("local_"):
+            info_action: QAction = menu.addAction(f"Logged in with {user.display_provider}")
             info_action.setEnabled(False)
+            email_action: QAction = menu.addAction(f"Account: {user.email}")
+            email_action.setEnabled(False)
+            if user.github_username:
+                gh_action: QAction = menu.addAction(f"GitHub: {user.github_username}")
+                gh_action.setEnabled(False)
+            if user.is_developer:
+                dev_action: QAction = menu.addAction("Role: Core Developer ★")
+                dev_action.setEnabled(False)
             menu.addSeparator()
-
-            settings_action: QAction = menu.addAction("Cloud Connection Settings")
-            sign_out_action: QAction = menu.addAction("Sign Out")
-
-            action: QAction = menu.exec(self.auth_btn.mapToGlobal(self.auth_btn.rect().bottomLeft()))
-            if action == settings_action:
-                dlg = AuthDialog(self)
-                dlg.show_server_settings()
-                dlg.exec()
-            elif action == sign_out_action:
-                self.auth.sign_out()
-                self._update_auth_ui(None)
-                QMessageBox.information(
-                    self, "Signed Out", "You have signed out of your creator account."
-                )
+            settings_action: QAction = menu.addAction("☁ Cloud Connection Settings")
+            sign_out_action = menu.addAction("Sign Out")
         else:
+            settings_action = menu.addAction("☁ Cloud Connection Settings")
+            sign_in_action = menu.addAction("Sign In / Register (Cloud)")
+
+        action: QAction = menu.exec(self.auth_btn.mapToGlobal(self.auth_btn.rect().bottomLeft()))
+        if action == profile_action:
+            if self.main_menu is not None:
+                self.main_menu.open_settings()
+            else:
+                settings_dlg = SettingsDialog(self)
+                settings_dlg.set_tab(SettingsTab.CreatorProfile)
+                result: int = settings_dlg.exec()
+                print(f"Opened verification panel, returned: {QDialog.DialogCode(result).name}")
+            self._update_auth_ui(self.auth.current_user)
+        elif action == settings_action:
+            dlg = AuthDialog(self)
+            dlg.show_server_settings()
+            dlg.exec()
+        elif sign_out_action is not None and action == sign_out_action:
+            self.auth.sign_out()
+            self._update_auth_ui(None)
+            QMessageBox.information(
+                self, "Signed Out", "You have signed out of your cloud creator account."
+            )
+        elif sign_in_action is not None and action == sign_in_action:
             dlg = AuthDialog(self)
             dlg.exec()
 
@@ -340,13 +420,14 @@ class ModBrowserDialog(QDialog):
         self._apply_filters()
         if not success:
             QMessageBox.warning(
-                self,
-                "Cloud Connection",
+                self, "Cloud Connection",
                 f"Could not connect to Supabase Cloud:\n{message}\n\nRunning in offline catalog mode.",
             )
 
-    def _refresh_catalog(self) -> None:
+    def _refresh_catalog(self, *, clear_cache: bool = True) -> None:
         """Refreshes catalog entries either from live cloud or local offline storage."""
+        if clear_cache:
+            self.client.clear_catalog_cache()
         if self.client.is_online and self.client.cloud.is_configured:
             self._start_cloud_sync()
         else:
@@ -361,7 +442,7 @@ class ModBrowserDialog(QDialog):
         sort_by: str = self.filter_bar.sort_by
         installed_only: bool = self.filter_bar.installed_only
 
-        items: list[CommunityModItem] = self.client.fetch_mods(
+        mod_items: list[CommunityModItem] = self.client.fetch_mods(
             query=query,
             category=category,
             sort_by=sort_by,
@@ -372,8 +453,8 @@ class ModBrowserDialog(QDialog):
             card.deleteLater()
         self._cards.clear()
 
-        if not items:
-            if self.settings_mgr.settings.enable_debug_mode:
+        if not mod_items:
+            if self._settings.enable_debug_mode:
                 self.empty_label.setText(
                     "No mods found matching your search criteria.\n"
                     "(Developer Mode Active: Use 'Debug ▾' above to load sample mods)"
@@ -385,19 +466,28 @@ class ModBrowserDialog(QDialog):
             return
 
         self.empty_label.setVisible(False)
-        for item in items:
-            card = ModCardWidget(item)
+        for mod_item in mod_items:
+            card = ModCardWidget(mod_item, online_mode=self._settings.online_mode)
             card.install_requested.connect(self._on_install_requested)
             card.uninstall_requested.connect(self._on_uninstall_requested)
             card.update_requested.connect(self._on_update_requested)
             card.inspect_requested.connect(self._on_inspect_requested)
             card.rate_requested.connect(self._on_rate_requested)
+            card.publish_requested.connect(self._on_card_publish_requested)
+            card.unpublish_requested.connect(self._on_unpublish_requested)
 
             self.cards_layout.addWidget(card)
             self._cards.append(card)
 
-        installed_count: int = sum(1 for item in items if item.is_installed)
-        self.count_label.setText(f"Showing {len(items)} mods ({installed_count} installed)")
+        installed_count: int = sum(1 for item in mod_items if item.is_installed)
+        self.count_label.setText(f"Showing {len(mod_items)} mods ({installed_count} installed)")
+
+    def _on_card_publish_requested(self, item: CommunityModItem) -> None:
+        """Opens publish dialog with this specific local mod/modpack preselected."""
+        print(f"Attempting to publish mod: {item.id}")
+        publish_dlg = PublishModDialog(self.mod_manager, self.client, self, selected_mod_id=item.id)
+        if publish_dlg.exec() == QDialog.DialogCode.Accepted:
+            self._apply_filters()
 
     def _on_install_requested(self, item: CommunityModItem) -> None:
         """Asynchronously installs a community mod or modpack package."""
@@ -455,56 +545,56 @@ class ModBrowserDialog(QDialog):
         if target_dir.exists():
             dialog = ModInspectorDialog(target_dir, self)
             dialog.exec()
-        else:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                preview_dir: Path = Path(temp_dir) / item.id
-                preview_dir.mkdir(parents=True, exist_ok=True)
+            return
+        with tempfile.TemporaryDirectory() as temp_dir:
+            preview_dir: Path = Path(temp_dir) / item.id
+            preview_dir.mkdir(parents=True, exist_ok=True)
 
-                if item.is_pack:
-                    (preview_dir / "pack.json").write_text(
+            if item.is_pack:
+                (preview_dir / "pack.json").write_text(
+                    json.dumps({
+                        "id": item.id,
+                        "name": item.name,
+                        "version": item.version,
+                        "author": item.author,
+                        "description": item.description,
+                    }, indent=2),
+                    encoding="utf-8",
+                )
+                (preview_dir / "pack.py").write_text(
+                    f'"""Shared controller for {item.name}."""\n'
+                    "from pytoningans.core.api import BaseModPack, PackMenuAction\n\n"
+                    "class PackController(BaseModPack):\n"
+                    "    def on_pack_loaded(self) -> None:\n"
+                    "        pass\n",
+                    encoding="utf-8",
+                )
+                for entity_name in item.contained_entities:
+                    slug: str = entity_name.lower().replace(" ", "_")
+                    entity_path: Path = preview_dir / "entities" / slug
+                    entity_path.mkdir(parents=True, exist_ok=True)
+                    (entity_path / "config.json").write_text(
                         json.dumps({
-                            "id": item.id,
-                            "name": item.name,
-                            "version": item.version,
-                            "author": item.author,
-                            "description": item.description,
-                        }, indent=2),
-                        encoding="utf-8",
-                    )
-                    (preview_dir / "pack.py").write_text(
-                        f'"""Shared controller for {item.name}."""\n'
-                        "from pytoningans.core.api import BaseModPack, PackMenuAction\n\n"
-                        "class PackController(BaseModPack):\n"
-                        "    def on_pack_loaded(self) -> None:\n"
-                        "        pass\n",
-                        encoding="utf-8",
-                    )
-                    for entity_name in item.contained_entities:
-                        slug: str = entity_name.lower().replace(" ", "_")
-                        entity_path: Path = preview_dir / "entities" / slug
-                        entity_path.mkdir(parents=True, exist_ok=True)
-                        (entity_path / "config.json").write_text(
-                            json.dumps({
-                                "name": entity_name,
-                                "entity_type": EntityType.ENTITY.value,
-                                "version": CURRENT_CONFIG_VERSION,
-                            }, indent=2),
-                            encoding="utf-8",
-                        )
-                        self.client._create_placeholder_sprite(entity_path / "sprite_sheet.png")
-                else:
-                    (preview_dir / "config.json").write_text(
-                        json.dumps({
-                            "name": item.name,
-                            "entity_type": item.entity_type,
+                            "name": entity_name,
+                            "entity_type": EntityType.ENTITY.value,
                             "version": CURRENT_CONFIG_VERSION,
                         }, indent=2),
                         encoding="utf-8",
                     )
-                    self.client._create_placeholder_sprite(preview_dir / "sprite_sheet.png")
+                    self.client._create_placeholder_sprite(entity_path / "sprite_sheet.png")
+            else:
+                (preview_dir / "config.json").write_text(
+                    json.dumps({
+                        "name": item.name,
+                        "entity_type": item.entity_type,
+                        "version": CURRENT_CONFIG_VERSION,
+                    }, indent=2),
+                    encoding="utf-8",
+                )
+                self.client._create_placeholder_sprite(preview_dir / "sprite_sheet.png")
 
-                dialog = ModInspectorDialog(preview_dir, self)
-                dialog.exec()
+            dialog = ModInspectorDialog(preview_dir, self)
+            dialog.exec()
 
     def _on_rate_requested(self, item: CommunityModItem) -> None:
         """Opens rating dialog to submit a score."""
@@ -532,29 +622,36 @@ class ModBrowserDialog(QDialog):
 
     def _update_debug_visibility(self) -> None:
         """Toggles visibility of the debug tools menu based on developer settings."""
-        self.debug_btn.setVisible(self.settings_mgr.settings.enable_debug_mode)
+        self.debug_btn.setVisible(self._settings.enable_debug_mode)
+        if not self._cards:
+            self._apply_filters()
+    
+    def _update_admin_verify_visibility(self) -> None:
+        """Toggles visibility of the admin verify button based on admin status."""
+        is_admin: bool = self.client.cloud.is_admin()
+        self.admin_verify_btn.setVisible(is_admin)
         if not self._cards:
             self._apply_filters()
 
     def _on_debug_btn_clicked(self) -> None:
         """Opens developer and testing tools popup menu."""
         menu = QMenu(self)
-        title_action = menu.addAction("Developer and Testing Tools")
+        title_action: QAction = menu.addAction("Developer and Testing Tools")
         title_action.setEnabled(False)
         menu.addSeparator()
 
-        seed_action = menu.addAction("Load Demo / Seed Catalog")
+        seed_action: QAction = menu.addAction("Load Demo / Seed Catalog")
         seed_action.setToolTip("Inject built-in demo mods into the catalog cache for offline testing")
 
-        clear_cache_action = menu.addAction("Clear Local Catalog Cache")
+        clear_cache_action: QAction = menu.addAction("Clear Local Catalog Cache")
         clear_cache_action.setToolTip("Wipe cached community items to test empty catalog state")
 
         menu.addSeparator()
         settings_action = menu.addAction("Configure Developer Settings...")
 
-        action = menu.exec(self.debug_btn.mapToGlobal(self.debug_btn.rect().bottomLeft()))
+        action: QAction = menu.exec(self.debug_btn.mapToGlobal(self.debug_btn.rect().bottomLeft()))
         if action == seed_action:
-            added = self.client.load_seed_catalog()
+            added: int = self.client.load_seed_catalog()
             self._apply_filters()
             QMessageBox.information(
                 self, "Demo Catalog Loaded", f"Injected {added} demo mods into your local catalog."
@@ -566,7 +663,35 @@ class ModBrowserDialog(QDialog):
                 self, "Cache Cleared", "Local community catalog cache has been reset."
             )
         elif action == settings_action:
-            from pytoningans.ui.settings_dialog import SettingsDialog
-            dlg = SettingsDialog(self)
-            dlg.tabs.setCurrentIndex(2)  # Jump directly to Developer tab
-            dlg.exec()
+            if self.main_menu is not None:
+                self.main_menu.open_settings()
+            else:
+                settings_dlg = SettingsDialog(self)
+                settings_dlg.set_tab(SettingsTab.DeveloperAndDebugging)
+                result: int = settings_dlg.exec()
+                print(f"Opened settings panel, returned: {QDialog.DialogCode(result).name}")
+    
+    def _open_verification_panel(self) -> None:
+        """Opens the verification dialog, available to only the admins."""
+        verification_dlg = VerificationDialog(self.client, self)
+        result: int = verification_dlg.exec()
+        print(f"Opened verification panel, returned: {QDialog.DialogCode(result).name}")
+        self._apply_filters()
+    
+    def _on_unpublish_requested(self, mod_item: CommunityModItem) -> None:
+        """Opens the unpublish modal dialog."""
+        unpublish_dlg = UnpublishModDialog(mod_item, self)
+        result: int = unpublish_dlg.exec()
+        print(f"Opened unpublish panel, returned: {QDialog.DialogCode(result).name}")
+        if result != QDialog.DialogCode.Accepted: return
+        
+        success, msg = self.client.unpublish_mod(mod_item.id)
+        print(f"[unpublish_request] {msg}")
+        mod_pack_type: str = "Modpack" if mod_item.is_pack else "Mod"
+        
+        if success:
+            QMessageBox.information(self, f"Unpublished {mod_pack_type}", msg)
+            self._refresh_catalog()
+        else:
+            QMessageBox.critical(self, f"Failed to Unpublish {mod_pack_type}", msg)
+    

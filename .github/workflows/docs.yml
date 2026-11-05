@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - stable
-      - main
-      - experimental
   workflow_dispatch:
 
 permissions:
@@ -29,4 +27,3 @@ jobs:
 
       - name: Build and Deploy to GitHub Pages
         run: uv run --group docs mkdocs gh-deploy --force
-

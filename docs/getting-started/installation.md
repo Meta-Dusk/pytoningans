@@ -1,63 +1,37 @@
 # Installation & Requirements
 
-PyToNingans is developed for Windows environments and requires **Python 3.14+** alongside **PySide6**.
+PyToNingans is initially built for Windows environments, which means that I haven't tested
+the app in other Operating Systems. Setting up the app is very straightforward, as you only
+need to download the installer in the **Releases** section in the :simple-github: GitHub repository!
 
 ---
 
 ## Prerequisites
 
-Before running PyToNingans, ensure you have:
+Before installing PyToNingans, ensure you have:
 
-1. **Operating System**: Windows 10 or Windows 11 (64-bit).
-2. **Python**: Python 3.14 or newer.
-3. **Package Manager**: [uv](https://docs.astral.sh/uv/) (recommended for instant dependency resolution and execution).
+- **Operating System**: :fontawesome-brands-windows: Windows 10 or Windows 11 (64-bit).
 
----
-
-## Installing with `uv` (Recommended)
-
-1. **Clone the Repository**:
-
-   ```bash
-   git clone https://github.com/Meta-Dusk/pytoningans.git
-   cd pytoningans
-   ```
-
-2. **Sync Dependencies**:
-   `uv` automatically installs the appropriate PySide6 wheels matching your Python interpreter:
-
-   ```bash
-   uv sync
-   ```
-
-3. **Launch the Game**:
-
-   ```bash
-   uv run py src/pytoningans/main.py
-   ```
+> That's mostly it for now.
 
 ---
 
-## Standalone Executable Deployment
+## Setup Instructions
 
-PyToNingans includes a complete standalone deployment specification via **Nuitka** (`pysidedeploy.spec`).
+You would usually see the setup instructions in the note included in the release, but by default,
+what you would expect is basically an executable named; `PyToNingans-vX.X.X-Win64-Installer.exe`.
+The `X`s simply represents the version numbers. You will also expect another executable, which is
+similary named; `PyToNingans-vX.X.X-with-console-Win64-Installer.exe`. This version simply just has
+a console built-in (which is just for debugging). You don't really need this version, unless you
+need to see the logs of the app.
 
-To compile an optimized, standalone Windows `.exe`:
-
-```bash
-pyside6-deploy -c pysidedeploy.spec
-```
-
-The output executable will be placed in the `build/` directory with all assets and required Qt plugins bundled.
+Once you download the installer, you can just simply follow the setup wizard, and that's it! It's
+that easy :)
 
 ---
 
-## Documentation Local Preview
+## Updates
 
-To build and preview this documentation website locally on your machine:
-
-```bash
-uv run --group docs mkdocs serve
-```
-
-Open your browser at `http://127.0.0.1:8000/` to browse with instant live reloading.
+For now, there's no automatic downloading of updates, but updating the app isn't that difficult.
+You can just simply reinstall the app with the latest version of the installer, and it will handle
+updating it! This is all thanks to `Inno Setup Compiler` :)

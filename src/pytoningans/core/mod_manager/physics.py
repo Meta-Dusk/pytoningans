@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING, Optional, Any
 
 from PySide6.QtCore import QPoint, QRect
 
-from pytoningans.core.constants import EntityType, ItemState
+from ..constants import EntityType, ItemState
 
 if TYPE_CHECKING:
-    from pytoningans.core.constants import AnimationMeta
+    from ..constants import AnimationMeta
 
 
 def get_frame_physics(

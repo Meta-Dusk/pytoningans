@@ -39,6 +39,32 @@ QTabBar::tab:hover {{
     background: {p.tab_hover_bg};
 }}
 
+
+/* --- Vertical Resize Handle & Splitter --- */
+VerticalResizeHandle, QFrame#VerticalResizeHandle {{
+    background-color: {p.tab_bg};
+    border: 1px solid {p.card_border};
+    border-top: none;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+}}
+
+VerticalResizeHandle:hover, QFrame#VerticalResizeHandle:hover {{
+    background-color: {p.tab_hover_bg};
+    border-color: {p.accent};
+}}
+
+QSplitter::handle:horizontal {{
+    background-color: {p.tab_border};
+    width: 6px;
+    margin: 0px 2px;
+    border-radius: 3px;
+}}
+
+QSplitter::handle:horizontal:hover {{
+    background-color: {p.accent};
+}}
+
 /* --- Card Containers --- */
 ModCardWidget, QFrame#CardWidget, QFrame#ModCardWidget {{
     background-color: {p.card_bg};
@@ -145,6 +171,16 @@ QLabel#StatusBadgeOffline {{
     background-color: {p.badge_info_bg};
     border-radius: 4px;
     padding: 4px 8px;
+}}
+
+QLabel#BadgeLocal {{
+    background-color: rgba(203, 166, 247, 0.2);
+    color: #cba6f7;
+    border: 1px solid #cba6f7;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: bold;
 }}
 
 /* --- Banners and Verification Frames --- */

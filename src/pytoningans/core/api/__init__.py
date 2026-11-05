@@ -8,16 +8,44 @@ in any standalone development environment or IDE.
 Modular Package Structure:
 - `api.types`: Coordinates, primitives, geometry protocols, and state enums.
 - `api.components`: Entity and structure component system base classes and protocols.
-- `api.protocols`: Structural subtyping interfaces for entities, structures, managers, and worlds.
+- `api.protocols`: Structural subtyping interfaces for entities, structures, managers, worlds, and particles.
 - `api.behaviors`: Base hook classes for writing custom entity and structure AI in `behavior.py`.
 """
 from __future__ import annotations
 
-# Primitives, Coordinates, and Enums
+from .protocol.core import (
+    IEntityManager,
+    IModInfo
+)
+
+from .protocol.particle import (
+    IParticle,
+    IAnimatedParticle,
+    IParticleManager,
+    IParticleEmitter,
+    ParticleConfigDTO,
+    ParticleEmitterConfigDTO,
+    ParticlePresets
+)
+
+from .protocol.entity import (
+    IBaseEntity,
+    IEntity,
+    IItem,
+    IStructure
+)
+
 from .types import (
     Pos2D,
     Rect2D,
     IRect,
+    Colors,
+    IColor,
+    ColorType,
+    ITexture,
+    IGraphicsItem,
+    TupleTextureDescriptor,
+    ResolvableTexture,
     EntityType,
     EntityState,
     StructureState,
@@ -25,27 +53,21 @@ from .types import (
     BehaviorType,
     AttackType,
     DeathAnimation,
+    OptionalOnHitWindowCallback,
+    OptionalOnHitEntityCallback,
+    OptionalOnExpireCallback,
+    OptionalOnParticleSpawnEmitterCallback,
+    OptionalOnParticleExpireEmitterCallback
 )
 
-# Component System
 from .components import (
     IComponent,
     BaseComponent,
     ITeleportationComponent,
 )
 
-# Protocols
-from .protocols import (
-    IModInfo,
-    IEntityManager,
-    IWorld,
-    IBaseEntity,
-    IEntity,
-    IStructure,
-    IItem,
-)
+from .protocol.core import IWorld
 
-# Behaviors
 from .behaviors import (
     BaseEntityBehavior,
     BaseStructureBehavior,
@@ -53,17 +75,27 @@ from .behaviors import (
     BaseBehavior,
 )
 
-# Modpacks
 from .modpack import (
     BaseModPack,
     PackMenuAction,
 )
 
 __all__ = [
-    # Types and Geometry
+    # Core Types and Geometry
     "Pos2D",
     "Rect2D",
     "IRect",
+    
+    # Color Types
+    "Colors",
+    "IColor",
+    "ColorType",
+    
+    # Graphical Types
+    "ITexture",
+    "IGraphicsItem",
+    "TupleTextureDescriptor",
+    "ResolvableTexture",
     
     # Enums
     "EntityType",
@@ -74,15 +106,31 @@ __all__ = [
     "AttackType",
     "DeathAnimation",
     
+    # Callback Types
+    "OptionalOnHitWindowCallback",
+    "OptionalOnHitEntityCallback",
+    "OptionalOnExpireCallback",
+    "OptionalOnParticleSpawnEmitterCallback",
+    "OptionalOnParticleExpireEmitterCallback",
+    
     # Components
     "IComponent",
     "BaseComponent",
     "ITeleportationComponent",
     
-    # Engine and World Protocols
+    # Engine, and World
     "IModInfo",
     "IEntityManager",
     "IWorld",
+    
+    # Particle Protocols
+    "IParticle",
+    "IAnimatedParticle",
+    "IParticleManager",
+    "IParticleEmitter",
+    "ParticleConfigDTO",
+    "ParticleEmitterConfigDTO",
+    "ParticlePresets",
     
     # Entity Protocols
     "IBaseEntity",
@@ -98,6 +146,5 @@ __all__ = [
 
     # Modpacks
     "BaseModPack",
-    "PackMenuAction",
+    "PackMenuAction"
 ]
-

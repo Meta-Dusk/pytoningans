@@ -6,17 +6,20 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QLabel, QComboBox, QFrame,
     QSpinBox, QHBoxLayout, QCheckBox
 )
-from PySide6.QtCore import QRect, Signal
-from PySide6.QtGui import QGuiApplication, QScreen, QStandardItem, QStandardItemModel
+from PySide6.QtCore import Signal
+from PySide6.QtGui import QGuiApplication, QScreen, QStandardItemModel
 
 from pytoningans.core.constants import EntityType
-from pytoningans.core.mod_manager.discovery import ModEntryInfo
 from pytoningans.core.world import WorldOverlay
 from pytoningans.core.settings import SettingsManager
 from pytoningans.core.spawning import SpawnAreaMode
 
 if TYPE_CHECKING:
+    from PySide6.QtCore import QRect, QAbstractItemModel
+    from PySide6.QtGui import QStandardItem
     from pytoningans.core.entity_manager import EntityManager
+    from pytoningans.core.spawning import SpawningSystem
+    from pytoningans.core.mod_manager.discovery import ModEntryInfo
 
 
 class SpawnPanel(QWidget):
@@ -32,8 +35,7 @@ class SpawnPanel(QWidget):
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(8)
 
         spawn_label = QLabel("Spawn Objects:")
         spawn_label.setObjectName("SectionHeader")
@@ -85,8 +87,7 @@ class SpawnPanel(QWidget):
         self.custom_region_frame = QFrame()
         self.custom_region_frame.setObjectName("ActionRow")
         custom_reg_layout = QHBoxLayout(self.custom_region_frame)
-        custom_reg_layout.setContentsMargins(8, 4, 8, 4)
-        custom_reg_layout.setSpacing(6)
+        custom_reg_layout.setContentsMargins(8, 4, 8, 4); custom_reg_layout.setSpacing(6)
 
         self.region_info_label = QLabel("Region: Not Set")
         self.region_info_label.setObjectName("HelperText")
@@ -112,11 +113,9 @@ class SpawnPanel(QWidget):
         layout.addLayout(options_layout)
 
         # Actions Row: Amount + Spawn Random + Place with Cursor
-        spawn_action_layout = QHBoxLayout()
-        spawn_action_layout.setSpacing(6)
+        spawn_action_layout = QHBoxLayout(); spawn_action_layout.setSpacing(6)
         self.amount_spin = QSpinBox()
-        self.amount_spin.setRange(1, 100)
-        self.amount_spin.setValue(1)
+        self.amount_spin.setRange(1, 100); self.amount_spin.setValue(1)
         self.amount_spin.setToolTip("Number of items to spawn")
         self.amount_spin.setMinimumWidth(50)
 
@@ -138,10 +137,9 @@ class SpawnPanel(QWidget):
         self.placement_banner = QFrame()
         self.placement_banner.setObjectName("ActionRow")
         banner_layout = QHBoxLayout(self.placement_banner)
-        banner_layout.setContentsMargins(10, 6, 10, 6)
-        banner_layout.setSpacing(8)
+        banner_layout.setContentsMargins(10, 6, 10, 6); banner_layout.setSpacing(8)
 
-        self.placement_status_label = QLabel("Click to place. Esc to cancel.")
+        self.placement_status_label = QLabel("Click to place. [Esc] to cancel.")
         self.placement_status_label.setWordWrap(True)
         self.cancel_interactive_btn = QPushButton("Cancel")
         self.cancel_interactive_btn.setObjectName("RowBtn")
@@ -156,11 +154,12 @@ class SpawnPanel(QWidget):
         self.refresh_spawn_list()
 
     def _connect_signals(self) -> None:
-        self.manager.spawning_system.placement_started.connect(self._on_placement_started)
-        self.manager.spawning_system.placement_count_changed.connect(self._on_placement_count_changed)
-        self.manager.spawning_system.placement_ended.connect(self._on_placement_ended)
-        self.manager.spawning_system.region_selection_started.connect(self._on_region_selection_started)
-        self.manager.spawning_system.region_selection_ended.connect(self._on_region_selection_ended)
+        spawning_sys: SpawningSystem = self.manager.spawning_system
+        spawning_sys.placement_started.connect(self._on_placement_started)
+        spawning_sys.placement_count_changed.connect(self._on_placement_count_changed)
+        spawning_sys.placement_ended.connect(self._on_placement_ended)
+        spawning_sys.region_selection_started.connect(self._on_region_selection_started)
+        spawning_sys.region_selection_ended.connect(self._on_region_selection_ended)
 
     def _populate_monitors(self) -> None:
         """Populates the monitor combo box if more than one screen is active."""
@@ -177,8 +176,8 @@ class SpawnPanel(QWidget):
 
         primary_screen: Optional[QScreen] = QGuiApplication.primaryScreen()
         for i, world in enumerate(worlds):
-            is_primary = (world.target_screen == primary_screen)
-            label = f"Monitor {i + 1} ({'Primary' if is_primary else 'Secondary'})"
+            is_primary: bool = (world.target_screen == primary_screen)
+            label: str = f"Monitor {i + 1} ({'Primary' if is_primary else 'Secondary'})"
             self.monitor_combo.addItem(label, userData=world)
 
         self.monitor_combo.addItem("Random Monitor", userData="random")
@@ -186,12 +185,12 @@ class SpawnPanel(QWidget):
     def refresh_spawn_list(self) -> None:
         """Filters the spawn dropdown based on the active category filter, grouping by modpack."""
         self.mod_combo.clear()
-        selected_category: str = self.category_combo.currentData()
+        selected_category: str | EntityType = self.category_combo.currentData()
 
         entries: list[ModEntryInfo] = self.manager.mod_manager.get_detailed_mod_list()
         filtered: list[ModEntryInfo] = [
-            e for e in entries
-            if selected_category == "all" or e.entity_type == selected_category
+            e for e in entries if
+            selected_category == "all" or e.entity_type == selected_category
         ]
 
         standalone: list[ModEntryInfo] = [e for e in filtered if not e.pack_id]
@@ -201,7 +200,7 @@ class SpawnPanel(QWidget):
             _pack_name: str = e.pack_name or e.pack_id
             by_pack.setdefault(_pack_name, []).append(e)
 
-        model = self.mod_combo.model()
+        model: QAbstractItemModel = self.mod_combo.model()
         is_std_model: bool = isinstance(model, QStandardItemModel)
 
         if standalone:
@@ -249,8 +248,7 @@ class SpawnPanel(QWidget):
 
     def _on_place_clicked(self) -> None:
         selected_mod: str = self.mod_combo.currentData()
-        if not selected_mod:
-            return
+        if not selected_mod: return
         amount: int = self.amount_spin.value()
         avoid_win: bool = self.avoid_windows_chk.isChecked()
         self.manager.spawning_system.start_placement(selected_mod, amount, avoid_win)

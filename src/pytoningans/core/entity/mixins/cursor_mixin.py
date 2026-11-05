@@ -1,21 +1,20 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Optional, cast, Any
+from typing import TYPE_CHECKING, Optional, cast
 
-from PySide6.QtCore import QPoint, QPointF, QRect
+from PySide6.QtCore import QPoint, QPointF
 from PySide6.QtGui import QCursor
 
-from pytoningans.core.constants import EntityState
-from pytoningans.core.api import (
-    IEntity, BaseEntityBehavior, BaseBehavior
-)
+from ...constants import EntityState
+from ...api import BaseEntityBehavior
 
 if TYPE_CHECKING:
-    from pytoningans.core.mod_manager import ModManager
-    from pytoningans.core.world import WorldOverlay
-    from pytoningans.core.entity.animation import AnimationSystem
-    from pytoningans.core.entity.base_entity import BaseEntity
+    from PySide6.QtCore import QRect
+    from ...api import BaseBehavior, IEntity
+    from ...mod_manager import ModManager
+    from ...world import WorldOverlay
+    from ...entity import AnimationSystem, BaseEntity
 
 
 class EntityCursorMixin:
@@ -109,7 +108,7 @@ class EntityCursorMixin:
         behavior: Optional[BaseBehavior] = entity.behavior
         if isinstance(behavior, BaseEntityBehavior):
             try:
-                behavior.on_cursor_grabbed(cast(IEntity, self))
+                behavior.on_cursor_grabbed(cast("IEntity", self))
             except Exception as e:
                 print(f"Custom Behavior on_cursor_grabbed Error: {e}")
 
@@ -126,7 +125,7 @@ class EntityCursorMixin:
         behavior: Optional[BaseBehavior] = self._entity().behavior
         if isinstance(behavior, BaseEntityBehavior):
             try:
-                behavior.on_cursor_released(cast(IEntity, self))
+                behavior.on_cursor_released(cast("IEntity", self))
             except Exception as e:
                 print(f"Custom Behavior on_cursor_released Error: {e}")
 
@@ -173,7 +172,7 @@ class EntityCursorMixin:
         ):
             cx, cy = self.get_cursor_pos()
             
-            from pytoningans.core.entity.physics.helpers import get_effective_hitbox
+            from ...entity.physics.helpers import get_effective_hitbox
             hitbox: QRect = get_effective_hitbox(entity)
             hitbox_center_x: float = hitbox.x() + hitbox.width() / 2.0
             hitbox_center_y: float = hitbox.y() + hitbox.height() / 2.0

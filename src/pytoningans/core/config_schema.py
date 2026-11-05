@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field, asdict
 from typing import Any
 
-from pytoningans.core.constants import (
+from .constants import (
     EntityState, BehaviorType, AnimationMeta, AttackType, DeathAnimation, EntityType
 )
 
 CURRENT_CONFIG_VERSION = 10
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class BehaviorConfig:
     type: str = BehaviorType.NEUTRAL
     can_fly: bool = False
@@ -31,7 +31,7 @@ class BehaviorConfig:
     fade_in_on_spawn: bool = False
     instance_names: list[str] = field(default_factory=list)
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class DialogueConfig:
     plain_dialogue: list[str] = field(
         default_factory=lambda: ["Just hanging out.", "Lovely weather.", "Need a break?"]
@@ -54,7 +54,7 @@ class DialogueConfig:
         }
     ])
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class ModConfig:
     name: str
     entity_type: str = EntityType.ENTITY
@@ -76,7 +76,7 @@ class ModConfig:
         return asdict(self)
 
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class ModPackConfig:
     id: str
     name: str

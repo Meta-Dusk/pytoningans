@@ -19,15 +19,15 @@ Before installing or running any mod, you can inspect it directly inside the Mod
 
 The AST Security Analyzer statically parses Python code without executing it. It checks for unsafe operations and assigns one of three safety ratings:
 
-### 1. ✅ Clean / Passed
+### :material-check: Clean / Passed
 
 No suspicious imports or restricted system calls detected. Safe for execution.
 
-### 2. ⚠️ Warning
+### :fontawesome-solid-warning: Warning
 
 Uses dynamic attribute access (`getattr`, `eval`) or unusual reflection. Permitted, but highlighted for user review.
 
-### 3. 🚫 Prohibited / Blocked
+### :material-block-helper: Prohibited / Blocked
 
 Attempts to import or invoke dangerous system modules:
 
@@ -42,5 +42,5 @@ flowchart TD
     CheckImports -->|Yes: subprocess, socket, etc.| Block[Flagged as Dangerous / Blocked]
     CheckImports -->|No| CheckCalls{Suspicious Reflection?}
     CheckCalls -->|Yes: eval, exec| Warn[Audit Warning]
-    CheckCalls -->|No| Pass[Audit Passed ✅]
+    CheckCalls -->|No| Pass[Audit Passed]
 ```
