@@ -9,6 +9,9 @@ dependencies = ["pyside6>=6.11.2,<6.12.0"]
 
 [project.scripts]
 pytoningans = "pytoningans:main"
+build = "tools.build:main"
+bump-version = "tools.bump_version:main"
+export-cloud-config = "tools.export_cloud_config:main"
 
 [dependency-groups]
 dev = ["nuitka>=4.3.1", "pip>=26.2.2"]
@@ -20,6 +23,9 @@ docs = [
 
 [tool.uv]
 default-groups = ["docs", "dev"]
+
+[tool.uv.build-backend]
+module-name = ["pytoningans", "tools"]
 
 [build-system]
 requires = ["uv_build>=0.12.19,<0.13.0"]
