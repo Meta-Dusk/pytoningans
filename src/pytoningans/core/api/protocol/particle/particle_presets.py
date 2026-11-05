@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 from .particle_configs import ParticleEmitterConfigDTO
+from ...types import Pos2D
 
 if TYPE_CHECKING:
     from .particle import IParticle
     from .particle_manager import IParticleManager
     from .particle_emitter import IParticleEmitter
-    from ...types import Pos2D, ResolvableTexture, OptionalOnHitEntityCallback, IGraphicsItem
+    from ...types import ResolvableTexture, OptionalOnHitEntityCallback, IGraphicsItem
 
 
 class ParticlePresets:
