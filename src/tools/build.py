@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 # Resolve paths
-ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 SPEC_FILE: Path = ROOT_DIR / "pysidedeploy.spec"
 INSTALLER_SCRIPT: Path = ROOT_DIR / "installer" / "installer.iss"
 

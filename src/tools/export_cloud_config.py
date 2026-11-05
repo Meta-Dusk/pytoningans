@@ -8,7 +8,7 @@ Does NOT commit secrets to git (cloud_config.json is in .gitignore).
 import json, os, sys
 from pathlib import Path
 
-ROOT_DIR: Path = Path(__file__).resolve().parent.parent
+ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent
 
 
 def parse_env_file(path: Path) -> dict[str, str]:

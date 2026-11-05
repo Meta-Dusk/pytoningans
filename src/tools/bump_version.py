@@ -2,7 +2,7 @@ import sys, re
 from pathlib import Path
 
 # Resolve project root (<root>/tools/bump_version.py -> <root>)
-ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 
 SEMVER_PATTERN: re.Pattern[str] = re.compile(r"^\d+\.\d+\.\d+$")
 
