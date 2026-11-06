@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from .entity_manager import EntityManager
     from .entity import BaseEntity, BaseStructure, BaseItem, Entity
     from .window_tracker import TrackedWindow
+    from .spawning import SpawningSystem
 
 
 class WorldView(QGraphicsView):
@@ -37,7 +38,7 @@ class WorldView(QGraphicsView):
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if watched == self.viewport():
-            spawning_sys = self.overlay.entity_manager.spawning_system
+            spawning_sys: SpawningSystem = self.overlay.entity_manager.spawning_system
             match event.type():
                 case QEvent.Type.MouseMove:
                     if spawning_sys.handle_mouse_move(self.overlay, cast("QMouseEvent", event)):

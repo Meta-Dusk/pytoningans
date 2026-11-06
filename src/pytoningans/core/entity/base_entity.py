@@ -78,12 +78,13 @@ class BaseEntity(
         self._active_context_menu: Optional[EntityContextMenu] = None
 
         # Initialize modular mixins
-        self._init_tags()
-        self._init_components()
-        self._init_tooltip()
-        self._init_window_physics()
-        self._init_cursor()
-        self._init_drag()
+        self._setup_tags()
+        self._setup_components()
+        self._setup_tooltip()
+        self._setup_window_physics()
+        self._setup_cursor()
+        self._setup_drag()
+        self._verify_mixin_setups()
 
         self._setup_ui(start_x, start_y)
 

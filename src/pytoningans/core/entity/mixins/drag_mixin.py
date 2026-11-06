@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, cast
-
+from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import Qt
 
+from .base_mixin import BaseEntityMixin
 from ...constants import EntityState, EntityType
 
 if TYPE_CHECKING:
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from ...entity import AnimationSystem, PhysicsSystem, BaseEntity
 
 
-class EntityDragMixin:
+class EntityDragMixin(BaseEntityMixin):
     """Encapsulates mouse dragging, positioning bounds clamping, and context menu events."""
 
     is_dragged: bool
@@ -29,12 +29,11 @@ class EntityDragMixin:
     world: Optional[WorldOverlay]
     anim_sys: Optional[AnimationSystem]
     physics_sys: Optional[PhysicsSystem]
+    _setup_drag_done: bool = False
 
-    def _entity(self) -> BaseEntity:
-        return cast("BaseEntity", self)
-
-    def _init_drag(self) -> None:
+    def _setup_drag(self) -> None:
         self.is_dragged = False
+        self._setup_drag_done = True
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         self._entity()._hide_hover_tooltip()

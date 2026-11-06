@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, Protocol, Union, runtime_checkable
+from typing import TYPE_CHECKING, Optional, Protocol, Union, runtime_checkable
 
 if TYPE_CHECKING:
     from ...components import IComponent
     from ..core import IWorld, IModInfo
-    from ...types import EntityState, IRect, ItemState, StructureState
+    from ...types import EntityState, IRect, ItemState, StructureState, Pos2D
 
 
 @runtime_checkable
@@ -25,7 +25,7 @@ class IBaseEntity(Protocol):
     is_climbing: bool
     is_cursor_grabbed: bool
     is_following_cursor: bool
-    target_pos: Optional[Any]
+    target_pos: Optional[Pos2D]
     components: dict[str, IComponent]
 
     @property

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional, cast
 from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import QGraphicsPixmapItem
 
+from .base_mixin import BaseEntityMixin
 from ...api import (
     BaseEntityBehavior, BaseStructureBehavior, BaseItemBehavior
 )
@@ -14,25 +15,23 @@ if TYPE_CHECKING:
     from PySide6.QtCore import QPoint
     from PySide6.QtWidgets import QGraphicsSceneHoverEvent
     from ...mod_manager import ModManager
-    from ...entity import BaseEntity
     from ...api import BaseBehavior, IEntity, IItem, IStructure
 
 
-class EntityTooltipMixin(QGraphicsPixmapItem):
+class EntityTooltipMixin(BaseEntityMixin, QGraphicsPixmapItem):
     """Encapsulates hover detection, tooltip display, and identification naming for entities."""
 
     _instance_name: Optional[str]
     is_hovered: bool
     mod_manager: Optional[ModManager]
+    _setup_tooltip_done: bool = False
 
-    def _entity(self) -> BaseEntity:
-        return cast("BaseEntity", self)
-
-    def _init_tooltip(self) -> None:
+    def _setup_tooltip(self) -> None:
         self._instance_name = None
         self.is_hovered = False
         self._entity().setAcceptHoverEvents(True)
         self.update_tooltip()
+        self._setup_tooltip_done = True
 
     @property
     def instance_name(self) -> Optional[str]:

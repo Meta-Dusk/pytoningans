@@ -1,21 +1,24 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
+from .base_mixin import BaseEntityMixin
 
 if TYPE_CHECKING:
     from ...mod_manager import ModManager
 
 
-class EntityTagMixin:
+class EntityTagMixin(BaseEntityMixin):
     """Encapsulates runtime tag management for entities."""
 
     tags: set[str]
     mod_manager: Optional[ModManager]
+    _tags_setup_done: bool = False
 
-    def _init_tags(self) -> None:
+    def _setup_tags(self) -> None:
         self.tags = (
             set(self.mod_manager.tags) if self.mod_manager is not None else set()
         )
+        self._tags_setup_done = True
 
     def has_tag(self, tag: str) -> bool:
         """Returns True if the entity has the specified tag (case-insensitive)."""
