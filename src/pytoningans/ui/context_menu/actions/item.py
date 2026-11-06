@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QCheckBox
+from PySide6.QtWidgets import QHBoxLayout, QPushButton, QComboBox, QCheckBox
 
 from ..helpers import create_info_row, create_separator
 
 if TYPE_CHECKING:
+    from PySide6.QtWidgets import QVBoxLayout
     from ..window import EntityContextMenu
     from pytoningans.core.entity.base_item import BaseItem
     from pytoningans.core.entity.living_entity import Entity
@@ -95,18 +96,7 @@ def build_item_actions(menu: EntityContextMenu, layout: QVBoxLayout, item: BaseI
     hitbox_btn.clicked.connect(lambda: menu.execute_action(toggle_hitbox))
     layout.addWidget(hitbox_btn)
 
-    # Pack Actions (if part of a Tier 2 Modpack)
-    if item.mod_manager is not None and item.mod_manager.pack is not None:
-        pack_actions: list[PackMenuAction] = item.mod_manager.pack.get_context_menu_actions(item)
-        if pack_actions:
-            layout.addWidget(create_info_row(f"{item.mod_manager.pack.name}:", "Pack Actions"))
-            for act in pack_actions:
-                act_btn = QPushButton(act.label)
-                if act.tooltip:
-                    act_btn.setToolTip(act.tooltip)
-                act_cb = act.callback
-                act_btn.clicked.connect(lambda _, c=act_cb: menu.execute_action(c))
-                layout.addWidget(act_btn)
+    _mod_pack_actions(menu, layout, item)
 
     layout.addWidget(create_separator())
 
@@ -116,3 +106,20 @@ def build_item_actions(menu: EntityContextMenu, layout: QVBoxLayout, item: BaseI
     destroy_btn.setToolTip("Permanently delete and remove this item from the world.")
     destroy_btn.clicked.connect(lambda: menu.execute_and_close(item.destroy))
     layout.addWidget(destroy_btn)
+
+def _mod_pack_actions(
+    menu: EntityContextMenu, layout: QVBoxLayout, item: BaseItem
+) -> None:
+    # Pack Actions (if part of a Tier 2 Modpack)
+    if item.mod_manager is None or item.mod_manager.pack is None: return
+    
+    pack_actions: list[PackMenuAction] = item.mod_manager.pack.get_context_menu_actions(item)
+    if not pack_actions: return
+    
+    layout.addWidget(create_info_row(f"{item.mod_manager.pack.name}:", "Pack Actions"))
+    for action in pack_actions:
+        action_btn = QPushButton(action.label)
+        if action.tooltip:
+            action_btn.setToolTip(action.tooltip)
+        action_btn.clicked.connect(lambda _, cb=action.callback: menu.execute_action(cb))
+        layout.addWidget(action_btn)

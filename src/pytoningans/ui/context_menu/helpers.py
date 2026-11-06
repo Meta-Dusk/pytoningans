@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFrame
 from pytoningans.ui.tool_tip import ToolTipLabel
 

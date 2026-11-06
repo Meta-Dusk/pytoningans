@@ -122,8 +122,8 @@ class BaseStructure(BaseEntity):
         if self.mod_manager is None or self.mod_manager.custom_behavior is None:
             return
         behavior: BaseBehavior = self.mod_manager.custom_behavior
-        if isinstance(behavior, BaseStructureBehavior):
-            try:
-                behavior.on_destroy(cast("IStructure", self))
-            except Exception as e:
-                print(f"Custom Structure on_destroy Error: {e}")
+        if not isinstance(behavior, BaseStructureBehavior): return
+        try:
+            behavior.on_destroy(cast("IStructure", self))
+        except Exception as e:
+            print(f"Custom Structure on_destroy Error: {e}")

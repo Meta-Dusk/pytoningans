@@ -101,6 +101,10 @@ class BaseEntityBehavior:
     def on_cursor_released(self, entity: IEntity) -> None:
         """Called when this entity releases the OS mouse cursor."""
         pass
+    
+    def on_destroy(self, entity: IEntity) -> None:
+        """Called when the entity is removed or closed."""
+        pass
 
 
 class BaseStructureBehavior:

@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 from typing import Optional, TYPE_CHECKING
-from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QCheckBox
+from PySide6.QtWidgets import QHBoxLayout, QPushButton, QComboBox, QCheckBox
 
 from pytoningans.core.constants import StructureState
 from ..helpers import create_info_row, create_separator
 
 if TYPE_CHECKING:
+    from PySide6.QtWidgets import QVBoxLayout
     from ..window import EntityContextMenu
     from pytoningans.core.entity.base_structure import BaseStructure
-    from pytoningans.core.components import BaseComponent
+    from pytoningans.core.components import BaseComponent, TeleportationComponent
+    from pytoningans.core.api.modpack import PackMenuAction
 
 
-def build_structure_actions(menu: EntityContextMenu, layout: QVBoxLayout, structure: BaseStructure) -> None:
+def build_structure_actions(
+    menu: EntityContextMenu, layout: QVBoxLayout, structure: BaseStructure
+) -> None:
     """Builds interactive control buttons and portal link pickers for a structure."""
     status_text: str = (
         "Deactivate" if structure.state == StructureState.ACTIVE else "Activate"
@@ -40,7 +44,32 @@ def build_structure_actions(menu: EntityContextMenu, layout: QVBoxLayout, struct
     layout.addWidget(gravity_check)
 
     # Component Target Action: Linked Portal
-    from pytoningans.core.components.teleportation import TeleportationComponent
+    _teleport_comp_action(menu, layout, structure)
+
+    # Debug Visualization Toggle (Hitbox)
+    hitbox_btn = QPushButton("Hide Hitbox" if structure.is_debug_hitbox_visible else "Show Hitbox")
+    hitbox_btn.setToolTip("Toggle on-screen visualization of physics collision hitbox.")
+    def toggle_hitbox() -> None:
+        structure.toggle_debug_hitboxes()
+        hitbox_btn.setText("Hide Hitbox" if structure.is_debug_hitbox_visible else "Show Hitbox")
+    hitbox_btn.clicked.connect(lambda: menu.execute_action(toggle_hitbox))
+    layout.addWidget(hitbox_btn)
+
+    # Pack Actions (if part of a Tier 2 Modpack)
+    _mod_pack_actions(menu, layout, structure)
+
+    layout.addWidget(create_separator())
+
+    # Close structure
+    close_btn = QPushButton("Close Structure")
+    close_btn.setObjectName("DangerBtn")
+    close_btn.setToolTip("Dismiss and despawn this structure from desktop.")
+    close_btn.clicked.connect(lambda: menu.execute_and_close(structure.destroy))
+    layout.addWidget(close_btn)
+
+def _teleport_comp_action(
+    menu: EntityContextMenu, layout: QVBoxLayout, structure: BaseStructure
+) -> None:
     teleport_comp: Optional[BaseComponent] = structure.get_component("teleportation")
     if isinstance(teleport_comp, TeleportationComponent):
         layout.addWidget(
@@ -97,34 +126,18 @@ def build_structure_actions(menu: EntityContextMenu, layout: QVBoxLayout, struct
         )
         layout.addWidget(add_tele_btn)
 
-    # Debug Visualization Toggle (Hitbox)
-    hitbox_btn = QPushButton("Hide Hitbox" if structure.is_debug_hitbox_visible else "Show Hitbox")
-    hitbox_btn.setToolTip("Toggle on-screen visualization of physics collision hitbox.")
-    def toggle_hitbox() -> None:
-        structure.toggle_debug_hitboxes()
-        hitbox_btn.setText("Hide Hitbox" if structure.is_debug_hitbox_visible else "Show Hitbox")
-    hitbox_btn.clicked.connect(lambda: menu.execute_action(toggle_hitbox))
-    layout.addWidget(hitbox_btn)
-
-    # Pack Actions (if part of a Tier 2 Modpack)
-    if structure.mod_manager is not None and structure.mod_manager.pack is not None:
-        pack_actions = structure.mod_manager.pack.get_context_menu_actions(structure)
-        if pack_actions:
-            layout.addWidget(create_info_row(f"{structure.mod_manager.pack.name}:", "Pack Actions"))
-            for act in pack_actions:
-                act_btn = QPushButton(act.label)
-                if act.tooltip:
-                    act_btn.setToolTip(act.tooltip)
-                act_cb = act.callback
-                act_btn.clicked.connect(lambda _, c=act_cb: menu.execute_action(c))
-                layout.addWidget(act_btn)
-
-    layout.addWidget(create_separator())
-
-    # Close structure
-    close_btn = QPushButton("Close Structure")
-    close_btn.setObjectName("DangerBtn")
-    close_btn.setToolTip("Dismiss and despawn this structure from desktop.")
-    close_btn.clicked.connect(lambda: menu.execute_and_close(structure.destroy))
-    layout.addWidget(close_btn)
-
+def _mod_pack_actions(
+    menu: EntityContextMenu, layout: QVBoxLayout, structure: BaseStructure
+) -> None:
+    if structure.mod_manager is None or structure.mod_manager.pack is None: return
+    
+    pack_actions: list[PackMenuAction] = structure.mod_manager.pack.get_context_menu_actions(structure)
+    if not pack_actions: return
+    
+    layout.addWidget(create_info_row(f"{structure.mod_manager.pack.name}:", "Pack Actions"))
+    for action in pack_actions:
+        action_btn = QPushButton(action.label)
+        if action.tooltip:
+            action_btn.setToolTip(action.tooltip)
+        action_btn.clicked.connect(lambda _, cb=action.callback: menu.execute_action(cb))
+        layout.addWidget(action_btn)

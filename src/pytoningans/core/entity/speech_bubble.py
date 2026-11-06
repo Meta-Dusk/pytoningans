@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from PySide6.QtGui import QTextOption, QTextDocument
     from ..entity import Entity
 
+
 class SpeechBubble(QGraphicsItem):
     """
     Interactive speech bubble with typewriter animation, impact shake, and interruption override.
@@ -221,57 +222,64 @@ class SpeechBubble(QGraphicsItem):
         if not self.isVisible() and self._interrupt_hold_left <= 0:
             return
 
-        # Update impact shake
-        if self.shake_time_left > 0:
-            self.shake_time_left -= dt
-            if self.shake_time_left <= 0:
-                self._shake_offset = (0.0, 0.0)
-            else:
-                progress: float = 1.0 - (self.shake_time_left / max(1, self.shake_duration))
-                damping: float = (1.0 - progress) ** 1.2
-                self._shake_offset = (
-                    math.sin(progress * 35.0) * self.shake_amplitude * damping,
-                    math.cos(progress * 25.0) * (self.shake_amplitude * 0.4) * damping
-                )
-            self.update_position()
-            self.update()
-
-        # Update interrupt hold pause
-        if self._interrupt_hold_left > 0:
-            self._interrupt_hold_left -= dt
-            if self._interrupt_hold_left <= 0:
-                if self._pending_override_text is not None:
-                    text_to_speak: str = self._pending_override_text
-                    duration: int = self._pending_override_duration
-                    self._pending_override_text = None
-                    self.speak(text_to_speak, duration)
-            return
-
-        # Update typewriter animation
+        self._update_impact_shake(dt)
+        if self._update_interrupt_hold_pause(dt): return
         if self.is_typewriting:
-            self._char_accumulator += dt
-            advanced: bool = False
-            while (
-                self._char_accumulator >= self._char_delay_ms and
-                self._char_index < len(self._full_text)
-            ):
-                self._char_accumulator -= self._char_delay_ms
-                self._char_index += 1
-                advanced = True
-
-            if advanced and self.text_item is not None:
-                self.text_item.setPlainText(self._full_text[:self._char_index])
-
-            if self._char_index >= len(self._full_text):
-                self.is_typewriting = False
-                self._char_accumulator = 0
-
-        # Bubble lifetime (counts down once typewriter finishes)
+            self._update_typewriter_anim(dt)
         else:
-            if self.time_left > 0:
-                self.time_left -= dt
-                if self.time_left <= 0:
-                    self.hide()
+            self._update_bubble_lifetime(dt)
+
+    def _update_bubble_lifetime(self, dt: int) -> None:
+        if self.time_left <= 0: return
+        self.time_left -= dt
+        
+        if self.time_left > 0: return
+        self.hide()
+
+    def _update_typewriter_anim(self, dt: int) -> None:
+        self._char_accumulator += dt
+        advanced: bool = False
+        while (
+            self._char_accumulator >= self._char_delay_ms and
+            self._char_index < len(self._full_text)
+        ):
+            self._char_accumulator -= self._char_delay_ms
+            self._char_index += 1
+            advanced = True
+
+        if advanced and self.text_item is not None:
+            self.text_item.setPlainText(self._full_text[:self._char_index])
+
+        if self._char_index >= len(self._full_text):
+            self.is_typewriting = False
+            self._char_accumulator = 0
+
+    def _update_interrupt_hold_pause(self, dt: int) -> bool:
+        """Returns True if ticking must stop."""
+        if self._interrupt_hold_left <= 0: return False
+        self._interrupt_hold_left -= dt
+        if self._interrupt_hold_left <= 0:
+            if self._pending_override_text is not None:
+                text_to_speak: str = self._pending_override_text
+                duration: int = self._pending_override_duration
+                self._pending_override_text = None
+                self.speak(text_to_speak, duration)
+        return True
+
+    def _update_impact_shake(self, dt: int) -> None:
+        if self.shake_time_left <= 0: return
+        self.shake_time_left -= dt
+        if self.shake_time_left <= 0:
+            self._shake_offset = (0.0, 0.0)
+        else:
+            progress: float = 1.0 - (self.shake_time_left / max(1, self.shake_duration))
+            damping: float = (1.0 - progress) ** 1.2
+            self._shake_offset = (
+                math.sin(progress * 35.0) * self.shake_amplitude * damping,
+                math.cos(progress * 25.0) * (self.shake_amplitude * 0.4) * damping
+            )
+        self.update_position()
+        self.update()
 
     def update_position(self) -> None:
         if not self.isVisible() and self._interrupt_hold_left <= 0: return

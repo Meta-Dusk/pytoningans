@@ -77,10 +77,7 @@ class Entity(BaseEntity):
                 self.locks.ai = True
                 self.locks.physics = self.is_physics_enabled
 
-        if (
-            self.damage_tint_time_left > 0 and
-            self.tint_effect is not None
-        ):
+        if self.damage_tint_time_left > 0 and self.tint_effect is not None:
             self.damage_tint_time_left -= dt
             if self.damage_tint_time_left <= 0:
                 self.tint_effect.setEnabled(False)
@@ -112,19 +109,25 @@ class Entity(BaseEntity):
         super().update_systems(dt, centers)
 
         if not self.is_force_idle:
-            behavior: Optional[BaseBehavior] = self.behavior
-            if behavior is None: return
-            if isinstance(behavior, BaseEntityBehavior):
-                try:
-                    behavior.on_update(cast("IEntity", self), dt)
-                except Exception as e:
-                    print(f"Custom Entity on_update Error: {e}")
+            return self._on_update(dt)
+
+    def _on_update(self, dt: int) -> None:
+        behavior: Optional[BaseBehavior] = self.behavior
+        if behavior is None: return
+        if not isinstance(behavior, BaseEntityBehavior): return
+        try:
+            behavior.on_update(cast("IEntity", self), dt)
+        except Exception as e:
+            print(f"Custom Entity on_update Error: {e}")
 
     def on_moved(self) -> None:
         super().on_moved()
-        if self.health_bar is not None: self.health_bar.update_position()
-        if self.bubble is not None: self.bubble.update_position()
-        if self.held_item is not None: self.held_item._update_held_position()
+        if self.health_bar is not None:
+            self.health_bar.update_position()
+        if self.bubble is not None:
+            self.bubble.update_position()
+        if self.held_item is not None:
+            self.held_item._update_held_position()
 
     def pick_up(self, item: BaseItem) -> bool:
         """Picks up the specified item if possible."""
@@ -190,7 +193,7 @@ class Entity(BaseEntity):
         if self.health_bar:
             self.health_bar.on_heal(actual_heal, self.current_health, old_hp)
 
-        if self.world and SettingsManager.get().settings.show_damage_numbers:
+        if self.world is not None and SettingsManager.get().settings.show_damage_numbers:
             head_pos: QPointF = self.pos() + QPointF(self.width() / 2.0, -10.0)
             self.world.spawn_damage_number(actual_heal, head_pos, is_heal=True)
 

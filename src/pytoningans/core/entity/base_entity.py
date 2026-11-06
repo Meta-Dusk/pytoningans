@@ -24,7 +24,7 @@ from ..entity.mixins import (
 )
 
 if TYPE_CHECKING:
-    from ..api import BaseBehavior, Pos2D, IEntity, IItem, IStructure
+    from ..api import BaseBehavior, Pos2D, IEntity, IItem, IStructure, BaseModPack
     from ..mod_manager import ModManager
     from ..world import WorldOverlay
     from ..entity import EntityContextMenu
@@ -155,7 +155,7 @@ class BaseEntity(
         return self.mod_manager.custom_behavior if self.mod_manager is not None else None
 
     @property
-    def pack(self) -> Optional[Any]:
+    def pack(self) -> Optional[BaseModPack]:
         """Returns the parent ModPack controller if this entity belongs to a modpack, or None."""
         if self.mod_manager is not None and self.mod_manager.pack is not None:
             return self.mod_manager.pack.controller
@@ -369,6 +369,8 @@ class BaseEntity(
         self._update_components(dt)
 
     def destroy(self) -> None:
+        self._on_destroy()
+        
         self.release_cursor()
         self.follow_cursor(False)
         self.is_dragged = False
@@ -408,3 +410,13 @@ class BaseEntity(
         self.tint_effect = None
         self.world = None
         self.mod_manager = None
+    
+    def _on_destroy(self) -> None:
+        if self.mod_manager is None or self.mod_manager.custom_behavior is None:
+            return
+        behavior: BaseBehavior = self.mod_manager.custom_behavior
+        if not isinstance(behavior, BaseEntityBehavior): return
+        try:
+            behavior.on_destroy(cast("IEntity", self))
+        except Exception as e:
+            print(f"Custom Entity on_destroy Error: {e}")
