@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
-from PySide6.QtCore import QPointF, QRect
+from PySide6.QtCore import QRect
 
 from .particle import Particle
+from ..api import Pos2D
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QGraphicsItem
@@ -20,8 +21,8 @@ class AnimatedParticle(Particle):
     def __init__(
         self,
         sprite_sheet: QPixmap,
-        pos: QPointF,
-        velocity: QPointF,
+        pos: Pos2D,
+        velocity: Pos2D,
         frame_width: int,
         frame_height: int,
         frame_count: int,
@@ -74,36 +75,10 @@ class AnimatedParticle(Particle):
         if self.is_dead:
             return
         
-        cfg = self.config
+        cfg: ParticleConfig = self.config
 
         # Advance frame accumulation timer if animation is playable
-        if self.fps > 0 and len(self.frames) > 1:
-            self.anim_time += dt_sec
-            frame_duration: float = 1.0 / self.fps
-            raw_index = int(self.anim_time / frame_duration)
-
-            if not self.loop and raw_index >= self.frame_count:
-                # Finished one-shot animation playback
-                impact_point: QPointF = (
-                    self.sceneBoundingRect().center()
-                    if self.scene() is not None
-                    else QPointF(self.x() + self.frame_width / 2, self.y() + self.frame_height / 2)
-                )
-                if cfg.on_particle_expire_emitter is not None and self.particle_manager is not None:
-                    cfg.on_particle_expire_emitter(self.particle_manager, impact_point)
-                if cfg.on_expire:
-                    cfg.on_expire(self)
-                self.destroy()
-                return
-
-            if self.loop:
-                target_frame: int = raw_index % self.frame_count
-            else:
-                target_frame: int = min(raw_index, self.frame_count - 1)
-
-            if target_frame != self.current_frame_index and target_frame < len(self.frames):
-                self.current_frame_index = target_frame
-                self.setPixmap(self.frames[self.current_frame_index])
+        self._advance_frame_anim(dt_sec, cfg)
 
         super().update_systems(
             dt_sec=dt_sec,
@@ -112,3 +87,35 @@ class AnimatedParticle(Particle):
             window_tracker=window_tracker,
             active_entities=active_entities,
         )
+
+    def _advance_frame_anim(self, dt_sec: float, cfg: ParticleConfig) -> None:
+        if self.fps <= 0 or len(self.frames) <= 1: return
+        self.anim_time += dt_sec
+        frame_duration: float = 1.0 / self.fps
+        raw_index = int(self.anim_time / frame_duration)
+
+        if not self.loop and raw_index >= self.frame_count:
+            # Finished one-shot animation playback
+            impact_point: Pos2D = (
+                Pos2D(*self.sceneBoundingRect().center().toTuple())
+                if self.scene() is not None
+                else Pos2D(
+                    self.x() + self.frame_width / 2,
+                    self.y() + self.frame_height / 2
+                )
+            )
+            if cfg.on_particle_expire_emitter is not None and self.particle_manager is not None:
+                cfg.on_particle_expire_emitter(self.particle_manager, impact_point)
+            if cfg.on_expire:
+                cfg.on_expire(self)
+            self.destroy()
+            return
+        
+        target_frame: int = (
+            raw_index % self.frame_count if self.loop
+            else min(raw_index, self.frame_count - 1)
+        )
+
+        if target_frame != self.current_frame_index and target_frame < len(self.frames):
+            self.current_frame_index = target_frame
+            self.setPixmap(self.frames[self.current_frame_index])

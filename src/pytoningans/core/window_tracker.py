@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import QObject, QRect
 
 if TYPE_CHECKING:
-    from PySide6.QtCore import QPointF
+    from .api import Pos2D
 
 
 user32: ctypes.WinDLL = ctypes.windll.user32
@@ -262,14 +262,14 @@ class WindowTracker(QObject):
         return success, actual_dx, actual_dy
     
     def check_point_collision(
-        self, point: QPointF, screen_geom: Optional[QRect] = None
+        self, point: Pos2D, screen_geom: Optional[QRect] = None
     ) -> bool:
         """
         Checks if a 2D coordinate falls within any active desktop window bounds.
         If screen_geom is provided, converts local screen scene points to global coordinates.
         """
-        px = int(point.x())
-        py = int(point.y())
+        px = int(point.x)
+        py = int(point.y)
 
         # Offset local scene points to global desktop coordinates for multi-monitor support
         if screen_geom is not None:

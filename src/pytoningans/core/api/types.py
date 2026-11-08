@@ -7,11 +7,11 @@ used across the PyToNingans modding engine.
 from __future__ import annotations
 
 from typing import (
-    TYPE_CHECKING, Generator, Protocol, runtime_checkable, Optional, Callable, Any,
+    TYPE_CHECKING, Protocol, runtime_checkable, Optional, Callable, Any,
     overload, Union, Self
 )
 from enum import StrEnum, unique, IntEnum
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 if TYPE_CHECKING:
     from .protocol import IParticle, IBaseEntity, IParticleEmitter
@@ -27,10 +27,8 @@ class Pos2D:
     x: float = 0.0
     y: float = 0.0
     
-    def __iter__(self) -> Generator[float, Any, None]:
-        """Supports tuple unpacking: x, y = pos"""
-        yield self.x
-        yield self.y
+    def __iter__(self):
+        return iter(tuple(getattr(self, field.name) for field in fields(self)))
 
     def __add__(self, other: Pos2D) -> Self:
         return type(self)(self.x + other.x, self.y + other.y)
@@ -43,11 +41,6 @@ class Pos2D:
     
     def distance_to(self, other: Pos2D) -> float:
         return ((self.x - other.x) ** 2 + (self.y - other.y) ** 2) ** 0.5
-    
-    @classmethod
-    def from_tuple(cls, coords: tuple[float, float]) -> Self:
-        """Factory method constructing Pos2D from a tuple."""
-        return cls(coords[0], coords[1])
 
 
 @dataclass(slots=True)
@@ -150,7 +143,8 @@ class ITexture(Protocol):
 @runtime_checkable
 class IGraphicsItem(Protocol):
     """Interface representing a graphics item used internally."""
-    ...
+    def x(self) -> float: ...
+    def y(self) -> float: ...
 
 
 type TupleTextureDescriptor = tuple[str, *tuple[Any, ...]]

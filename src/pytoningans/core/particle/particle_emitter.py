@@ -3,8 +3,8 @@ from __future__ import annotations
 import math, random
 from typing import TYPE_CHECKING, Optional
 
-from PySide6.QtCore import QPointF
 from .types import ParticleConfig
+from ..api import Pos2D
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QGraphicsItem
@@ -21,7 +21,7 @@ class ParticleEmitter:
         self.config: ParticleEmitterConfig = config
 
         # Mutable Runtime State
-        self.pos: QPointF = config.pos
+        self.pos: Pos2D = config.pos
         self.target: Optional[QGraphicsItem] = config.target
         self.time_active: float = 0.0
         self.emission_accumulator: float = 0.0
@@ -29,7 +29,7 @@ class ParticleEmitter:
         self.is_active: bool = True
         self.sub_emitters: list[ParticleEmitter] = []
 
-    def update(self, dt_sec: float, pos_override: Optional[QPointF] = None) -> None:
+    def update(self, dt_sec: float, pos_override: Optional[Pos2D] = None) -> None:
         if not self.is_active or self.is_finished:
             return
 
@@ -38,7 +38,9 @@ class ParticleEmitter:
             if pos_override is not None:
                 self.pos = pos_override
             elif self.target is not None:
-                self.pos = self.target.pos() + self.config.offset
+                target_pos = self.target.pos()
+                conv_pos = Pos2D(target_pos.x(), target_pos.y())
+                self.pos = conv_pos + self.config.offset
 
         # Check total emitter duration
         if self.config.duration is not None:
@@ -60,22 +62,28 @@ class ParticleEmitter:
         cfg: ParticleEmitterConfig = self.config
 
         for _ in range(count):
-            offset_x, offset_y = 0.0, 0.0
+            offset = Pos2D()
+            spawn_pos: Pos2D
+            parent_item: Optional[QGraphicsItem]
             if cfg.spawn_radius > 0.0:
                 angle: float = random.uniform(0, 2 * math.pi)
                 dist: float = random.uniform(0, cfg.spawn_radius)
-                offset_x = math.cos(angle) * dist
-                offset_y = math.sin(angle) * dist
+                offset = Pos2D(
+                    math.cos(angle) * dist,
+                    math.sin(angle) * dist
+                )
 
             if cfg.local_space and self.target is not None:
-                spawn_pos = QPointF(cfg.offset.x() + offset_x, cfg.offset.y() + offset_y)
+                spawn_pos = cfg.offset + offset
                 parent_item = self.target
             else:
-                spawn_pos = QPointF(self.pos.x() + offset_x, self.pos.y() + offset_y)
+                spawn_pos = self.pos + offset
                 parent_item = None
-
-            vx: float = random.uniform(*cfg.velocity_x_range)
-            vy: float = random.uniform(*cfg.velocity_y_range)
+            
+            velocity = Pos2D(
+                random.uniform(*cfg.velocity_x_range),
+                random.uniform(*cfg.velocity_y_range)
+            )
 
             particle_cfg = ParticleConfig.from_emitter_config(
                 cfg,
@@ -88,7 +96,7 @@ class ParticleEmitter:
             particle: Particle = self.manager.spawn(
                 pixmap=cfg.pixmap,
                 pos=spawn_pos,
-                velocity=QPointF(vx, vy),
+                velocity=velocity,
                 config=particle_cfg,
                 parent=parent_item,
             )

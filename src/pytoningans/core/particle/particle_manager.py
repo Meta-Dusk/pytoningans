@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Union, Any
+from typing import TYPE_CHECKING, Optional
 from dataclasses import replace
-from PySide6.QtCore import QPointF
 
 from .particle_emitter import ParticleEmitter
 from .procedural_graphics import ProceduralGraphics
@@ -14,6 +13,7 @@ if TYPE_CHECKING:
     from PySide6.QtWidgets import QGraphicsScene, QGraphicsItem
     from ..entity.base_entity import BaseEntity
     from ..window_tracker import WindowTracker
+    from ..api import Pos2D
     from .types import ParticleConfig, ParticleEmitterConfig, PixmapTypes
 
 
@@ -28,8 +28,8 @@ class ParticleManager:
     def spawn(
         self,
         pixmap: PixmapTypes,
-        pos: QPointF,
-        velocity: QPointF,
+        pos: Pos2D,
+        velocity: Pos2D,
         config: Optional[ParticleConfig] = None,
         parent: Optional[QGraphicsItem] = None,
     ) -> Particle:
@@ -53,8 +53,8 @@ class ParticleManager:
     def spawn_projectile(
         self,
         pixmap: PixmapTypes,
-        pos: QPointF,
-        velocity: QPointF,
+        pos: Pos2D,
+        velocity: Pos2D,
         config: Optional[ParticleConfig] = None,
         parent: Optional[QGraphicsItem] = None,
     ) -> Particle:
@@ -79,8 +79,8 @@ class ParticleManager:
     def spawn_animated_particle(
         self,
         sprite_sheet: PixmapTypes,
-        pos: QPointF,
-        velocity: QPointF,
+        pos: Pos2D,
+        velocity: Pos2D,
         frame_width: int,
         frame_height: int,
         frame_count: int,
@@ -152,10 +152,21 @@ class ParticleManager:
     def clear_all(self) -> None:
         for particle in self.active_particles:
             particle.destroy()
-            if particle.scene():
+            if particle.scene() is not None:
                 self.scene.removeItem(particle)
         self.active_particles.clear()
 
+        for emitter in self.active_emitters:
+            emitter.destroy()
+        self.active_emitters.clear()
+    
+    def clear_particles(self) -> None:
+        for particle in self.active_particles:
+            particle.destroy()
+            if particle.scene() is not None:
+                self.scene.removeItem(particle)
+    
+    def clear_emitters(self) -> None:
         for emitter in self.active_emitters:
             emitter.destroy()
         self.active_emitters.clear()

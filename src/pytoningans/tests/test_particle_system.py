@@ -8,14 +8,15 @@ from PySide6.QtWidgets import (
     QApplication, QGraphicsItem, QMainWindow, QGraphicsView, QGraphicsScene,
     QGraphicsPixmapItem
 )
-from PySide6.QtCore import QPointF, Qt, QPoint, QTimer, QElapsedTimer
+from PySide6.QtCore import Qt, QPoint, QTimer, QElapsedTimer
 from PySide6.QtGui import QPixmap, QColor
 
 from pytoningans.core.window_tracker import WindowTracker
 from pytoningans.core.particle import ParticleManager, ParticlePresets, ParticleConfig
+from pytoningans.core.api import Pos2D
 
 if TYPE_CHECKING:
-    from PySide6.QtCore import QByteArray, QRect
+    from PySide6.QtCore import QByteArray, QRect, QPointF
     from PySide6.QtGui import QKeyEvent
     from PySide6.QtWidgets import QGraphicsSceneMouseEvent
     from pytoningans.core.entity import BaseEntity
@@ -120,7 +121,7 @@ class WorldOverlay(QMainWindow):
             manager=self.particle_manager,
             pixmap=self.dust_pix,
             target=entity,
-            offset=QPointF(32, 60),  # Positioned at foot level
+            offset=Pos2D(32, 60),  # Positioned at foot level
             rate=16.0,
         )
 
@@ -129,7 +130,7 @@ class WorldOverlay(QMainWindow):
             manager=self.particle_manager,
             pixmap=self.aura_pix,
             target=entity,
-            offset=QPointF(32, 32),  # Positioned at sprite center
+            offset=Pos2D(32, 32),  # Positioned at sprite center
             radius=45.0,
             rate=10.0,
             local_space=True
@@ -138,13 +139,13 @@ class WorldOverlay(QMainWindow):
     def launch_window_projectiles(self, count: int = 20) -> None:
         """Launches projectiles that bounce off screen borders and explode on desktop windows."""
         screen_geom: QRect = self.screen_geom
-        origin = QPointF(screen_geom.width() / 2, screen_geom.height() - 100)
+        origin = Pos2D(screen_geom.width() / 2, screen_geom.height() - 100)
 
         for _ in range(count):
             vx: float = random.uniform(-400, 400)
             vy: float = random.uniform(-600, -200)
 
-            def on_hit_win(_: Particle, hit_pos: QPointF):
+            def on_hit_win(_: Particle, hit_pos: Pos2D):
                 ParticlePresets.spark_impact(
                     manager=self.particle_manager,
                     pixmap=self.spark_pix,
@@ -166,7 +167,7 @@ class WorldOverlay(QMainWindow):
             self.particle_manager.spawn(
                 pixmap=self.dot_pix,
                 pos=origin,
-                velocity=QPointF(vx, vy),
+                velocity=Pos2D(vx, vy),
                 config=config
             )
 
@@ -213,7 +214,7 @@ class WorldOverlay(QMainWindow):
                 self.launch_window_projectiles(20)
             case Qt.Key.Key_E:
                 # Explosion burst test at screen center
-                center = QPointF(self.screen_geom.width() / 2, self.screen_geom.height() / 2)
+                center = Pos2D(self.screen_geom.width() / 2, self.screen_geom.height() / 2)
                 ParticlePresets.explode(
                     manager=self.particle_manager,
                     pixmap=self.spark_pix,

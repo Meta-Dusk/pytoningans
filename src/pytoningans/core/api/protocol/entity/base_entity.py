@@ -26,7 +26,6 @@ class IBaseEntity(IGraphicsItem, Protocol):
     is_climbing: bool
     is_cursor_grabbed: bool
     is_following_cursor: bool
-    target_pos: Optional[Pos2D]
     components: dict[str, IComponent]
 
     @property
@@ -37,6 +36,16 @@ class IBaseEntity(IGraphicsItem, Protocol):
     @state.setter
     def state(self, value: Union[str, EntityState, StructureState, ItemState]) -> None:
         """Transitions the entity to a new state, updating animation and callbacks."""
+        ...
+    
+    @property
+    def target_pos(self) -> Optional[Pos2D]:
+        """Destination point the entity is currently moving towards, or None."""
+        ...
+
+    @target_pos.setter
+    def target_pos(self, pos: Optional[Pos2D]) -> None:
+        """Sets the entity's target position."""
         ...
 
     def position(self) -> Pos2D:

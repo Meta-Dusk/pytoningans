@@ -3,9 +3,10 @@ from __future__ import annotations
 import math, random
 from typing import TYPE_CHECKING, Optional
 
-from PySide6.QtCore import QPointF, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QGraphicsPixmapItem
 from .types import ParticleConfig
+from ..api import Pos2D
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QRectF
@@ -23,8 +24,8 @@ class Particle(QGraphicsPixmapItem):
     def __init__(
         self,
         pixmap: QPixmap,
-        pos: QPointF,
-        velocity: QPointF,
+        pos: Pos2D,
+        velocity: Pos2D,
         config: Optional[ParticleConfig] = None,
         particle_manager: Optional[ParticleManager] = None,
         parent: Optional[QGraphicsItem] = None,
@@ -32,11 +33,10 @@ class Particle(QGraphicsPixmapItem):
         super().__init__(pixmap, parent)
         self.config: ParticleConfig = config or ParticleConfig()
 
-        self.setPos(pos)
+        self.setPos(*pos)
         self.setTransformOriginPoint(pixmap.width() / 2.0, pixmap.height() / 2.0)
-
-        self.vx: float = velocity.x()
-        self.vy: float = velocity.y()
+        
+        self.velocity: Pos2D = velocity
         self.time_alive: float = 0.0
         self.is_dead: bool = False
 
@@ -85,10 +85,13 @@ class Particle(QGraphicsPixmapItem):
         self.time_alive += dt_sec
         progress: float = self.time_alive / cfg.lifetime
         if progress >= 1.0:
-            impact_point: QPointF = (
-                self.sceneBoundingRect().center()
+            impact_point: Pos2D = (
+                Pos2D(*self.sceneBoundingRect().center().toTuple())
                 if self.scene() is not None
-                else QPointF(self.x() + self.pixmap().width() / 2, self.y() + self.pixmap().height() / 2)
+                else Pos2D(
+                    self.x() + self.pixmap().width() / 2,
+                    self.y() + self.pixmap().height() / 2
+                )
             )
             if cfg.on_particle_expire_emitter is not None and self.particle_manager is not None:
                 cfg.on_particle_expire_emitter(self.particle_manager, impact_point)
@@ -105,90 +108,101 @@ class Particle(QGraphicsPixmapItem):
             current_scale = 1.0 + (cfg.scale_over_time - 1.0) * progress
             self.setScale(max(0.0, current_scale))
 
-        self._homing_steering(dt_sec)
+        self._handle_homing_steering(dt_sec)
 
         # Physics
         if cfg.gravity != 0.0:
-            self.vy += cfg.gravity * dt_sec
-
-        new_x: float = self.x() + self.vx * dt_sec
-        new_y: float = self.y() + self.vy * dt_sec
+            self.velocity.y += cfg.gravity * dt_sec
+        
+        new_pos = Pos2D(self.x(), self.y())
+        new_pos += self.velocity * dt_sec
 
         # Rotation
         if cfg.orient_to_velocity:
-            speed: float = math.hypot(self.vx, self.vy)
+            speed: float = math.hypot(*self.velocity)
             if speed > 1e-4:
-                self.setRotation(math.degrees(math.atan2(self.vy, self.vx)))
+                self.setRotation(math.degrees(math.atan2(self.velocity.y, self.velocity.x)))
         elif cfg.rotation_speed != 0.0:
             self.setRotation(self.rotation() + cfg.rotation_speed * dt_sec)
 
         # World Bounds
-        bounce = cfg.bounce_bounds if not cfg.local_space else False
+        bounce: bool = cfg.bounce_bounds if not cfg.local_space else False
         if bounce:
             pix_w: int = self.pixmap().width()
             pix_h: int = self.pixmap().height()
-            if new_x <= 0 or new_x + pix_w >= bounds_w:
-                self.vx *= -1
-                new_x = max(0.0, min(new_x, bounds_w - pix_w))
-            if new_y <= 0 or new_y + pix_h >= bounds_h:
-                self.vy *= -1
-                new_y = max(0.0, min(new_y, bounds_h - pix_h))
+            if new_pos.x <= 0 or new_pos.x + pix_w >= bounds_w:
+                self.velocity.x *= -1
+                new_pos.x = max(0.0, min(new_pos.x, bounds_w - pix_w))
+            if new_pos.y <= 0 or new_pos.y + pix_h >= bounds_h:
+                self.velocity.y *= -1
+                new_pos.y = max(0.0, min(new_pos.y, bounds_h - pix_h))
 
-        self.setPos(new_x, new_y)
+        self.setPos(*new_pos)
 
         if not cfg.collide_windows and not cfg.collide_entities:
             return
 
         # Collisions
+        if self._handle_collisions(cfg, window_tracker, new_pos, active_entities):
+            return
+    
+    def _handle_collisions(
+        self, cfg: ParticleConfig, window_tracker: Optional[WindowTracker],
+        new_pos: Pos2D, active_entities: Optional[list[BaseEntity]]
+    ) -> bool:
+        """Returns True if self will be destroyed."""
         if cfg.collide_windows and window_tracker is not None:
-            scene_point: QPointF = (
-                self.mapToScene(QPointF(new_x, new_y)) if cfg.local_space else QPointF(new_x, new_y)
+            scene_point: Pos2D = (
+                self.mapToScene(*new_pos) if cfg.local_space else new_pos
             )
             if window_tracker.check_point_collision(scene_point):
                 if cfg.on_particle_expire_emitter is not None and self.particle_manager is not None:
                     cfg.on_particle_expire_emitter(self.particle_manager, scene_point)
-                if cfg.on_hit_window:
+                if cfg.on_hit_window is not None:
                     cfg.on_hit_window(self, scene_point)
                 self.destroy()
-                return
+                return True
 
         if cfg.collide_entities and active_entities:
             hitbox: QRectF = self.sceneBoundingRect()
             for entity in active_entities:
                 if entity is self.parentItem() or not entity.sceneBoundingRect().intersects(hitbox):
                     continue
-                impact_point: QPointF = hitbox.center()
+                impact_point = Pos2D(*hitbox.center().toTuple())
                 if cfg.on_particle_expire_emitter is not None and self.particle_manager is not None:
                     cfg.on_particle_expire_emitter(self.particle_manager, impact_point)
                 if cfg.on_hit_entity:
                     cfg.on_hit_entity(self, entity)
                 self.destroy()
-                return
+                return True
+        
+        return False
 
-    def _homing_steering(self, dt_sec: float) -> None:
+    def _handle_homing_steering(self, dt_sec: float) -> None:
+        """Handles homing steering behavior."""
         cfg: ParticleConfig = self.config
         if cfg.homing_target is None or cfg.homing_speed <= 0.0:
             return
         if cfg.homing_target.scene() is None or getattr(cfg.homing_target, "is_dead", False):
             return
 
-        target_center: QPointF = cfg.homing_target.sceneBoundingRect().center()
-        my_center: QPointF = (
-            self.sceneBoundingRect().center()
+        target_center: Pos2D = Pos2D(*cfg.homing_target.sceneBoundingRect().center().toTuple())
+        my_center: Pos2D = (
+            Pos2D(*self.sceneBoundingRect().center().toTuple())
             if self.scene() is not None
-            else QPointF(self.x() + self.pixmap().width() / 2, self.y() + self.pixmap().height() / 2)
+            else Pos2D(self.x() + self.pixmap().width() / 2, self.y() + self.pixmap().height() / 2)
         )
-        dx: float = target_center.x() - my_center.x()
-        dy: float = target_center.y() - my_center.y()
+        dx: float = target_center.x - my_center.x
+        dy: float = target_center.y - my_center.y
         dist: float = math.hypot(dx, dy)
         if dist <= 1e-3:
             return
 
-        current_speed: float = math.hypot(self.vx, self.vy)
+        current_speed: float = math.hypot(*self.velocity)
         if current_speed <= 1e-4:
             return
 
-        cur_angle: float = math.atan2(self.vy, self.vx)
+        cur_angle: float = math.atan2(self.velocity.y, self.velocity.x)
         target_angle: float = math.atan2(dy, dx)
         angle_diff: float = (target_angle - cur_angle + math.pi) % (2.0 * math.pi) - math.pi
 
@@ -200,10 +214,13 @@ class Particle(QGraphicsPixmapItem):
         max_turn: float = turn_rate * dt_sec
         turn: float = math.copysign(min(abs(angle_diff), max_turn), angle_diff)
         new_angle: float = cur_angle + turn
-        self.vx = math.cos(new_angle) * current_speed
-        self.vy = math.sin(new_angle) * current_speed
+        self.velocity = Pos2D(
+            math.cos(new_angle) * current_speed,
+            math.sin(new_angle) * current_speed
+        )
 
     def destroy(self) -> None:
+        """Flags itself as dead, and also clears and destroys all attached emitters."""
         if self.is_dead:
             return
         self.is_dead = True

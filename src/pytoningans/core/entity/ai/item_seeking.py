@@ -83,7 +83,7 @@ def default_survival_seeking(ai: AISystem, ground_items: list[IItem]) -> bool:
     my_pos: QPointF = ai.entity.pos()
     nearest: IItem = min(
         healing_items,
-        key=lambda it: math.hypot(it.x() - my_pos.x(), it.y() - my_pos.y())
+        key=lambda i: math.hypot(i.x() - my_pos.x(), i.y() - my_pos.y())
     )
 
     navigate_towards_item(ai, nearest)

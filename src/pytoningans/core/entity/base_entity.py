@@ -30,8 +30,6 @@ if TYPE_CHECKING:
     from ..entity import EntityContextMenu
 
 
-type _UniPos2D = Union[Pos2D, QPointF, tuple[float, float], list[float]]
-
 class BaseEntity(
     EntityCursorMixin,
     EntityDragMixin,
@@ -193,15 +191,13 @@ class BaseEntity(
         return self._target_pos
 
     @target_pos.setter
-    def target_pos(self, pos: Optional[_UniPos2D]) -> None:
+    def target_pos(self, pos: Optional[Pos2D | QPointF]) -> None:
         if pos is None:
             self._target_pos = None
         elif isinstance(pos, QPointF):
             self._target_pos = pos
-        elif isinstance(pos, (tuple, list)) and len(pos) >= 2:
-            self._target_pos = QPointF(float(pos[0]), float(pos[1]))
         elif isinstance(pos, Pos2D):
-            self._target_pos = QPointF(pos.x, pos.y)
+            self._target_pos = QPointF(*pos)
         else:
             self._target_pos = None
 
@@ -210,7 +206,10 @@ class BaseEntity(
         """Returns the world scene coordinates where held items should be positioned, or None."""
         if self.current_hold_offset is None:
             return None
-        return QPointF(self.x() + self.current_hold_offset.x(), self.y() + self.current_hold_offset.y())
+        return QPointF(
+            self.x() + self.current_hold_offset.x(),
+            self.y() + self.current_hold_offset.y()
+        )
 
     @property
     def is_force_idle(self) -> bool:
@@ -224,10 +223,6 @@ class BaseEntity(
         self.target_pos = None
         if not getattr(self, "is_dead", False) and self.anim_sys:
             self.anim_sys.set_state(EntityState.IDLE)
-
-    def set_force_idle(self, enabled: bool) -> None:
-        """Toggles force-idle state where the entity plays idle animations but disables AI and gravity."""
-        self.is_force_idle = enabled
 
     @property
     def move_speed(self) -> float:
@@ -351,10 +346,15 @@ class BaseEntity(
         self.setZValue(self.zValue() + 0.1)
     
     def position(self) -> Pos2D:
-        return cast(Pos2D, QPointF(self.x(), self.y()))
+        """
+        Returns the current position as Pos2D
+        (constructed from `QGraphicsItem.x` and `QGraphicsItem.y`).
+        """
+        return Pos2D(self.x(), self.y())
     
     def setPosition(self, pos: Pos2D) -> None:
-        self.setPos(QPointF(pos.x, pos.y))
+        """Calls `QGraphicsItem.setPos()` by constructing `QPointF` from `Pos2D`."""
+        self.setPos(QPointF(*pos))
 
     def update_systems(
         self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None
