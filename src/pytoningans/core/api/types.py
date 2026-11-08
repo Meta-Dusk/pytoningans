@@ -7,8 +7,8 @@ used across the PyToNingans modding engine.
 from __future__ import annotations
 
 from typing import (
-    TYPE_CHECKING, Protocol, runtime_checkable, Optional, Callable, Any,
-    overload, Union
+    TYPE_CHECKING, Generator, Protocol, runtime_checkable, Optional, Callable, Any,
+    overload, Union, Self
 )
 from enum import StrEnum, unique, IntEnum
 from dataclasses import dataclass
@@ -24,8 +24,30 @@ if TYPE_CHECKING:
 @dataclass(slots=True)
 class Pos2D:
     """Represents a 2D floating-point position in the world."""
-    x: float
-    y: float
+    x: float = 0.0
+    y: float = 0.0
+    
+    def __iter__(self) -> Generator[float, Any, None]:
+        """Supports tuple unpacking: x, y = pos"""
+        yield self.x
+        yield self.y
+
+    def __add__(self, other: Pos2D) -> Self:
+        return type(self)(self.x + other.x, self.y + other.y)
+
+    def __sub__(self, other: Pos2D) -> Self:
+        return type(self)(self.x - other.x, self.y - other.y)
+
+    def __mul__(self, scalar: float) -> Self:
+        return type(self)(self.x * scalar, self.y * scalar)
+    
+    def distance_to(self, other: Pos2D) -> float:
+        return ((self.x - other.x) ** 2 + (self.y - other.y) ** 2) ** 0.5
+    
+    @classmethod
+    def from_tuple(cls, coords: tuple[float, float]) -> Self:
+        """Factory method constructing Pos2D from a tuple."""
+        return cls(coords[0], coords[1])
 
 
 @dataclass(slots=True)

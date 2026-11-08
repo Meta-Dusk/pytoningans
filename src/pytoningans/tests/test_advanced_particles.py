@@ -151,6 +151,7 @@ class WorldOverlay(QMainWindow):
         self.rocket_pix: QPixmap = pg.create_glow_circle(
             8, QColor("orangered"), QColor(255, 69, 0, 0)
         )
+        self.dust_pix: QPixmap = pg.create_dot(5, QColor("orange"))
         self.orb_sheet: QPixmap = generate_animated_orb_spritesheet(32, 32, 4)
 
     def spawn_companion(self, x: float, y: float) -> InteractiveEntity:
@@ -169,14 +170,21 @@ class WorldOverlay(QMainWindow):
         # Spawn an orbiting/looping AnimatedParticle attached to companion
         self.particle_manager.spawn_animated_particle(
             sprite_sheet=self.orb_sheet,
-            pos=QPointF(x + 16, y - 40),
+            pos=QPointF(0.0, 0.0),
             velocity=QPointF(0, 0),
             frame_width=32,
             frame_height=32,
             frame_count=4,
             fps=8.0,
             loop=True,
-            config=config
+            config=config,
+            parent=entity
+        )
+        
+        ParticlePresets.dust_trail(
+            manager=self.particle_manager,
+            pixmap=self.dust_pix,
+            target=entity
         )
 
         return entity

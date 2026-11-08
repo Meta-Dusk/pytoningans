@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, Protocol, Union, runtime_checkable
+from ...types import IGraphicsItem
 
 if TYPE_CHECKING:
     from ...components import IComponent
@@ -9,7 +10,7 @@ if TYPE_CHECKING:
 
 
 @runtime_checkable
-class IBaseEntity(Protocol):
+class IBaseEntity(IGraphicsItem, Protocol):
     """Foundational interface for all entities and structures rendered on desktop."""
     mod_manager: Optional[IModInfo]
     world: Optional[IWorld]
@@ -38,20 +39,19 @@ class IBaseEntity(Protocol):
         """Transitions the entity to a new state, updating animation and callbacks."""
         ...
 
-    def x(self) -> float:
-        """Current X coordinate in world scene space."""
+    def position(self) -> Pos2D:
+        """Current position in world scene space."""
         ...
-
-    def y(self) -> float:
-        """Current Y coordinate in world scene space."""
+    
+    def setPosition(self, pos: Pos2D) -> None:
+        """
+        Directly positions the entity in world scene space.
+        Works exactly the same as `setPos()`.
+        """
         ...
 
     def setPos(self, x: float, y: float) -> None:
         """Directly positions the entity in world scene space."""
-        ...
-
-    def move(self, x: float, y: float) -> None:
-        """Alias for setPos(x, y)."""
         ...
 
     def width(self) -> int:

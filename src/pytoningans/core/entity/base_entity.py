@@ -12,7 +12,7 @@ from ..constants import EntityState, SystemLocks
 from ..entity import AnimationSystem, PhysicsSystem
 from ..entity.indicators import HighlightOutlineItem, DebugHitboxOverlayItem
 from ..api import (
-    BaseEntityBehavior, BaseStructureBehavior, BaseItemBehavior
+    BaseEntityBehavior, BaseStructureBehavior, BaseItemBehavior, Pos2D
 )
 from ..entity.mixins import (
     EntityCursorMixin,
@@ -24,7 +24,7 @@ from ..entity.mixins import (
 )
 
 if TYPE_CHECKING:
-    from ..api import BaseBehavior, Pos2D, IEntity, IItem, IStructure, BaseModPack
+    from ..api import BaseBehavior, IEntity, IItem, IStructure, BaseModPack
     from ..mod_manager import ModManager
     from ..world import WorldOverlay
     from ..entity import EntityContextMenu
@@ -129,7 +129,10 @@ class BaseEntity(
             self._debug_overlay = DebugHitboxOverlayItem(self)
         
         self._debug_overlay.show_hitboxes = not self._debug_overlay.show_hitboxes
-        is_active = self._debug_overlay.show_hitboxes or self._debug_overlay.show_attack_range
+        is_active: bool = (
+            self._debug_overlay.show_hitboxes or
+            self._debug_overlay.show_attack_range
+        )
         self._debug_overlay.setVisible(is_active)
         if is_active:
             self._debug_overlay.update_overlay()
@@ -140,7 +143,10 @@ class BaseEntity(
             self._debug_overlay = DebugHitboxOverlayItem(self)
         
         self._debug_overlay.show_attack_range = not self._debug_overlay.show_attack_range
-        is_active = self._debug_overlay.show_hitboxes or self._debug_overlay.show_attack_range
+        is_active: bool = (
+            self._debug_overlay.show_hitboxes or
+            self._debug_overlay.show_attack_range
+        )
         self._debug_overlay.setVisible(is_active)
         if is_active:
             self._debug_overlay.update_overlay()
@@ -274,10 +280,6 @@ class BaseEntity(
                 dx, self.current_hitbox.y(),
                 self.current_hitbox.width(), self.current_hitbox.height()
             )
-    
-    def move(self, x: float, y: float) -> None:
-        """Convenience method matching the protocol definition."""
-        self.setPos(x, y)
 
     def _setup_ui(self, x: float, y: float) -> None:
         self.setPos(x, y)
@@ -288,7 +290,7 @@ class BaseEntity(
         if self.fade_in_on_spawn:
             self.fade_in()
         
-    def fade_in(self, duration_ms: int = 1000) -> None:
+    def fade_in(self, duration_ms: int = 200) -> None:
         """Smoothly fades in the entity from current opacity (or 0.0) to 1.0."""
         if self._fade_anim is not None:
             self._fade_anim.stop()
@@ -313,7 +315,7 @@ class BaseEntity(
         self._fade_anim = anim
         anim.start()
 
-    def fade_out(self, duration_ms: int = 1000, destroy_on_complete: bool = False) -> None:
+    def fade_out(self, duration_ms: int = 500, destroy_on_complete: bool = False) -> None:
         """Smoothly fades out the entity from current opacity to 0.0."""
         if self._fade_anim is not None:
             self._fade_anim.stop()
@@ -337,13 +339,22 @@ class BaseEntity(
         anim.start()
 
     def width(self) -> int:
+        """Width from the boundingRect but in pixels."""
         return int(self.boundingRect().width())
         
     def height(self) -> int:
+        """Height from the boundingRect but in pixels."""
         return int(self.boundingRect().height())
         
     def toFront(self) -> None:
+        """Increases the z-value by 0.1."""
         self.setZValue(self.zValue() + 0.1)
+    
+    def position(self) -> Pos2D:
+        return cast(Pos2D, QPointF(self.x(), self.y()))
+    
+    def setPosition(self, pos: Pos2D) -> None:
+        self.setPos(QPointF(pos.x, pos.y))
 
     def update_systems(
         self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None

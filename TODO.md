@@ -26,6 +26,7 @@
 
 - [ ] Implement actual idler game mechanics (most likely via a modpack implementation)
 - [ ] Add an optional FPS display (maybe as a new window, or just in the Main Menu)
+- [ ] Add option in settings for manually updating the API
 
 ## Mod Editor Improvements
 
