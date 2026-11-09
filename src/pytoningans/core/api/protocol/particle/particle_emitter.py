@@ -4,23 +4,21 @@ from typing import TYPE_CHECKING, Optional, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from .particle import IParticle
-    from ..entity import IBaseEntity
-    from ...types import Pos2D
+    from .particle_configs import ParticleEmitterConfigDTO
+    from ...types import Pos2D, IGraphicsItem
 
 
 @runtime_checkable
 class IParticleEmitter(Protocol):
     """Interface representing a continuous stream, burst, or trail particle emitter."""
+    config: ParticleEmitterConfigDTO
     pos: Pos2D
-    offset: Pos2D
-    target: Optional[IBaseEntity]
-    local_space: bool
-    rate: float
-    duration: Optional[float]
-    is_active: bool
+    target: Optional[IGraphicsItem]
+    time_active: float
+    emission_accumulator: float
     is_finished: bool
+    is_active: bool
     sub_emitters: list[IParticleEmitter]
-    initial_rotation_range: tuple[float, float]
 
     def burst(self, count: int) -> list[IParticle]:
         """Instantly emits a batch of particles with randomized properties."""

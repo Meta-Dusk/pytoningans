@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional, Callable, Union, Any
 
-from PySide6.QtCore import QPointF
+from ..api import Pos2D
 
 if TYPE_CHECKING:
     from PySide6.QtCore import Qt
@@ -20,12 +20,12 @@ type OptionalOnParticleSpawnEmitterCallback = Optional[
 ]
 
 type OptionalOnParticleExpireEmitterCallback = Optional[
-    Callable[[ParticleManager, QPointF], None]
+    Callable[[ParticleManager, Pos2D], None]
 ]
 
 type OptionalOnExpireCallback = Optional[Callable[[Particle], None]]
 
-type OptionalOnHitWindowCallback = Optional[Callable[[Particle, QPointF], None]]
+type OptionalOnHitWindowCallback = Optional[Callable[[Particle, Pos2D], None]]
 
 type OptionalOnHitEntityCallback = Optional[Callable[[Particle, BaseEntity], None]]
 
@@ -41,11 +41,11 @@ class ParticleEmitterConfig:
     """Single source of truth for emitted particles' visual, physical, and collision properties."""
     
     pixmap: QPixmap
-    pos: QPointF = field(default_factory=QPointF)
+    pos: Pos2D = field(default_factory=Pos2D)
     """Initial position."""
     target: Optional[QGraphicsItem] = None
     """Optional object to attach emitted particles."""
-    offset: QPointF = field(default_factory=QPointF)
+    offset: Pos2D = field(default_factory=Pos2D)
     """Offset based from the `target`."""
     local_space: bool = False
     """Emitted particles stay within the local space (inherited position) of the `target`."""

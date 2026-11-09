@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, cast
-
+from typing import TYPE_CHECKING, Optional
 from PySide6.QtCore import QRect
+
+from .base_mixin import BaseEntityMixin
 from ...settings import SettingsManager
 
 if TYPE_CHECKING:
@@ -12,7 +13,7 @@ if TYPE_CHECKING:
     from ...entity import PhysicsSystem, BaseEntity
 
 
-class EntityWindowMixin:
+class EntityWindowMixin(BaseEntityMixin):
     """Encapsulates desktop window interaction, climbing checks, and window drop seating."""
 
     _ignore_window_physics_override: Optional[bool]
@@ -21,12 +22,11 @@ class EntityWindowMixin:
     physics_sys: Optional[PhysicsSystem]
     current_hitbox: QRect
     velocity_y: float
+    _setup_window_physics_done: bool = False
 
-    def _entity(self) -> BaseEntity:
-        return cast("BaseEntity", self)
-
-    def _init_window_physics(self) -> None:
+    def _setup_window_physics(self) -> None:
         self._ignore_window_physics_override = None
+        self._setup_window_physics_done = True
 
     @property
     def can_climb_walls(self) -> bool:

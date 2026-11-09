@@ -1,23 +1,25 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Optional
+from .base_mixin import BaseEntityMixin
 
 if TYPE_CHECKING:
-    from ...entity.base_entity import BaseEntity
     from ...components.base_component import BaseComponent
 
 
-class EntityComponentMixin:
+class EntityComponentMixin(BaseEntityMixin):
     """Encapsulates component management and lifecycle dispatching for entities."""
 
     components: dict[str, BaseComponent]
+    _setup_components_done: bool = False
 
-    def _init_components(self) -> None:
+    def _setup_components(self) -> None:
         self.components = {}
+        self._setup_components_done = True
 
     def add_component(self, component: BaseComponent) -> BaseComponent:
         """Attaches a component to the entity, setting its owner and firing on_attach."""
-        component.owner = cast("BaseEntity", self)
+        component.owner = self._entity()
         self.components[component.name] = component
         component.on_attach()
         return component

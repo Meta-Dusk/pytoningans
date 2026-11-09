@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
-from PySide6.QtCore import QPointF
+from ..api import Pos2D
 from .types import ParticleEmitterConfig
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ class ParticlePresets:
     def explode(
         manager: ParticleManager,
         pixmap: QPixmap,
-        pos: QPointF,
+        pos: Pos2D,
         count: int = 30,
         speed: float = 300.0,
         gravity: float = 200.0,
@@ -50,9 +50,9 @@ class ParticlePresets:
     def dust_trail(
         manager: ParticleManager,
         pixmap: QPixmap,
-        pos: QPointF = QPointF(0, 0),
+        pos: Pos2D = Pos2D(0, 0),
         target: Optional[QGraphicsItem] = None,
-        offset: QPointF = QPointF(0, 0),
+        offset: Pos2D = Pos2D(0, 0),
         rate: float = 15.0,
         duration: Optional[float] = None,
     ) -> ParticleEmitter:
@@ -79,7 +79,7 @@ class ParticlePresets:
     def spark_impact(
         manager: ParticleManager,
         pixmap: QPixmap,
-        pos: QPointF,
+        pos: Pos2D,
         count: int = 12,
     ) -> list[Particle]:
         """Fast, short-lived sparks emitted when a projectile hits a window or entity."""
@@ -103,9 +103,9 @@ class ParticlePresets:
     def ambient_aura(
         manager: ParticleManager,
         pixmap: QPixmap,
-        pos: QPointF = QPointF(0, 0),
+        pos: Pos2D = Pos2D(0, 0),
         target: Optional[QGraphicsItem] = None,
-        offset: QPointF = QPointF(0, 0),
+        offset: Pos2D = Pos2D(0, 0),
         radius: float = 25.0,
         rate: float = 10.0,
         local_space: bool = False

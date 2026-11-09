@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from typing import (
     TYPE_CHECKING, Protocol, runtime_checkable, Optional, Callable, Any,
-    overload, Union
+    overload, Union, Self
 )
 from enum import StrEnum, unique, IntEnum
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 if TYPE_CHECKING:
     from .protocol import IParticle, IBaseEntity, IParticleEmitter
@@ -24,8 +24,23 @@ if TYPE_CHECKING:
 @dataclass(slots=True)
 class Pos2D:
     """Represents a 2D floating-point position in the world."""
-    x: float
-    y: float
+    x: float = 0.0
+    y: float = 0.0
+    
+    def __iter__(self):
+        return iter(tuple(getattr(self, field.name) for field in fields(self)))
+
+    def __add__(self, other: Pos2D) -> Self:
+        return type(self)(self.x + other.x, self.y + other.y)
+
+    def __sub__(self, other: Pos2D) -> Self:
+        return type(self)(self.x - other.x, self.y - other.y)
+
+    def __mul__(self, scalar: float) -> Self:
+        return type(self)(self.x * scalar, self.y * scalar)
+    
+    def distance_to(self, other: Pos2D) -> float:
+        return ((self.x - other.x) ** 2 + (self.y - other.y) ** 2) ** 0.5
 
 
 @dataclass(slots=True)
@@ -128,7 +143,8 @@ class ITexture(Protocol):
 @runtime_checkable
 class IGraphicsItem(Protocol):
     """Interface representing a graphics item used internally."""
-    ...
+    def x(self) -> float: ...
+    def y(self) -> float: ...
 
 
 type TupleTextureDescriptor = tuple[str, *tuple[Any, ...]]

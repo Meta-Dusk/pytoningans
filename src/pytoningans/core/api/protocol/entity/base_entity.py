@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, Protocol, Union, runtime_checkable
+from typing import TYPE_CHECKING, Optional, Protocol, Union, runtime_checkable
+from ...types import IGraphicsItem
 
 if TYPE_CHECKING:
     from ...components import IComponent
     from ..core import IWorld, IModInfo
-    from ...types import EntityState, IRect, ItemState, StructureState
+    from ...types import EntityState, IRect, ItemState, StructureState, Pos2D
 
 
 @runtime_checkable
-class IBaseEntity(Protocol):
+class IBaseEntity(IGraphicsItem, Protocol):
     """Foundational interface for all entities and structures rendered on desktop."""
     mod_manager: Optional[IModInfo]
     world: Optional[IWorld]
@@ -25,7 +26,6 @@ class IBaseEntity(Protocol):
     is_climbing: bool
     is_cursor_grabbed: bool
     is_following_cursor: bool
-    target_pos: Optional[Any]
     components: dict[str, IComponent]
 
     @property
@@ -37,21 +37,30 @@ class IBaseEntity(Protocol):
     def state(self, value: Union[str, EntityState, StructureState, ItemState]) -> None:
         """Transitions the entity to a new state, updating animation and callbacks."""
         ...
-
-    def x(self) -> float:
-        """Current X coordinate in world scene space."""
+    
+    @property
+    def target_pos(self) -> Optional[Pos2D]:
+        """Destination point the entity is currently moving towards, or None."""
         ...
 
-    def y(self) -> float:
-        """Current Y coordinate in world scene space."""
+    @target_pos.setter
+    def target_pos(self, pos: Optional[Pos2D]) -> None:
+        """Sets the entity's target position."""
+        ...
+
+    def position(self) -> Pos2D:
+        """Current position in world scene space."""
+        ...
+    
+    def setPosition(self, pos: Pos2D) -> None:
+        """
+        Directly positions the entity in world scene space.
+        Works exactly the same as `setPos()`.
+        """
         ...
 
     def setPos(self, x: float, y: float) -> None:
         """Directly positions the entity in world scene space."""
-        ...
-
-    def move(self, x: float, y: float) -> None:
-        """Alias for setPos(x, y)."""
         ...
 
     def width(self) -> int:

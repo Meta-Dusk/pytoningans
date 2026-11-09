@@ -12,7 +12,7 @@ from ..constants import EntityState, SystemLocks
 from ..entity import AnimationSystem, PhysicsSystem
 from ..entity.indicators import HighlightOutlineItem, DebugHitboxOverlayItem
 from ..api import (
-    BaseEntityBehavior, BaseStructureBehavior, BaseItemBehavior
+    BaseEntityBehavior, BaseStructureBehavior, BaseItemBehavior, Pos2D
 )
 from ..entity.mixins import (
     EntityCursorMixin,
@@ -24,13 +24,11 @@ from ..entity.mixins import (
 )
 
 if TYPE_CHECKING:
-    from ..api import BaseBehavior, Pos2D, IEntity, IItem, IStructure
+    from ..api import BaseBehavior, IEntity, IItem, IStructure, BaseModPack
     from ..mod_manager import ModManager
     from ..world import WorldOverlay
     from ..entity import EntityContextMenu
 
-
-type _UniPos2D = Union[Pos2D, QPointF, tuple[float, float], list[float]]
 
 class BaseEntity(
     EntityCursorMixin,
@@ -78,12 +76,13 @@ class BaseEntity(
         self._active_context_menu: Optional[EntityContextMenu] = None
 
         # Initialize modular mixins
-        self._init_tags()
-        self._init_components()
-        self._init_tooltip()
-        self._init_window_physics()
-        self._init_cursor()
-        self._init_drag()
+        self._setup_tags()
+        self._setup_components()
+        self._setup_tooltip()
+        self._setup_window_physics()
+        self._setup_cursor()
+        self._setup_drag()
+        self._verify_mixin_setups()
 
         self._setup_ui(start_x, start_y)
 
@@ -128,7 +127,10 @@ class BaseEntity(
             self._debug_overlay = DebugHitboxOverlayItem(self)
         
         self._debug_overlay.show_hitboxes = not self._debug_overlay.show_hitboxes
-        is_active = self._debug_overlay.show_hitboxes or self._debug_overlay.show_attack_range
+        is_active: bool = (
+            self._debug_overlay.show_hitboxes or
+            self._debug_overlay.show_attack_range
+        )
         self._debug_overlay.setVisible(is_active)
         if is_active:
             self._debug_overlay.update_overlay()
@@ -139,7 +141,10 @@ class BaseEntity(
             self._debug_overlay = DebugHitboxOverlayItem(self)
         
         self._debug_overlay.show_attack_range = not self._debug_overlay.show_attack_range
-        is_active = self._debug_overlay.show_hitboxes or self._debug_overlay.show_attack_range
+        is_active: bool = (
+            self._debug_overlay.show_hitboxes or
+            self._debug_overlay.show_attack_range
+        )
         self._debug_overlay.setVisible(is_active)
         if is_active:
             self._debug_overlay.update_overlay()
@@ -154,7 +159,7 @@ class BaseEntity(
         return self.mod_manager.custom_behavior if self.mod_manager is not None else None
 
     @property
-    def pack(self) -> Optional[Any]:
+    def pack(self) -> Optional[BaseModPack]:
         """Returns the parent ModPack controller if this entity belongs to a modpack, or None."""
         if self.mod_manager is not None and self.mod_manager.pack is not None:
             return self.mod_manager.pack.controller
@@ -186,15 +191,13 @@ class BaseEntity(
         return self._target_pos
 
     @target_pos.setter
-    def target_pos(self, pos: Optional[_UniPos2D]) -> None:
+    def target_pos(self, pos: Optional[Pos2D | QPointF]) -> None:
         if pos is None:
             self._target_pos = None
         elif isinstance(pos, QPointF):
             self._target_pos = pos
-        elif isinstance(pos, (tuple, list)) and len(pos) >= 2:
-            self._target_pos = QPointF(float(pos[0]), float(pos[1]))
         elif isinstance(pos, Pos2D):
-            self._target_pos = QPointF(pos.x, pos.y)
+            self._target_pos = QPointF(*pos)
         else:
             self._target_pos = None
 
@@ -203,7 +206,10 @@ class BaseEntity(
         """Returns the world scene coordinates where held items should be positioned, or None."""
         if self.current_hold_offset is None:
             return None
-        return QPointF(self.x() + self.current_hold_offset.x(), self.y() + self.current_hold_offset.y())
+        return QPointF(
+            self.x() + self.current_hold_offset.x(),
+            self.y() + self.current_hold_offset.y()
+        )
 
     @property
     def is_force_idle(self) -> bool:
@@ -217,10 +223,6 @@ class BaseEntity(
         self.target_pos = None
         if not getattr(self, "is_dead", False) and self.anim_sys:
             self.anim_sys.set_state(EntityState.IDLE)
-
-    def set_force_idle(self, enabled: bool) -> None:
-        """Toggles force-idle state where the entity plays idle animations but disables AI and gravity."""
-        self.is_force_idle = enabled
 
     @property
     def move_speed(self) -> float:
@@ -273,10 +275,6 @@ class BaseEntity(
                 dx, self.current_hitbox.y(),
                 self.current_hitbox.width(), self.current_hitbox.height()
             )
-    
-    def move(self, x: float, y: float) -> None:
-        """Convenience method matching the protocol definition."""
-        self.setPos(x, y)
 
     def _setup_ui(self, x: float, y: float) -> None:
         self.setPos(x, y)
@@ -287,7 +285,7 @@ class BaseEntity(
         if self.fade_in_on_spawn:
             self.fade_in()
         
-    def fade_in(self, duration_ms: int = 1000) -> None:
+    def fade_in(self, duration_ms: int = 200) -> None:
         """Smoothly fades in the entity from current opacity (or 0.0) to 1.0."""
         if self._fade_anim is not None:
             self._fade_anim.stop()
@@ -312,7 +310,7 @@ class BaseEntity(
         self._fade_anim = anim
         anim.start()
 
-    def fade_out(self, duration_ms: int = 1000, destroy_on_complete: bool = False) -> None:
+    def fade_out(self, duration_ms: int = 500, destroy_on_complete: bool = False) -> None:
         """Smoothly fades out the entity from current opacity to 0.0."""
         if self._fade_anim is not None:
             self._fade_anim.stop()
@@ -336,13 +334,27 @@ class BaseEntity(
         anim.start()
 
     def width(self) -> int:
+        """Width from the boundingRect but in pixels."""
         return int(self.boundingRect().width())
         
     def height(self) -> int:
+        """Height from the boundingRect but in pixels."""
         return int(self.boundingRect().height())
         
     def toFront(self) -> None:
+        """Increases the z-value by 0.1."""
         self.setZValue(self.zValue() + 0.1)
+    
+    def position(self) -> Pos2D:
+        """
+        Returns the current position as Pos2D
+        (constructed from `QGraphicsItem.x` and `QGraphicsItem.y`).
+        """
+        return Pos2D(self.x(), self.y())
+    
+    def setPosition(self, pos: Pos2D) -> None:
+        """Calls `QGraphicsItem.setPos()` by constructing `QPointF` from `Pos2D`."""
+        self.setPos(QPointF(*pos))
 
     def update_systems(
         self, dt: int, centers: Optional[dict[BaseEntity, QPointF]] = None
@@ -368,6 +380,8 @@ class BaseEntity(
         self._update_components(dt)
 
     def destroy(self) -> None:
+        self._on_destroy()
+        
         self.release_cursor()
         self.follow_cursor(False)
         self.is_dragged = False
@@ -407,3 +421,13 @@ class BaseEntity(
         self.tint_effect = None
         self.world = None
         self.mod_manager = None
+    
+    def _on_destroy(self) -> None:
+        if self.mod_manager is None or self.mod_manager.custom_behavior is None:
+            return
+        behavior: BaseBehavior = self.mod_manager.custom_behavior
+        if not isinstance(behavior, BaseEntityBehavior): return
+        try:
+            behavior.on_destroy(cast("IEntity", self))
+        except Exception as e:
+            print(f"Custom Entity on_destroy Error: {e}")

@@ -23,9 +23,7 @@ class BaseItem(BaseEntity):
     and supports pickup, drop, use mechanics, and holder tracking.
     """
     def __init__(
-        self,
-        start_x: float,
-        start_y: float,
+        self, start_x: float, start_y: float,
         mod_manager: Optional[ModManager] = None,
         world: Optional[WorldOverlay] = None
     ) -> None:
@@ -90,14 +88,9 @@ class BaseItem(BaseEntity):
             return False
 
         # Custom behavior hook
-        behavior: Optional[BaseBehavior] = self.behavior
-        if isinstance(behavior, BaseItemBehavior):
-            try:
-                allowed: bool = behavior.on_pickup(cast("IItem", self), cast("IEntity", entity))
-                if not allowed: return False
-            except Exception as e:
-                print(f"Custom Item on_pickup Error: {e}")
-                return False
+        on_pick_up_hook: Optional[bool] = self._on_pick_up(entity)
+        if on_pick_up_hook is not None:
+            return on_pick_up_hook
 
         # If target entity is already holding another item, drop it first
         if entity.held_item is not None and entity.held_item is not self:
@@ -114,6 +107,16 @@ class BaseItem(BaseEntity):
         self.state = ItemState.HELD
         self._update_held_position()
         return True
+    
+    def _on_pick_up(self, entity: Entity) -> Optional[bool]:
+        behavior: Optional[BaseBehavior] = self.behavior
+        if not isinstance(behavior, BaseItemBehavior): return None
+        try:
+            allowed: bool = behavior.on_pickup(cast("IItem", self), cast("IEntity", entity))
+            if not allowed: return False
+        except Exception as e:
+            print(f"Custom Item on_pickup Error: {e}")
+            return False
 
     def _update_held_position(self) -> None:
         """Synchronizes the item position and z-stacking with its current holder."""
@@ -165,11 +168,11 @@ class BaseItem(BaseEntity):
         self.state = ItemState.DROPPED
 
         behavior: Optional[BaseBehavior] = self.behavior
-        if isinstance(behavior, BaseItemBehavior):
-            try:
-                behavior.on_drop(cast("IItem", self), cast(Optional["IEntity"], prev_holder))
-            except Exception as e:
-                print(f"Custom Item on_drop Error: {e}")
+        if not isinstance(behavior, BaseItemBehavior): return
+        try:
+            behavior.on_drop(cast("IItem", self), cast(Optional["IEntity"], prev_holder))
+        except Exception as e:
+            print(f"Custom Item on_drop Error: {e}")
 
     def use(self, entity: Optional[Entity] = None) -> bool:
         """
@@ -208,33 +211,35 @@ class BaseItem(BaseEntity):
                 self._update_held_position()
 
         super().update_systems(dt, centers)
-
-        # Ground intersection checks when interactable (not held and not dragged)
-        if self.is_interactable and self.world is not None:
-            item_rect: QRectF = self.sceneBoundingRect()
-            for entity in list(self.world.active_entities):
-                if entity.is_dead or not item_rect.intersects(entity.sceneBoundingRect()):
-                    continue
-
-                if entity is self._last_holder and self._pickup_cooldown > 0:
-                    continue
-
-                # Notify item custom behavior
-                if self._on_interact(entity): break
-
-                # Notify entity custom behavior
-                if self._on_item_interact(entity): break
-
-                # Default engine interaction if not intercepted by mod behaviors
-                if self._default_item_interaction(entity): break
+        self._update_intersect_check()
 
         # Tick custom behavior
         behavior: Optional[BaseBehavior] = self.behavior
-        if isinstance(behavior, BaseItemBehavior):
-            try:
-                behavior.on_update(cast("IItem", self), dt)
-            except Exception as e:
-                print(f"Custom Item on_update Error: {e}")
+        if not isinstance(behavior, BaseItemBehavior): return
+        try:
+            behavior.on_update(cast("IItem", self), dt)
+        except Exception as e:
+            print(f"Custom Item on_update Error: {e}")
+
+    def _update_intersect_check(self) -> None:
+        """Ground intersection checks when interactable (not held and not dragged)."""
+        if not self.is_interactable or self.world is None: return
+        item_rect: QRectF = self.sceneBoundingRect()
+        for entity in list(self.world.active_entities):
+            if entity.is_dead or not item_rect.intersects(entity.sceneBoundingRect()):
+                continue
+
+            if entity is self._last_holder and self._pickup_cooldown > 0:
+                continue
+
+            # Notify item custom behavior
+            if self._on_interact(entity): break
+
+            # Notify entity custom behavior
+            if self._on_item_interact(entity): break
+
+            # Default engine interaction if not intercepted by mod behaviors
+            if self._default_item_interaction(entity): break
     
     def _on_interact(self, entity: Entity) -> bool:
         item_behavior: Optional[BaseBehavior] = self.behavior

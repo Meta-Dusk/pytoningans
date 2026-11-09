@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Optional, cast
 from PySide6.QtCore import QPoint, QPointF
 from PySide6.QtGui import QCursor
 
+from .base_mixin import BaseEntityMixin
 from ...constants import EntityState
 from ...api import BaseEntityBehavior
 
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
     from ...entity import AnimationSystem, BaseEntity
 
 
-class EntityCursorMixin:
+class EntityCursorMixin(BaseEntityMixin):
     """Encapsulates mouse cursor following, grabbing, and struggle breakout mechanics."""
 
     _is_cursor_grabbed: bool
@@ -31,11 +32,9 @@ class EntityCursorMixin:
     world: Optional[WorldOverlay]
     anim_sys: Optional[AnimationSystem]
     facing_left: bool
+    _init_cursor_done: bool = False
 
-    def _entity(self) -> BaseEntity:
-        return cast("BaseEntity", self)
-
-    def _init_cursor(self) -> None:
+    def _setup_cursor(self) -> None:
         self._is_cursor_grabbed = False
         self._cursor_grab_offset = (0, 0)
         self._cursor_grab_duration = None
@@ -43,6 +42,7 @@ class EntityCursorMixin:
         self._last_synced_global_cursor = None
         self._is_following_cursor = False
         self._follow_cursor_min_dist = 30.0
+        self._init_cursor_done = True
 
     @property
     def is_cursor_grabbed(self) -> bool:

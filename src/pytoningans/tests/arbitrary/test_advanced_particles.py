@@ -15,7 +15,9 @@ from pytoningans.core.window_tracker import WindowTracker
 from pytoningans.core.particle import (
     ParticleManager, ParticlePresets, ParticleEmitterConfig, ParticleConfig
 )
+from pytoningans.core.particle.types import TupleTextureDescriptor
 from pytoningans.core.particle import ProceduralGraphics as pg
+from pytoningans.core.api import Pos2D
 
 if TYPE_CHECKING:
     from PySide6.QtCore import QByteArray, QRect
@@ -151,6 +153,7 @@ class WorldOverlay(QMainWindow):
         self.rocket_pix: QPixmap = pg.create_glow_circle(
             8, QColor("orangered"), QColor(255, 69, 0, 0)
         )
+        self.dust_pix: QPixmap = pg.create_dot(5, QColor("orange"))
         self.orb_sheet: QPixmap = generate_animated_orb_spritesheet(32, 32, 4)
 
     def spawn_companion(self, x: float, y: float) -> InteractiveEntity:
@@ -169,14 +172,21 @@ class WorldOverlay(QMainWindow):
         # Spawn an orbiting/looping AnimatedParticle attached to companion
         self.particle_manager.spawn_animated_particle(
             sprite_sheet=self.orb_sheet,
-            pos=QPointF(x + 16, y - 40),
-            velocity=QPointF(0, 0),
+            pos=Pos2D(),
+            velocity=Pos2D(),
             frame_width=32,
             frame_height=32,
             frame_count=4,
             fps=8.0,
             loop=True,
-            config=config
+            config=config,
+            parent=entity
+        )
+        
+        ParticlePresets.dust_trail(
+            manager=self.particle_manager,
+            pixmap=self.dust_pix,
+            target=entity
         )
 
         return entity
@@ -189,7 +199,7 @@ class WorldOverlay(QMainWindow):
             vx: float = random.uniform(-350.0, 350.0)
             vy: float = random.uniform(-600.0, -250.0)
 
-            def on_hit_win(proj: Particle, hit_pos: QPointF) -> None:
+            def on_hit_win(proj: Particle, hit_pos: Pos2D) -> None:
                 assert proj.has_tag("projectile"), "Window projectile missing 'projectile' tag!"
                 # Spawn procedural spark explosion on window contact
                 ParticlePresets.spark_impact(
@@ -212,8 +222,8 @@ class WorldOverlay(QMainWindow):
 
             self.particle_manager.spawn_projectile(
                 pixmap=("glow_circle", 6, "cyan", "transparent"),
-                pos=QPointF(origin.x(), origin.y()),
-                velocity=QPointF(vx, vy),
+                pos=Pos2D(origin.x(), origin.y()),
+                velocity=Pos2D(vx, vy),
                 config=config
             )
 
@@ -240,7 +250,7 @@ class WorldOverlay(QMainWindow):
             config = ParticleEmitterConfig(
                 pixmap=self.smoke_pix,
                 target=missile,
-                offset=QPointF(4.0, 4.0),
+                offset=Pos2D(4.0, 4.0),
                 rate=30.0,
                 velocity_x_range=(-15.0, 15.0),
                 velocity_y_range=(-15.0, 15.0),
@@ -253,7 +263,7 @@ class WorldOverlay(QMainWindow):
             return manager.create_emitter(config=config)
 
         # Sub-Emitter 2 (Expire Cluster Hook): Bursts secondary falling spark cluster when missile dies
-        def cluster_expire_hook(manager: ParticleManager, impact_pos: QPointF) -> None:
+        def cluster_expire_hook(manager: ParticleManager, impact_pos: Pos2D) -> None:
             config = ParticleEmitterConfig(
                 pixmap=self.spark_pix,
                 pos=impact_pos,
@@ -272,7 +282,7 @@ class WorldOverlay(QMainWindow):
         # Create single-burst emitter for the rocket with nested sub-emitters
         config = ParticleEmitterConfig(
             pixmap=self.rocket_pix,
-            pos=QPointF(spawn_x, spawn_y),
+            pos=Pos2D(spawn_x, spawn_y),
             velocity_x_range=(init_vx - 50, init_vx + 50),
             velocity_y_range=(init_vy - 50, init_vy + 50),
             gravity_range=(0.0, 0.0),
@@ -295,8 +305,8 @@ class WorldOverlay(QMainWindow):
         Spawns an array of all procedural shapes
         (dots, squares, rings, glow circles) at screen center.
         """
-        center = QPointF(self.screen_geom.width() / 2.0, self.screen_geom.height() / 2.0)
-        shapes: list[tuple] = [
+        center = Pos2D(self.screen_geom.width() / 2.0, self.screen_geom.height() / 2.0)
+        shapes: list[TupleTextureDescriptor] = [
             ("dot", 8, "yellow"),
             ("square", 14, "magenta"),
             ("ring", 12, 3, "springgreen"),
@@ -321,14 +331,26 @@ class WorldOverlay(QMainWindow):
                 self.particle_manager.spawn(
                     pixmap=shape,
                     pos=center,
-                    velocity=QPointF(vx, vy),
+                    velocity=Pos2D(vx, vy),
                     config=config
                 )
+    
+    def spawn_radial_explosion(self) -> None:
+        center = Pos2D(self.screen_geom.width() / 2.0, self.screen_geom.height() / 2.0)
+        generated_pixmap: QPixmap = pg.resolve_texture(
+            ("glow_circle", 10, "red", "yellow")
+        )
+        ParticlePresets.explode(
+            manager=self.particle_manager,
+            pixmap=generated_pixmap,
+            pos=center,
+            count=35,
+        )
 
     def update_systems(self, dt_sec: float) -> None:
         bounds: QRect = self.screen_geom
 
-        # Update companion entity
+        # Update entities
         for entity in self.entities:
             entity.update_systems(dt_sec, bounds.width(), bounds.height())
 
@@ -371,17 +393,7 @@ class WorldOverlay(QMainWindow):
             case Qt.Key.Key_2:
                 self.spawn_procedural_shapes_burst()
             case Qt.Key.Key_3:
-                # Radial explosion preset
-                center = QPointF(self.screen_geom.width() / 2.0, self.screen_geom.height() / 2.0)
-                generated_pixmap: QPixmap = pg.resolve_texture(
-                    ("glow_circle", 10, "red", "yellow")
-                )
-                ParticlePresets.explode(
-                    manager=self.particle_manager,
-                    pixmap=generated_pixmap,
-                    pos=center,
-                    count=35,
-                )
+                self.spawn_radial_explosion()
             case Qt.Key.Key_C:
                 # Test manager cleanup
                 self.particle_manager.clear_all()

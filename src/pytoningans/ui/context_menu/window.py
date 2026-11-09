@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Any
 
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import QGuiApplication
