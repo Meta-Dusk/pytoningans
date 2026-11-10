@@ -1,6 +1,14 @@
 # Desktop Window Physics
 
-One of the standout features of PyToNingans is its **real-time desktop environment collision system**. Characters do not merely walk across the bottom of your monitor—they recognize other running desktop applications as physical obstacles and platforms.
+One of the main features of PyToNingans is the **real-time desktop environment collision system**.
+To put it simply, characters have the ability to physically interact with the windows you have open
+in your desktop. This behavior is toggleable in the settings as well.
+
+Below are some expected behaviors:
+
+=== "Window Interactions"
+    - **Entity Damage**: You can allow entities to attack windows when they collide with them, and even how they interact.
+    - **The Physics**: Toggleable global setting that makes entities physically interact with windows, by blocking them, and letting them walk on them, etc.
 
 ---
 

@@ -10,11 +10,11 @@ import json, importlib.util, inspect, sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, cast
 
-from ..config_schema import ModPackConfig
+from ..api.modpack import ModPackConfig
 
 if TYPE_CHECKING:
     from ..entity import BaseEntity
-    from ..api import BaseModPack, PackMenuAction, IEntity
+    from ..api import BaseModPack, PackMenuAction, IBaseEntity
 
 
 class ModPack:
@@ -53,7 +53,7 @@ class ModPack:
         """Notifies the pack controller when one of its child entities is spawned."""
         if self.controller is None: return
         try:
-            self.controller.on_entity_spawned(cast(Any, entity))
+            self.controller.on_entity_spawned(cast("IBaseEntity", entity))
         except Exception as e:
             print(f"Error in {self.id} on_entity_spawned: {e}")
 
@@ -63,7 +63,7 @@ class ModPack:
         """
         if self.controller is not None:
             try:
-                return self.controller.get_context_menu_actions(cast("IEntity", entity))
+                return self.controller.get_context_menu_actions(cast("IBaseEntity", entity))
             except Exception as e:
                 print(f"Error in {self.id} get_context_menu_actions: {e}")
         return []

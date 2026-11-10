@@ -1,6 +1,8 @@
 # Mod Architecture & Configuration
 
-PyToNingans is built from the ground up for modding. Each companion or character is a self-contained directory containing its configuration, spritesheets, and sound effects.
+PyToNingans is built from the ground up for modding. Each entity is a self-contained :material-folder: directory
+containing its :material-code-json: configuration, :material-image: spritesheet, and
+:simple-python: optional behavior script.
 
 ---
 
@@ -11,15 +13,32 @@ A standalone entity mod is organized as follows:
 ```text
 mods/
 └── my_cool_character/
-    ├── config.json          # Main manifest, stats, and animation definitions
-    └── sprite_sheet.png     # Grid of character animation frames
+    ├── behavior.py (optional)
+    ├── config.json
+    └── sprite_sheet.png
 ```
+
+> Do note that the file names below needs to be exactly the same!
+
+=== ":material-code-json: `config.json`"
+    This contains the main manifest, stats, and animation definitions.
+    It's best to not modify this manually, as the app auto-generates this via the **Mod Editor**.
+
+=== ":material-image: `sprite_sheet.png`"
+    Grid of character animation frames. Do note that you can edit how the app renders your sprites
+    in the **Mod Editor**.
+
+=== ":simple-python: `behavior.py`"
+    Custom entity behavior. You can easily create one by clicking the **Create...** action button
+    found in the **Behavior ... Options** dropdown section in the **Mod Editor**. For more details on this,
+    you can refer to the **Creating Custom Behaviors** section found in the **Modding** category of the
+    documentation!
 
 ---
 
 ## The `config.json` Manifest
 
-The `config.json` file dictates stats, behaviors, and animation framing.
+Below is an example:
 
 ```json
 {
@@ -69,6 +88,8 @@ The `config.json` file dictates stats, behaviors, and animation framing.
 
 ## Config Versioning
 
-The `config_version` field tracks schema compatibility. The current version is defined by `CURRENT_CONFIG_VERSION` (`10`).
+The `config_version` field tracks schema compatibility. The current version is defined by
+`CURRENT_CONFIG_VERSION` (`10`).
 
-If a community mod was authored for an older schema version, the Community Mod Browser flags it with an **`Outdated Config (vX)`** warning tag, helping users make informed download decisions.
+If a community mod was authored for an older schema version, the Community Mod Browser flags it with an
+**`Outdated Config (vX)`** warning tag, helping users make informed download decisions.

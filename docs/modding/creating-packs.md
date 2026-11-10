@@ -1,33 +1,60 @@
 # Modpacks & Shared Controllers
 
-In addition to single-character mods, PyToNingans supports **Modpacks**—multi-entity bundles capable of executing coordinated behaviors, shared team mechanics, and synchronized events.
+In addition to single-character mods, PyToNingans supports **Modpacks**; multi-entity bundles capable
+of executing coordinated behaviors, shared mechanics, and synchronized events.
 
 ---
 
 ## Modpack Directory Layout
 
-A Modpack bundles multiple entities under a shared controller:
+A Modpack bundles multiple entities under a shared controller. Below is an example:
 
 ```text
 mods/
 └── vocaloid_crew_pack/
-    ├── pack.json            # Modpack manifest and entity roster
-    ├── pack.py              # Shared controller inheriting BaseModPack
-    └── entities/            # Contained entity subdirectories
-        ├── hatsune_miku/
-        │   ├── config.json
-        │   └── sprite_sheet.png
-        ├── kagamine_rin/
-        │   ├── config.json
-        │   └── sprite_sheet.png
-        └── kagamine_len/
+    ├── pack.json
+    ├── pack.py
+    ├── entities/
+    │   ├── hatsune_miku/
+    │   │   ├── config.json
+    │   │   └── sprite_sheet.png
+    │   ├── kagamine_rin/
+    │   │   ├── config.json
+    │   │   └── sprite_sheet.png
+    │   └── kagamine_len/
+    │       ├── config.json
+    │       └── sprite_sheet.png
+    ├── items/
+    │   └── leek/
+    │       ├── config.json
+    │       └── sprite_sheet.png
+    └── structures/
+        └── stage/
+            ├── behavior.py
             ├── config.json
             └── sprite_sheet.png
 ```
 
+=== ":material-code-json: `pack.json`"
+    The modpack manifest and entity roster. Refer to the example below.
+
+=== ":simple-python: `pack.py`"
+    This is the shared controller inheriting the `BaseModPack` class. Refer to the example below.
+
+=== ":material-folder: `entities/`"
+    Contains the entity subdirectories.
+
+=== ":material-folder: `items/`"
+    Contains the item subdirectories.
+
+=== ":material-folder: `structures/`"
+    Contains the structure subdirectories.
+
 ---
 
 ## The `pack.json` Manifest
+
+Below is an example:
 
 ```json
 {
@@ -83,7 +110,7 @@ class PackController(BaseModPack):
 
 ### Key Controller Lifecycle Hooks
 
-* `on_pack_loaded()`: Called when the pack is registered into the game session.
-* `on_entity_spawned(entity_id)`: Fired whenever a member of the pack is spawned.
-* `on_pack_unloaded()`: Cleanup hook when the pack is uninstalled or deactivated.
-* `get_custom_actions()`: Returns action buttons added to the context menu of all member characters.
+- `on_pack_loaded()`: Called when the pack is registered into the game session.
+- `on_entity_spawned(entity_id)`: Fired whenever a member of the pack is spawned.
+- `on_pack_unloaded()`: Cleanup hook when the pack is uninstalled or deactivated.
+- `get_custom_actions()`: Returns action buttons added to the context menu of all member characters.

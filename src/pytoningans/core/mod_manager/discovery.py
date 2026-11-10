@@ -5,11 +5,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
+from ..api.modpack import ModPackConfig
 from ..constants import EntityType
 from .modpack import ModPackRegistry, load_pack_manifest
 
 if TYPE_CHECKING:
-    from .modpack import ModPack, ModPackConfig
+    from .modpack import ModPack
 
 
 IGNORED_MOD_FOLDERS: set[str] = {"api", "__pycache__"}

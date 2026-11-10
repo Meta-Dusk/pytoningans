@@ -6,28 +6,20 @@ The **Application Settings** dialog provides a centralized, categorized control 
 
 ## Dialog Layout & Navigation
 
-The settings window is divided into three intuitive tabs:
+The settings window :smile:
 
-```text
-+-------------------------------------------------------+
-| Application Settings                              [X] |
-+-------------------------------------------------------+
-| [ Combat & Visuals ] [ Spawning ] [ Developer ]       |
-+-------------------------------------------------------+
-|  ... (scrollable tab content) ...                     |
-|                                                       |
-|                                                       |
-+-------------------------------------------------------+
-| [Reset Defaults]                              [Close] |
-+-------------------------------------------------------+
-```
+![PyToNingans App Settings](../assets/images/pyto_app_settings.png)
 
-* **Auto-Resizing & Scroll Protection**: The dialog dynamically auto-sizes based on content and DPI scaling. If your monitor or scaling prevents displaying everything at once, each tab smoothly scrolls without clipping controls or action buttons.
+* **Auto-Resizing & Scroll Protection**: The dialog dynamically auto-sizes based on content and DPI scaling.
+If your monitor or scaling prevents displaying everything at once, each tab smoothly scrolls without clipping
+controls or action buttons.
 * **Manual Resize Grip**: Drag the handle in the bottom-right corner to resize the dialog to your liking.
+
+> The resize grip is present in most of the windows
 
 ---
 
-## 1. Combat & Visuals Tab
+### Combat & Visuals Tab
 
 * **Health Bar Display Mode**: Select between *Show On Damage Only*, *Always Visible*, or *Hidden*.
 * **Auto-Hide Delay**: Set the timeout (1 to 15 seconds) before health bars fade after taking damage.
@@ -38,14 +30,14 @@ The settings window is divided into three intuitive tabs:
 
 ---
 
-## 2. Spawning Tab
+### Spawning Tab
 
 * **Avoid Spawning Over Open Windows**: Directs spawning algorithms to prioritize empty areas of the screen.
 * **Spawn Boundary Area**: Choose between full screen geometry or active desktop workspace bounds.
 
 ---
 
-## 3. Developer Mode Tab
+### Developer Mode Tab
 
 Checking **Enable Developer Mode** unlocks diagnostic testing capabilities:
 
