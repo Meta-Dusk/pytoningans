@@ -8,4 +8,4 @@ It's a lot more efficient if you just hover over items that you're unfamiliar wi
 
 When PyToNingans launches, the central **Control Panel** appears. It provides modular controls divided into two main panels:
 
-![PyToNingans Control Panel v0.8.6](../assets/images/pyto_control_panel.png)
+![PyToNingans Control Panel v0.8.6](assets/images/pyto_control_panel.png)

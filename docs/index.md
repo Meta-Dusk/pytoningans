@@ -1,8 +1,10 @@
 # Welcome to PyToNingans
 
-**PyToNingans** is an extensible, offline-first desktop idler sandbox game and modding platform built with **Python 3.14+** and **PySide6 (Qt)**.
+**PyToNingans** is an extensible, offline-first desktop entities engine, and modding platform built with
+:simple-python: **Python 3.14+** and **PySide6 (:simple-qt: Qt)**.
 
-Characters and companions roam, wander, interact, and battle on your Windows desktop, naturally landing and interacting with the top boundaries of non-maximized application windows.
+Entities (can be items, structures, or just creatures) roam, wander, interact, and battle on your Windows desktop,
+naturally landing and interacting with the shape boundaries of non-maximized application windows.
 
 ```mermaid
 flowchart TD
@@ -35,15 +37,20 @@ flowchart TD
 
 ---
 
-## Disclaimers
+## Disclaimers/Disclosures
 
 The current icon that the app uses, which is this chibi Kasane Teto character, is an asset I do NOT own.
 This will be replaced in the near future however. The reason I chose this asset, is because it's cute.
-That's literally just it :)
+That's literally just it :smiley:
 
 As for other stuff... Yeah, I used AI to help me develop this project, and don't worry; my stance with AI,
 is that I **despise** the use of generative AI with art, which is why all of the assets used in this project,
 will either be made by me, _borrowed_, or commissioned by me.
+
+If you want to know how much AI has helped me with developing this project, I'd say it's rather significant.
+Mostly because there are stuff that I don't have extensive knowledge about, and that's where this
+agentic workflow_ comes in. It's not _vibe coding_, because I don't just tell an AI agent to just
+do everything for me, and it's more of like using it as a tool to support me.
 
 > Assets _borrowed_ are temporary, and will be replaced soon.
 

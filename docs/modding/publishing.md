@@ -19,9 +19,9 @@ PyToNingans operates **offline-first**:
 
 To publish mods or submit ratings, creators authenticate to prevent impersonation and spam uploads:
 
-1. **Email & Password**: Standard account registration with client confirmation.
-2. **Continue with Google**: Secure OAuth 2.0 login in your default browser.
-3. **Continue in Offline Mode**: For offline testing, set up a local creator profile (`@LocalCreator`) without cloud credentials.
+* **Email & Password**: Standard account registration with client confirmation.
+* **Continue with Google**: Secure OAuth 2.0 login in your default browser.
+* **Continue in Offline Mode**: For offline testing, set up a local creator profile (`@LocalCreator`) without cloud credentials.
 
 ---
 
