@@ -1,6 +1,8 @@
 # Security Audit & AST Sandbox
 
-Because community mods and modpacks can include Python scripts (`pack.py`), security and sandboxing are critical. PyToNingans provides an automated **AST (Abstract Syntax Tree) Security Analyzer** and visual **Mod Inspector**.
+Because community mods and modpacks can include :simple-python: Python scripts (`pack.py`),
+security and sandboxing are critical. PyToNingans provides an automated
+**AST (Abstract Syntax Tree) Security Analyzer** and visual **Mod Inspector**.
 
 ---
 
@@ -17,7 +19,8 @@ Before installing or running any mod, you can inspect it directly inside the Mod
 
 ## AST Security Rules
 
-The AST Security Analyzer statically parses Python code without executing it. It checks for unsafe operations and assigns one of three safety ratings:
+The AST Security Analyzer statically parses Python code without executing it.
+It checks for unsafe operations and assigns one of three safety ratings:
 
 ### :material-check: Clean / Passed
 

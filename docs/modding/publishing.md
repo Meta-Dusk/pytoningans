@@ -8,7 +8,7 @@ The **Community Mod Browser** connects players with creators. You can discover, 
 
 PyToNingans operates **offline-first**:
 
-* You do not need an account or internet connection to use the app, manage local mods, or test custom companions.
+* You do not need an account or internet connection to use the app, manage local mods, or test custom entities.
 * The browser launches instantly into **Offline Catalog** mode using local disk cache.
 * Click **Connect to Cloud** at any time to sync live releases from the community Supabase database.
 * Click **Work Offline** to immediately revert to local cache.
@@ -19,9 +19,9 @@ PyToNingans operates **offline-first**:
 
 To publish mods or submit ratings, creators authenticate to prevent impersonation and spam uploads:
 
-1. **Email & Password**: Standard account registration with client confirmation.
-2. **Continue with Google**: Secure OAuth 2.0 login in your default browser.
-3. **Continue in Offline Mode**: For offline testing, set up a local creator profile (`@LocalCreator`) without cloud credentials.
+* **Email & Password**: Standard account registration with client confirmation.
+* **Continue with Google**: Secure OAuth 2.0 login in your default browser.
+* **Continue in Offline Mode**: For offline testing, set up a local creator profile (`@LocalCreator`) without cloud credentials.
 
 ---
 

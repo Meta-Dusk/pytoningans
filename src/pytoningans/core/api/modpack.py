@@ -6,8 +6,8 @@ with shared runtime state, inter-entity communication, and custom context menus.
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable
-from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Callable, Optional
+from dataclasses import asdict, dataclass, field
 
 if TYPE_CHECKING:
     from .protocol import IBaseEntity
@@ -21,14 +21,28 @@ class PackMenuAction:
     tooltip: str = ""
 
 
+@dataclass(slots=True, kw_only=True)
+class ModPackConfig:
+    id: str
+    name: str
+    version: str = "1.0.0"
+    author: str = ""
+    description: str = ""
+    shared_script: str = "pack.py"
+    tags: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 class BaseModPack:
     """
     Base class for shared modpack logic in `pack.py`.
     Provides shared state, lifecycle hooks, and context menu actions for all child entities.
     """
 
-    def __init__(self, pack_info: Any = None) -> None:
-        self.pack_info: Any = pack_info
+    def __init__(self, pack_info: Optional[ModPackConfig] = None) -> None:
+        self.pack_info: Optional[ModPackConfig] = pack_info
         self.shared_state: dict[str, Any] = {}
 
     def on_pack_loaded(self) -> None:
@@ -45,4 +59,3 @@ class BaseModPack:
         an entity belonging to this pack.
         """
         return []
-

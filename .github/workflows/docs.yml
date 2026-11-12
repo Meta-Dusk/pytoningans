@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - stable
+      - experimental
   workflow_dispatch:
 
 permissions:

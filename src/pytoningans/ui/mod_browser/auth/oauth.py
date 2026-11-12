@@ -14,6 +14,7 @@ from pytoningans.core.settings import SettingsManager
 
 from .mixin import BaseAuthMixin
 from .models import AuthSession, UserProfile, is_known_developer
+from ..oauth_handler import OAuthCallbackServer, OAuthCallbackHandler
 
 if TYPE_CHECKING:
     from .manager import AuthManager
@@ -32,8 +33,6 @@ class AuthOAuthMixin(BaseAuthMixin):
         temporary local redirect listener.
         Falls back to a mock offline creator profile when cloud is not configured.
         """
-        from ..oauth_handler import OAuthCallbackServer, OAuthCallbackHandler
-
         prov_key: str = provider.lower()
         prov_name: str = "GitHub" if prov_key == "github" else provider.capitalize()
         manager: AuthManager = self._auth_manager()

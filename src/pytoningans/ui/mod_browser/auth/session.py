@@ -1,35 +1,46 @@
 """
 PyToNingans Mod Browser - Auth Session Persistence and Refresh
 ==============================================================
-Handles loading, saving, and refreshing Supabase auth sessions from disk.
+Handles loading, saving, and refreshing Supabase auth sessions using OS Keychains
+for token storage and disk storage for non-sensitive metadata.
 """
 from __future__ import annotations
 
-import json, threading, time
+import json, threading, time, keyring, logging
 import urllib.request
+import urllib.error
+
+from keyring.errors import PasswordDeleteError
 from dataclasses import asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from pytoningans.utils import get_settings_path
 from pytoningans.core.settings import SettingsManager
-
 from .models import AuthSession, UserProfile, is_known_developer
 
 if TYPE_CHECKING:
     from .config import AuthConfig
 
 
+logger: logging.Logger = logging.getLogger(__name__)
+
+KEYRING_SERVICE_NAME = "PyToNingans"
+KEYRING_ACCOUNT_NAME = "supabase_tokens"
+
+
 class AuthSessionStore:
     """
-    Manages on-disk session persistence and Supabase token refresh.
-    Intended to be used as a component inside AuthManager.
+    Manages session persistence and Supabase token refresh.
+    Tokens are stored securely in the native OS Keychain (macOS / Windows), 
+    while non-sensitive user profile metadata is stored on disk.
     """
 
     def __init__(self, config: AuthConfig) -> None:
         self._config = config
         self._session_path: Path = get_settings_path().parent / "auth_session.json"
         self.current_session: Optional[AuthSession] = None
+        self.is_offline: bool = False
 
     # ------------------------------------------------------------------
     # Session persistence
@@ -37,49 +48,83 @@ class AuthSessionStore:
 
     def load(self, on_refresh: Optional[Callable[[], None]] = None) -> None:
         """
-        Restores a previously saved AuthSession from disk.
-        Triggers a background token refresh when the loaded token is near expiry.
+        Restores user profile metadata from disk and the refresh token from OS Keychain.
+        Triggers a token refresh to obtain a valid access token on launch.
         """
         if not self._session_path.exists():
             return
+
         try:
+            # Fetch non-sensitive user state from disk
             data: dict[str, Any] = json.loads(self._session_path.read_text(encoding="utf-8"))
             user: UserProfile = self._build_user_from_session_data(data.get("user", {}))
+
+            # Fetch ONLY the short refresh token from OS Keychain
+            stored_refresh_token = keyring.get_password(
+                KEYRING_SERVICE_NAME, KEYRING_ACCOUNT_NAME
+            ) or ""
+
             self.current_session = AuthSession(
-                access_token=data.get("access_token", ""),
-                refresh_token=data.get("refresh_token", ""),
+                access_token="",  #? Access token will be populated upon refresh
+                refresh_token=stored_refresh_token,
                 user=user,
                 expires_at=data.get("expires_at", 0.0),
             )
+
+            # Fetch a fresh access token using the valid refresh token
             if (
-                self.current_session.access_token and
-                self.current_session.access_token != "mock_local_token" and
-                time.time() >= self.current_session.expires_at - 120
+                self.current_session.refresh_token and
+                self.current_session.refresh_token != "mock_refresh_token"
             ):
                 target = on_refresh or self.refresh
                 threading.Thread(target=target, daemon=True).start()
-        except Exception:
+        except Exception as e:
+            err_msg: str = f"Failed to load local auth session: {e}"
+            logger.error(err_msg)
+            print(err_msg)
             self.current_session = None
 
     def save(self) -> None:
-        """Writes the current session to disk, or removes the file when signed out."""
+        """
+        Persists the short refresh token to the OS Keychain and user metadata to disk.
+        """
         if self.current_session is None:
             if self._session_path.exists():
                 try:
                     self._session_path.unlink()
                 except Exception:
                     pass
+            try:
+                keyring.delete_password(KEYRING_SERVICE_NAME, KEYRING_ACCOUNT_NAME)
+            except (PasswordDeleteError, Exception):
+                pass
             return
+
         try:
-            payload: dict[str, Any] = {
-                "access_token": self.current_session.access_token,
-                "refresh_token": self.current_session.refresh_token,
+            # Store ONLY the short refresh token in OS Keychain
+            # ?(bypasses Windows 512-byte limit)
+            if self.current_session.refresh_token:
+                keyring.set_password(
+                    KEYRING_SERVICE_NAME,
+                    KEYRING_ACCOUNT_NAME,
+                    self.current_session.refresh_token,
+                )
+
+            # Ensure parent directory exists before writing
+            self._session_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Store non-sensitive metadata on disk
+            metadata_payload: dict[str, Any] = {
                 "expires_at": self.current_session.expires_at,
                 "user": asdict(self.current_session.user),
             }
-            self._session_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        except Exception:
-            pass
+            self._session_path.write_text(
+                json.dumps(metadata_payload, indent=2), encoding="utf-8"
+            )
+        except Exception as e:
+            err_msg: str = f"Failed to save auth session: {e}"
+            logger.error(err_msg)
+            print(err_msg)
 
     # ------------------------------------------------------------------
     # Token refresh
@@ -117,8 +162,29 @@ class AuthSessionStore:
                     self.current_session.expires_at = time.time() + int(data.get("expires_in", 3600))
                     self.save()
                     return True
-        except Exception:
-            pass
+                
+        except urllib.error.HTTPError as err:
+            # 400 / 401: Refresh token invalid or revoked -> perform full logout
+            if err.code in (400, 401):
+                err_msg: str = "Refresh token expired or revoked. Logging out user."
+                logger.warning(err_msg)
+                print(err_msg)
+                self.current_session = None
+                self.save()
+            else:
+                self.is_offline = True
+        except (urllib.error.URLError, TimeoutError, OSError) as err:
+            # Network connection error -> retain session for offline mode
+            err_msg: str = f"Network unavailable during token refresh ({err}). Operating offline."
+            logger.info(err_msg)
+            print(err_msg)
+            self.is_offline = True
+        except Exception as e:
+            err_msg: str = f"Unexpected error during refresh: {e}"
+            logger.error(err_msg)
+            print(err_msg)
+            self.is_offline = True
+            
         return False
 
     def ensure_valid(self) -> bool:
@@ -146,30 +212,30 @@ class AuthSessionStore:
         Deserializes raw session JSON into a UserProfile.
         Applies backward-compatibility provider deduction and badge assignment.
         """
-        u_email: str = user_data.get("email", "creator@pytoningans.local")
-        u_name: str = user_data.get("username", "Modder")
-        u_gh = user_data.get("github_username")
-        u_goog = user_data.get("google_email")
-        u_prov = user_data.get("primary_provider", "email")
-        u_provs: list[str] = list(user_data.get("providers", []))
-        u_provs, u_prov, u_gh, u_goog = self._resolve_providers(
-            user_data, u_provs, u_prov, u_gh, u_goog, u_name
+        user_email: str = user_data.get("email", "creator@pytoningans.local")
+        user_name: str = user_data.get("username", "Modder")
+        user_gh = user_data.get("github_username")
+        user_goog = user_data.get("google_email")
+        user_prov = user_data.get("primary_provider", "email")
+        user_provs: list[str] = list(user_data.get("providers", []))
+        user_provs, user_prov, user_gh, user_goog = self._resolve_providers(
+            user_data, user_provs, user_prov, user_gh, user_goog, user_name
         )
-        u_cust = self._resolve_custom_avatar(user_data)
-        is_dev, badges = self._resolve_developer_and_badges(user_data, u_name, u_gh, u_provs)
+        user_cust = self._resolve_custom_avatar(user_data)
+        is_dev, badges = self._resolve_developer_and_badges(user_data, user_name, user_gh, user_provs)
 
         return UserProfile(
             id=user_data.get("id", "local_user"),
-            email=u_email,
-            username=u_name,
+            email=user_email,
+            username=user_name,
             created_at=user_data.get("created_at", ""),
             avatar_url=user_data.get("avatar_url"),
-            custom_avatar_path=u_cust,
+            custom_avatar_path=user_cust,
             bio=user_data.get("bio", ""),
-            primary_provider=u_prov,
-            providers=u_provs,
-            github_username=u_gh,
-            google_email=u_goog,
+            primary_provider=user_prov,
+            providers=user_provs,
+            github_username=user_gh,
+            google_email=user_goog,
             email_verified=user_data.get("email_verified", False),
             is_developer=is_dev,
             badges=badges,
@@ -178,57 +244,54 @@ class AuthSessionStore:
     @staticmethod
     def _resolve_providers(
         user_data: dict[str, Any],
-        u_provs: list[str],
-        u_prov: str,
-        u_gh: Optional[str],
-        u_goog: Optional[str],
-        u_name: str,
+        user_provs: list[str],
+        user_prov: str,
+        user_gh: Optional[str],
+        user_goog: Optional[str],
+        user_name: str,
     ) -> tuple[list[str], str, Optional[str], Optional[str]]:
         """
         Applies backward-compatible provider list deduction and fills in
         github_username / google_email from context where missing.
         """
-        # Backward compatibility: single provider entry
-        if not u_provs and u_prov:
-            u_provs = [u_prov]
+        if not user_provs and user_prov:
+            user_provs = [user_prov]
 
         avatar_url_str: str = str(user_data.get("avatar_url", "")).lower()
 
-        # GitHub provider detection
         if (
             avatar_url_str and
             "github" in avatar_url_str or
-            u_gh is not None or
-            u_prov == "github" or
-            "github" in u_provs
+            user_gh is not None or
+            user_prov == "github" or
+            "github" in user_provs
         ):
-            if "github" not in u_provs:
-                u_provs.append("github")
-            u_prov = "github"
-            if not u_gh and "github" in u_provs:
-                u_gh = u_name
+            if "github" not in user_provs:
+                user_provs.append("github")
+            user_prov = "github"
+            if not user_gh and "github" in user_provs:
+                user_gh = user_name
 
-        # Google provider detection — only when genuinely linked via Google OAuth
-        if "google" in avatar_url_str or u_prov == "google":
-            if "google" not in u_provs:
-                u_provs.append("google")
-        if "google" not in u_provs and u_prov != "google":
-            u_goog = None
+        if "google" in avatar_url_str or user_prov == "google":
+            if "google" not in user_provs:
+                user_provs.append("google")
+        if "google" not in user_provs and user_prov != "google":
+            user_goog = None
 
-        return u_provs, u_prov, u_gh, u_goog
+        return user_provs, user_prov, user_gh, user_goog
 
     @staticmethod
     def _resolve_custom_avatar(user_data: dict[str, Any]) -> Optional[str]:
         """Returns a valid custom avatar path from session data or SettingsManager fallback."""
-        u_avatar = user_data.get("custom_avatar_path")
-        if not u_avatar:
+        user_avatar: Optional[str] = user_data.get("custom_avatar_path")
+        if user_avatar is None:
             try:
-                s_avatar = SettingsManager.get().settings.creator_avatar_path
-                if s_avatar and Path(s_avatar).is_file():
-                    u_avatar = s_avatar
+                settings_avatar: str = SettingsManager.get().settings.creator_avatar_path
+                if settings_avatar and Path(settings_avatar).is_file():
+                    user_avatar = settings_avatar
             except Exception:
                 pass
-        return u_avatar or None
+        return user_avatar or None
 
     @staticmethod
     def _resolve_developer_and_badges(
@@ -238,7 +301,7 @@ class AuthSessionStore:
         providers: list[str],
     ) -> tuple[bool, list[str]]:
         """Resolves developer status and assembles the badge list for the user."""
-        is_dev = user_data.get("is_developer")
+        is_dev: Optional[bool] = user_data.get("is_developer")
         if is_dev is None:
             is_dev = is_known_developer(
                 user_id=str(user_data.get("id", "")),

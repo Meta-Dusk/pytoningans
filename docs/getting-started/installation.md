@@ -2,7 +2,9 @@
 
 PyToNingans is initially built for Windows environments, which means that I haven't tested
 the app in other Operating Systems. Setting up the app is very straightforward, as you only
-need to download the installer in the **Releases** section in the :simple-github: GitHub repository!
+need to download the installer in the
+[**Releases** section](https://github.com/Meta-Dusk/pytoningans/releases) in the
+:simple-github: [GitHub repository](https://github.com/Meta-Dusk/pytoningans)!
 
 ---
 

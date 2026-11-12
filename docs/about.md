@@ -1,9 +1,15 @@
 # About
 
-> An app about putting little creatures on your desktop... Like Teto :)
+That was the original premise, but now after expanding on the idea so much, it's no longer just a "Desktop Pets" app... It's uh,
+something like a **Desktop Entities Engine Platform**? I'm unsure about the terminology because, well... Yeah; It has modding
+capabilities built-in, a way to easily create your own entities that can roam around and interact with you desktop, and even
+an _optional_ platform where users of this application can just upload their mods/modpacks they have made. It's optional, because
+you don't really have to upload to _my_ database, meaning; you can just host your own!
 
-That was the original premise, but now the "app" has now taken a new form! It resembles a game more, so
-it's now more of an **Idler Sandbox Game**.
+It's all about flexibility over here, and giving people the tools to also be able to reasonably recreate,
+what I have done here with this entire project so far.
+
+![Current Application Icon](assets/icon.png)
 
 ---
 

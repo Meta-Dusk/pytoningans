@@ -1,6 +1,7 @@
 # Combat & Visual Feedback
 
-PyToNingans features a dynamic combat feedback system designed to provide responsive visual indicators while keeping screen clutter minimal.
+PyToNingans features a dynamic combat feedback system designed to provide responsive visual indicators
+while keeping screen clutter minimal.
 
 ---
 
@@ -20,7 +21,8 @@ You can tailor how and when character health bars are rendered on screen:
 
 ### Floating Damage Numbers
 
-When an attack connects, animated floating numbers pop up and float upward above the target, displaying the exact damage dealt with critical hit emphasis.
+When an attack connects, animated floating numbers pop up and float upward above the target,
+displaying the exact damage dealt with critical hit emphasis.
 
 ### Damage Impact Shake
 
@@ -28,10 +30,12 @@ Taking a heavy hit causes the health bar to shake proportionally to the damage t
 
 ### Numerical HP Display
 
-Toggles the numerical display of current health and maximum health (e.g., `85 / 100`) centered directly inside the health bar gauge.
+Toggles the numerical display of current health and maximum health (e.g., `85 / 100`) centered directly inside the
+health bar gauge.
 
 ---
 
 ## Configuring Feedback
 
-All visual combat features are customizable in **Settings** $\rightarrow$ **Combat & Visuals**. Adjustments apply instantly to all active entities without restarting the game.
+All visual combat features are customizable in **Settings** :material-arrow-right: **Combat & Visuals**.
+Adjustments apply instantly to all active entities without restarting the game.

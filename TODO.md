@@ -21,6 +21,9 @@
 
 - [ ] Make sure to bundle a modpack (such as the idle game part) in the installer, to fulfil the "Idler" and "Game" tags of the project
 - [ ] Verify Branding in Google Cloud console for the app
+- [ ] Fix mod/pack updating feature not actually working (installs a differently named folder)
+- [ ] Remove the "Custom Server (Advanced)" hyperlink in the account settings window
+- [ ] Fix the `pack.json` modpack manifest, as it lacks fields
 
 ## Main Features
 

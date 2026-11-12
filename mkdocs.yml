@@ -118,6 +118,10 @@ nav:
       - Modpacks & Shared Controllers: modding/creating-packs.md
       - Security Audit & AST Sandbox: modding/inspector-audit.md
       - Community Hub & Cloud Publishing: modding/publishing.md
+      - Behaviors:
+          - Scripts and Folder Structure: modding/behaviors/start.md
+          - Example Mod Behavior: modding/behaviors/example-mod.md
+          - Example Pack Behavior: modding/behaviors/example-pack.md
   - API Reference:
       - Documentation: api/reference.md
       - Modpack Controller: api/modpack.md

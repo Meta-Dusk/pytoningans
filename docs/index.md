@@ -1,8 +1,10 @@
 # Welcome to PyToNingans
 
-**PyToNingans** is an extensible, offline-first desktop idler sandbox game and modding platform built with **Python 3.14+** and **PySide6 (Qt)**.
+**PyToNingans** is an extensible, offline-first desktop entities engine, and modding platform built with
+:simple-python: **Python 3.14+** and **PySide6 (:simple-qt: Qt)**.
 
-Characters and companions roam, wander, interact, and battle on your Windows desktop, naturally landing and interacting with the top boundaries of non-maximized application windows.
+Entities (can be items, structures, or just creatures) roam, wander, interact, and battle on your Windows desktop,
+naturally landing and interacting with the shape boundaries of non-maximized application windows.
 
 ```mermaid
 flowchart TD
@@ -35,14 +37,33 @@ flowchart TD
 
 ---
 
+## Disclaimers/Disclosures
+
+The current icon that the app uses, which is this chibi Kasane Teto character, is an asset I do NOT own.
+This will be replaced in the near future however. The reason I chose this asset, is because it's cute.
+That's literally just it :smiley:
+
+As for other stuff... Yeah, I used AI to help me develop this project, and don't worry; my stance with AI,
+is that I **despise** the use of generative AI with art, which is why all of the assets used in this project,
+will either be made by me, _borrowed_, or commissioned by me.
+
+If you want to know how much AI has helped me with developing this project, I'd say it's rather significant.
+Mostly because there are stuff that I don't have extensive knowledge about, and that's where this
+agentic workflow_ comes in. It's not _vibe coding_, because I don't just tell an AI agent to just
+do everything for me, and it's more of like using it as a tool to support me.
+
+> Assets _borrowed_ are temporary, and will be replaced soon.
+
+---
+
 ## Key Features
 
 === "Desktop Sandbox"
-    - **Transparent Overlay**: Frameless, click-through overlay that coexists seamlessly with your daily workflow.
+    - **Transparent Overlay**: Frameless, click-through overlay that _attempts to_ coexists seamlessly with your daily workflow. This is also known as the _World Overlay_.
     - **Desktop Window Physics**: Entities walk, jump, and stand on the borders of your active desktop application windows using low-level Win32 window hit-testing.
-    - **Dynamic Spawning**: Spawn individual entities, full crews, or define desktop spawn exclusion rules.
-    - **Entity Interactions**: Entities can be made to interact with each other, or even your windows as physics, or just detect the window names for dialogue triggers and such.
-    - **Particle System**: Spawn particles for visual flair or make them act as projectiles, with both being able to physically interact with entities and windows on your desktop.
+    - **Dynamic Spawning**: Spawn individual or multiples of entities, and even define desktop spawn exclusion rules.
+    - **Entity Interactions**: Entities can be made to interact with each other, or even your OS windows as physics, or just detect the window names for dialogue triggers and such.
+    - **Particle System**: Spawn particles for visual flair or make them act as projectiles, with both being able to physically interact with entities and OS windows on your desktop.
 
 === "Combat & Visuals"
     - **Interactive Combat**: Characters can battle and unleash animated attacks on your screen.
@@ -50,7 +71,7 @@ flowchart TD
     - **Minimalistic Themes**: I'm not that good of a UI designer, so I made it minimalistic instead.
 
 === "Community & Modding"
-    - **Rich Modpacks**: Group multiple entities into cohesive bundles with shared controllers (`BaseModPack`) and global state.
+    - **Modpacks**: Group multiple entities into cohesive bundles with shared controllers (`BaseModPack`) and global state.
     - **Safety First**: Integrated AST security analyzer checks imported packages for prohibited modules before execution.
     - **Offline-First Mod Browser**: Discover, install, rate, and update community mods without mandatory logins.
     - **Upload Your Mods**: You can publish your own mods if you login with a verified sign-in provider.

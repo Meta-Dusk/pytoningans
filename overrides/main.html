@@ -1,7 +1,18 @@
 {% extends "base.html" %} {% block extrahead %} {{ super() }}
 <!-- Google Search Console Site Verification -->
 <meta
-    name="google-site-verification"
-    content="GKjuSbygDq6uZDNdch79644Fs5tDZ3iy4l_AyVZomC4"
+  name="google-site-verification"
+  content="GKjuSbygDq6uZDNdch79644Fs5tDZ3iy4l_AyVZomC4"
 />
+<script
+  async
+  src="https://www.googletagmanager.com/gtm.js?id=GTM-PXMLSJ4Z"
+></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag() {
+    dataLayer.push(arguments);
+  }
+  gtag("js", new Date());
+</script>
 {% endblock %}

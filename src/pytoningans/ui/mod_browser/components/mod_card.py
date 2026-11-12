@@ -90,10 +90,12 @@ class ModCardWidget(QFrame):
                 badge.setToolTip("Pending verification by an admin.")
         return badge
     
-    # TODO: Figure out a way to securely get verifier handle
     def _get_verifier_name(self) -> str:
         """Returns the display name of the user who verified this mod."""
         if self.mod_item.verified_by is not None:
+            name: Optional[str] = AuthManager.get().get_user_name_by_uuid(self.mod_item.verified_by)
+            if name:
+                return name
             return f"User {self.mod_item.verified_by[:8]}"
         return "Unknown"
 
