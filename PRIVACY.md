@@ -51,5 +51,5 @@ Your profile information is retained for as long as your creator account remains
 
 If you have questions, concerns, or requests regarding this Privacy Policy, please open an issue on the [PyToNingans GitHub Repository](https://github.com/Meta-Dusk/pytoningans) or contact the project developer at:
 
-- **Email:** [Main Email](andredcxxv@gmail.com) | [Dev Email](metadusk.dev@gmail.com)
+- **Email:** [Dev Email](metadusk.dev@gmail.com)
 - **GitHub:** <https://github.com/Meta-Dusk>

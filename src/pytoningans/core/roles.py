@@ -29,7 +29,8 @@ def load_cached_roles() -> dict[str, dict[str, str]]:
     {
         "user_ids": { "uuid": "role" },
         "handles": { "handle_lower": "role" },
-        "github": { "uuid_or_handle": "github_username" }
+        "github": { "uuid_or_handle": "github_username" },
+        "names": { "uuid": "original_handle" }
     }
     """
     cache_path: Path = get_roles_cache_path()
@@ -37,6 +38,7 @@ def load_cached_roles() -> dict[str, dict[str, str]]:
         "user_ids": {},
         "handles": {},
         "github": {},
+        "names": {},
     }
     if cache_path.is_file():
         try:
@@ -54,6 +56,10 @@ def load_cached_roles() -> dict[str, dict[str, str]]:
                     str(k).lower(): str(v)
                     for k, v in data.get("github", {}).items()
                 }
+                roles["names"] = {
+                    str(k): str(v)
+                    for k, v in data.get("names", {}).items()
+                }
         except Exception:
             pass
     return roles
@@ -69,15 +75,19 @@ def save_cached_roles(raw_rows: list[dict[str, Any]]) -> None:
         "user_ids": {},
         "handles": {},
         "github": {},
+        "names": {},
     }
     for row in raw_rows:
         uid: str = str(row.get("user_id") or "").strip()
         role: str = str(row.get("role") or "developer").strip().lower()
-        handle: str = str(row.get("handle") or "").strip().lower()
+        orig_handle: str = str(row.get("handle") or "").strip()
+        handle: str = orig_handle.lower()
         gh: str = str(row.get("github_username") or "").strip()
 
         if uid:
             roles["user_ids"][uid] = role
+            if orig_handle:
+                roles["names"][uid] = orig_handle
             if gh:
                 roles["github"][uid] = gh
         if handle:
@@ -147,3 +157,14 @@ def get_github_for_creator(user_id: str = "", handle: str = "") -> Optional[str]
     if clean_handle and clean_handle in gh_map:
         return gh_map.get(clean_handle)
     return None
+
+
+def get_creator_name_by_id(user_id: str = "") -> Optional[str]:
+    """Retrieves creator handle/display name for a user_id UUID if registered in creator_roles."""
+    if not user_id:
+        return None
+    cached: dict[str, dict[str, str]] = load_cached_roles()
+    return (
+        cached.get("names", {}).get(user_id) or
+        cached.get("github", {}).get(user_id)
+    )

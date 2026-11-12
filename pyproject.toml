@@ -3,12 +3,9 @@ name = "pytoningans"
 version = "0.8.6"
 description = "A PySide6 Desktop Idler Sandbox Game"
 readme = "README.md"
-authors = [{ name = "MetaDusk", email = "andredcxxv@gmail.com" }]
+authors = [{ name = "MetaDusk", email = "metadusk.dev@gmail.com" }]
 requires-python = ">=3.14"
-dependencies = [
-    "keyring>=25.7.0",
-    "pyside6>=6.11.2,<6.12.0",
-]
+dependencies = ["keyring>=25.7.0", "pyside6>=6.11.2,<6.12.0"]
 
 [project.scripts]
 pytoningans = "pytoningans:main"

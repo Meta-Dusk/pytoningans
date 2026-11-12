@@ -5,24 +5,146 @@ Creator profile reading, local persistence, and cloud sync via Supabase Auth RES
 """
 from __future__ import annotations
 
-import json
+import json, uuid
 import urllib.error, urllib.request
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
+from pytoningans.core.roles import get_creator_name_by_id, save_cached_roles
 from pytoningans.core.settings import SettingsManager
 
 from .mixin import BaseAuthMixin
 from .models import is_known_developer
 
 if TYPE_CHECKING:
+    from .config import AuthConfig
     from .manager import AuthManager
-    from .models import UserProfile
-    from ..auth.models import AuthSession
-    from ..auth.session import AuthSessionStore
+    from .models import UserProfile, AuthSession
+    from .session import AuthSessionStore
 
 
-class AuthProfileMixin(BaseAuthMixin):
+class AuthUserLookupMixin(BaseAuthMixin):
+    """
+    Mixin that provides secure lookup of creator/user display names by user UUID.
+    Caches resolved handles in memory and locally on disk via creator_roles.
+    """
+    _uuid_name_cache: dict[str, str] = {}
+
+    def get_user_name_by_uuid(
+        self,
+        user_id: str,
+        fetch_remote: bool = True,
+    ) -> Optional[str]:
+        """
+        Securely retrieves a creator/admin username via their account UUID.
+
+        Lookup order:
+        1. In-memory session cache (instantaneous).
+        2. Active user session (if UUID matches the current signed-in user).
+        3. Local disk cache of public.creator_roles (offline-safe).
+        4. Supabase Cloud PostgREST query to public.creator_roles (viewable by everyone).
+        5. Supabase Cloud PostgREST query to public.mods (fallback author_name lookup).
+
+        Security guarantees:
+        - Validates that user_id conforms to RFC 4122 UUID syntax to prevent PostgREST URL injection.
+        - Sanitizes returned username strings.
+        - Network failures and timeouts fail gracefully without raising exceptions.
+        """
+        if not user_id:
+            return None
+
+        clean_id: str = str(user_id).strip()
+
+        # Strict RFC 4122 UUID validation to prevent PostgREST parameter injection
+        try:
+            parsed_uuid = uuid.UUID(clean_id)
+            canonical_uuid: str = str(parsed_uuid)
+        except (ValueError, AttributeError, TypeError):
+            return None
+
+        # 1. In-memory cache
+        if canonical_uuid in self._uuid_name_cache:
+            return self._uuid_name_cache[canonical_uuid]
+
+        # 2. Active user session check
+        user: Optional[UserProfile] = self._current_user()
+        if user is not None and user.id == canonical_uuid and user.username:
+            self._uuid_name_cache[canonical_uuid] = user.username
+            return user.username
+
+        # 3. Local cached creator roles
+        cached_name: Optional[str] = get_creator_name_by_id(canonical_uuid)
+        if cached_name:
+            self._uuid_name_cache[canonical_uuid] = cached_name
+            return cached_name
+
+        # 4. Remote fetch from Supabase Cloud if allowed and configured
+        if fetch_remote:
+            remote_name: Optional[str] = self._fetch_creator_name_from_cloud(canonical_uuid)
+            if remote_name:
+                self._uuid_name_cache[canonical_uuid] = remote_name
+                return remote_name
+
+        return None
+
+    def get_creator_name_by_uuid(
+        self,
+        user_id: str,
+        fetch_remote: bool = True,
+    ) -> Optional[str]:
+        """Alias for get_user_name_by_uuid."""
+        return self.get_user_name_by_uuid(user_id, fetch_remote=fetch_remote)
+
+    def _fetch_creator_name_from_cloud(self, user_uuid: str) -> Optional[str]:
+        """Queries Supabase REST API for the creator's handle."""
+        manager: Optional[AuthManager] = self._auth_manager()
+        if manager is None or not manager.is_cloud_configured:
+            return None
+
+        store: AuthSessionStore = manager._store
+        config: AuthConfig = store._config
+
+        # Query public.creator_roles (viewable by everyone)
+        endpoint: str = config.auth_endpoint(
+            f"/rest/v1/creator_roles?user_id=eq.{user_uuid}&select=handle,github_username,role"
+        )
+        headers: dict[str, str] = config.build_headers()
+
+        req = urllib.request.Request(endpoint, headers=headers, method="GET")
+        try:
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                data: list[dict[str, Any]] = json.loads(resp.read().decode("utf-8"))
+                if data and isinstance(data, list) and len(data) > 0:
+                    first: dict[str, Any] = data[0]
+                    name: str = str(first.get("handle") or first.get("github_username") or "").strip()
+                    if name:
+                        try:
+                            save_cached_roles(data)
+                        except Exception:
+                            pass
+                        return name
+        except Exception:
+            pass
+
+        # Query public.mods author_name fallback
+        mods_endpoint: str = config.auth_endpoint(
+            f"/rest/v1/mods?author_id=eq.{user_uuid}&select=author_name&limit=1"
+        )
+        req_mods = urllib.request.Request(mods_endpoint, headers=headers, method="GET")
+        try:
+            with urllib.request.urlopen(req_mods, timeout=4) as resp:
+                data: list[dict[str, Any]] = json.loads(resp.read().decode("utf-8"))
+                if data and isinstance(data, list) and len(data) > 0:
+                    author_name: str = str(data[0].get("author_name") or "").strip()
+                    if author_name:
+                        return author_name
+        except Exception:
+            pass
+
+        return None
+
+
+class AuthProfileMixin(AuthUserLookupMixin):
     """
     Mixin that provides creator profile read/write operations for AuthManager.
     Requires the host class to expose: _store, _config, current_user,

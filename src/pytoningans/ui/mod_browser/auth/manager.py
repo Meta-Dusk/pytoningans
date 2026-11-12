@@ -7,7 +7,8 @@ into a single, unified authentication manager for the mod browser.
 from __future__ import annotations
 
 import threading
-from typing import Optional
+import urllib.request
+from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QObject, Signal
 
@@ -17,6 +18,9 @@ from .models import UserProfile
 from .profile import AuthProfileMixin
 from .sign_in import AuthSignInMixin
 from .oauth import AuthOAuthMixin
+
+if TYPE_CHECKING:
+    from ..oauth_handler import OAuthCallbackServer
 
 
 class AuthManager(QObject, AuthProfileMixin, AuthSignInMixin, AuthOAuthMixin):
@@ -41,7 +45,7 @@ class AuthManager(QObject, AuthProfileMixin, AuthSignInMixin, AuthOAuthMixin):
         super().__init__()
         self._config = AuthConfig()
         self._store = AuthSessionStore(self._config)
-        self._oauth_server = None
+        self._oauth_server: Optional[OAuthCallbackServer] = None
         self._oauth_thread: Optional[threading.Thread] = None
             
         self._store.load(on_refresh=self._on_refresh)
@@ -99,8 +103,6 @@ class AuthManager(QObject, AuthProfileMixin, AuthSignInMixin, AuthOAuthMixin):
         """
         Clears local authentication session, notifies cloud if connected, and emits signal.
         """
-        import urllib.request
-
         if (
             self.is_cloud_configured and
             self._store.current_session and

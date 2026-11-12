@@ -420,18 +420,23 @@ class PublishModDialog(QDialog):
         verified_by: Optional[str] = item.verified_by
         verified_at: Optional[str] = item.verified_at
         
+        verifier_name: str = "admin"
+        if verified_by:
+            resolved: Optional[str] = AuthManager.get().get_user_name_by_uuid(verified_by)
+            verifier_name = resolved if resolved else f"User {verified_by[:8]}"
+
         match status:
             case VerificationStatus.APPROVED:
                 self.verification_status_label.setText("Verification Status: Approved")
                 self.verification_status_label.setObjectName("BadgeSuccess")
                 self.verification_info_label.setText(
-                    f"Approved by {verified_by or 'admin'} on {verified_at or 'unknown date'}."
+                    f"Approved by {verifier_name} on {verified_at or 'unknown date'}."
                 )
             case VerificationStatus.REJECTED:
                 self.verification_status_label.setText("Verification Status: Rejected")
                 self.verification_status_label.setObjectName("BadgeDanger")
                 self.verification_info_label.setText(
-                    f"Rejected by {verified_by or 'admin'} on {verified_at or 'unknown date'}."
+                    f"Rejected by {verifier_name} on {verified_at or 'unknown date'}."
                 )
             case VerificationStatus.PENDING:
                 self.verification_status_label.setText("Verification Status: Pending")
