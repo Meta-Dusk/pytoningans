@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json, shutil, tempfile
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
@@ -25,6 +25,76 @@ def create_placeholder_sprite(path: Path) -> None:
     img = QImage(32, 32, QImage.Format.Format_ARGB32)
     img.fill(QColor(99, 102, 241, 255))
     img.save(str(path))
+
+
+def _stamp_installed_manifest(target_dir: Path, item: CommunityModItem) -> None:
+    """
+    Ensures local manifest files (config.json or pack.json) record item.version
+    and CURRENT_CONFIG_VERSION, ensuring local disk state matches catalog release.
+    """
+    try:
+        from pytoningans.core.mod_manager import ModPackRegistry
+        ModPackRegistry.clear()
+    except Exception:
+        pass
+
+    if not target_dir.exists():
+        return
+
+    is_pack_dir: bool = item.is_pack or (target_dir / "pack.json").exists()
+
+    try:
+        if is_pack_dir:
+            pack_json: Path = target_dir / "pack.json"
+            if pack_json.exists():
+                try:
+                    p_data = json.loads(pack_json.read_text(encoding="utf-8"))
+                except Exception:
+                    p_data = {}
+                p_data["version"] = item.version
+                if item.description:
+                    p_data["description"] = item.description
+                pack_json.write_text(json.dumps(p_data, indent=2), encoding="utf-8")
+
+            # Ensure all sub-entity configs in the pack carry CURRENT_CONFIG_VERSION
+            for cfg in target_dir.rglob("config.json"):
+                if any(part.startswith(".") or part == "__pycache__" for part in cfg.parts):
+                    continue
+                try:
+                    c_data = json.loads(cfg.read_text(encoding="utf-8"))
+                    c_data["version"] = CURRENT_CONFIG_VERSION
+                    cfg.write_text(json.dumps(c_data, indent=2), encoding="utf-8")
+                except Exception:
+                    pass
+        else:
+            cfg_file: Path = target_dir / "config.json"
+            if cfg_file.exists():
+                try:
+                    c_data = json.loads(cfg_file.read_text(encoding="utf-8"))
+                except Exception:
+                    c_data = {}
+                c_data["mod_version"] = item.version
+                c_data["version"] = CURRENT_CONFIG_VERSION
+                cfg_file.write_text(json.dumps(c_data, indent=2), encoding="utf-8")
+            else:
+                for cfg in target_dir.rglob("config.json"):
+                    if any(part.startswith(".") or part == "__pycache__" for part in cfg.parts):
+                        continue
+                    try:
+                        c_data = json.loads(cfg.read_text(encoding="utf-8"))
+                        c_data["mod_version"] = item.version
+                        c_data["version"] = CURRENT_CONFIG_VERSION
+                        cfg.write_text(json.dumps(c_data, indent=2), encoding="utf-8")
+                    except Exception:
+                        pass
+    except Exception as e:
+        print(f"[_stamp_installed_manifest] Error stamping manifest: {e}")
+
+    try:
+        from pytoningans.core.mod_manager import ModPackRegistry
+        ModPackRegistry.clear()
+    except Exception:
+        pass
 
 
 def install_catalog_item(
@@ -51,11 +121,18 @@ def install_catalog_item(
             dl_ok, dl_msg = cloud.download_package(item.package_url, temp_zip)
             print(f"[install_catalog_item] Download Message: {dl_msg}")
             if dl_ok:
-                ext_ok, ext_msg, _ = extract_mod_or_pack_from_zip(temp_zip, mods_dir)
+                ext_ok, ext_msg, extracted_dir = extract_mod_or_pack_from_zip(
+                    temp_zip, mods_dir, dest_folder_name=item.id
+                )
                 print(f"[install_catalog_item] Extract Message:\n{ext_msg}")
                 if ext_ok:
+                    effective_dir: Path = (
+                        extracted_dir if (extracted_dir and extracted_dir.exists()) else target_dir
+                    )
+                    _stamp_installed_manifest(effective_dir, item)
                     item.is_installed = True
                     item.installed_version = item.version
+                    item.config_version = CURRENT_CONFIG_VERSION
                     item.has_update = False
                     item.downloads += 1
                     print(f"[install_catalog_item] Successfully downloaded and installed '{item.name}'")
@@ -84,7 +161,7 @@ def install_catalog_item(
             )
             (target_dir / "pack.py").write_text(
                 f'"""Shared controller for {item.name}."""\n'
-                "from pytoningans.core.api import BaseModPack, PackMenuAction\n\n"
+                "from api import BaseModPack, PackMenuAction\n\n"
                 "class PackController(BaseModPack):\n"
                 "    def on_pack_loaded(self) -> None:\n"
                 "        self.shared_state['status'] = 'Active'\n"
@@ -128,8 +205,14 @@ def install_catalog_item(
 
         item.is_installed = True
         item.installed_version = item.version
+        item.config_version = CURRENT_CONFIG_VERSION
         item.has_update = False
         item.downloads += 1
+        try:
+            from pytoningans.core.mod_manager import ModPackRegistry
+            ModPackRegistry.clear()
+        except Exception:
+            pass
         print(f"[install_catalog_item] Successfully installed '{item.name}'.")
         return True, f"Successfully installed '{item.name}'."
 
@@ -161,31 +244,36 @@ def update_installed_mod(
     if item.package_url and cloud is not None and cloud.is_configured:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_zip = Path(temp_dir) / f"{item.id}.zip"
-            dl_ok, _ = cloud.download_package(item.package_url, temp_zip)
-            if dl_ok:
-                ext_ok, _, _ = extract_mod_or_pack_from_zip(temp_zip, mods_dir)
-                if ext_ok:
-                    item.installed_version = item.version
-                    item.has_update = False
-                    return True, f"Successfully upgraded '{item.name}' to v{item.version}!"
+            dl_ok, dl_msg = cloud.download_package(item.package_url, temp_zip)
+            if not dl_ok:
+                print(f"[update_installed_mod] Failed to download package: {dl_msg}")
+                return False, f"Failed to download update for '{item.name}': {dl_msg}"
 
+            ext_ok, ext_msg, extracted_dir = extract_mod_or_pack_from_zip(
+                temp_zip,
+                mods_dir,
+                overwrite=True,
+                dest_folder_name=target_dir.name,
+            )
+            print(f"[update_installed_mod] Extract Message:\n{ext_msg}")
+            if ext_ok:
+                effective_dir: Path = (
+                    extracted_dir if (extracted_dir and extracted_dir.exists()) else target_dir
+                )
+                _stamp_installed_manifest(effective_dir, item)
+                item.installed_version = item.version
+                item.config_version = CURRENT_CONFIG_VERSION
+                item.has_update = False
+                print(f"[update_installed_mod] Successfully upgraded '{item.name}' to v{item.version}")
+                return True, f"Successfully upgraded '{item.name}' to v{item.version}!"
+            else:
+                return False, f"Failed to extract update for '{item.name}': {ext_msg}"
+
+    # Offline/fallback update: directly stamp manifest on disk
     try:
-        if item.is_pack:
-            pack_json = target_dir / "pack.json"
-            if pack_json.exists():
-                p_data = json.loads(pack_json.read_text(encoding="utf-8"))
-                p_data["version"] = item.version
-                p_data["description"] = item.description
-                pack_json.write_text(json.dumps(p_data, indent=2), encoding="utf-8")
-        else:
-            cfg_file = target_dir / "config.json"
-            if cfg_file.exists():
-                c_data = json.loads(cfg_file.read_text(encoding="utf-8"))
-                c_data["mod_version"] = item.version
-                c_data["version"] = CURRENT_CONFIG_VERSION
-                cfg_file.write_text(json.dumps(c_data, indent=2), encoding="utf-8")
-
+        _stamp_installed_manifest(target_dir, item)
         item.installed_version = item.version
+        item.config_version = CURRENT_CONFIG_VERSION
         item.has_update = False
         return True, f"Successfully updated '{item.name}' to v{item.version}!"
     except Exception as e:
@@ -207,6 +295,11 @@ def uninstall_installed_mod(
 
     try:
         shutil.rmtree(target_dir)
+        try:
+            from pytoningans.core.mod_manager import ModPackRegistry
+            ModPackRegistry.clear()
+        except Exception:
+            pass
         item.is_installed = False
         item.installed_version = None
         item.has_update = False

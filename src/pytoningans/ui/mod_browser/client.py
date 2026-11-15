@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json, time
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType
@@ -18,6 +18,8 @@ from pytoningans.core.mod_manager import (
     get_available_mods_with_type, get_available_packs,
 )
 from pytoningans.core.settings import SettingsManager
+from pytoningans.core.mod_manager import resolve_mod_path
+
 from ...utils import get_app_version, get_settings_path
 from .catalog_seed import DEFAULT_CATALOG_DATA
 from .installer_service import (
@@ -247,12 +249,29 @@ class ModBrowserClient:
                 continue
             config_file: Path = _folder / "config.json"
             ver: str = "1.0.0"
+            cfg_ver: int = CURRENT_CONFIG_VERSION
             author: str = "LocalCreator"
             tags: list[str] = ["local"]
             if config_file.exists():
                 try:
                     config_data = json.loads(config_file.read_text(encoding="utf-8"))
-                    ver = str(config_data.get("version", config_data.get("mod_version", "1.0.0")))
+                    if "mod_version" in config_data:
+                        ver = str(config_data["mod_version"])
+                    elif (
+                        "version" in config_data
+                        and isinstance(config_data["version"], str)
+                        and ("." in config_data["version"] or not config_data["version"].isdigit())
+                    ):
+                        ver = str(config_data["version"])
+                    else:
+                        ver = "1.0.0"
+
+                    raw_v = config_data.get("version")
+                    if isinstance(raw_v, int):
+                        cfg_ver = raw_v
+                    elif isinstance(raw_v, str) and raw_v.isdigit():
+                        cfg_ver = int(raw_v)
+
                     author = str(config_data.get("author", author))
                     if "tags" in config_data and isinstance(config_data["tags"], list):
                         tags = list(set(tags + config_data["tags"]))
@@ -298,6 +317,7 @@ class ModBrowserClient:
                     is_pack=False,
                     is_installed=True,
                     installed_version=ver,
+                    config_version=cfg_ver,
                     is_local_only=True,
                 )
             )
@@ -372,10 +392,16 @@ class ModBrowserClient:
         for item in items:
             folder: Path = self.mods_dir / item.id
             if item.is_pack:
+                if not folder.exists():
+                    res_p, p_id, _ = resolve_mod_path(self.mods_dir, item.id)
+                    if res_p is not None and res_p.exists():
+                        folder = (self.mods_dir / p_id) if p_id else res_p
+
                 pack_obj = installed_packs.get(item.id)
                 if pack_obj is not None:
                     item.is_installed = True
                     item.installed_version = pack_obj.manifest.version
+                    item.config_version = CURRENT_CONFIG_VERSION
                 elif folder.exists() and (folder / "pack.json").exists():
                     item.is_installed = True
                     try:
@@ -383,25 +409,54 @@ class ModBrowserClient:
                         item.installed_version = str(p_data.get("version", "1.0.0"))
                     except Exception:
                         item.installed_version = "1.0.0"
+                    item.config_version = CURRENT_CONFIG_VERSION
                 else:
                     item.is_installed = False
                     item.installed_version = None
             else:
+                if not folder.exists():
+                    res_p, p_id, _ = resolve_mod_path(self.mods_dir, item.id)
+                    if res_p is not None and res_p.exists():
+                        folder = res_p
+
                 if item.id in installed_standalone or folder.exists():
                     item.is_installed = True
                     config_file: Path = folder / "config.json"
+                    if not config_file.exists():
+                        for cand in folder.rglob("config.json"):
+                            if not any(p.startswith(".") or p == "__pycache__" for p in cand.parts):
+                                config_file = cand
+                                break
+
                     if config_file.exists():
                         try:
                             config_data: dict[str, Any] = json.loads(
                                 config_file.read_text(encoding="utf-8")
                             )
-                            item.installed_version = str(
-                                config_data.get("mod_version", config_data.get("version", "1.0.0"))
-                            )
+                            if "mod_version" in config_data:
+                                item.installed_version = str(config_data["mod_version"])
+                            elif (
+                                "version" in config_data
+                                and isinstance(config_data["version"], str)
+                                and ("." in config_data["version"] or not config_data["version"].isdigit())
+                            ):
+                                item.installed_version = str(config_data["version"])
+                            else:
+                                item.installed_version = "1.0.0"
+
+                            raw_cfg_ver = config_data.get("version")
+                            if isinstance(raw_cfg_ver, int):
+                                item.config_version = raw_cfg_ver
+                            elif isinstance(raw_cfg_ver, str) and raw_cfg_ver.isdigit():
+                                item.config_version = int(raw_cfg_ver)
+                            else:
+                                item.config_version = CURRENT_CONFIG_VERSION
                         except Exception:
                             item.installed_version = "1.0.0"
+                            item.config_version = CURRENT_CONFIG_VERSION
                     else:
                         item.installed_version = "1.0.0"
+                        item.config_version = CURRENT_CONFIG_VERSION
                 else:
                     item.is_installed = False
                     item.installed_version = None
@@ -485,6 +540,9 @@ class ModBrowserClient:
             existing_item.size_bytes = size_bytes or existing_item.size_bytes
             existing_item.config_version = CURRENT_CONFIG_VERSION
             existing_item.target_app_version = get_app_version()
+            if existing_item.is_installed:
+                existing_item.installed_version = version
+                existing_item.has_update = False
             if package_url is not None:
                 existing_item.package_url = package_url
             if tags:
@@ -499,6 +557,8 @@ class ModBrowserClient:
                     "size_bytes": existing_item.size_bytes,
                     "updated_at": "now()",
                     "package_url": existing_item.package_url,
+                    "config_version": CURRENT_CONFIG_VERSION,
+                    "target_app_version": get_app_version(),
                 }
                 release_data: dict[str, Any] = {
                     "mod_id": mod_id,

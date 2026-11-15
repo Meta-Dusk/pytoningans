@@ -139,14 +139,39 @@ class CommunityModItem:
         """Parsed semver tuple of the locally installed version."""
         return parse_semver(self.installed_version or "0.0.0")
 
+    def _effective_compat(self) -> tuple[int, str]:
+        """
+        Returns the most authoritative (config_version, target_app_version) pair for
+        compatibility checks.
+
+        Always evaluates against the **latest catalog release** (the release matching
+        ``self.version``), so that stale top-level Supabase row values on the ``mods``
+        table don't incorrectly flag an up-to-date install as outdated.
+
+        The "Outdated" badge means: *even the best available version* has compatibility
+        problems, which is independent from whether the user has the latest installed.
+        """
+        # Try to find the release entry that matches the current catalog version.
+        for release in self.releases:
+            if release.version == self.version:
+                return release.config_version, release.target_app_version
+        # Fallback: use the first (newest by created_at, already sorted) release.
+        if self.releases:
+            latest = self.releases[0]
+            return latest.config_version, latest.target_app_version
+        # Last resort: the flat item-level values (may be stale for older Supabase rows).
+        return self.config_version, self.target_app_version
+
     @property
     def is_outdated(self) -> bool:
         """
-        Determines if this mod targets an outdated config schema or an older game version.
+        Determines if this mod's installed (or latest) release targets an outdated
+        config schema or an older game version.
         """
-        if self.config_version < CURRENT_CONFIG_VERSION:
+        eff_config_ver, eff_app_ver = self._effective_compat()
+        if eff_config_ver < CURRENT_CONFIG_VERSION:
             return True
-        if parse_semver(self.target_app_version) < parse_semver(get_app_version()):
+        if parse_semver(eff_app_ver) < parse_semver(get_app_version()):
             return True
         return False
 
@@ -154,15 +179,16 @@ class CommunityModItem:
     def outdated_reasons(self) -> list[str]:
         """Returns explanations for why this mod is flagged as outdated."""
         reasons: list[str] = []
-        if self.config_version < CURRENT_CONFIG_VERSION:
+        eff_config_ver, eff_app_ver = self._effective_compat()
+        if eff_config_ver < CURRENT_CONFIG_VERSION:
             reasons.append(
-                f"Uses older config schema v{self.config_version} "
+                f"Uses older config schema v{eff_config_ver} "
                 f"(Current engine is v{CURRENT_CONFIG_VERSION})"
             )
         current_version: str = get_app_version()
-        if parse_semver(self.target_app_version) < parse_semver(current_version):
+        if parse_semver(eff_app_ver) < parse_semver(current_version):
             reasons.append(
-                f"Built for game v{self.target_app_version} (Current is v{current_version})"
+                f"Built for game v{eff_app_ver} (Current is v{current_version})"
             )
         return reasons
     

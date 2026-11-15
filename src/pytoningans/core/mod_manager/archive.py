@@ -6,9 +6,9 @@ including directory normalization, zip-slip security guards, and manifest detect
 """
 from __future__ import annotations
 
-import json, os, shutil, zipfile, re
+import json, os, shutil, zipfile, re, stat, tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any, Callable
 
 IGNORED_ARCHIVE_PATTERNS: set[str] = {
     "__pycache__",
@@ -62,11 +62,16 @@ def export_mod_or_pack_to_zip(
 
 
 def extract_mod_or_pack_from_zip(
-    zip_path: Path, target_mods_dir: Path
+    zip_path: Path,
+    target_mods_dir: Path,
+    *,
+    overwrite: bool = False,
+    dest_folder_name: Optional[str] = None,
 ) -> tuple[bool, str, Optional[Path]]:
     """
     Safely extracts a mod or modpack .zip archive into target_mods_dir.
     Performs zip-slip path validation, manifest ID detection, and duplicate avoidance.
+    Supports atomic extraction and overwriting existing installations in-place.
     Returns (success, message, extracted_folder_path).
     """
     zip_path = zip_path.resolve()
@@ -87,96 +92,131 @@ def extract_mod_or_pack_from_zip(
             # Zip-slip security validation
             for name in namelist:
                 dest: Path = (target_mods_dir / name).resolve()
-                if not str(dest).startswith(str(target_mods_dir)):
-                    return False, f"Security violation: path traversal detected in '{name}'.", None
+                if str(dest).startswith(str(target_mods_dir)): continue
+                err_msg: str = f"Security violation: path traversal detected in '{name}'."
+                return False, err_msg, None
 
-            # Check for single top-level directory wrapper
-            top_level_dirs: set[str] = set()
-            for name in namelist:
-                parts: list[str] = name.strip("/").split("/")
-                if len(parts) > 1:
-                    top_level_dirs.add(parts[0])
+            # Check for single top-level directory wrapper.
+            #? A true wrapper means ALL non-empty items in the archive reside
+            #? inside the exact same root directory.
+            root_items: set[str] = {
+                name.strip("/").split("/")[0] for name
+                in namelist if name.strip("/")
+            }
+            has_single_wrapper: bool = (
+                len(root_items) == 1 and
+                any("/" in name.strip("/") for name in namelist)
+            )
 
-            has_single_wrapper: bool = len(top_level_dirs) == 1
+            resolved_folder_name: Optional[str] = dest_folder_name
 
-            # Detect manifest file (mod.json, modpack.json, config.json, pack.json)
-            manifest_candidates: list[str] = ["mod.json", "modpack.json", "config.json", "pack.json"]
-            target_manifest: Optional[str] = None
+            if not resolved_folder_name:
+                # Detect manifest file
+                manifest_candidates: list[str] = [
+                    "mod.json", "modpack.json", "config.json", "pack.json"
+                ]
+                target_manifest: Optional[str] = None
 
-            # Check root level
-            for candidate in manifest_candidates:
-                if candidate in namelist:
+                # Check root level
+                for candidate in manifest_candidates:
+                    if not candidate in namelist: continue
                     target_manifest = candidate
                     break
 
-            # Check inside single top-level wrapper
-            if not target_manifest and has_single_wrapper:
-                wrapper_prefix: str = next(iter(top_level_dirs))
-                for candidate in manifest_candidates:
-                    wrapper_candidate: str = f"{wrapper_prefix}/{candidate}"
-                    if wrapper_candidate in namelist:
+                # Check inside single top-level wrapper
+                if not target_manifest and has_single_wrapper:
+                    wrapper_prefix: str = next(iter(root_items))
+                    for candidate in manifest_candidates:
+                        wrapper_candidate: str = f"{wrapper_prefix}/{candidate}"
+                        if not wrapper_candidate in namelist: continue
                         target_manifest = wrapper_candidate
                         break
 
-            dest_folder_name: Optional[str] = None
+                # Primary: Extract 'id' from manifest file
+                if target_manifest is not None:
+                    try:
+                        manifest_bytes: bytes = zf.read(target_manifest)
+                        manifest_data: dict[str, Any] = json.loads(manifest_bytes.decode("utf-8"))
+                        resolved_folder_name = manifest_data.get("id")
+                    except Exception:
+                        pass
 
-            # Primary: Extract 'id' from manifest file
-            if target_manifest:
-                try:
-                    manifest_bytes = zf.read(target_manifest)
-                    manifest_data = json.loads(manifest_bytes.decode("utf-8"))
-                    dest_folder_name = manifest_data.get("id")
-                except Exception:
-                    pass
+                # Secondary: Fall back to top-level wrapper directory name
+                if resolved_folder_name is None and has_single_wrapper:
+                    resolved_folder_name = next(iter(root_items))
 
-            # Secondary: Fall back to top-level wrapper directory name
-            if not dest_folder_name and has_single_wrapper:
-                dest_folder_name = next(iter(top_level_dirs))
-
-            # Fallback: Derive from zip stem (strip cloud version suffix like '_v1.0.0')
-            if not dest_folder_name:
-                stem = zip_path.stem
-                dest_folder_name = re.sub(r"_v\d+(\.\d+)*$", "", stem)
+                # Fallback: Derive from zip stem (strip cloud version suffix like '_v1.0.0')
+                if resolved_folder_name is None:
+                    stem: str = zip_path.stem
+                    resolved_folder_name = re.sub(r"_v\d+(\.\d+)*$", "", stem)
 
             # Clean destination folder name for filesystem safety
             safe_folder_name: str = "".join(
-                c if c.isalnum() or c in ("-", "_") else "_" for c in dest_folder_name
+                c if c.isalnum() or c in ("-", "_") else "_" for
+                c in (resolved_folder_name or "imported_mod")
             ).strip() or "imported_mod"
 
             dest_dir: Path = target_mods_dir / safe_folder_name
-            if dest_dir.exists():
+            if dest_dir.exists() and not overwrite:
                 # Avoid accidental overwrite via numeric indexing
                 counter: int = 1
                 while (target_mods_dir / f"{safe_folder_name}_{counter}").exists():
                     counter += 1
                 dest_dir = target_mods_dir / f"{safe_folder_name}_{counter}"
 
-            dest_dir.mkdir(parents=True, exist_ok=True)
+            # Stage extraction in a temporary directory for safety and atomicity
+            with tempfile.TemporaryDirectory() as stage_temp_dir:
+                stage_dir: Path = Path(stage_temp_dir) / safe_folder_name
+                stage_dir.mkdir(parents=True, exist_ok=True)
 
-            # Extract files
-            for member in zf.infolist():
-                if has_single_wrapper:
-                    # Strip wrapper prefix
-                    relative_parts: list[str] = member.filename.strip("/").split("/")[1:]
-                    if not relative_parts:
+                for member in zf.infolist():
+                    if has_single_wrapper:
+                        # Strip wrapper prefix
+                        relative_parts: list[str] = member.filename.strip("/").split("/")[1:]
+                        if not relative_parts:
+                            continue
+                        relative_name: str = "/".join(relative_parts)
+                        target_path: Path = (stage_dir / relative_name).resolve()
+                    else:
+                        target_path: Path = (stage_dir / member.filename).resolve()
+
+                    # Verify target_path remains inside stage_dir
+                    if not str(target_path).startswith(str(stage_dir)):
                         continue
-                    relative_name: str = "/".join(relative_parts)
-                    target_path: Path = (dest_dir / relative_name).resolve()
+
+                    if member.is_dir():
+                        target_path.mkdir(parents=True, exist_ok=True)
+                    else:
+                        target_path.parent.mkdir(parents=True, exist_ok=True)
+                        with zf.open(member) as src_file, open(target_path, "wb") as dst_file:
+                            shutil.copyfileobj(src_file, dst_file)
+
+                # Staging succeeded. Deploy to dest_dir.
+                if dest_dir.exists() and overwrite:
+                    def _handle_remove_readonly(
+                        func: Callable[..., Any],
+                        path: str,
+                        _: BaseException
+                    ) -> None:
+                        try:
+                            os.chmod(path, stat.S_IWRITE)
+                            func(path)
+                        except Exception:
+                            pass
+
+                    try:
+                        shutil.rmtree(dest_dir, onexc=_handle_remove_readonly)
+                        shutil.copytree(stage_dir, dest_dir)
+                    except Exception:
+                        # Fallback in-place copy if directory deletion is restricted
+                        shutil.copytree(stage_dir, dest_dir, dirs_exist_ok=True)
                 else:
-                    target_path: Path = (dest_dir / member.filename).resolve()
-
-                # Verify target_path remains inside dest_dir
-                if not str(target_path).startswith(str(dest_dir)):
-                    continue
-
-                if member.is_dir():
-                    target_path.mkdir(parents=True, exist_ok=True)
-                else:
-                    target_path.parent.mkdir(parents=True, exist_ok=True)
-                    with zf.open(member) as src_file, open(target_path, "wb") as dst_file:
-                        shutil.copyfileobj(src_file, dst_file)
-
-            return True, f"Successfully imported into '{dest_dir.name}'.", dest_dir
+                    dest_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.copytree(stage_dir, dest_dir, dirs_exist_ok=True)
+            
+            err_msg: str = f"Successfully imported into '{dest_dir.name}'."
+            return True, err_msg, dest_dir
 
     except Exception as e:
-        return False, f"Failed to extract archive: {e}", None
+        err_msg: str = f"Failed to extract archive: {e}"
+        return False, err_msg, None

@@ -7,7 +7,7 @@ Keeps the main desktop UI responsive with 0ms freezing.
 """
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Optional, Literal
 from PySide6.QtCore import QThread, Signal
 
 if TYPE_CHECKING:
