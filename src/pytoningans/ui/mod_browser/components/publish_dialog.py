@@ -17,9 +17,10 @@ from PySide6.QtWidgets import (
     QTextEdit, QPushButton, QMessageBox, QWidget, QFrame
 )
 
+from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import EntityType, VerificationStatus
 from pytoningans.core.mod_manager import (
-    resolve_mod_path, export_mod_or_pack_to_zip, scan_mod_or_pack, SecurityRiskLevel
+    resolve_mod_path, export_mod_or_pack_to_zip, scan_mod_or_pack, SecurityRiskLevel, ModPackRegistry
 )
 from pytoningans.ui.title_bar import CustomTitleBar
 from pytoningans.utils import get_main_icon, formatted_size
@@ -362,6 +363,50 @@ class PublishModDialog(QDialog):
                     entity_type = c_data.get("entity_type", EntityType.ENTITY)
                 except Exception:
                     pass
+
+        # Stamp local target_dir manifest with the new version and
+        # CURRENT_CONFIG_VERSION before packaging
+        try:
+            if is_pack:
+                pack_json_file = target_dir / "pack.json"
+                if pack_json_file.exists():
+                    p_info = json.loads(pack_json_file.read_text(encoding="utf-8"))
+                    p_info["version"] = version_str
+                    p_info["author"] = author
+                    if desc:
+                        p_info["description"] = desc
+                    pack_json_file.write_text(json.dumps(p_info, indent=2), encoding="utf-8")
+                # Also ensure sub-entity configs carry CURRENT_CONFIG_VERSION
+                for sub_cfg in target_dir.rglob("config.json"):
+                    if any(part.startswith(".") or part == "__pycache__" for part in sub_cfg.parts):
+                        continue
+                    try:
+                        c_info = json.loads(sub_cfg.read_text(encoding="utf-8"))
+                        c_info["version"] = CURRENT_CONFIG_VERSION
+                        sub_cfg.write_text(json.dumps(c_info, indent=2), encoding="utf-8")
+                    except Exception:
+                        pass
+                ModPackRegistry.clear()
+            else:
+                cfg_file = target_dir / "config.json"
+                if cfg_file.exists():
+                    c_info = json.loads(cfg_file.read_text(encoding="utf-8"))
+                    c_info["mod_version"] = version_str
+                    c_info["version"] = CURRENT_CONFIG_VERSION
+                    cfg_file.write_text(json.dumps(c_info, indent=2), encoding="utf-8")
+                else:
+                    for sub_cfg in target_dir.rglob("config.json"):
+                        if any(part.startswith(".") or part == "__pycache__" for part in sub_cfg.parts):
+                            continue
+                        try:
+                            c_info = json.loads(sub_cfg.read_text(encoding="utf-8"))
+                            c_info["mod_version"] = version_str
+                            c_info["version"] = CURRENT_CONFIG_VERSION
+                            sub_cfg.write_text(json.dumps(c_info, indent=2), encoding="utf-8")
+                        except Exception:
+                            pass
+        except Exception as e:
+            print(f"[PublishModDialog] Warning: Could not stamp version into local manifest: {e}")
 
         import tempfile
         staging_dir: Path = Path(tempfile.gettempdir()) / "pytoningans_publish"

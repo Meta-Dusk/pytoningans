@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json, tempfile
 from pathlib import Path
-from typing import Optional, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Any
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication

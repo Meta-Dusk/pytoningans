@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json, time
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 from pprint import pprint
 import urllib.error, urllib.parse, urllib.request
 

@@ -174,7 +174,10 @@ class ModPackRegistry:
             return None
 
         if manifest.id in cls._active_packs:
-            return cls._active_packs[manifest.id]
+            cached: ModPack = cls._active_packs[manifest.id]
+            if cached.manifest.version != manifest.version:
+                cached.manifest = manifest
+            return cached
 
         pack = ModPack(manifest=manifest, folder_path=pack_dir)
         controller: Optional[BaseModPack] = compile_pack_controller(manifest, pack_dir)
