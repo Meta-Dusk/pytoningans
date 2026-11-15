@@ -1,7 +1,7 @@
 [project]
 name = "pytoningans"
 version = "0.8.7"
-description = "A PySide6 Desktop Idler Sandbox Game"
+description = "A PySide6 Desktop Entities Engine Platform, with Modding Support, Documentation, and Built-in Editors"
 readme = "README.md"
 authors = [{ name = "MetaDusk", email = "metadusk.dev@gmail.com" }]
 requires-python = ">=3.14"

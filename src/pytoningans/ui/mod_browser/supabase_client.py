@@ -17,6 +17,7 @@ from ...utils import get_app_version, _DEFAULT_APP_VERSION
 from pytoningans.core.roles import save_cached_roles
 from pytoningans.core.config_schema import CURRENT_CONFIG_VERSION
 from pytoningans.core.constants import VerificationStatus
+from .models import parse_semver as _psv
 from .auth import AuthManager
 
 if TYPE_CHECKING:
@@ -125,6 +126,22 @@ class SupabaseClient:
                         reverse=True,
                     )
 
+                    # Use the latest release's compatibility metadata to override stale
+                    # top-level row values, so mods updated via new releases don't
+                    # incorrectly appear outdated (Supabase rows may carry old values
+                    # if only the releases table was updated).
+                    latest_release: dict[str, Any] = releases_list[0] if releases_list else {}
+                    effective_config_version: int = max(
+                        int(row.get("config_version", CURRENT_CONFIG_VERSION)),
+                        int(latest_release.get("config_version", CURRENT_CONFIG_VERSION)),
+                    )
+                    # Pick whichever target_app_version is higher between the row and the latest release.
+                    row_app_ver: str = row.get("target_app_version") or _DEFAULT_APP_VERSION
+                    rel_app_ver: str = latest_release.get("target_app_version") or _DEFAULT_APP_VERSION
+                    effective_target_app_version: str = (
+                        rel_app_ver if _psv(rel_app_ver) >= _psv(row_app_ver) else row_app_ver
+                    )
+
                     formatted_items.append({
                         "id": row.get("id"),
                         "name": row.get("name"),
@@ -142,8 +159,8 @@ class SupabaseClient:
                         "contained_entities": list(row.get("contained_entities") or []),
                         "icon_url": row.get("icon_url"),
                         "package_url": row.get("package_url"),
-                        "config_version": int(row.get("config_version", CURRENT_CONFIG_VERSION)),
-                        "target_app_version": row.get("target_app_version", _DEFAULT_APP_VERSION),
+                        "config_version": effective_config_version,
+                        "target_app_version": effective_target_app_version,
                         "created_at": str(row.get("created_at", ""))[:10],
                         "updated_at": str(row.get("updated_at", ""))[:10],
                         "verification_status": row.get("verification_status", VerificationStatus.PENDING.value),
