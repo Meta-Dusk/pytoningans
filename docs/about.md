@@ -9,7 +9,7 @@ you don't really have to upload to _my_ database, meaning; you can just host you
 It's all about flexibility over here, and giving people the tools to also be able to reasonably recreate,
 what I have done here with this entire project so far.
 
-![Current Application Icon](https://github.com/Meta-Dusk/pytoningans/blob/gh-pages/assets/logo.png)
+![Current Application Icon](./assets/logo.png)
 
 ---
 

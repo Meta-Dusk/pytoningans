@@ -8,7 +8,7 @@ The **Application Settings** dialog provides a centralized, categorized control 
 
 The settings window :smile:
 
-![PyToNingans App Settings](https://github.com/Meta-Dusk/pytoningans/blob/gh-pages/assets/images/pyto_app_settings.png)
+![PyToNingans App Settings](../assets/images/pyto_app_settings.png)
 
 * **Auto-Resizing & Scroll Protection**: The dialog dynamically auto-sizes based on content and DPI scaling.
 If your monitor or scaling prevents displaying everything at once, each tab smoothly scrolls without clipping
