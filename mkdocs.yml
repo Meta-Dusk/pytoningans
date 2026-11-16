@@ -133,12 +133,12 @@ nav:
       - Particles:
           - Examples: api/particle/examples.md
           - Particle System: api/particle/system.md
-          - Particle Types: api/particle/particle_types.md
+          - Particle Types: api/particle/particle-types.md
           - Particle Configurations: api/particle/configs.md
           - Available Presets: api/particle/presets.md
       - Types Definitions:
-          - Color: api/types/color_types.md
-          - Core and Geometry: api/types/core_types_geom.md
-          - Graphical: api/types/graphic_types.md
+          - Color: api/types/color-types.md
+          - Core and Geometry: api/types/core-types-geom.md
+          - Graphical: api/types/graphic-types.md
           - Enums: api/types/enums.md
   - Privacy Policy: privacy.md

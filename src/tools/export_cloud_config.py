@@ -8,6 +8,8 @@ Does NOT commit secrets to git (cloud_config.json is in .gitignore).
 import json, os, sys
 from pathlib import Path
 
+from .logger import Log
+
 ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent
 
 
@@ -16,7 +18,7 @@ def parse_env_file(path: Path) -> dict[str, str]:
     if not path.is_file():
         return results
     for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
+        line: str = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         k, v = line.split("=", 1)
@@ -32,8 +34,8 @@ def main() -> None:
     key: str = os.environ.get("SUPABASE_PUB_KEY") or env_vars.get("SUPABASE_PUB_KEY", "")
 
     if not url or not key:
-        print("[WARN]  SUPABASE_URL or SUPABASE_PUB_KEY not found in .env or environment variables.")
-        print("[INFO]  To configure:")
+        Log.warn("SUPABASE_URL or SUPABASE_PUB_KEY not found in .env or environment variables.")
+        Log.info(f"To configure:")
         print("        1. Copy .env.example to .env")
         print("        2. Fill in your project URL and public anon key")
         print("        3. Re-run this script before compiling the installer.")
@@ -45,11 +47,10 @@ def main() -> None:
         "supabase_pub_key": key,
     }
     target.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    print(f"[OK]    Successfully generated {target.name} from .env!")
-    print(f"[INFO]  Project URL: {url}")
-    print("[INFO]  The installer will now bundle this configuration automatically.")
+    Log.success(f"Successfully generated {target.name} from .env!")
+    Log.info(f"Project URL: {url}")
+    Log.info("The installer will now bundle this configuration automatically.")
 
 
 if __name__ == "__main__":
     main()
-
