@@ -4,6 +4,7 @@
 
 - [ ] Add animation triggers (to call the event attached to it)
 - [ ] Maybe transfer some features into a new window: the `Sprite Editor`
+- [ ] Optional Audio Systems
 
 ### Immersive Conversations Modpack
 
@@ -19,9 +20,7 @@
 
 ## Important Fixes
 
-- [ ] Make sure to bundle a modpack (such as the idle game part) in the installer, to fulfil the "Idler" and "Game" tags of the project
-- [ ] Verify Branding in Google Cloud console for the app
-- [ ] Remove the "Custom Server (Advanced)" hyperlink in the account settings window
+- [ ] Make sure to bundle a modpack as sample content when installing offline
 - [ ] Fix the `pack.json` modpack manifest, as it lacks fields
 
 ## Main Features

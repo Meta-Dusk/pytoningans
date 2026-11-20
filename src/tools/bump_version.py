@@ -1,28 +1,18 @@
 import sys, re
 from pathlib import Path
 
+from .logger import Log
+
 # Resolve project root (<root>/tools/bump_version.py -> <root>)
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-
 SEMVER_PATTERN: re.Pattern[str] = re.compile(r"^\d+\.\d+\.\d+$")
 
-def log_info(msg: str) -> None:
-    print(f"[INFO]  {msg}")
-
-def log_success(msg: str) -> None:
-    print(f"[OK]    {msg}")
-
-def log_warn(msg: str) -> None:
-    print(f"[WARN]  {msg}")
-
-def log_error(msg: str) -> None:
-    print(f"[ERROR] {msg}")
 
 def bump_pyproject_toml(new_version: str) -> bool:
     target: Path = ROOT_DIR / "pyproject.toml"
-    log_info(f"Targeting {target}...")
+    Log.info(f"Targeting {target}...")
     if not target.is_file():
-        log_error(f"File not found: {target}")
+        Log.error(f"File not found: {target}")
         return False
 
     content: str = target.read_text(encoding="utf-8")
@@ -34,18 +24,18 @@ def bump_pyproject_toml(new_version: str) -> bool:
     )
 
     if count == 0:
-        log_warn("Pattern 'version = \"...\"' not found in pyproject.toml. No changes made.")
+        Log.warn("Pattern 'version = \"...\"' not found in pyproject.toml. No changes made.")
         return False
 
     target.write_text(updated, encoding="utf-8")
-    log_success(f"Updated pyproject.toml -> {new_version} ({count} occurrence)")
+    Log.success(f"Updated pyproject.toml -> {new_version} ({count} occurrence)")
     return True
 
 def bump_installer_iss(new_version: str) -> bool:
     target: Path = ROOT_DIR / "installer" / "installer.iss"
-    log_info(f"Targeting {target}...")
+    Log.info(f"Targeting {target}...")
     if not target.is_file():
-        log_error(f"File not found: {target}")
+        Log.error(f"File not found: {target}")
         return False
 
     content: str = target.read_text(encoding="utf-8")
@@ -57,18 +47,20 @@ def bump_installer_iss(new_version: str) -> bool:
     )
 
     if count == 0:
-        log_warn("Pattern '#define MyAppVersion \"...\"' not found in installer.iss. No changes made.")
+        Log.warn(
+            "Pattern '#define MyAppVersion \"...\"' not found in installer.iss. No changes made."
+        )
         return False
 
     target.write_text(updated, encoding="utf-8")
-    log_success(f"Updated installer.iss -> {new_version} ({count} occurrence)")
+    Log.success(f"Updated installer.iss -> {new_version} ({count} occurrence)")
     return True
 
 def bump_pysidedeploy_spec(new_version: str) -> bool:
     target: Path = ROOT_DIR / "pysidedeploy.spec"
-    log_info(f"Targeting {target}...")
+    Log.info(f"Targeting {target}...")
     if not target.is_file():
-        log_error(f"File not found: {target}")
+        Log.error(f"File not found: {target}")
         return False
 
     # Windows PE version strings require 4 digits (e.g., 0.7.0.0)
@@ -87,11 +79,13 @@ def bump_pysidedeploy_spec(new_version: str) -> bool:
     )
 
     if count_file == 0 and count_prod == 0:
-        log_warn("Version flags '--windows-*-version=' not found in pysidedeploy.spec. No changes made.")
+        Log.warn(
+            "Version flags '--windows-*-version=' not found in pysidedeploy.spec. No changes made."
+        )
         return False
 
     target.write_text(updated, encoding="utf-8")
-    log_success(
+    Log.success(
         f"Updated pysidedeploy.spec -> {win_version} "
         f"(--windows-file-version: {count_file}, --windows-product-version: {count_prod})"
     )
@@ -99,9 +93,9 @@ def bump_pysidedeploy_spec(new_version: str) -> bool:
 
 def bump_paths_py(new_version: str) -> bool:
     target: Path = ROOT_DIR / "src" / "pytoningans" / "utils" / "paths.py"
-    log_info(f"Targeting {target}...")
+    Log.info(f"Targeting {target}...")
     if not target.is_file():
-        log_error(f"File not found: {target}")
+        Log.error(f"File not found: {target}")
         return False
 
     content: str = target.read_text(encoding="utf-8")
@@ -113,11 +107,13 @@ def bump_paths_py(new_version: str) -> bool:
     )
 
     if count == 0:
-        log_warn("Pattern '_DEFAULT_APP_VERSION = \"...\"' not found in paths.py. No changes made.")
+        Log.warn(
+            "Pattern '_DEFAULT_APP_VERSION = \"...\"' not found in paths.py. No changes made."
+        )
         return False
 
     target.write_text(updated, encoding="utf-8")
-    log_success(f"Updated paths.py -> {new_version} ({count} occurrence)")
+    Log.success(f"Updated paths.py -> {new_version} ({count} occurrence)")
     return True
 
 def main() -> None:
@@ -127,10 +123,12 @@ def main() -> None:
         sys.exit(1)
 
     target_version: str = sys.argv[1].strip()
-    log_info(f"Project root resolved to: {ROOT_DIR}")
+    Log.info(f"Project root resolved to: {ROOT_DIR}")
 
     if not SEMVER_PATTERN.match(target_version):
-        log_warn(f"'{target_version}' does not match standard 3-digit semver (X.Y.Z). Proceeding anyway.")
+        Log.warn(
+            f"'{target_version}' does not match standard 3-digit semver (X.Y.Z). Proceeding anyway."
+        )
 
     results: list[bool] = [
         bump_pyproject_toml(target_version),
@@ -140,10 +138,10 @@ def main() -> None:
     ]
 
     if all(results):
-        log_success(f"All target configurations successfully updated to v{target_version}.")
+        Log.success(f"All target configurations successfully updated to v{target_version}.")
     else:
         failed: int = sum(1 for r in results if not r)
-        log_error(f"{failed} file(s) failed or had no matching patterns. Review logs above.")
+        Log.error(f"{failed} file(s) failed or had no matching patterns. Review logs above.")
         sys.exit(1)
 
 if __name__ == "__main__":

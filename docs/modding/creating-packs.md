@@ -108,9 +108,5 @@ class PackController(BaseModPack):
         pass
 ```
 
-### Key Controller Lifecycle Hooks
-
-- `on_pack_loaded()`: Called when the pack is registered into the game session.
-- `on_entity_spawned(entity_id)`: Fired whenever a member of the pack is spawned.
-- `on_pack_unloaded()`: Cleanup hook when the pack is uninstalled or deactivated.
-- `get_custom_actions()`: Returns action buttons added to the context menu of all member characters.
+Refer to the [BaseModPack](../api/modpack.md#pytoningans.core.api.BaseModPack) class for
+additional information regarding the methods you can hook into!

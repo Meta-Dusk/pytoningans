@@ -20,9 +20,9 @@ Below is the folder structure of the application's data (example). You can find 
 
 ```text
 PyToNingans/
-├───avatars/
+├───avatars/...
 ├───mods/
-│   ├───api/
+│   ├───api/...
 │   ├───just_migu/...
 │   ├───just_teto/...
 │   └───test_pack/...
@@ -67,7 +67,7 @@ it will show this folder structure (as an example):
 
 ```text
 mods/
-├───api/
+├───api/...
 ├───just_migu/
 │   ├───behavior.py
 │   ├───config.json

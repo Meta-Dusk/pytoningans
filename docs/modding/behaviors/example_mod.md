@@ -1,3 +1,0 @@
-# Example Mod Behavior Scripts
-
-Pending...

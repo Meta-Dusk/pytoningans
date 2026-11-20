@@ -165,8 +165,7 @@ class BehaviorScriptPanel(BaseBehaviorPanel):
     def __init__(self, controller: ModEditorController) -> None:
         super().__init__(
             controller, override=True, boilerplate_script=(
-                "from api.behaviors import BaseEntityBehavior\n"
-                "from api.protocols import IEntity\n\n"
+                "from api import BaseEntityBehavior, IEntity\n\n"
                 "class Behavior(BaseEntityBehavior):\n"
                 "    def on_spawn(self, entity: IEntity) -> None:\n"
                 "        pass\n\n"
@@ -247,8 +246,7 @@ class StructureBehaviorPanel(BaseBehaviorPanel):
         super().__init__(
             controller, section_name="Structure Custom Behavior",
             boilerplate_script=(
-                "from api.behaviors import BaseStructureBehavior\n"
-                "from api.protocols import IEntity, IStructure\n\n"
+                "from api import BaseStructureBehavior, IEntity, IStructure\n\n"
                 "class Behavior(BaseStructureBehavior):\n"
                 "    def on_spawn(self, structure: IStructure) -> None:\n"
                 "        # Attach teleportation or configure initial state\n"
@@ -268,8 +266,7 @@ class ItemBehaviorPanel(BaseBehaviorPanel):
         super().__init__(
             controller, section_name="Item Custom Behavior",
             boilerplate_script=(
-                "from api.behaviors import BaseItemBehavior\n"
-                "from api.protocols import IEntity, IItem\n\n"
+                "from api import BaseItemBehavior, IEntity, IItem\n\n"
                 "class Behavior(BaseItemBehavior):\n"
                 "    def on_spawn(self, item: IItem) -> None:\n"
                 "        pass\n\n"

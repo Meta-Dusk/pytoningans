@@ -1,6 +1,7 @@
 # Community Hub & Cloud Publishing
 
-The **Community Mod Browser** connects players with creators. You can discover, install, update, rate, and publish community creations seamlessly.
+The **Community Mod Browser** connects players with creators.
+You can discover, install, update, rate, and publish community creations seamlessly.
 
 ---
 

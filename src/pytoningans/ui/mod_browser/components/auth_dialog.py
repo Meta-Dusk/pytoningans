@@ -226,16 +226,6 @@ class AuthDialog(QDialog):
         self.offline_creator_btn.clicked.connect(self._on_offline_creator_clicked)
         btn_layout.addWidget(self.offline_creator_btn)
 
-        btn_layout.addSpacing(12)
-
-        self.server_btn = QPushButton("Custom Server (Advanced)")
-        self.server_btn.setToolTip(
-            "Configure a custom self-hosted Supabase server URL and anon key"
-        )
-        self.server_btn.setObjectName("LinkBtn")
-        self.server_btn.clicked.connect(self.show_server_settings)
-        btn_layout.addWidget(self.server_btn)
-
         btn_layout.addStretch()
         cancel_btn = QPushButton("Cancel"); cancel_btn.clicked.connect(self.reject)
 

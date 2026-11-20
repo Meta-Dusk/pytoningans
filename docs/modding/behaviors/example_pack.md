@@ -1,3 +1,0 @@
-# Example Mod Pack Behavior Scripts
-
-Pending...
