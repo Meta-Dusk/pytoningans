@@ -7,13 +7,15 @@ the particle manager.
 
 ## Accessing the Particle Manager
 
-First, you can create a reference to the particle manager (`IParticleManager`) by accessing
+First, you can create a reference to the particle manager
+([`IParticleManager`](system.md#pytoningans.core.api.IParticleManager)) by accessing
 the entity's world, like: `entity.world.particle_manager`. Once you verify that this does
 return the `IParticleManager`, you can either just use it as-is, or attach it to the
 behavior class, and name something like `_pm` so that it doesn't override any internal
 declarations (just in case).
 
-You can do all of this by implementing the `on_spawn()` method like this:
+You can do all of this by implementing the
+[`on_spawn()`](../entity/behaviors.md#pytoningans.core.api.BaseEntityBehavior.on_spawn) method like this:
 
 ```python
 ...
@@ -75,10 +77,13 @@ class TestBehavior(BaseEntityBehavior):
         self._active_emitters = None
 ```
 
-The method `on_destroy()` gets called once the entity gets destroyed, or basically a despawn.
+The method [`on_destroy()`](../entity/behaviors.md#pytoningans.core.api.BaseEntityBehavior.on_destroy)
+gets called once the entity gets destroyed, or basically a despawn.
 The implementation above simply iterates through the internal list of `_active_emitters`, then
-calling `.destroy()` on them, and to be extra sure that this reference is cleared in memory, we
-can also set this list to `None`.
+calling [`.destroy()`](system.md#pytoningans.core.api.IParticleEmitter.destroy)
+on them, and to be extra sure that this reference is cleared in memory, we can also set this list to `None`.
+
+---
 
 ## Full Example Implementation
 
