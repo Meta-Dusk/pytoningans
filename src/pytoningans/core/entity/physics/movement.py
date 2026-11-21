@@ -64,7 +64,7 @@ def tick_movement(entity: BaseEntity, current_move_speed: float) -> None:
             not (collided_side or collided_vertical)
         ):
             pitch: float = math.degrees(math.atan2(dy, abs(dx) if dx != 0 else 0.1))
-            entity.sprite_rotation = -pitch if entity.facing_left else pitch
+            entity.sprite_rotation = pitch
         elif collided_side or collided_vertical:
             entity.sprite_rotation = 0.0
 
