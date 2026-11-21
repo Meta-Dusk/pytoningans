@@ -11,8 +11,11 @@ from ..settings import SettingsManager
 
 from ..entity import AISystem, BaseEntity, SpeechBubble
 from ..entity.indicators import HealthBarItem
+from ..entity.physics.helpers import get_effective_hitbox
+from ..entity.physics.window_collision import find_candidate_platforms
 
 if TYPE_CHECKING:
+    from PySide6.QtCore import QRect
     from PySide6.QtWidgets import QGraphicsSceneContextMenuEvent
     from ..entity_manager import EntityManager
     from ..entity import BaseItem
@@ -76,6 +79,7 @@ class Entity(BaseEntity):
                 if self.anim_sys is not None: self.anim_sys.set_state(EntityState.IDLE)
                 self.locks.ai = True
                 self.locks.physics = self.is_physics_enabled
+                self._clamp_to_ground()
 
         if self.damage_tint_time_left > 0 and self.tint_effect is not None:
             self.damage_tint_time_left -= dt
@@ -246,7 +250,7 @@ class Entity(BaseEntity):
                 target_rot = -90.0 if random.random() > 0.5 else 90.0
 
         if target_rot != 0.0:
-            self._rot_anim = QVariantAnimation(self.world)
+            self._rot_anim = QVariantAnimation(self.world if self.world is not None else None)
             self._rot_anim.setDuration(600)
             self._rot_anim.setStartValue(self.sprite_rotation)
             self._rot_anim.setEndValue(target_rot)
@@ -254,7 +258,7 @@ class Entity(BaseEntity):
 
             def _on_rot_change(val: float):
                 self.sprite_rotation = val
-                if self.anim_sys: self.anim_sys._update_frame()
+                if self.anim_sys: self.anim_sys.refresh_frame()
 
             self._rot_anim.valueChanged.connect(_on_rot_change)
             self._rot_anim.start()
@@ -271,6 +275,7 @@ class Entity(BaseEntity):
         self.current_health = self.mod_manager.max_health
         self._regen_accumulator = 0.0
         self.is_dead = False
+        self.velocity_y = 0.0
 
         if self.health_bar is not None:
             self.health_bar.on_revive()
@@ -303,7 +308,18 @@ class Entity(BaseEntity):
             self.locks.physics = False
         else:
             if self.anim_sys: self.anim_sys.set_state(EntityState.IDLE)
+        self._clamp_to_ground()
         self._on_revive()
+
+    def _clamp_to_ground(self) -> None:
+        """Clamps entity's position above platforms or monitor floor if penetrated."""
+        if self.world is not None and self.world.scene is not None:
+            ground_y: float = self.world.scene.sceneRect().bottom()
+            effective_ground_y, _ = find_candidate_platforms(self, ground_y, 0.0)
+            hitbox: QRect = get_effective_hitbox(self)
+            hitbox_bottom_offset: int = hitbox.y() + hitbox.height()
+            if self.y() + hitbox_bottom_offset > effective_ground_y:
+                self.setPos(self.x(), effective_ground_y - hitbox_bottom_offset)
 
     def say(self, text: str, duration_ms: int = 4000, is_death: bool = False) -> None:
         """
@@ -345,7 +361,8 @@ class Entity(BaseEntity):
             self._rot_anim.resume()
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
-        self.sprite_rotation = 0.0
+        if not self.is_dead:
+            self.sprite_rotation = 0.0
         super().contextMenuEvent(event)
 
     def _on_die(self) -> None:

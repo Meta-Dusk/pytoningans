@@ -120,13 +120,15 @@ class AnimationSystem(QObject):
                 overrides.get("attack_w", 0), overrides.get("attack_h", 0)
             )
 
-        # Enforce that rotation is only allowed during active movement, interact, attack, or climbing
+        # Enforce that rotation is only allowed during
+        # active movement, interact, attack, climbing, or dying
         if self.entity.state not in (
             EntityState.MOVING,
             EntityState.INTERACT,
             EntityState.ATTACK,
             EntityState.CLIMBING,
-        ):
+            EntityState.DYING,
+        ) and not getattr(self.entity, "is_dead", False):
             self.entity.sprite_rotation = 0.0
 
         raw_angle: int = int(round(self.entity.sprite_rotation / 5.0) * 5.0)
@@ -151,14 +153,27 @@ class AnimationSystem(QObject):
             hw, hh,
         )
 
-        # Rotated transform (rotating around hitbox center)
+        # Determine rotation pivot:
+        #? Default pivot is the frame anchor (e.g. feet for ground/death animations).
+        #? When actively flying towards a target in MOVING state, pivot around hitbox center.
+        is_flying_pitch: bool = (
+            getattr(self.entity.mod_manager, "can_fly", False)
+            and self.entity.state == EntityState.MOVING
+            and not getattr(self.entity, "is_dead", False)
+        )
+
+        # Rotated transform
         transform = QTransform(t_base)
         if raw_angle != 0:
-            cur_cx = base_center.x()
-            cur_cy = base_center.y()
-            transform.translate(cur_cx, cur_cy)
+            if is_flying_pitch:
+                cur_px: float = float(base_center.x())
+                cur_py: float = float(base_center.y())
+            else:
+                cur_px = float(base_anchor_pt.x())
+                cur_py = float(base_anchor_pt.y())
+            transform.translate(cur_px, cur_py)
             transform.rotate(raw_angle)
-            transform.translate(-cur_cx, -cur_cy)
+            transform.translate(-cur_px, -cur_py)
 
         mapped_rect: QRect = transform.mapRect(frame.rect())
         mapped_center: QPointF = transform.map(QPointF(hb_cx, hb_cy))
@@ -166,13 +181,18 @@ class AnimationSystem(QObject):
         final_cx: float = mapped_center.x() - mapped_rect.x()
         final_cy: float = mapped_center.y() - mapped_rect.y()
 
-        # Place invariant, un-inflated hitbox centered at the rotated hitbox center
-        current_hitbox = QRect(
-            int(round(final_cx - hw / 2.0)),
-            int(round(final_cy - hh / 2.0)),
-            hw,
-            hh,
-        )
+        # Place invariant hitbox for flying pitch, or rotate hitbox with sprite
+        if is_flying_pitch or raw_angle == 0:
+            current_hitbox = QRect(
+                int(round(final_cx - hw / 2.0)),
+                int(round(final_cy - hh / 2.0)),
+                hw, hh,
+            )
+        else:
+            mapped_hb: QRect = transform.mapRect(QRect(int(current_hitbox.x()), int(current_hitbox.y()), hw, hh))
+            final_hbx: int = mapped_hb.x() - mapped_rect.x()
+            final_hby: int = mapped_hb.y() - mapped_rect.y()
+            current_hitbox = QRect(final_hbx, final_hby, mapped_hb.width(), mapped_hb.height())
         self.entity.current_hitbox = current_hitbox
 
         # Attack Hitbox transformation
@@ -213,9 +233,17 @@ class AnimationSystem(QObject):
             new_y -= dy
         self._last_anchor = QPoint(base_final_ax, base_final_ay)
 
-        # Step B: Rotation compensation (keeps scene hitbox stationary when rotating)
-        rot_off_x: float = float(current_hitbox.x() - base_local_hb.x())
-        rot_off_y: float = float(current_hitbox.y() - base_local_hb.y())
+        # Step B: Rotation compensation (keeps pivot stationary in scene coordinates)
+        if is_flying_pitch:
+            rot_off_x: float = float(current_hitbox.x() - base_local_hb.x())
+            rot_off_y: float = float(current_hitbox.y() - base_local_hb.y())
+        else:
+            final_anchor_pt: QPoint = transform.map(QPoint(ax, ay))
+            final_ax: int = final_anchor_pt.x() - mapped_rect.x()
+            final_ay: int = final_anchor_pt.y() - mapped_rect.y()
+            rot_off_x = float(final_ax - base_final_ax)
+            rot_off_y = float(final_ay - base_final_ay)
+
         new_x += float(self._last_rot_offset.x()) - rot_off_x
         new_y += float(self._last_rot_offset.y()) - rot_off_y
         self._last_rot_offset = QPoint(int(rot_off_x), int(rot_off_y))

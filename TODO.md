@@ -5,6 +5,7 @@
 - [ ] Add animation triggers (to call the event attached to it)
 - [ ] Maybe transfer some features into a new window: the `Sprite Editor`
 - [ ] Optional Audio Systems
+- [ ] Update the config to be a lot more flexible; instead of hardcoding states, make it support dynamic states, such as making it of type `str | Literal` instead (make sure to add a new supporting class for this, or just update the existing one)
 
 ### Immersive Conversations Modpack
 
@@ -22,6 +23,7 @@
 
 - [ ] Make sure to bundle a modpack as sample content when installing offline
 - [ ] Fix the `pack.json` modpack manifest, as it lacks fields
+- [ ] Show attack range toggle in `Physics and Alignment` not refreshing on value change
 
 ## Main Features
 

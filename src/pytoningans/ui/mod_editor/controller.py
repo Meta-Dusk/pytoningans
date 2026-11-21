@@ -5,7 +5,7 @@ from typing import Any, Optional
 from PySide6.QtCore import QRect
 from PySide6.QtGui import QPixmap
 
-from pytoningans.core.mod_manager import ModManager
+from pytoningans.core.mod_manager import ModManager, resolve_mod_path
 from pytoningans.core.constants import AnimationMeta
 
 class ModEditorController:
@@ -174,7 +174,32 @@ class ModEditorController:
     def set_tags(self, tags: list[str]) -> None:
         self.manager.tags = list(tags)
     
-    def replace_sprite_sheet(self, mod_folder: str, new_image_path: str) -> None:
-        target_path: Path = self.manager.mods_dir / mod_folder / "sprite_sheet.png"
-        shutil.copy(new_image_path, target_path)
-        self.manager.clear_shared_cache()
+    def replace_sprite_sheet(
+        self, mod_folder: str, new_image_path: str
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Attempts to replace the provided `mod_folder` sprite sheet with a different
+        image provided from `new_image_path`.
+
+        Args:
+            mod_folder (str): Get this from an instance of `ModManager` and access `.mods_dir`.
+            new_image_path (str): The path to the image that will replace the sprite sheet.
+
+        Returns:
+            tuple[bool, Optional[str]]: (success, error_msg or path)
+        """
+        resolved_path, _, _ = resolve_mod_path(self.manager.mods_dir, mod_folder)
+        target_path: Path = (
+            resolved_path / "sprite_sheet.png" if resolved_path is not None else
+            (self.manager.mods_dir / mod_folder / "sprite_sheet.png")
+        )
+        print(f"[replace_sprite_sheet] Copying {new_image_path} -> {target_path}")
+        try:
+            result: Path | str = shutil.copy2(new_image_path, target_path)
+            self.manager.clear_shared_cache()
+        except Exception as e:
+            return False, str(e)
+        
+        if isinstance(result, Path):
+            result = str(result.resolve())
+        return True, result

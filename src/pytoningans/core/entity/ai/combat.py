@@ -78,8 +78,8 @@ def default_combat_logic(ai: AISystem, my_center: QPointF, other_center: QPointF
     ai.entity.facing_left = (dx < 0)
             
     if ai.entity.mod_manager.can_fly:
-        pitch = math.degrees(math.atan2(dy, abs(dx) if dx != 0 else 0.1))
-        ai.entity.sprite_rotation = -pitch if ai.entity.facing_left else pitch
+        pitch: float = math.degrees(math.atan2(dy, abs(dx) if dx != 0 else 0.1))
+        ai.entity.sprite_rotation = pitch
             
     ai.entity.target_pos = None
     ai.attack_time_left = 800 

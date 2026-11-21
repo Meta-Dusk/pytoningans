@@ -41,39 +41,50 @@ class BehaviorStatsPanel(BasePanel):
         
         self.atk_type_combo = QComboBox()
         for atk_type in AttackType:
-            self.atk_type_combo.addItem(atk_type.value.capitalize(), userData=atk_type)
+            item_name: str = atk_type.value.capitalize()
+            if item_name == "Aoe":
+                item_name = "AoE"
+            self.atk_type_combo.addItem(item_name, userData=atk_type)
         
         self.behavior_type_combo = QComboBox()
         for b_type in BehaviorType:
             self.behavior_type_combo.addItem(b_type.value.capitalize(), userData=b_type)
             
         form.addRow(
-            create_info_label("Behavior Type:", "Determines engine AI logic."), self.behavior_type_combo
+            create_info_label("Behavior Type:", "Determines engine AI logic."),
+            self.behavior_type_combo
         )
         form.addRow("", self.can_fly_check)
         form.addRow("", self.ignore_window_physics_check)
         form.addRow("", self.can_climb_walls_check)
         form.addRow("", self.can_move_windows_check)
         form.addRow(
-            create_info_label("Window Move Mode:", "How the entity moves desktop windows."), self.window_move_mode_combo
+            create_info_label("Window Move Mode:", "How the entity moves desktop windows."),
+            self.window_move_mode_combo
         )
         form.addRow(
-            create_info_label("Max Health:", "Total health points."), self.max_health_spin
+            create_info_label("Max Health:", "Total health points."),
+            self.max_health_spin
         )
         form.addRow(
-            create_info_label("Attack Damage:", "Damage dealt per hit."), self.atk_dmg_spin
+            create_info_label("Attack Damage:", "Damage dealt per hit."),
+            self.atk_dmg_spin
         )
         form.addRow(
-            create_info_label("Attack Range (px):", "Maximum distance to strike."), self.atk_range_spin
+            create_info_label("Attack Range (px):", "Maximum distance to strike."),
+            self.atk_range_spin
         )
         form.addRow(
-            create_info_label("Attack Type:", "How many entities can be damaged."), self.atk_type_combo
+            create_info_label("Attack Type:", "How many entities can be damaged."),
+            self.atk_type_combo
         )
         form.addRow(
-            create_info_label("Jump Height:", "Initial vertical velocity."), self.jump_height_spin
+            create_info_label("Jump Height:", "Initial vertical velocity."),
+            self.jump_height_spin
         )
         form.addRow(
-            create_info_label("Move Speed (px):", "Base movement speed in pixels per tick."), self.move_speed_spin
+            create_info_label("Move Speed (px):", "Base movement speed in pixels per tick."),
+            self.move_speed_spin
         )
         form.addRow(
             create_info_label(
