@@ -44,10 +44,8 @@ class PhysicsSystem:
             return
 
         is_dead: bool = getattr(self.entity, "is_dead", False)
-        if is_dead:
-            if self.is_climbing:
-                self.stop_climb()
-            return
+        if is_dead and self.is_climbing:
+            self.stop_climb()
 
         time_scale: float = dt / 16.0
 

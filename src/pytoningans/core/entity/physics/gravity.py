@@ -28,12 +28,13 @@ def tick_gravity_and_collisions(
 
     is_dead: bool = getattr(entity, "is_dead", False)
 
-    # Check window penetration and auto-scoop (runs for all entities)
-    was_handled, platform_rect = resolve_window_depenetration(entity, is_dead)
-    if was_handled:
-        if platform_rect is not None:
-            system.current_platform_rect = platform_rect
-        return
+    # Check window penetration and auto-scoop (runs for living entities)
+    if not is_dead:
+        was_handled, platform_rect = resolve_window_depenetration(entity, is_dead)
+        if was_handled:
+            if platform_rect is not None:
+                system.current_platform_rect = platform_rect
+            return
 
     if entity.mod_manager.can_fly and not is_dead:
         return
@@ -56,7 +57,7 @@ def tick_gravity_and_collisions(
         entity.setPos(entity.x(), new_y)
     else:
         entity.velocity_y = 0.0
-        if entity_bottom > effective_ground_y:
+        if entity_bottom > effective_ground_y and not is_dead:
             entity.setPos(entity.x(), effective_ground_y - hitbox_bottom_offset)
         if entity.state == EntityState.JUMPING and not is_dead and entity.anim_sys is not None:
             entity.anim_sys.set_state(EntityState.IDLE)

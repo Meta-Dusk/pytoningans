@@ -55,6 +55,42 @@ def get_frame_physics(
     hx, hy = anim_meta.hitbox_x, anim_meta.hitbox_y
     hw, hh = anim_meta.hitbox_w, anim_meta.hitbox_h
 
+    # If baseline anchor or hitbox is unset (0, 0), fallback to frame 0 override or idle state
+    if ax == 0 and ay == 0:
+        if "0" in anim_meta.frame_overrides:
+            fo0 = anim_meta.frame_overrides["0"]
+            ax = fo0.get("anchor_x", ax)
+            ay = fo0.get("anchor_y", ay)
+        if ax == 0 and ay == 0:
+            idle_meta = animations.get("idle") or animations.get("default")
+            if idle_meta is not None and idle_meta is not anim_meta:
+                ax = idle_meta.anchor_x
+                ay = idle_meta.anchor_y
+                if ax == 0 and ay == 0 and "0" in idle_meta.frame_overrides:
+                    ax = idle_meta.frame_overrides["0"].get("anchor_x", 0)
+                    ay = idle_meta.frame_overrides["0"].get("anchor_y", 0)
+
+    if hw == 0 or hh == 0:
+        if "0" in anim_meta.frame_overrides:
+            fo0 = anim_meta.frame_overrides["0"]
+            hx = fo0.get("hitbox_x", hx)
+            hy = fo0.get("hitbox_y", hy)
+            hw = fo0.get("hitbox_w", hw)
+            hh = fo0.get("hitbox_h", hh)
+        if hw == 0 or hh == 0:
+            idle_meta = animations.get("idle") or animations.get("default")
+            if idle_meta is not None and idle_meta is not anim_meta:
+                hx = idle_meta.hitbox_x
+                hy = idle_meta.hitbox_y
+                hw = idle_meta.hitbox_w
+                hh = idle_meta.hitbox_h
+                if (hw == 0 or hh == 0) and "0" in idle_meta.frame_overrides:
+                    fo0 = idle_meta.frame_overrides["0"]
+                    hx = fo0.get("hitbox_x", hx)
+                    hy = fo0.get("hitbox_y", hy)
+                    hw = fo0.get("hitbox_w", hw)
+                    hh = fo0.get("hitbox_h", hh)
+
     # Apply per-frame overrides if the user edited this specific frame
     frame_key: str = str(mapped_index)
     if frame_key in anim_meta.frame_overrides:

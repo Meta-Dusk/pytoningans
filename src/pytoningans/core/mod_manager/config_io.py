@@ -48,15 +48,31 @@ def ensure_fallback_animations(
         state_enum = EntityState
 
     cols: int = max(1, global_columns)
+    base_meta: Optional[AnimationMeta] = (
+        animations.get("idle") or animations.get(EntityState.IDLE)
+        or next(iter(animations.values()), None)
+    )
+
     for state in state_enum:
         key_str: str = state.value
         if key_str in animations: continue
-        animations[key_str] = AnimationMeta(
+        fallback_meta = AnimationMeta(
             row=0,
             start_frame=0,
             end_frame=max(0, cols - 1),
             loop=True,
         )
+        if base_meta is not None:
+            fallback_meta.anchor_x = base_meta.anchor_x
+            fallback_meta.anchor_y = base_meta.anchor_y
+            fallback_meta.hitbox_x = base_meta.hitbox_x
+            fallback_meta.hitbox_y = base_meta.hitbox_y
+            fallback_meta.hitbox_w = base_meta.hitbox_w
+            fallback_meta.hitbox_h = base_meta.hitbox_h
+            fallback_meta.computed_w = base_meta.computed_w
+            fallback_meta.computed_h = base_meta.computed_h
+            fallback_meta.base_h = base_meta.base_h
+        animations[key_str] = fallback_meta
 
 
 def sync_static_physics(animations: dict[str, AnimationMeta]) -> None:
