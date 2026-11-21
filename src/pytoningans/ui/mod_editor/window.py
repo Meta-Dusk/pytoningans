@@ -10,7 +10,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QUrl, QTimer
 from PySide6.QtGui import QGuiApplication, QDesktopServices
 
-from pytoningans.core.mod_manager import ModManager, CURRENT_CONFIG_VERSION, get_mod_type_display
+from pytoningans.core.mod_manager import (
+    ModManager, CURRENT_CONFIG_VERSION, get_mod_type_display, resolve_mod_path
+)
 from pytoningans.core.constants import EntityType
 from pytoningans.utils import get_main_icon
 
@@ -233,8 +235,8 @@ class ModEditorWindow(QWidget):
         mod_folder: str = self.mod_combo.itemData(index)
         self._on_mod_changed(mod_folder)
 
-    def _on_mod_changed(self, mod_folder: str) -> None:
-        if not mod_folder: return
+    def _on_mod_changed(self, mod_folder: Optional[str]) -> None:
+        if mod_folder is None: return
         
         # Block duplicate load events caused by UI initialization triggers
         if self._current_loaded_mod == mod_folder: return
@@ -297,8 +299,8 @@ class ModEditorWindow(QWidget):
             QMessageBox.warning(self, "Load Error", f"Could not load {mod_folder}.")
 
     def _save_changes(self) -> None:
-        mod_folder: str = self.mod_combo.currentData()
-        if not mod_folder: return
+        mod_folder: Optional[str] = self.mod_combo.currentData()
+        if mod_folder is None: return
         
         self.controller.save_mod(mod_folder)
         
@@ -327,8 +329,8 @@ class ModEditorWindow(QWidget):
         self.move(geom.topLeft())
     
     def _on_reload_clicked(self) -> None:
-        mod_folder: str = self.mod_combo.currentData()
-        if not mod_folder: return
+        mod_folder: Optional[str] = self.mod_combo.currentData()
+        if mod_folder is None: return
         
         reply: QMessageBox.StandardButton = QMessageBox.question(
             self, "Discard Changes",
@@ -363,17 +365,21 @@ class ModEditorWindow(QWidget):
         mod_folder: str = self.mod_combo.currentData()
         if not mod_folder:
             return
-        from pytoningans.ui.mod_browser.components.publish_dialog import PublishModDialog
-        from pytoningans.ui.mod_browser.client import ModBrowserClient
+        from ..mod_browser.components import PublishModDialog
+        from ..mod_browser import ModBrowserClient
         client = ModBrowserClient(self.controller.manager.mods_dir)
         dlg = PublishModDialog(self.controller.manager, client, self, selected_mod_id=mod_folder)
         dlg.exec()
 
     def _on_open_folder_clicked(self) -> None:
-        mod_folder: str = self.mod_combo.currentData()
-        if not mod_folder: return
+        mod_folder: Optional[str] = self.mod_combo.currentData()
+        if mod_folder is None: return
         
-        target_dir: Path = self.controller.manager.mods_dir / mod_folder
+        resolved_path, _, _ = resolve_mod_path(self.controller.manager.mods_dir, mod_folder)
+        target_dir: Path = (
+            resolved_path if resolved_path is not None else
+            (self.controller.manager.mods_dir / mod_folder)
+        )
         if not target_dir.exists(): return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(target_dir.resolve())))
     
@@ -382,8 +388,8 @@ class ModEditorWindow(QWidget):
         self.controller.update_mod_name(text.strip())
     
     def _on_change_sheet_clicked(self) -> None:
-        mod_folder: str = self.mod_combo.currentData()
-        if not mod_folder: return
+        mod_folder: Optional[str] = self.mod_combo.currentData()
+        if mod_folder is None: return
         
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select New Sprite Sheet", "", "Images (*.png)"
@@ -394,8 +400,13 @@ class ModEditorWindow(QWidget):
             self, "Confirm Replacement", 
             "This will overwrite the current sprite_sheet.png for this mod. Continue?"
         )
-        if reply == QMessageBox.StandardButton.Yes:
-            self.controller.replace_sprite_sheet(mod_folder, file_path)
+        if reply != QMessageBox.StandardButton.Yes: return
+        
+        success, msg = self.controller.replace_sprite_sheet(mod_folder, file_path)
+        if success:
             self._current_loaded_mod = None
             self._on_mod_changed(mod_folder) # Force full reload to refresh the live preview panels
             QMessageBox.information(self, "Success", "Sprite sheet updated successfully!")
+            return
+        
+        QMessageBox.warning(self, "Error", f"Failed to replace sprite sheet: {msg}")
