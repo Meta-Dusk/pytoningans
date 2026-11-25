@@ -1,6 +1,6 @@
 [project]
 name = "pytoningans"
-version = "0.8.8"
+version = "0.8.9"
 description = "A PySide6 Desktop Entities Engine Platform, with Modding Support, Documentation, and Built-in Editors"
 readme = "README.md"
 authors = [{ name = "MetaDusk", email = "metadusk.dev@gmail.com" }]

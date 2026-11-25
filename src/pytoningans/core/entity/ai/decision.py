@@ -28,6 +28,8 @@ def ai_decision_tick(ai: AISystem) -> None:
         return
     if ai.entity.is_climbing:
         return
+    if ai.retaliate_target is not None:
+        return
     if on_ai_decision_tick(ai):
         return
     if ai.entity.is_following_cursor:

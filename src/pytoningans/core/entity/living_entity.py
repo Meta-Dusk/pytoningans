@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Optional, cast
 from PySide6.QtCore import QEasingCurve, QPointF, QVariantAnimation
 
 from ..api import BaseEntityBehavior
-from ..constants import AnimationMeta, DeathAnimation, EntityState
+from ..constants import AnimationMeta, BehaviorType, DeathAnimation, EntityState
 from ..settings import SettingsManager
 
 from ..entity import AISystem, BaseEntity, SpeechBubble
@@ -157,7 +157,7 @@ class Entity(BaseEntity):
             self.health_bar.update_position()
             self.health_bar.update()
 
-    def take_damage(self, amount: int) -> None:
+    def take_damage(self, amount: int, attacker: Optional[Entity] = None) -> None:
         if self.is_dead: return
         old_hp: int = self.current_health
         self.current_health = max(0, self.current_health - amount)
@@ -185,6 +185,19 @@ class Entity(BaseEntity):
 
         if self.current_health <= 0:
             self.die()
+        elif (
+            attacker is not None and
+            attacker is not self and
+            not attacker.is_dead and
+            self.ai_sys is not None and
+            self.mod_manager is not None and
+            self.mod_manager.behavior_type is BehaviorType.NEUTRAL
+        ):
+            self.ai_sys.retaliate_target = attacker
+            self.ai_sys.retaliate_time_left = 10000
+            if self.state == EntityState.INTERACT and self.anim_sys is not None:
+                self.ai_sys.interact_time_left = 0
+                self.anim_sys.set_state(EntityState.IDLE)
 
     def heal(self, amount: int) -> None:
         if self.is_dead or amount <= 0: return
@@ -216,6 +229,9 @@ class Entity(BaseEntity):
         self.current_health = 0
         self._regen_accumulator = 0.0
         self.is_dead = True
+        if self.ai_sys is not None:
+            self.ai_sys.retaliate_target = None
+            self.ai_sys.retaliate_time_left = 0
         
         if self.held_item is not None:
             self.held_item.drop(self)
@@ -276,6 +292,9 @@ class Entity(BaseEntity):
         self._regen_accumulator = 0.0
         self.is_dead = False
         self.velocity_y = 0.0
+        if self.ai_sys is not None:
+            self.ai_sys.retaliate_target = None
+            self.ai_sys.retaliate_time_left = 0
 
         if self.health_bar is not None:
             self.health_bar.on_revive()

@@ -421,6 +421,14 @@ class SettingsDialog(QDialog):
         self.debug_mode_cb.toggled.connect(self._on_debug_mode_toggled)
         dev_layout.addWidget(self.debug_mode_cb)
 
+        self.show_fps_cb = QCheckBox("Show FPS / System Stats Overlay")
+        self.show_fps_cb.setToolTip(
+            "Displays a draggable FPS counter overlay on the desktop.\n"
+            "Shows live frame-rate and active entity count."
+        )
+        self.show_fps_cb.toggled.connect(self._on_values_changed)
+        dev_layout.addWidget(self.show_fps_cb)
+
         # Developer Quick Actions Box
         self.dev_actions_box = QWidget()
         actions_layout = QVBoxLayout(self.dev_actions_box)
@@ -823,6 +831,7 @@ class SettingsDialog(QDialog):
         # Developer tab
         self.debug_mode_cb.setChecked(settings.enable_debug_mode)
         self.dev_actions_box.setEnabled(settings.enable_debug_mode)
+        self.show_fps_cb.setChecked(settings.show_fps)
 
     def _on_debug_mode_toggled(self, checked: bool) -> None:
         self.dev_actions_box.setEnabled(checked)
@@ -844,6 +853,7 @@ class SettingsDialog(QDialog):
             avoid_window_spawn=self.avoid_window_cb.isChecked(),
             spawn_area_mode=self.spawn_area_combo.currentData() or "screen",
             enable_debug_mode=self.debug_mode_cb.isChecked(),
+            show_fps=self.show_fps_cb.isChecked(),
         )
 
     def _on_reset_defaults(self) -> None:

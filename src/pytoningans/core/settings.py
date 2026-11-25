@@ -30,6 +30,7 @@ class AppSettings:
     avoid_window_spawn: bool = True
     spawn_area_mode: str = "screen"
     enable_debug_mode: bool = False
+    show_fps: bool = False
     creator_name: str = "Modder"
     creator_bio: str = ""
     creator_avatar_path: str = ""
@@ -66,6 +67,7 @@ class SettingsManager(QObject):
                     avoid_window_spawn=data.get("avoid_window_spawn", True),
                     spawn_area_mode=data.get("spawn_area_mode", "screen"),
                     enable_debug_mode=data.get("enable_debug_mode", False),
+                    show_fps=data.get("show_fps", False),
                     creator_name=data.get("creator_name", "Modder"),
                     creator_bio=data.get("creator_bio", ""),
                     creator_avatar_path=data.get("creator_avatar_path", ""),
@@ -95,6 +97,7 @@ class SettingsManager(QObject):
         avoid_window_spawn: Optional[bool] = None,
         spawn_area_mode: Optional[str] = None,
         enable_debug_mode: Optional[bool] = None,
+        show_fps: Optional[bool] = None,
         creator_name: Optional[str] = None,
         creator_bio: Optional[str] = None,
         creator_avatar_path: Optional[str] = None,
@@ -127,6 +130,9 @@ class SettingsManager(QObject):
             changed = True
         if enable_debug_mode is not None and self.settings.enable_debug_mode != enable_debug_mode:
             self.settings.enable_debug_mode = enable_debug_mode
+            changed = True
+        if show_fps is not None and self.settings.show_fps != show_fps:
+            self.settings.show_fps = show_fps
             changed = True
         if creator_name is not None and self.settings.creator_name != creator_name.strip():
             self.settings.creator_name = creator_name.strip()

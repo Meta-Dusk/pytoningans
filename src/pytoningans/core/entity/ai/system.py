@@ -42,6 +42,9 @@ class AISystem:
         self.attack_time_left: int = 0
         self.attack_cooldown: int = 0
 
+        self.retaliate_target: Optional[Entity] = None
+        self.retaliate_time_left: int = 0
+
     def update(self, dt: int) -> None:
         """Main update tick called every frame by the entity."""
         if self.entity is None or self.entity.anim_sys is None:
@@ -52,6 +55,10 @@ class AISystem:
             self.interaction_cooldown -= dt
         if self.attack_cooldown > 0:
             self.attack_cooldown -= dt
+        if self.retaliate_time_left > 0:
+            self.retaliate_time_left -= dt
+            if self.retaliate_time_left <= 0:
+                self.retaliate_target = None
 
         if self.entity.state == EntityState.INTERACT:
             self.interact_time_left -= dt

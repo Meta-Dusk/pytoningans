@@ -11,6 +11,7 @@ from .window_tracker import WindowTracker
 from .settings import SettingsManager
 
 from .entity import BaseStructure, BaseItem, Entity, AnimationSystem
+from .entity.indicators import StatsOverlayItem
 
 from .world import WorldOverlay
 from .mod_manager import ModManager
@@ -21,6 +22,7 @@ from .constants import EntityType
 if TYPE_CHECKING:
     from PySide6.QtCore import QRect
     from PySide6.QtGui import QScreen
+    from PySide6.QtWidgets import QGraphicsScene
     from .api import BaseBehavior, IEntity, IItem, IStructure
     from .entity import BaseEntity
     
@@ -44,6 +46,8 @@ class EntityManager:
         self.window_track_accumulator: int = 0
         
         self.spawning_system: SpawningSystem = SpawningSystem(self)
+        
+        self._stats_overlay: Optional[StatsOverlayItem] = None
         
         self.clock = QElapsedTimer()
         self.timer = QTimer()
@@ -108,6 +112,28 @@ class EntityManager:
 
         for world in self.active_worlds:
             world.update_systems(dt)
+
+        self._show_stats_overlay(dt)
+
+    def _show_stats_overlay(self, dt: int) -> None:
+        if SettingsManager.get().settings.show_fps:
+            if self._stats_overlay is None and self.active_worlds:
+                world: WorldOverlay = self.active_worlds[0]
+                self._stats_overlay = StatsOverlayItem(self)
+                world.scene.addItem(self._stats_overlay)
+                
+                #? Position at top-right corner of the first world
+                geom: QRect = world.geometry()
+                self._stats_overlay.setPos(geom.width() - 190, 12)
+                
+            if self._stats_overlay is not None:
+                self._stats_overlay.update_stats(dt)
+                
+        elif self._stats_overlay is not None:
+            scene: Optional[QGraphicsScene] = self._stats_overlay.scene()
+            if scene is not None:
+                scene.removeItem(self._stats_overlay)
+            self._stats_overlay = None
 
     def spawn_entity(
         self, x: float, y: float, mod_folder: str, 

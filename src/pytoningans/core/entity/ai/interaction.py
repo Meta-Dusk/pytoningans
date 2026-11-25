@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, cast
 
 from ...api import BaseEntityBehavior
-from ...constants import BehaviorType, EntityState
+from ...constants import EntityState
 from .combat import get_distance
 
 if TYPE_CHECKING:
@@ -13,13 +13,17 @@ if TYPE_CHECKING:
     from .system import AISystem
 
 
-def check_interactions(ai: AISystem, centers: Optional[dict[Entity, QPointF]] = None) -> None:
-    """Checks proximity to other entities to trigger friendly/social interactions."""
+def check_interactions(
+    ai: AISystem, centers: Optional[dict[Entity, QPointF]] = None
+) -> None:
+    """
+    Checks proximity to other entities to trigger friendly/social interactions.
+    """
     if (
         ai.entity is None or
         ai.entity.mod_manager is None or
-        ai.entity.mod_manager.behavior_type is BehaviorType.PASSIVE or
-        ai.entity.entity_manager is None
+        ai.entity.entity_manager is None or
+        ai.retaliate_target is not None
     ):
         return
     
