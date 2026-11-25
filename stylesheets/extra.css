@@ -1,0 +1,35 @@
+/* Only make H2 (class/module titles) sticky */
+.md-content h2,
+h2.doc-heading {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 4.8rem; /* Offsets below top nav bar (2.4rem) + sticky tabs (2.4rem) */
+  background-color: var(--md-default-bg-color);
+  z-index: 2; /* Keeps H2 above scrolling H3 methods and body content */
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  margin-top: 0;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+/* Explicitly prevent H3 and method headings from sticking */
+.md-content h3,
+h3.doc-heading {
+  position: static !important;
+}
+
+/* Keep wrapper containers open so H2 can remain sticky throughout the class body */
+.doc-object,
+.doc-node {
+  overflow: visible !important;
+}
+
+/* Force enable font ligatures for code blocks and inline code */
+.md-typeset code,
+.md-typeset pre,
+.highlight code,
+.doc-code {
+  font-variant-ligatures: normal;
+  font-feature-settings: "calt" 1, "liga" 1, "dlig" 1;
+  text-rendering: optimizeLegibility;
+}
