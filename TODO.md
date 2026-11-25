@@ -23,7 +23,6 @@
 
 - [ ] Make sure to bundle a modpack as sample content when installing offline
 - [ ] Fix the `pack.json` modpack manifest, as it lacks fields
-- [ ] Show attack range toggle in `Physics and Alignment` not refreshing on value change
 
 ## Main Features
 

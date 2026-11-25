@@ -126,6 +126,7 @@ class PhysicsSystem:
             return
 
         self.climbing_window = active_win
+        self.entity.sprite_rotation = -90.0
         climb_step: float = self.move_speed * 1.0 * time_scale
         new_y: float = self.entity.y() - climb_step
 

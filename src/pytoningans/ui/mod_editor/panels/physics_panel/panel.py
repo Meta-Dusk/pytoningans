@@ -660,6 +660,19 @@ class PhysicsPanel(BasePanel):
         self.canvas.show_attack_range = bool(state)
         self.canvas.update()
 
+    def refresh_attack_range(self, attack_range: Optional[int] = None) -> None:
+        """Refreshes the aggro range circle on the canvas when attack_range changes."""
+        is_combat_entity: bool = self.controller.manager.entity_type in (
+            EntityType.ENTITY, EntityType.ITEM
+        )
+        if not is_combat_entity:
+            self.canvas.attack_range = 0
+        elif attack_range is not None:
+            self.canvas.attack_range = attack_range
+        else:
+            self.canvas.attack_range = self.controller.manager.attack_range
+        self.canvas.update()
+
     def _toggle_canvas_expand(self) -> None:
         if self.canvas.height() >= 460:
             self.canvas.setFixedHeight(340)

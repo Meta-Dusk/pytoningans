@@ -20,17 +20,28 @@ def get_distance(p1: QPointF, p2: QPointF) -> float:
 
 
 def check_combat(ai: AISystem) -> None:
-    """Checks if any hostile target is in attack range and initiates attack."""
+    """
+    Checks if any target is in attack range
+    (hostile initiation or neutral retaliation).
+    """
     if (
         ai.entity is None or
         ai.entity.mod_manager is None or
         ai.entity.entity_manager is None
     ):
         return
-    
-    if ai.entity.mod_manager.behavior_type is not BehaviorType.HOSTILE:
+
+    behavior_type: BehaviorType = ai.entity.mod_manager.behavior_type
+    if behavior_type is BehaviorType.PASSIVE:
         return
-    
+
+    if behavior_type is BehaviorType.NEUTRAL:
+        _check_neutral_retaliation(ai)
+        return
+
+    if behavior_type is not BehaviorType.HOSTILE:
+        return
+
     if ai.attack_cooldown > 0 or not ai.entity.is_interactable:
         return
 
@@ -61,6 +72,45 @@ def check_combat(ai: AISystem) -> None:
             default_combat_logic(ai, my_center, other_center)
                 
         break
+
+
+def _check_neutral_retaliation(ai: AISystem) -> None:
+    """Allows a neutral entity to pursue and retaliate against its attacker."""
+    if (
+        ai.entity is None or
+        ai.entity.mod_manager is None or
+        ai.entity.entity_manager is None or
+        ai.retaliate_target is None
+    ):
+        return
+
+    target: Entity = ai.retaliate_target
+    if (
+        target.is_dead or
+        target.mod_manager is None or
+        target not in ai.entity.entity_manager.active_entities
+    ):
+        ai.retaliate_target = None
+        ai.retaliate_time_left = 0
+        return
+
+    if not ai.entity.is_interactable or not target.is_interactable:
+        return
+
+    my_center: QPointF = ai.entity.pos() + ai.entity.current_hitbox.center()
+    other_center: QPointF = target.pos() + target.current_hitbox.center()
+    dist: float = get_distance(my_center, other_center)
+
+    if dist <= ai.entity.mod_manager.attack_range:
+        if ai.attack_cooldown <= 0:
+            override_default: bool = on_combat_check(ai, target)
+            if not override_default:
+                default_combat_logic(ai, my_center, other_center)
+    elif ai.entity.anim_sys is not None:
+        dest_y: float = target.y() if ai.entity.mod_manager.can_fly else ai.entity.y()
+        ai.entity.target_pos = QPointF(target.x(), dest_y)
+        if ai.entity.state != EntityState.MOVING:
+            ai.entity.anim_sys.set_state(EntityState.MOVING)
 
 
 def default_combat_logic(ai: AISystem, my_center: QPointF, other_center: QPointF) -> None:
@@ -184,5 +234,5 @@ def process_combat(ai: AISystem) -> None:
 
     damage: int = ai.entity.mod_manager.attack_damage
     for target in valid_targets:
-        target.take_damage(damage)
+        target.take_damage(damage, attacker=ai.entity)
 

@@ -47,6 +47,9 @@ def tick_movement(entity: BaseEntity, current_move_speed: float) -> None:
         # Check side wall collisions against desktop windows
         step_x, collided_side = resolve_window_side_collisions(entity, curr_x, step_x, dx)
 
+        if entity.physics_sys is not None and entity.physics_sys.is_climbing:
+            return
+
         collided_vertical: bool = False
         if entity.mod_manager.can_fly:
             step_y, collided_vertical = resolve_window_vertical_collisions(
@@ -65,7 +68,7 @@ def tick_movement(entity: BaseEntity, current_move_speed: float) -> None:
         ):
             pitch: float = math.degrees(math.atan2(dy, abs(dx) if dx != 0 else 0.1))
             entity.sprite_rotation = pitch
-        elif collided_side or collided_vertical:
+        elif (collided_side or collided_vertical) and entity.mod_manager.can_fly:
             entity.sprite_rotation = 0.0
 
         # Keep ground entities within world monitor horizontal boundaries

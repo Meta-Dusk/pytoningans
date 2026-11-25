@@ -229,6 +229,9 @@ class ModEditorWindow(QWidget):
         self.reload_btn.clicked.connect(self._on_reload_clicked)
         self.open_folder_btn.clicked.connect(self._on_open_folder_clicked)
         self.change_sheet_btn.clicked.connect(self._on_change_sheet_clicked)
+        self.behavior_stats.attack_range_changed.connect(
+            self.physics_panel.refresh_attack_range
+        )
     
     def _on_combo_index_changed(self, index: int) -> None:
         if index < 0: return
